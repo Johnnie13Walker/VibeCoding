@@ -1,0 +1,21 @@
+.env
+.env.*
+!.env.example
+!.env.integrations.example
+*.key
+*.pem
+*.token
+*.secret
+node_modules
+__pycache__
+*.log
+logs/
+.cache
+venv/
+.idea
+.vscode
+reports/
+
+# Автодобавлено: потенциально чувствительные файлы
+.env.integrations
+infra/happ-vpn.env

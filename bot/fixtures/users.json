@@ -1,0 +1,61 @@
+[
+  {
+    "ID": 101,
+    "NAME": "Петр",
+    "LAST_NAME": "Иванов",
+    "SECOND_NAME": "Сергеевич",
+    "EMAIL": "p.ivanov@corp.local",
+    "WORK_POSITION": "Маркетинг",
+    "ACTIVE": "Y"
+  },
+  {
+    "ID": 102,
+    "NAME": "Пётр",
+    "LAST_NAME": "Сидоров",
+    "SECOND_NAME": "Александрович",
+    "EMAIL": "p.sidorov@corp.local",
+    "WORK_POSITION": "Продажи",
+    "ACTIVE": "Y"
+  },
+  {
+    "ID": 103,
+    "NAME": "Александр",
+    "LAST_NAME": "Кузнецов",
+    "EMAIL": "a.kuz@corp.local",
+    "WORK_POSITION": "Разработка",
+    "ACTIVE": "Y"
+  },
+  {
+    "ID": 104,
+    "NAME": "Дмитрий",
+    "LAST_NAME": "Смирнов",
+    "EMAIL": "d.smirnov@corp.local",
+    "WORK_POSITION": "Финансы",
+    "ACTIVE": "Y"
+  },
+  {
+    "ID": 105,
+    "NAME": "Елена",
+    "LAST_NAME": "Орлова",
+    "EMAIL": "e.orlova@corp.local",
+    "WORK_POSITION": "HR",
+    "ACTIVE": "Y"
+  },
+  {
+    "ID": 106,
+    "NAME": "Петр",
+    "LAST_NAME": "Старцев",
+    "EMAIL": "p.startsev@corp.local",
+    "WORK_POSITION": "Поддержка",
+    "ACTIVE": "N"
+  },
+  {
+    "ID": 107,
+    "NAME": "Антон",
+    "LAST_NAME": "Мельников",
+    "EMAIL": "a.mel@corp.local",
+    "WORK_POSITION": "Операции",
+    "ACTIVE": "Y",
+    "UF_IS_EX_EMPLOYEE": "1"
+  }
+]

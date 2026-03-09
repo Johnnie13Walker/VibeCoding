@@ -1,0 +1,12 @@
+{
+  "tasks": [
+    {
+      "id": "demo-1",
+      "title": "Проверить входящие",
+      "dueDate": "2026-03-01",
+      "dueTime": "12:00",
+      "project": "Личное",
+      "isClosed": false
+    }
+  ]
+}
