@@ -7,6 +7,7 @@ source "$ROOT_DIR/infra/orchestrator/lib.sh"
 
 MODE="${1:-inspect}"
 REPO_NAME="${REPO_NAME:-cloudbot}"
+REPO_URL="${REPO_URL:-}"
 DEFAULT_BRANCH="${DEFAULT_BRANCH:-main}"
 DEV_BRANCH="${DEV_BRANCH:-dev}"
 REPORT_DIR="${REPORT_DIR:-$ROOT_DIR/reports}"
@@ -196,11 +197,19 @@ run_apply() {
 
   "${GIT_BASE_CMD[@]}" branch -M "$DEFAULT_BRANCH"
 
-  if ! "${GIT_BASE_CMD[@]}" remote get-url origin >/dev/null 2>&1; then
-    (
-      cd "$ROOT_DIR"
-      gh repo create "$REPO_NAME" --private --source=. --remote=origin >/dev/null
-    )
+  if "${GIT_BASE_CMD[@]}" remote get-url origin >/dev/null 2>&1; then
+    if [[ -n "$REPO_URL" ]]; then
+      "${GIT_BASE_CMD[@]}" remote set-url origin "$REPO_URL"
+    fi
+  else
+    if [[ -n "$REPO_URL" ]]; then
+      "${GIT_BASE_CMD[@]}" remote add origin "$REPO_URL"
+    else
+      (
+        cd "$ROOT_DIR"
+        gh repo create "$REPO_NAME" --private --source=. --remote=origin >/dev/null
+      )
+    fi
   fi
 
   "${GIT_BASE_CMD[@]}" push -u origin "$DEFAULT_BRANCH"
