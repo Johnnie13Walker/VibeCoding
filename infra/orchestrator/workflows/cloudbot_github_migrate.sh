@@ -174,19 +174,27 @@ MD
 
 run_apply() {
   local sensitive_candidates
+  echo "[apply] collect_sensitive_candidates"
   sensitive_candidates="$(collect_sensitive_candidates)"
 
+  echo "[apply] write_gitignore"
   write_gitignore "$sensitive_candidates"
+  echo "[apply] write_env_example"
   write_env_example
+  echo "[apply] create_readme"
   create_readme
 
   if [[ ! -d "$ROOT_DIR/.git" ]]; then
+    echo "[apply] git init"
     "${GIT_BASE_CMD[@]}" init
   fi
 
+  echo "[apply] git add"
   "${GIT_BASE_CMD[@]}" add .
+  echo "[apply] verify_no_sensitive_in_index"
   verify_no_sensitive_in_index
 
+  echo "[apply] commit if needed"
   if "${GIT_BASE_CMD[@]}" rev-parse --verify HEAD >/dev/null 2>&1; then
     if [[ -n "$("${GIT_BASE_CMD[@]}" diff --cached --name-only)" ]]; then
       "${GIT_BASE_CMD[@]}" commit -m "Первичный коммит: Cloudbot без секретов"
@@ -195,8 +203,10 @@ run_apply() {
     "${GIT_BASE_CMD[@]}" commit -m "Первичный коммит: Cloudbot без секретов"
   fi
 
+  echo "[apply] branch main"
   "${GIT_BASE_CMD[@]}" branch -M "$DEFAULT_BRANCH"
 
+  echo "[apply] configure origin"
   if "${GIT_BASE_CMD[@]}" remote get-url origin >/dev/null 2>&1; then
     if [[ -n "$REPO_URL" ]]; then
       "${GIT_BASE_CMD[@]}" remote set-url origin "$REPO_URL"
@@ -212,8 +222,10 @@ run_apply() {
     fi
   fi
 
+  echo "[apply] push main"
   "${GIT_BASE_CMD[@]}" push -u origin "$DEFAULT_BRANCH"
 
+  echo "[apply] checkout/create dev"
   if "${GIT_BASE_CMD[@]}" show-ref --verify --quiet "refs/heads/$DEV_BRANCH"; then
     "${GIT_BASE_CMD[@]}" checkout "$DEV_BRANCH"
   else
