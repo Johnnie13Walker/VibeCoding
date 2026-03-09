@@ -223,7 +223,7 @@ run_apply() {
   fi
 
   echo "[apply] push main"
-  "${GIT_BASE_CMD[@]}" push -u origin "$DEFAULT_BRANCH"
+  push_branch_with_auth "$DEFAULT_BRANCH"
 
   echo "[apply] checkout/create dev"
   if "${GIT_BASE_CMD[@]}" show-ref --verify --quiet "refs/heads/$DEV_BRANCH"; then
@@ -231,6 +231,8 @@ run_apply() {
   else
     "${GIT_BASE_CMD[@]}" checkout -b "$DEV_BRANCH"
   fi
+  echo "[apply] push dev"
+  push_branch_with_auth "$DEV_BRANCH"
 
   local repo_url
   repo_url="$("${GIT_BASE_CMD[@]}" remote get-url origin)"
@@ -246,6 +248,28 @@ run_apply() {
   echo
   echo "--- Файлы в git ---"
   "${GIT_BASE_CMD[@]}" ls-files
+}
+
+push_branch_with_auth() {
+  local branch="$1"
+  local gh_token auth_header
+
+  gh_token=""
+  if command -v gh >/dev/null 2>&1; then
+    if gh auth status >/dev/null 2>&1; then
+      gh_token="$(gh auth token 2>/dev/null || true)"
+    fi
+  fi
+
+  if [[ -n "$gh_token" ]]; then
+    auth_header="$(printf 'x-access-token:%s' "$gh_token" | base64 | tr -d '\n')"
+    "${GIT_BASE_CMD[@]}" \
+      -c "http.https://github.com/.extraheader=AUTHORIZATION: basic ${auth_header}" \
+      push -u origin "$branch"
+    return 0
+  fi
+
+  "${GIT_BASE_CMD[@]}" push -u origin "$branch"
 }
 
 {
