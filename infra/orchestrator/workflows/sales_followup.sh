@@ -7,7 +7,7 @@ source "$ROOT_DIR/infra/orchestrator/lib.sh"
 
 ENV_INTEGRATIONS_FILE="${ENV_INTEGRATIONS_FILE:-$ROOT_DIR/.env.integrations}"
 REPORT_DIR="${REPORT_DIR:-$ROOT_DIR/reports}"
-REPORT_TYPE="followup"
+REPORT_TYPE="focus"
 REPORT_NAME="sales_followup"
 
 if [[ -f "$ENV_INTEGRATIONS_FILE" ]]; then

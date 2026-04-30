@@ -2581,7 +2581,7 @@ def format_weekly_review(
     start = weekly_context.get("start")
     end = weekly_context.get("end")
     custom_period = bool(weekly_context.get("custom_period"))
-    title = str(weekly_context.get("title") or "🗓 Еженедельный отчёт Льва Петровича")
+    title = str(weekly_context.get("title") or "📊 Отчёт Льва Петровича по продажам")
     summary_heading = str(weekly_context.get("summary_heading") or "1. Что произошло за неделю")
     people_heading = str(weekly_context.get("people_heading") or "3. Люди за неделю")
     problem_deals_heading = str(weekly_context.get("problem_deals_heading") or "5. Проблемные сделки недели")
