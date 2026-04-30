@@ -35,7 +35,7 @@ class ContentTopicsWorkflowDeps:
         )
         architect_root = Path(
             env_payload.get("CLOUDBOT_ARCHITECT_ROOT")
-            or engineer_root.parents[2] / "architect"
+            or _derive_architect_root(engineer_root)
         )
         return cls(
             engineer_root=engineer_root,
@@ -66,6 +66,12 @@ class TasksActivity:
 class PullRequestActivity:
     highlights: tuple[str, ...]
     pr_count: int
+
+
+def _derive_architect_root(engineer_root: Path) -> Path:
+    if len(engineer_root.parents) >= 3:
+        return engineer_root.parents[2] / "architect"
+    return engineer_root.parent / "architect"
 
 
 def run_content_topics_workflow(

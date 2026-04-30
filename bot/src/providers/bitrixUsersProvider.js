@@ -84,6 +84,10 @@ async function callBitrixListUsers({ bitrixWebhookUrl, bitrixBaseUrl, bitrixToke
         throw new Error(`Bitrix users HTTP ${res.status}`);
       }
       const payload = await res.json();
+      if (payload?.error) {
+        const description = String(payload.error_description || payload.error).trim();
+        throw new Error(`Bitrix users API error: ${description}`);
+      }
       const batch = Array.isArray(payload?.result) ? payload.result : [];
       users.push(...batch);
       if (!payload?.next || batch.length === 0) {

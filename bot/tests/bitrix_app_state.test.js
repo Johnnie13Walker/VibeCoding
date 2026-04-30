@@ -102,6 +102,30 @@ async function main() {
     assert.equal(saved.payload["auth[access_token]"], "fresh-token");
     assert.equal(saved.payload["auth[refresh_token]"], "refresh-token-2");
 
+    globalThis.fetch = async () => ({
+      ok: true,
+      status: 200,
+      async json() {
+        return {
+          error: "INVALID_CREDENTIALS",
+          error_description: "Invalid webhook token"
+        };
+      }
+    });
+
+    const webhookProvider = createBitrixUsersProvider({
+      config: {
+        useFixtureUsers: false,
+        bitrixWebhookUrl: "https://portal/rest/1/broken",
+        bitrixTimeoutMs: 1000
+      },
+      logger: { error() {} }
+    });
+
+    const webhookResult = await webhookProvider.listActiveUsers();
+    assert.equal(webhookResult.status, "error");
+    assert.match(webhookResult.error, /Invalid webhook token/);
+
     console.log("BITRIX APP STATE OK");
   } finally {
     globalThis.fetch = originalFetch;

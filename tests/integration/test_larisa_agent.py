@@ -202,6 +202,16 @@ class LarisaAgentTests(unittest.TestCase):
             self.assertIn("Подготовить контур копирайтера", text)
             self.assertIn("PR #17", text)
 
+    def test_content_topics_from_env_handles_shallow_engineer_root(self) -> None:
+        engineer_root = Path("/workspace/codex-base")
+
+        deps = ContentTopicsWorkflowDeps.from_env(
+            {"CLOUDBOT_ENGINEER_ROOT": str(engineer_root)}
+        )
+
+        self.assertEqual(deps.engineer_root, engineer_root)
+        self.assertEqual(deps.architect_root, engineer_root.parent / "architect")
+
     def test_content_post_builds_draft_for_selected_topic(self) -> None:
         with TemporaryDirectory() as engineer_tmp, TemporaryDirectory() as architect_tmp:
             engineer_root = Path(engineer_tmp)
