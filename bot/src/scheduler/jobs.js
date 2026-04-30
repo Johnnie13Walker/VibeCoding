@@ -1,4 +1,7 @@
-export function buildSchedulerJobs({ taskTimeNotificationsJob, eveningReminderJob }) {
+export function buildSchedulerJobs({
+  taskTimeNotificationsJob,
+  selfHealingJob
+}) {
   return [
     {
       name: taskTimeNotificationsJob.name,
@@ -7,10 +10,10 @@ export function buildSchedulerJobs({ taskTimeNotificationsJob, eveningReminderJo
       run: taskTimeNotificationsJob.run
     },
     {
-      name: eveningReminderJob.name,
-      schedule: eveningReminderJob.schedule,
-      timezone: eveningReminderJob.timezone,
-      run: eveningReminderJob.run
+      name: selfHealingJob.name,
+      schedule: selfHealingJob.schedule,
+      timezone: selfHealingJob.timezone,
+      run: selfHealingJob.run
     }
   ];
 }

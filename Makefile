@@ -1,38 +1,23 @@
 SHELL := /bin/bash
 
-.PHONY: preflight verify verify-bot vpn.audit vpn.deploy vpn.verify vpn.rollback vpn.report ssh.preflight ssh.primary ssh.reserve openclaw.security-profile openclaw.security-updates openclaw.update openclaw.update-permissions openclaw.privileged openclaw.gateway-repair openclaw.healthcheck-schedule openclaw.daily-ops openclaw.next-week-prep openclaw.context-snapshot openclaw.friction-scan openclaw.weekly-focus openclaw.high-leverage openclaw.instruction-conflicts openclaw.session-handoff openclaw.post-change-verify openclaw.ops-intelligence openclaw.model-primary openclaw.whoop-morning-check
+.PHONY: preflight verify verify-live verify-bot ssh.preflight ssh.primary ssh.reserve openclaw.security-profile openclaw.security-updates openclaw.update openclaw.update-permissions openclaw.privileged openclaw.gateway-repair openclaw.healthcheck-schedule openclaw.todo-digest-schedule openclaw.backup-schedule openclaw.local-schedule openclaw.daily-ops openclaw.next-week-prep openclaw.context-snapshot openclaw.friction-scan openclaw.weekly-focus openclaw.high-leverage openclaw.instruction-conflicts openclaw.session-handoff openclaw.post-change-verify openclaw.ops-intelligence openclaw.model-primary openclaw.whoop-morning-check openclaw.whoop-report-repair openclaw.larisa-deploy
 
 preflight:
-	chmod +x ./scripts/preflight.sh ./scripts/verify_integrations.sh
+	chmod +x ./scripts/preflight.sh ./scripts/verify_integrations.sh ./scripts/verify_local_preflight.sh ./scripts/verify_live_integrations.sh
 	./scripts/preflight.sh
 
 verify:
-	chmod +x ./scripts/preflight.sh ./scripts/verify_integrations.sh
-	./scripts/verify_integrations.sh
+	chmod +x ./scripts/preflight.sh ./scripts/verify_integrations.sh ./scripts/verify_local_preflight.sh ./scripts/verify_live_integrations.sh
+	./scripts/verify_local_preflight.sh
+	$(MAKE) verify-bot
+
+verify-live:
+	chmod +x ./scripts/preflight.sh ./scripts/verify_integrations.sh ./scripts/verify_local_preflight.sh ./scripts/verify_live_integrations.sh
+	./scripts/verify_live_integrations.sh
 	$(MAKE) verify-bot
 
 verify-bot:
 	cd ./bot && npm test && npm run smoke:notifications
-
-vpn.audit:
-	chmod +x ./infra/orchestrator/run_workflow.sh ./infra/orchestrator/lib.sh ./infra/orchestrator/workflows/*.sh
-	DRY_RUN=$${DRY_RUN:-1} ./infra/orchestrator/run_workflow.sh audit
-
-vpn.deploy:
-	chmod +x ./infra/orchestrator/run_workflow.sh ./infra/orchestrator/lib.sh ./infra/orchestrator/workflows/*.sh ./services/subscription/deploy_subscription.sh
-	DRY_RUN=$${DRY_RUN:-1} ./infra/orchestrator/run_workflow.sh deploy
-
-vpn.verify:
-	chmod +x ./infra/orchestrator/run_workflow.sh ./infra/orchestrator/lib.sh ./infra/orchestrator/workflows/*.sh ./checks/*.sh
-	DRY_RUN=$${DRY_RUN:-1} ./infra/orchestrator/run_workflow.sh verify
-
-vpn.rollback:
-	chmod +x ./infra/orchestrator/run_workflow.sh ./infra/orchestrator/lib.sh ./infra/orchestrator/workflows/*.sh
-	DRY_RUN=$${DRY_RUN:-1} ./infra/orchestrator/run_workflow.sh rollback
-
-vpn.report:
-	chmod +x ./checks/morning_health_report.sh ./checks/vpn_verify.sh
-	DRY_RUN=$${DRY_RUN:-1} ./checks/morning_health_report.sh
 
 ssh.preflight:
 	chmod +x ./ops/ssh_happ.sh ./checks/check_access.sh
@@ -74,8 +59,20 @@ openclaw.healthcheck-schedule:
 	chmod +x ./infra/orchestrator/run_workflow.sh ./infra/orchestrator/lib.sh ./infra/orchestrator/workflows/*.sh
 	DRY_RUN=$${DRY_RUN:-1} ./infra/orchestrator/run_workflow.sh openclaw_healthcheck_schedule $${MODE:-inspect}
 
+openclaw.todo-digest-schedule:
+	chmod +x ./infra/orchestrator/run_workflow.sh ./infra/orchestrator/lib.sh ./infra/orchestrator/workflows/*.sh
+	DRY_RUN=$${DRY_RUN:-1} ./infra/orchestrator/run_workflow.sh todo_digest_schedule $${MODE:-inspect}
+
+openclaw.backup-schedule:
+	chmod +x ./infra/orchestrator/run_workflow.sh ./infra/orchestrator/lib.sh ./infra/orchestrator/workflows/*.sh
+	DRY_RUN=$${DRY_RUN:-1} ./infra/orchestrator/run_workflow.sh openclaw_backup_schedule $${MODE:-inspect}
+
+openclaw.local-schedule:
+	chmod +x ./infra/orchestrator/run_workflow.sh ./infra/orchestrator/lib.sh ./infra/orchestrator/workflows/*.sh
+	DRY_RUN=$${DRY_RUN:-1} ./infra/orchestrator/run_workflow.sh openclaw_local_schedule $${MODE:-inspect}
+
 openclaw.daily-ops:
-	chmod +x ./infra/orchestrator/run_workflow.sh ./infra/orchestrator/lib.sh ./infra/orchestrator/workflows/*.sh ./checks/*.sh ./scripts/verify_integrations.sh
+	chmod +x ./infra/orchestrator/run_workflow.sh ./infra/orchestrator/lib.sh ./infra/orchestrator/workflows/*.sh ./checks/*.sh ./scripts/verify_integrations.sh ./scripts/verify_live_integrations.sh
 	DRY_RUN=$${DRY_RUN:-1} ./infra/orchestrator/run_workflow.sh daily_ops
 
 openclaw.next-week-prep:
@@ -121,3 +118,11 @@ openclaw.model-primary:
 openclaw.whoop-morning-check:
 	chmod +x ./infra/orchestrator/run_workflow.sh ./infra/orchestrator/lib.sh ./infra/orchestrator/workflows/*.sh
 	DRY_RUN=$${DRY_RUN:-0} ./infra/orchestrator/run_workflow.sh whoop_morning_report_check
+
+openclaw.whoop-report-repair:
+	chmod +x ./infra/orchestrator/run_workflow.sh ./infra/orchestrator/lib.sh ./infra/orchestrator/workflows/*.sh
+	DRY_RUN=$${DRY_RUN:-0} ./infra/orchestrator/run_workflow.sh whoop_report_repair $${MODE:-full}
+
+openclaw.larisa-deploy:
+	chmod +x ./infra/orchestrator/run_workflow.sh ./infra/orchestrator/lib.sh ./infra/orchestrator/workflows/*.sh
+	DRY_RUN=$${DRY_RUN:-0} ./infra/orchestrator/run_workflow.sh larisa_agent_deploy

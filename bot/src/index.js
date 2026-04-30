@@ -11,7 +11,7 @@ import {
   handlePickAttendee
 } from "./workflows/meetCreateWorkflow.js";
 import { createTaskTimeNotificationsJob } from "./workflows/taskNotificationsWorkflow.js";
-import { createEveningReminderJob } from "./workflows/eveningReminderWorkflow.js";
+import { createSelfHealingJob } from "./workflows/selfHealingWorkflow.js";
 import { buildSchedulerJobs } from "./scheduler/jobs.js";
 
 export function createBotModules(env = process.env, logger = console, overrides = {}) {
@@ -42,15 +42,14 @@ export function createBotModules(env = process.env, logger = console, overrides 
     now: overrides.now || (() => Date.now())
   });
 
-  const eveningReminderJob = createEveningReminderJob({
-    todoProvider,
-    logger,
-    now: overrides.now || (() => Date.now())
+  const selfHealingJob = createSelfHealingJob({
+    env,
+    logger
   });
 
   const schedulerJobs = buildSchedulerJobs({
     taskTimeNotificationsJob,
-    eveningReminderJob
+    selfHealingJob
   });
 
   return {
@@ -61,7 +60,7 @@ export function createBotModules(env = process.env, logger = console, overrides 
     notificationLogStore,
     schedulerJobs,
     taskTimeNotificationsJob,
-    eveningReminderJob,
+    selfHealingJob,
     resolver,
     handleSyncUsersCommand: (args) =>
       handleSyncUsersCommand({ ...args, config, provider }),

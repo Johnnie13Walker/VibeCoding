@@ -10,12 +10,33 @@ node_modules
 __pycache__
 *.log
 logs/
+cache/
 .cache
 venv/
 .idea
 .vscode
-reports/
+reports/*
+!reports/host-security-check.sh.remote
 
 # Автодобавлено: потенциально чувствительные файлы
 .env.integrations
-infra/happ-vpn.env
+infra/remote-ops.env
+data/
+.DS_Store
+.codex/
+.serena/
+cache
+logs
+reports
+tmp
+
+# Finance Google write/build helper scripts stay local until separate owner approval.
+scripts/finansist_build_employee_dictionary.mjs
+scripts/finansist_build_fot_analytics.mjs
+scripts/finansist_build_fot_demo.mjs
+scripts/finansist_build_fot_dynamics.mjs
+scripts/finansist_build_fot_salary_articles.mjs
+scripts/finansist_build_opiu_from_dds.mjs
+scripts/finansist_build_opiu_two_tabs.mjs
+scripts/finansist_update_employee_department.mjs
+scripts/finansist_update_employee_name.mjs

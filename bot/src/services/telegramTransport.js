@@ -1,8 +1,16 @@
+import {
+  buildTelegramRoutingConfig,
+  resolveTelegramChatId
+} from "./telegramTargets.js";
+
 function resolveTelegramConfig(env = process.env) {
+  const routing = buildTelegramRoutingConfig(env);
   return {
     botToken: String(env.TELEGRAM_BOT_TOKEN || "").trim(),
     apiBaseUrl: String(env.TELEGRAM_API_BASE_URL || "https://api.telegram.org").trim(),
-    defaultChatId: String(env.TELEGRAM_CHAT_ID || "").trim(),
+    defaultChatId: routing.defaultChatId,
+    targets: routing.targets,
+    allowedChatIds: routing.allowedChatIds,
     dryRun: env.TELEGRAM_DRY_RUN === "1"
   };
 }
@@ -40,7 +48,13 @@ export function createTelegramTransport({ env = process.env, logger = console } 
       const text = formatOutbound(message);
       if (!text) return { status: "skipped_empty" };
 
-      const chatId = String(message?.chatId || cfg.defaultChatId || "").trim();
+      const chatId = resolveTelegramChatId({
+        chatId: message?.chatId,
+        chatAlias: message?.chatAlias || message?.targetChat || message?.target,
+        defaultChatId: cfg.defaultChatId,
+        targets: cfg.targets,
+        allowedChatIds: cfg.allowedChatIds
+      });
       if (!chatId) throw new Error("Не задан chatId для отправки в Telegram");
 
       if (cfg.dryRun || !cfg.botToken) {

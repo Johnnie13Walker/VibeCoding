@@ -2,7 +2,7 @@
 
 ## 1) Подготовка окружения
 ```bash
-cd "/Users/pro2kuror/Documents/Персональный ассистент/Инженер"
+cd "/Users/pro2kuror/Desktop/OpenClo/projects/engineer"
 ./scripts/bootstrap_env.sh
 ```
 

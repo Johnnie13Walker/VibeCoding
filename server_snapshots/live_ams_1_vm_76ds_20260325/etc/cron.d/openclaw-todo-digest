@@ -1,0 +1,24 @@
+# UTC server clock; Moscow = UTC+3.
+# Refresh cache every 30 min and before digest slots.
+*/30 * * * * root docker exec openclaw-openclaw-gateway-1 sh -lc 'cd /home/node/.openclaw/workspace/todo-integration && TODO_ENV_PATH=/home/node/.openclaw/workspace/todo-integration/.env.runtime npm run sync' >/var/log/openclaw-todo-sync.log 2>&1
+55 4 * * * root docker exec openclaw-openclaw-gateway-1 sh -lc 'cd /home/node/.openclaw/workspace/todo-integration && TODO_ENV_PATH=/home/node/.openclaw/workspace/todo-integration/.env.runtime npm run sync' >/var/log/openclaw-todo-sync.log 2>&1
+55 15 * * * root docker exec openclaw-openclaw-gateway-1 sh -lc 'cd /home/node/.openclaw/workspace/todo-integration && TODO_ENV_PATH=/home/node/.openclaw/workspace/todo-integration/.env.runtime npm run sync' >/var/log/openclaw-todo-sync.log 2>&1
+
+# 09:30 MSK = 06:30 UTC
+30 6 * * * root docker exec openclaw-openclaw-gateway-1 sh -lc 'cd /home/node/.openclaw/workspace/todo-integration && TODO_ENV_PATH=/home/node/.openclaw/workspace/todo-integration/.env.runtime npm run digest:morning' >/var/log/openclaw-todo-morning.log 2>&1
+
+# 19:00 MSK = 16:00 UTC
+0 16 * * * root docker exec openclaw-openclaw-gateway-1 sh -lc 'cd /home/node/.openclaw/workspace/todo-integration && TODO_ENV_PATH=/home/node/.openclaw/workspace/todo-integration/.env.runtime npm run digest:evening' >/var/log/openclaw-todo-evening.log 2>&1
+
+# 14:00 MSK = 11:00 UTC (auto replan)
+55 10 * * * root docker exec openclaw-openclaw-gateway-1 sh -lc 'cd /home/node/.openclaw/workspace/todo-integration && TODO_ENV_PATH=/home/node/.openclaw/workspace/todo-integration/.env.runtime npm run sync' >/var/log/openclaw-todo-sync.log 2>&1
+0 11 * * * root docker exec openclaw-openclaw-gateway-1 sh -lc 'cd /home/node/.openclaw/workspace/todo-integration && TODO_ENV_PATH=/home/node/.openclaw/workspace/todo-integration/.env.runtime npm run digest:midday' >/var/log/openclaw-todo-midday.log 2>&1
+
+# Task reminders every minute (MSK-aware via ISO datetime).
+* * * * * root docker exec openclaw-openclaw-gateway-1 sh -lc 'cd /home/node/.openclaw/workspace/todo-integration && TODO_ENV_PATH=/home/node/.openclaw/workspace/todo-integration/.env.runtime npm run reminders:tick' >/var/log/openclaw-todo-reminders.log 2>&1
+
+# Focus blocks lifecycle every minute.
+* * * * * root docker exec openclaw-openclaw-gateway-1 sh -lc 'cd /home/node/.openclaw/workspace/todo-integration && TODO_ENV_PATH=/home/node/.openclaw/workspace/todo-integration/.env.runtime npm run focus:tick' >/var/log/openclaw-focus-tick.log 2>&1
+
+# Live assistant execution mode every 15 minutes.
+*/15 * * * * root docker exec openclaw-openclaw-gateway-1 sh -lc 'cd /home/node/.openclaw/workspace/todo-integration && TODO_ENV_PATH=/home/node/.openclaw/workspace/todo-integration/.env.runtime npm run execution:tick' >/var/log/openclaw-execution-tick.log 2>&1

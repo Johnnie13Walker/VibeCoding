@@ -1,8 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
-git add .
-
-if ! git diff --cached --quiet; then
-    git commit -m "agent update $(date '+%Y-%m-%d %H:%M')"
-    git push origin dev
-fi
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+exec "$ROOT_DIR/devops/backup.sh" "$@"

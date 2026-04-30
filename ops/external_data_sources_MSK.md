@@ -7,7 +7,7 @@
 2. Sentry API для ошибок прода за 24 часа.
 3. Telegram API для подтверждения доставки статуса.
 4. OpenClaw cron/job state для факта выполнения расписаний.
-5. Uptime/health endpoint VPN/subscription.
+5. Uptime/health endpoint удалённого серверного контура.
 
 ## Минимальный набор переменных
 1. `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT`

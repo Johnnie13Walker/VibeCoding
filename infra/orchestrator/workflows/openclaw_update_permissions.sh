@@ -6,7 +6,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 source "$ROOT_DIR/infra/orchestrator/lib.sh"
 
 OPENCLAW_HOST="${OPENCLAW_HOST:-${PRIMARY_HOST:-}}"
-BOT_UPDATE_USERS="${BOT_UPDATE_USERS:-node}"
+BOT_UPDATE_USERS="${BOT_UPDATE_USERS:-node ops}"
 HELPER_PATH="${HELPER_PATH:-/usr/local/sbin/openclaw-update-helper}"
 SUDOERS_PATH="${SUDOERS_PATH:-/etc/sudoers.d/openclaw-update-helper}"
 MODE="${1:-inspect}"
@@ -30,22 +30,25 @@ export TZ=Europe/Moscow
 OPENCLAW_DIR="${OPENCLAW_DIR:-/opt/openclaw}"
 OPENCLAW_NODE="${OPENCLAW_NODE:-node}"
 OPENCLAW_RUNNER="${OPENCLAW_RUNNER:-scripts/run-node.mjs}"
+OPENCLAW_COMPILE_CACHE_DIR="${OPENCLAW_COMPILE_CACHE_DIR:-/var/tmp/openclaw-compile-cache}"
+OPENCLAW_NO_RESPAWN="${OPENCLAW_NO_RESPAWN:-1}"
 
 strip_ansi() {
   sed -E 's/\x1B\[[0-9;]*[A-Za-z]//g'
 }
 
 run_openclaw() {
+  mkdir -p "${OPENCLAW_COMPILE_CACHE_DIR}"
+  if command -v openclaw >/dev/null 2>&1; then
+    (cd "${OPENCLAW_DIR}" && NODE_COMPILE_CACHE="${OPENCLAW_COMPILE_CACHE_DIR}" OPENCLAW_NO_RESPAWN="${OPENCLAW_NO_RESPAWN}" OPENCLAW_RUNNER_LOG=0 openclaw "$@")
+    return $?
+  fi
   if [ -f "${OPENCLAW_DIR}/dist/entry.js" ]; then
-    (cd "${OPENCLAW_DIR}" && OPENCLAW_RUNNER_LOG=0 "${OPENCLAW_NODE}" dist/entry.js "$@")
+    (cd "${OPENCLAW_DIR}" && NODE_COMPILE_CACHE="${OPENCLAW_COMPILE_CACHE_DIR}" OPENCLAW_NO_RESPAWN="${OPENCLAW_NO_RESPAWN}" OPENCLAW_RUNNER_LOG=0 "${OPENCLAW_NODE}" dist/entry.js "$@")
     return $?
   fi
   if [ -f "${OPENCLAW_DIR}/${OPENCLAW_RUNNER}" ]; then
-    (cd "${OPENCLAW_DIR}" && OPENCLAW_RUNNER_LOG=0 "${OPENCLAW_NODE}" "${OPENCLAW_RUNNER}" "$@")
-    return $?
-  fi
-  if command -v openclaw >/dev/null 2>&1; then
-    openclaw "$@"
+    (cd "${OPENCLAW_DIR}" && NODE_COMPILE_CACHE="${OPENCLAW_COMPILE_CACHE_DIR}" OPENCLAW_NO_RESPAWN="${OPENCLAW_NO_RESPAWN}" OPENCLAW_RUNNER_LOG=0 "${OPENCLAW_NODE}" "${OPENCLAW_RUNNER}" "$@")
     return $?
   fi
   echo "ОШИБКА: OpenClaw CLI не найден" >&2

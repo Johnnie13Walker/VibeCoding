@@ -1,7 +1,7 @@
 # Сообщение для Ларисы (MSK)
 
 Выполни задачу полностью в каталоге:
-`/Users/pro2kuror/Documents/Персональный ассистент/Инженер`
+`/Users/pro2kuror/Desktop/OpenClo/projects/engineer`
 
 ## Цель
 Довести интеграции до статуса `ОК`:
@@ -14,7 +14,7 @@
 ## Действия
 1. Запусти:
 ```bash
-cd "/Users/pro2kuror/Documents/Персональный ассистент/Инженер"
+cd "/Users/pro2kuror/Desktop/OpenClo/projects/engineer"
 chmod +x ./scripts/larisa_finalize.sh
 ./scripts/larisa_finalize.sh
 ```

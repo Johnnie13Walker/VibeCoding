@@ -2,9 +2,17 @@ import path from "node:path";
 
 export function getConfig(env = process.env) {
   const cwd = process.cwd();
+  const bitrixTimeoutSec = Number(env.BITRIX_TIMEOUT_SEC || 20);
   return {
+    bitrixWebhookUrl: env.BITRIX_WEBHOOK_URL || "",
     bitrixBaseUrl: env.BITRIX_BASE_URL || "",
     bitrixToken: env.BITRIX_TOKEN || "",
+    bitrixAppStateDir: env.BITRIX_APP_STATE_DIR || "",
+    bitrixAppInstallStateFile: env.BITRIX_APP_INSTALL_STATE_FILE || "",
+    bitrixClientId: env.BITRIX_CLIENT_ID || "",
+    bitrixClientSecret: env.BITRIX_CLIENT_SECRET || "",
+    bitrixOauthTokenUrl: env.BITRIX_OAUTH_TOKEN_URL || "",
+    bitrixTimeoutMs: Number(env.BITRIX_TIMEOUT_MS || bitrixTimeoutSec * 1000),
     ownerUserId: String(env.TELEGRAM_OWNER_ID || ""),
     adminUserIds: String(env.TELEGRAM_ADMIN_IDS || "")
       .split(",")

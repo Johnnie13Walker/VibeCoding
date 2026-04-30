@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-ENV_FILE="${ENV_FILE:-$ROOT_DIR/infra/happ-vpn.env}"
+ENV_FILE="${ENV_FILE:-$ROOT_DIR/infra/remote-ops.env}"
 
 if [[ -f "$ENV_FILE" ]]; then
   # shellcheck disable=SC1090
@@ -22,6 +22,18 @@ fi
 
 check_one() {
   local target="$1"
+  local host="${2:-}"
+  local required="${3:-1}"
+
+  if [[ -z "$host" ]]; then
+    if [[ "$required" == "1" ]]; then
+      bad "${target}: host не задан в ${ENV_FILE}"
+    else
+      ok "${target}: host не задан, проверка пропущена"
+    fi
+    return 0
+  fi
+
   if [[ "${DRY_RUN:-0}" == "1" ]]; then
     ok "DRY-RUN: проверка ${target} пропущена"
     return 0
@@ -37,8 +49,8 @@ check_one() {
 }
 
 printf "=== CHECK ACCESS (%s) ===\n" "$(date '+%F %T %Z')"
-check_one primary
-check_one reserve
+check_one primary "${PRIMARY_HOST:-${OPENCLAW_HOST:-}}" 1
+check_one reserve "${RESERVE_HOST:-}" 0
 
 if [[ $status -eq 0 ]]; then
   echo "Итог: ОК"
@@ -47,4 +59,3 @@ else
 fi
 
 exit "$status"
-

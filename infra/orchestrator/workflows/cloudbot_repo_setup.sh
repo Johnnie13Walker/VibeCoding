@@ -72,10 +72,35 @@ push_branch_with_auth() {
 write_deploy_script() {
   cat > "$ROOT_DIR/scripts/deploy.sh" <<'SCRIPT'
 #!/bin/bash
-set -e
+set -euo pipefail
 
-echo "Updating repository..."
-git pull origin dev
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+TARGET_BRANCH="${1:-${DEPLOY_BRANCH:-}}"
+
+cd "$ROOT_DIR"
+
+current_branch="$(git branch --show-current)"
+if [[ -z "$TARGET_BRANCH" ]]; then
+    if [[ -z "$current_branch" ]]; then
+        echo "ОШИБКА: не удалось определить branch для deploy. Передай DEPLOY_BRANCH или первый аргумент." >&2
+        exit 1
+    fi
+    TARGET_BRANCH="$current_branch"
+fi
+
+if [[ -n "$(git status --porcelain)" && "$current_branch" != "$TARGET_BRANCH" ]]; then
+    echo "ОШИБКА: рабочее дерево грязное, нельзя переключать deploy на ветку $TARGET_BRANCH." >&2
+    exit 1
+fi
+
+echo "Updating repository from branch: $TARGET_BRANCH"
+git fetch origin "$TARGET_BRANCH"
+
+if [[ "$current_branch" != "$TARGET_BRANCH" ]]; then
+    git checkout "$TARGET_BRANCH"
+fi
+
+git pull --ff-only origin "$TARGET_BRANCH"
 
 echo "Restarting services..."
 
@@ -92,13 +117,53 @@ SCRIPT
 write_agent_commit_script() {
   cat > "$ROOT_DIR/scripts/agent_commit.sh" <<'SCRIPT'
 #!/bin/bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+TARGET_BRANCH="${1:-${GIT_PUSH_BRANCH:-}}"
+ALLOW_MAIN_PUSH="${ALLOW_MAIN_PUSH:-0}"
+
+cd "$ROOT_DIR"
+
+current_branch="$(git branch --show-current)"
+if [[ -z "$current_branch" ]]; then
+    echo "ОШИБКА: agent_commit.sh нельзя запускать из detached HEAD." >&2
+    exit 1
+fi
+
+if [[ -z "$TARGET_BRANCH" ]]; then
+    TARGET_BRANCH="$current_branch"
+fi
+
+if [[ "$TARGET_BRANCH" != "$current_branch" ]]; then
+    echo "ОШИБКА: agent_commit.sh не будет пушить в $TARGET_BRANCH из текущей ветки $current_branch." >&2
+    exit 1
+fi
+
+if [[ "$TARGET_BRANCH" == "main" && "$ALLOW_MAIN_PUSH" != "1" ]]; then
+    echo "ОШИБКА: прямой push в main заблокирован. Используй feature/dev ветку." >&2
+    exit 1
+fi
+
+if ! git remote get-url origin >/dev/null 2>&1; then
+    echo "ОШИБКА: remote origin не настроен, backup commit отменён." >&2
+    exit 1
+fi
+
+if ! git ls-remote --exit-code origin >/dev/null 2>&1; then
+    echo "ОШИБКА: origin недоступен, backup commit отменён до создания локального commit." >&2
+    exit 1
+fi
 
 git add .
 
-if ! git diff --cached --quiet; then
-    git commit -m "agent update $(date '+%Y-%m-%d %H:%M')"
-    git push origin dev
+if git diff --cached --quiet; then
+    echo "Нет изменений для backup commit."
+    exit 0
 fi
+
+git commit -m "backup: snapshot $(date '+%Y-%m-%d %H:%M %Z')"
+git push -u origin "$TARGET_BRANCH"
 SCRIPT
   chmod +x "$ROOT_DIR/scripts/agent_commit.sh"
 }
@@ -148,9 +213,10 @@ write_codex_rules_doc() {
 
 1. Никогда не коммитить `.env`.
 2. Никогда не коммитить API-ключи.
-3. Работать только в ветке `dev`.
-4. Для новой функции создавать ветку `feature/*`.
-5. После изменений выполнять `scripts/agent_commit.sh`.
+3. Каноническая integration-ветка: `dev`.
+4. Новые изменения делать в `feature/*` или `codex/feature/*` от актуального `dev`.
+5. Не пушить `main` напрямую без отдельного решения.
+6. `scripts/agent_commit.sh` не должен пушить branch, отличный от текущего checkout.
 MD
 }
 
@@ -245,7 +311,7 @@ run_apply() {
   grep -R "SECRET" -n "${SEARCH_DIRS[@]}" || true
   echo
   echo "Дополнительный поиск по ключевым словам:"
-  rg -n '(API_KEY|TOKEN|SECRET|PASSWORD|PRIVATE_KEY|VPN|BITRIX|WHOOP)' "${SEARCH_DIRS[@]}" || true
+  rg -n '(API_KEY|TOKEN|SECRET|PASSWORD|PRIVATE_KEY|BITRIX|WHOOP)' "${SEARCH_DIRS[@]}" || true
   echo
   echo "git ls-files"
   "${GIT_BASE_CMD[@]}" ls-files

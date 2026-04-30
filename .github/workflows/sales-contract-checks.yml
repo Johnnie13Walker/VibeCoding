@@ -1,0 +1,38 @@
+name: Sales Contract Checks
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - dev
+      - "codex/**"
+      - "feature/**"
+  workflow_dispatch:
+
+jobs:
+  sales-contract-checks:
+    name: Sales Contract Checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Make Scripts Executable
+        run: |
+          chmod +x ./checks/*.sh
+          chmod +x ./infra/orchestrator/run_workflow.sh ./infra/orchestrator/lib.sh ./infra/orchestrator/workflows/*.sh
+          chmod +x ./scripts/*.sh || true
+
+      - name: Sales Runtime Contract Tests
+        run: python3 -m unittest tests.integration.test_lev_petrovich_runtime tests.integration.test_sales_dispatch_contract -q
+
+      - name: Morning Sales Dispatch Dry-Run Smoke
+        run: python3 checks/sales_morning_dispatch_smoke.py

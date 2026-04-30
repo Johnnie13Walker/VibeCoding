@@ -4,7 +4,7 @@ set -euo pipefail
 TZ=Europe/Moscow
 export TZ
 
-cd "/Users/pro2kuror/Documents/Персональный ассистент/Инженер"
+cd "/Users/pro2kuror/Desktop/OpenClo/projects/engineer"
 
 echo "== Лариса: финализация интеграций ($(date '+%F %T %Z')) =="
 

@@ -4,6 +4,7 @@ export TZ=Europe/Moscow
 project_path='/root/.openclaw/workspace/todo-integration'
 container_name='openclaw-openclaw-gateway-1'
 cron_file='/etc/cron.d/openclaw-todo-digest'
+runtime_env_file="$project_path/.env.runtime"
 
 [ -d "$project_path" ] || { echo "Каталог проекта не найден: $project_path"; exit 1; }
 
@@ -11,6 +12,7 @@ backup_dir="$project_path/.backups/todo_digest_fix_$(date '+%Y%m%d_%H%M%S_MSK')"
 mkdir -p "$backup_dir/src/providers" "$backup_dir/src/agenda" "$backup_dir/src/reports" "$backup_dir/src/selftests" "$backup_dir/system"
 
 cp -a "$project_path/src/send-digest.mjs" "$backup_dir/src/send-digest.mjs.bak"
+cp -a "$project_path/src/config.mjs" "$backup_dir/src/config.mjs.bak"
 cp -a "$project_path/src/providers/todoist-provider.mjs" "$backup_dir/src/providers/todoist-provider.mjs.bak"
 cp -a "$project_path/src/agenda/aggregate.mjs" "$backup_dir/src/agenda/aggregate.mjs.bak"
 cp -a "$project_path/src/reports/morningSecretaryDigest.mjs" "$backup_dir/src/reports/morningSecretaryDigest.mjs.bak"
@@ -26,6 +28,9 @@ cp -a "$project_path/src/formatter.mjs" "$backup_dir/src/formatter.mjs.bak"
 cp -a "$project_path/src/selftest.mjs" "$backup_dir/src/selftest.mjs.bak"
 if [ -f "$cron_file" ]; then
   cp -a "$cron_file" "$backup_dir/system/openclaw-todo-digest.cron.bak"
+fi
+if [ -f "$runtime_env_file" ]; then
+  cp -a "$runtime_env_file" "$backup_dir/system/env.runtime.bak"
 fi
 if [ -f /root/.openclaw/openclaw.json ]; then
   cp -a /root/.openclaw/openclaw.json "$backup_dir/system/openclaw.json.bak"
@@ -651,23 +656,6 @@ function limitLinesByItems(items, toLines, maxContentLines = 6) {
   return lines;
 }
 
-function buildRisks({ meetingCount, workCount, focusWindows }) {
-  const totalFocusMin = focusWindows.reduce((acc, slot) => acc + slotDurationMin(slot), 0);
-  const out = [];
-
-  if (totalFocusMin < 90) {
-    out.push("Мало времени для фокус-работы");
-  }
-  if (meetingCount >= 7) {
-    out.push("Перегруз встречами — может просесть выполнение задач");
-  }
-  if (workCount === 0) {
-    out.push("Нет выделенных рабочих блоков");
-  }
-
-  return out.slice(0, 3);
-}
-
 function normalizeMyUserCode(input) {
   const raw = cleanText(input);
   if (!raw) return "";
@@ -696,19 +684,11 @@ export function renderDailyCalendarDigest(data) {
     else buckets[type].push(event);
   });
 
-  const focusWindows = asArray(agenda?.freeSlots).filter((slot) => slotDurationMin(slot) >= 45);
-  const risks = buildRisks({
-    meetingCount: buckets.meeting.length,
-    workCount: buckets.work_block.length,
-    focusWindows
-  });
-
   const todayIso = cleanText(agenda?.date) || dateIsoNow(tz);
   const summary = [
     `${buckets.meeting.length} ${pluralRu(buckets.meeting.length, "встреча", "встречи", "встреч")}`,
     `${buckets.work_block.length} ${pluralRu(buckets.work_block.length, "блок работы", "блока работы", "блоков работы")}`,
-    `${buckets.personal_block.length} ${pluralRu(buckets.personal_block.length, "личный блок", "личных блока", "личных блоков")}`,
-    `${focusWindows.length} ${pluralRu(focusWindows.length, "окно фокуса", "окна фокуса", "окон фокуса")}`
+    `${buckets.personal_block.length} ${pluralRu(buckets.personal_block.length, "личный блок", "личных блока", "личных блоков")}`
   ].join(" • ");
 
   const blocks = [];
@@ -742,30 +722,6 @@ export function renderDailyCalendarDigest(data) {
     );
     blocks.push({ title: "🍽 <b>ЛИЧНОЕ</b>", lines });
   }
-
-  if (focusWindows.length) {
-    const lines = limitLinesByItems(
-      focusWindows,
-      (slot) => [`${slot.start}–${slot.end}  глубокая работа`]
-    );
-    blocks.push({ title: "🟢 <b>ОКНО ФОКУСА</b>", lines });
-  } else {
-    blocks.push({ title: "", lines: ["⚠️ <b>Нет свободных окон</b>"] });
-  }
-
-  if (risks.length) {
-    blocks.push({ title: "⚠️ <b>РИСКИ ДНЯ</b>", lines: risks.map((risk) => `• ${escapeHtml(risk)}`) });
-  }
-
-  const firstWork = buckets.work_block[0] || null;
-  blocks.push({
-    title: "➡️ <b>НАЧАТЬ СЕЙЧАС</b>",
-    lines: [
-      firstWork
-        ? `${eventRange(firstWork, tz)}  ${escapeHtml(cleanText(firstWork?.title || "Без названия"))}`
-        : "Выбери главный фокус"
-    ]
-  });
 
   const out = [
     `☀️ <b>${escapeHtml(dateTitle(todayIso, tz))}</b>`,
@@ -1086,13 +1042,22 @@ const digest = renderDailyCalendarDigest({
 const mustContain = [
   "🤝 <b>ВСТРЕЧИ</b>",
   "🧠 <b>МОИ БЛОКИ РАБОТЫ</b>",
-  "🍽 <b>ЛИЧНОЕ</b>",
-  "🟢 <b>ОКНО ФОКУСА</b>",
-  "➡️ <b>НАЧАТЬ СЕЙЧАС</b>"
+  "🍽 <b>ЛИЧНОЕ</b>"
 ];
 mustContain.forEach((part) => {
   if (!digest.includes(part)) {
     throw new Error(`calendar_renderer_smoke: missing block ${part}`);
+  }
+});
+
+const mustNotContain = [
+  "🟢 <b>ОКНО ФОКУСА</b>",
+  "⚠️ <b>РИСКИ ДНЯ</b>",
+  "➡️ <b>НАЧАТЬ СЕЙЧАС</b>"
+];
+mustNotContain.forEach((part) => {
+  if (digest.includes(part)) {
+    throw new Error(`calendar_renderer_smoke: unexpected block ${part}`);
   }
 });
 
@@ -1190,6 +1155,12 @@ function buildTodoWarning(err) {
     .trim()
     .slice(0, 220);
   return `⚠️ ToDo (Todoist) временно недоступен: ${escapeHtml(reason)}. Отправляю отчет только по встречам Bitrix.`;
+}
+
+function isEnvFlagEnabled(name, defaultValue = false) {
+  const raw = String(process.env?.[name] ?? "").trim().toLowerCase();
+  if (!raw) return defaultValue;
+  return !["0", "false", "off", "no", "disabled"].includes(raw);
 }
 
 async function main() {
@@ -1302,8 +1273,13 @@ async function main() {
       });
     }
 
+    const dayScenarioMessageEnabled = cfg.dayScenarioMessageEnabled;
+    if (!dayScenarioMessageEnabled) {
+      console.log("SCENARIO_ABSENT");
+    }
+
     const assistantStatus = getExecutionStatus(cfg, new Date());
-    if (cfg.executionModeEnabled && assistantStatus.enabled) {
+    if (dayScenarioMessageEnabled && cfg.executionModeEnabled && assistantStatus.enabled) {
       if (!morningAgenda) {
         morningAgenda = await getAgenda(cfg, dateIso, {
           prefetchedTasks: todoUnavailable ? [] : tasks,
@@ -1370,19 +1346,42 @@ main().catch((err) => {
 });
 EOF_DIGEST
 
+if [ -f "$runtime_env_file" ]; then
+  if grep -q '^DAY_SCENARIO_MESSAGE_ENABLED=' "$runtime_env_file"; then
+    perl -0pi -e 's/^DAY_SCENARIO_MESSAGE_ENABLED=.*/DAY_SCENARIO_MESSAGE_ENABLED=0/m' "$runtime_env_file"
+  else
+    printf '\nDAY_SCENARIO_MESSAGE_ENABLED=0\n' >>"$runtime_env_file"
+  fi
+else
+  printf 'DAY_SCENARIO_MESSAGE_ENABLED=0\n' >"$runtime_env_file"
+fi
+
+perl -0pi -e 's/const env = \{ \.\.\.process\.env, \.\.\.fileEnv \};/const env = { ...fileEnv, ...process.env };/g' "$project_path/src/config.mjs"
+perl -0pi -e 's/tz: env\.TZ \|\| MOSCOW_TZ,/tz: fileEnv.TZ || env.TZ || MOSCOW_TZ,/g' "$project_path/src/config.mjs"
+
 cd "$project_path"
 perl -0pi -e 's/import \{ buildDateTimeByDateAndTime, createMeeting, moveMeeting, resolveUserMentions, syncBitrixUsers, usersFind \} from "\.\/agenda\/providers\/bitrixUsers\.mjs";/import { buildDateTimeByDateAndTime, createMeeting, listSections, moveMeeting, resolveUserMentions, setStoredDefaultSectionId, syncBitrixUsers, usersFind } from ".\/agenda\/providers\/bitrixUsers.mjs";/' src/selftest.mjs
 perl -0pi -e 's/day\|agenda\|free\|sync_status\|connect_google\|connect_bitrix\|oauth_google\|oauth_bitrix/day|agenda|free|diag|sync_status|connect_google|connect_bitrix|oauth_google|oauth_bitrix/g' src/add-task-flow.mjs
 perl -0pi -e 'if ($_ !~ /"\/diag",/) { s/"\/sync_status",/"\/sync_status",\n    "\/diag",/; }' src/formatter.mjs
-perl -0pi -e 's@function assertCeoBriefing\(secretaryText\) \{[\s\S]*?\n\}\n\nasync function runReminderSelftest@function assertCeoBriefing(secretaryText) {\n  if (!secretaryText.includes("☀️ <b>")) throw new Error("selftest: missing HTML header");\n  if (!secretaryText.includes("📊 День:")) throw new Error("selftest: missing day summary");\n  if (!secretaryText.includes("🤝 <b>ВСТРЕЧИ</b>")) throw new Error("selftest: missing meetings block");\n  if (!secretaryText.includes("➡️ <b>НАЧАТЬ СЕЙЧАС</b>")) throw new Error("selftest: missing next action block");\n  if (secretaryText.includes("МОЙ РИТМ")) throw new Error("selftest: rhythm block should not be present");\n  if (!secretaryText.includes("────────")) throw new Error("selftest: expected separators");\n  if (secretaryText.length > 2600) throw new Error("selftest: briefing too long for quick read");\n}\n\nasync function runReminderSelftest@s' src/selftest.mjs
+perl -0pi -e 's@function assertCeoBriefing\(secretaryText\) \{[\s\S]*?\n\}\n\nasync function runReminderSelftest@function assertCeoBriefing(secretaryText) {\n  if (!secretaryText.includes("☀️ <b>")) throw new Error("selftest: missing HTML header");\n  if (!secretaryText.includes("📊 День:")) throw new Error("selftest: missing day summary");\n  if (!secretaryText.includes("🤝 <b>ВСТРЕЧИ</b>")) throw new Error("selftest: missing meetings block");\n  if (secretaryText.includes("🟢 <b>ОКНО ФОКУСА</b>")) throw new Error("selftest: focus window block should not be present");\n  if (secretaryText.includes("⚠️ <b>РИСКИ ДНЯ</b>")) throw new Error("selftest: risks block should not be present");\n  if (secretaryText.includes("➡️ <b>НАЧАТЬ СЕЙЧАС</b>")) throw new Error("selftest: next action block should not be present");\n  if (secretaryText.includes("МОЙ РИТМ")) throw new Error("selftest: rhythm block should not be present");\n  if (!secretaryText.includes("────────")) throw new Error("selftest: expected separators");\n  if (secretaryText.length > 2400) throw new Error("selftest: briefing too long for quick read");\n}\n\nasync function runReminderSelftest@s' src/selftest.mjs
 perl -0pi -e 's/if \(!secretaryText\.includes\("☀️ "\)\) throw new Error\("selftest: missing morning sun header"\);/if (!secretaryText.includes("☀️ <b>")) throw new Error("selftest: missing HTML header");/g' src/selftest.mjs
 perl -0pi -e 's/if \(!secretaryText\.includes\("🎯 ГЛАВНОЕ СЕГОДНЯ"\)\) throw new Error\("selftest: missing main-win block"\);/if (!secretaryText.includes("📊 День:")) throw new Error("selftest: missing day summary");/g' src/selftest.mjs
-perl -0pi -e 's@if \(!secretaryText\.includes\("➡️ СЛЕДУЮЩЕЕ ДЕЙСТВИЕ"\)\) throw new Error\("selftest: missing next action block"\);@if (!secretaryText.includes("➡️ <b>НАЧАТЬ СЕЙЧАС</b>")) throw new Error("selftest: missing next action block");@g' src/selftest.mjs
+perl -0pi -e 's@if \(!secretaryText\.includes\("➡️ СЛЕДУЮЩЕЕ ДЕЙСТВИЕ"\)\) throw new Error\("selftest: missing next action block"\);@if (secretaryText.includes("➡️ <b>НАЧАТЬ СЕЙЧАС</b>")) throw new Error("selftest: next action block should not be present");@g' src/selftest.mjs
+perl -0pi -e 's@if \(!secretaryText\.includes\("➡️ <b>НАЧАТЬ СЕЙЧАС</b>"\)\) throw new Error\("selftest: missing next action block"\);@if (secretaryText.includes("➡️ <b>НАЧАТЬ СЕЙЧАС</b>")) throw new Error("selftest: next action block should not be present");@g' src/selftest.mjs
 perl -0pi -e 's@if \(!secretaryText\.includes\("🗓 ВСТРЕЧИ"\)\) throw new Error\("selftest: missing meetings block"\);@if (!secretaryText.includes("🤝 <b>ВСТРЕЧИ</b>")) throw new Error("selftest: missing meetings block");@g' src/selftest.mjs
 perl -0pi -e 's/if \(!secretaryText\.includes\("⚠️ РИСКИ"\)\) throw new Error\("selftest: missing risks block"\);/if (secretaryText.includes("МОЙ РИТМ")) throw new Error("selftest: rhythm block should not be present");/g' src/selftest.mjs
+perl -0pi -e 's@if \(!secretaryText\.includes\("📊 День:"\)\) throw new Error\("selftest: missing day summary"\);@if (!secretaryText.includes("📊 День:")) throw new Error("selftest: missing day summary");\n  if (secretaryText.includes("🟢 <b>ОКНО ФОКУСА</b>")) throw new Error("selftest: focus window block should not be present");\n  if (secretaryText.includes("⚠️ <b>РИСКИ ДНЯ</b>")) throw new Error("selftest: risks block should not be present");@g' src/selftest.mjs
 perl -0pi -e 's@  const meetingPart = secretaryText.split\("🗓 ВСТРЕЧИ"\)\[1\]\?\.split\("━━━━━━━━━━━━"\)\[0\] \|\| "";\n  if \/\^\\s\*•\/m\.test\(meetingPart\) throw new Error\("selftest: meetings should be timeline lines without bullets"\);\n\n@  if (!secretaryText.includes("────────")) throw new Error("selftest: expected separators");\n\n@s' src/selftest.mjs
-perl -0pi -e 's@const nextPart = secretaryText.split\("➡️ СЛЕДУЮЩЕЕ ДЕЙСТВИЕ"\)\[1\] \|\| "";@const nextPart = secretaryText.split("➡️ <b>НАЧАТЬ СЕЙЧАС</b>")[1] || "";@g' src/selftest.mjs
-perl -0pi -e 's/if \(secretaryText.length > 2500\) throw new Error\("selftest: briefing too long for quick read"\);/if (secretaryText.length > 2600) throw new Error("selftest: briefing too long for quick read");/g' src/selftest.mjs
+perl -0pi -e 's@const nextPart = secretaryText.split\("➡️ СЛЕДУЮЩЕЕ ДЕЙСТВИЕ"\)\[1\] \|\| "";@const nextPart = "";@g' src/selftest.mjs
+perl -0pi -e 's@  const nextPart = secretaryText.split\("➡️ <b>НАЧАТЬ СЕЙЧАС</b>"\)\[1\] \|\| "";@  const nextPart = "";@g' src/selftest.mjs
+perl -0pi -e 's@  const nextLines = nextPart.split\(/\\n/\).map\(\(x\) => x.trim\(\)\).filter\(Boolean\);@  const nextLines = [];@g' src/selftest.mjs
+perl -0pi -e 's@  if \(!nextLines.length\) throw new Error\("selftest: next action text is empty"\);@  if (!secretaryText.includes("────────")) throw new Error("selftest: expected separators");@g' src/selftest.mjs
+perl -0pi -e 's@  if \(nextLines.length > 2\) throw new Error\("selftest: next action must be concise"\);@@g' src/selftest.mjs
+perl -0pi -e 's@  const nextPart = secretaryText.split\("➡️ <b>НАЧАТЬ СЕЙЧАС</b>"\)\[1\] \|\| "";\n  const nextLines = nextPart.split\(/\\\\n/\).map\(\(x\) => x.trim\(\)\).filter\(Boolean\);\n  if \(!nextLines.length\) throw new Error\("selftest: next action text is empty"\);\n  if \(nextLines.length > 2\) throw new Error\("selftest: next action must be concise"\);\n\n@  if (!secretaryText.includes("────────")) throw new Error("selftest: expected separators");\n\n@s' src/selftest.mjs
+perl -0pi -e 's/if \(secretaryText.length > 2500\) throw new Error\("selftest: briefing too long for quick read"\);/if (secretaryText.length > 2400) throw new Error("selftest: briefing too long for quick read");/g' src/selftest.mjs
+perl -0pi -e 's/if \(secretaryText.length > 2600\) throw new Error\("selftest: briefing too long for quick read"\);/if (secretaryText.length > 2400) throw new Error("selftest: briefing too long for quick read");/g' src/selftest.mjs
+perl -0pi -e 's@async function runCreateTest\(cfg, provider, todayIso, voiceTasks\) \{[\s\S]*?\n\}\n\nasync function main\(\) \{@async function runCreateTest(cfg, provider, todayIso, voiceTasks) {\n  console.log("create_test_single: disabled");\n  if (voiceTasks.length) console.log("voice_pipeline_mock_count=" + voiceTasks.length);\n}\n\nasync function main() {@s' src/selftest.mjs
+perl -0pi -e 's/await runCreateTest\(cfg, provider, todayIso, voiceTasks\);/await runCreateTest(cfg, provider, todayIso, voiceTasks);/g' src/selftest.mjs
 
 node --check src/providers/todoist-provider.mjs
 node --check src/agenda/aggregate.mjs
@@ -1395,60 +1394,13 @@ node --check src/selftest.mjs
 node src/selftests/calendarDailyRenderer.smoke.mjs
 
 if [ -f "$cron_file" ]; then
-  perl -i -pe 'if (/npm run digest:morning/) { s/^\S+\s+\S+\s+\S+\s+\S+\s+\S+ /30 6 * * * /; }' "$cron_file"
+  perl -0pi -e 's@(?m)^.*npm run digest:morning.*$@30 6 * * * root docker exec openclaw-openclaw-gateway-1 sh -lc '\''cd /home/node/.openclaw/workspace/todo-integration && TODO_ENV_PATH=/home/node/.openclaw/workspace/todo-integration/.env.runtime npm run digest:morning'\'' >/var/log/openclaw-todo-morning.log 2>\&1@' "$cron_file"
   perl -i -pe 's/# 08:00 MSK = 05:00 UTC/# 09:30 MSK = 06:30 UTC/' "$cron_file"
 fi
 
 if [ -f /root/.openclaw/openclaw.json ]; then
   current_provider=$(jq -r '.tools.web.search.provider // empty' /root/.openclaw/openclaw.json 2>/dev/null || true)
-  current_provider_lc=$(printf '%s' "$current_provider" | tr '[:upper:]' '[:lower:]')
-  brave_key_cfg=$(jq -r '.tools.web.search.brave.apiKey // empty' /root/.openclaw/openclaw.json 2>/dev/null || true)
-  brave_key_env="${BRAVE_API_KEY:-}"
-  if [ -z "$brave_key_env" ] && command -v docker >/dev/null 2>&1 && docker inspect "$container_name" >/dev/null 2>&1; then
-    brave_key_env=$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$container_name" 2>/dev/null | sed -n 's/^BRAVE_API_KEY=//p' | head -n1 || true)
-  fi
-
-  target_provider="$current_provider_lc"
-  reason=""
-  case "$current_provider_lc" in
-    duckduckgo)
-      ;;
-    ddg)
-      target_provider="duckduckgo"
-      reason="normalize_ddg"
-      ;;
-    brave)
-      if [ -z "$brave_key_cfg" ] && [ -z "$brave_key_env" ]; then
-        target_provider="duckduckgo"
-        reason="brave_missing_key_fallback_to_duckduckgo"
-      fi
-      ;;
-    perplexity|grok|gemini|kimi)
-      ;;
-    *)
-      target_provider="duckduckgo"
-      reason="fallback_to_duckduckgo"
-      ;;
-  esac
-
-  if [ "$target_provider" = "$current_provider_lc" ]; then
-    echo "openclaw_provider_ok=${current_provider_lc:-<empty>}"
-  else
-    tmp_cfg=$(mktemp)
-    jq --arg provider "$target_provider" '
-      .tools = (.tools // {}) |
-      .tools.web = (.tools.web // {}) |
-      .tools.web.search = (.tools.web.search // {}) |
-      .tools.web.search.enabled = true |
-      .tools.web.search.provider = $provider
-    ' /root/.openclaw/openclaw.json >"$tmp_cfg"
-    mv "$tmp_cfg" /root/.openclaw/openclaw.json
-    echo "openclaw_provider_fixed from=${current_provider_lc:-<empty>} to=${target_provider} reason=${reason:-manual}"
-  fi
-
-  # Контейнер читает конфиг под uid=1000; после root-редактирования восстанавливаем права.
-  chown 1000:1000 /root/.openclaw/openclaw.json
-  chmod 0644 /root/.openclaw/openclaw.json
+  echo "openclaw_provider_current=${current_provider:-<empty>}"
 fi
 
 docker restart "$container_name" >/dev/null
@@ -1488,4 +1440,6 @@ fi
 
 echo '--- Morning cron line ---'
 grep -n 'digest:morning' "$cron_file" || true
+echo '--- Scenario flag ---'
+grep -n '^DAY_SCENARIO_MESSAGE_ENABLED=' "$runtime_env_file" || true
 echo "backup_dir=$backup_dir"

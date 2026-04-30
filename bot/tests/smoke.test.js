@@ -3,6 +3,7 @@ import { rm, readFile } from "node:fs/promises";
 import path from "node:path";
 import { createBotModules } from "../src/index.js";
 import { createMemoryTodoProvider } from "../src/providers/memoryTodoProvider.js";
+import { createTelegramTransport } from "../src/services/telegramTransport.js";
 import { toMoscowDateString } from "../src/time/moscowTime.js";
 
 async function run() {
@@ -87,7 +88,38 @@ async function run() {
     assert.equal(testMessage.handled, true);
     assert.match(testMessage.response.text, /Через 10 минут/i);
 
-    // 5) time notifications: t-10 + exact + dedup
+    // 5) Telegram transport: default chat + alias + allowlist
+    const telegram = createTelegramTransport({
+      env: {
+        TELEGRAM_DRY_RUN: "1",
+        TELEGRAM_CHAT_ID: "700700",
+        TELEGRAM_TARGETS: "owner=700700,team=-100111,alerts=-100222",
+        TELEGRAM_ALLOWED_CHAT_IDS: "-100333"
+      }
+    });
+
+    const defaultDelivery = await telegram.send({ text: "default route" });
+    assert.equal(defaultDelivery.status, "dry_run");
+    assert.equal(defaultDelivery.chatId, "700700");
+
+    const aliasDelivery = await telegram.send({
+      chatAlias: "team",
+      text: "group route"
+    });
+    assert.equal(aliasDelivery.status, "dry_run");
+    assert.equal(aliasDelivery.chatId, "-100111");
+
+    await assert.rejects(
+      () => telegram.send({ chatAlias: "missing", text: "bad alias" }),
+      /Неизвестный Telegram chat alias/i
+    );
+
+    await assert.rejects(
+      () => telegram.send({ chatId: "-100999", text: "forbidden" }),
+      /Telegram chatId не разрешен/i
+    );
+
+    // 6) time notifications: t-10 + exact + dedup
     let nowTs = Date.UTC(2026, 1, 27, 9, 2, 0, 0); // 12:02 МСК
     const dueDate = toMoscowDateString(nowTs);
     const todoProvider = createMemoryTodoProvider([
@@ -144,7 +176,7 @@ async function run() {
     });
     assert.equal(exactDedupRun.sent.length, 0);
 
-    // 6) quiet mode blocks time notifications
+    // 7) quiet mode blocks time notifications
     await modulesWithTasks.handleNotificationSettingsCommand({
       text: "/quiet on",
       userId: "100500"
@@ -162,31 +194,6 @@ async function run() {
       text: "/quiet off",
       userId: "100500"
     });
-
-    // 7) evening reminder 19:00 МСК
-    nowTs = Date.UTC(2026, 1, 27, 16, 0, 0, 0); // 19:00 МСК
-    const today = toMoscowDateString(nowTs);
-    const overdueDate = "2026-02-26";
-
-    todoProvider.setTasks([
-      { id: "over-1", title: "Просроченная задача", dueDate: overdueDate, isClosed: false },
-      { id: "today-open", title: "Сегодняшняя незакрытая", dueDate: today, isClosed: false },
-      { id: "today-closed", title: "Сегодняшняя закрытая", dueDate: today, isClosed: true }
-    ]);
-
-    const eveningOutbox = [];
-    const eveningRun = await modulesWithTasks.eveningReminderJob.run({
-      userId: "100500",
-      chatId: "700700",
-      sendMessage: async (message) => eveningOutbox.push(message)
-    });
-
-    assert.equal(eveningRun.status, "ok");
-    assert.equal(eveningOutbox.length, 1);
-    assert.match(eveningOutbox[0].text, /Вечерний разбор/i);
-    assert.match(eveningOutbox[0].text, /Просрочки \(1\)/i);
-    assert.match(eveningOutbox[0].text, /Не закрыто на сегодня \(1\)/i);
-    assert.match(eveningOutbox[0].text, /Давай, блядь, закрывай, не тяни\./i);
 
     const notificationLog = JSON.parse(await readFile(notificationLogFile, "utf-8"));
     assert.ok(Array.isArray(notificationLog.entries));

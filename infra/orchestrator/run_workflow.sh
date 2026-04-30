@@ -3,10 +3,10 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 WORKFLOW_DIR="$ROOT_DIR/infra/orchestrator/workflows"
-ENV_FILE="${ENV_FILE:-$ROOT_DIR/infra/happ-vpn.env}"
+ENV_FILE="${ENV_FILE:-$ROOT_DIR/infra/remote-ops.env}"
 
 if [[ $# -lt 1 ]]; then
-  echo "Использование: $0 <audit|deploy|verify|rollback|security_profile|security_updates|openclaw_update|openclaw_update_permissions|openclaw_privileged_exec|openclaw_gateway_repair|openclaw_healthcheck_schedule|daily_ops|next_week_prep|context_snapshot|friction_scan|weekly_focus_review|high_leverage_24h|session_handoff|instruction_conflicts|post_change_verify|ops_intelligence|whoop_morning_report_check>"
+  echo "Использование: $0 <security_profile|security_updates|openclaw_update|openclaw_update_permissions|openclaw_privileged_exec|openclaw_gateway_repair|openclaw_healthcheck_schedule|todo_digest_schedule|openclaw_backup_schedule|openclaw_local_schedule|daily_ops|next_week_prep|context_snapshot|friction_scan|weekly_focus_review|high_leverage_24h|session_handoff|instruction_conflicts|post_change_verify|ops_intelligence|whoop_morning_report_check|whoop_report_repair|sales_brief|sales_morning_report|sales_morning_report_check|sales_agent_deploy|sales_agent_verify|bitrix_check|larisa_daily_brief|larisa_evening_review|larisa_content_topics|larisa_agent_deploy|larisa_send_note|cloudbot_runtime_unlock|cloudbot_runtime_rollback|cloudbot_runtime_verify>"
   exit 1
 fi
 

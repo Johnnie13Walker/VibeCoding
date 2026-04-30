@@ -1,20 +1,31 @@
-# Cloudbot / OpenClaw
+# Cloudbot Personal AI Assistant
 
-## Структура проекта
-- `bot/` — код бота и прикладная логика.
-- `checks/` — проверки и smoke/health скрипты.
-- `infra/` — инфраструктура и orchestrator workflow.
-- `ops/` — операционные утилиты.
-- `scripts/` — вспомогательные скрипты.
-- `services/` — сервисные модули.
-- `reports/` — отчёты выполнения и диагностики.
+Cloudbot — персональный AI-ассистент на базе OpenClaw с интерфейсом в Telegram.
 
-## Запуск
-1. Установить зависимости для используемых сервисов.
-2. Скопировать шаблон переменных окружения в локальный env-файл.
-3. Запускать операции через orchestrator:
-   - `./infra/orchestrator/run_workflow.sh <workflow_name> [inspect|apply]`
+## Ключевые компоненты
+- `cloudbot/bot/telegram` — Telegram interface
+- `cloudbot/orchestrator` — центральная маршрутизация сценариев
+- `cloudbot/workflows` — пользовательские сценарии ассистента
+- `cloudbot/skills` — атомарные навыки
+- `cloudbot/providers` — интеграции с внешними API
+- `cloudbot/devops` — health-check, диагностика, мониторинг, backup
 
-## Переменные окружения
-- Шаблон: `.env.example`
-- Локальные секреты: `.env` и `.env.*` (не коммитятся)
+## Интеграции
+- Telegram
+- OpenAI
+- Bitrix
+- Google Calendar OAuth
+- Todo
+- WHOOP
+- Web Search
+
+## Быстрый запуск
+```bash
+python3 checks/smoke_test.py
+```
+
+## Контур Ларисы Ивановны
+- Основной агент: `agents/larisa_ivanovna/`
+- Публичные команды: `/today`, `/brief`, `/day`, `/meetings`, `/tasks`, `/weather`, `/plan-day`, `/plan`
+- Плановый запуск: cron `09:00` МСК через workflow `larisa_daily_brief`
+- Отдельный News-контур и команда `/news` удалены из активной архитектуры

@@ -33,6 +33,8 @@ run_step "Конфликты инструкций отсутствуют" /usr/b
 run_step "Dry-run daily_ops запускается" /usr/bin/env bash -lc "cd \"$ROOT_DIR\" && DRY_RUN=1 SEND_TELEGRAM_STATUS=never FAIL_ON_PROBLEMS=0 ./infra/orchestrator/run_workflow.sh daily_ops"
 run_step "next_week_prep запускается" /usr/bin/env bash -lc "cd \"$ROOT_DIR\" && ./infra/orchestrator/run_workflow.sh next_week_prep"
 run_step "context_snapshot запускается" /usr/bin/env bash -lc "cd \"$ROOT_DIR\" && ./infra/orchestrator/run_workflow.sh context_snapshot"
+run_step "Sales runtime contract tests" /usr/bin/env bash -lc "cd \"$ROOT_DIR\" && python3 -m unittest tests.integration.test_lev_petrovich_runtime tests.integration.test_sales_dispatch_contract -q"
+run_step "Dry-run morning_sales_dispatch contract smoke" /usr/bin/env bash -lc "cd \"$ROOT_DIR\" && python3 checks/sales_morning_dispatch_smoke.py"
 
 if [[ "$status" -eq 0 ]]; then
   printf "Итог: ОК\n"

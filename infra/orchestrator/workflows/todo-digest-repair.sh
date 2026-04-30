@@ -261,9 +261,9 @@ grep_cfg() {
 }
 
 echo
-echo '--- grep -R \"brave\" -n ---'
+echo '--- grep -R \"brave|kimi|moonshot\" -n ---'
 if [ \"\${#grep_targets[@]}\" -gt 0 ]; then
-  grep_cfg 'brave'
+  grep_cfg 'brave\|kimi\|moonshot'
 else
   echo 'grep_targets_empty=1'
 fi
@@ -281,8 +281,8 @@ if [ \"\${#grep_targets[@]}\" -gt 0 ]; then
 fi
 
 echo
-echo '--- printenv | grep -i brave ---'
-printenv | grep -i brave || true
+echo '--- printenv | grep -i \"brave\\|kimi\\|moonshot\" ---'
+printenv | grep -Ei 'brave|kimi|moonshot' || true
 echo
 echo '--- printenv | grep -i search ---'
 printenv | grep -i search || true
@@ -298,9 +298,9 @@ if command -v docker >/dev/null 2>&1 && docker inspect \"\$container_name\" >/de
 fi
 
 echo
-echo \"--- container env (\$container_name): brave/search/openclaw ---\"
+echo \"--- container env (\$container_name): brave/kimi/moonshot/search/openclaw ---\"
 if [ \"\$container_exists\" -eq 1 ]; then
-  printf '%s\n' \"\$container_env_raw\" | grep -i brave || true
+  printf '%s\n' \"\$container_env_raw\" | grep -Ei 'brave|kimi|moonshot' || true
   printf '%s\n' \"\$container_env_raw\" | grep -i search || true
   printf '%s\n' \"\$container_env_raw\" | grep -i openclaw || true
   echo
@@ -331,8 +331,8 @@ echo '--- Конфиги web.search ---'
 for cfg in \"\${found_cfgs[@]}\"; do
   provider_now=\"\$(jq -r '.tools.web.search.provider // empty' \"\$cfg\" 2>/dev/null || true)\"
   enabled_now=\"\$(jq -r '.tools.web.search.enabled // empty' \"\$cfg\" 2>/dev/null || true)\"
-  brave_key_cfg=\"\$(jq -r '.tools.web.search.brave.apiKey // empty' \"\$cfg\" 2>/dev/null || true)\"
-  echo \"config_file=\$cfg provider=\${provider_now:-<empty>} enabled=\${enabled_now:-<empty>} brave_key_in_cfg=\$( [ -n \"\$brave_key_cfg\" ] && echo yes || echo no )\"
+  legacy_provider_cfg=\"\$(jq -r 'if (.tools.web.search.brave // null) != null or (.tools.web.search.kimi // null) != null or (.tools.web.search.moonshot // null) != null then \"yes\" else \"no\" end' \"\$cfg\" 2>/dev/null || true)\"
+  echo \"config_file=\$cfg provider=\${provider_now:-<empty>} enabled=\${enabled_now:-<empty>} legacy_provider_blocks=\${legacy_provider_cfg:-no}\"
 done
 
 if [ \"\$mode\" = 'inspect' ]; then
@@ -350,25 +350,16 @@ for cfg in \"\${found_cfgs[@]}\"; do
   cp -a \"\$cfg\" \"\$backup\"
 
   tmp=\"\$(mktemp)\"
-  if [ \"\$provider_target\" = 'duckduckgo' ] || [ \"\$provider_target\" = 'ddg' ]; then
-    jq '
-      .tools = (.tools // {}) |
-      .tools.web = (.tools.web // {}) |
-      .tools.web.search = (.tools.web.search // {}) |
-      .tools.web.search.enabled = true |
-      del(.tools.web.search.provider) |
-      del(.tools.web.search.brave.apiKey)
-    ' \"\$cfg\" > \"\$tmp\"
-  else
-    jq --arg provider \"\$provider_target\" '
-      .tools = (.tools // {}) |
-      .tools.web = (.tools.web // {}) |
-      .tools.web.search = (.tools.web.search // {}) |
-      .tools.web.search.enabled = true |
-      .tools.web.search.provider = \$provider |
-      del(.tools.web.search.brave.apiKey)
-    ' \"\$cfg\" > \"\$tmp\"
-  fi
+  jq --arg provider \"\${provider_target:-duckduckgo}\" '
+    .tools = (.tools // {}) |
+    .tools.web = (.tools.web // {}) |
+    .tools.web.search = (.tools.web.search // {}) |
+    .tools.web.search.enabled = true |
+    .tools.web.search.provider = (if (\$provider == \"\" or \$provider == \"auto\" or \$provider == \"default\") then \"duckduckgo\" else \$provider end) |
+    del(.tools.web.search.brave) |
+    del(.tools.web.search.kimi) |
+    del(.tools.web.search.moonshot)
+  ' \"\$cfg\" > \"\$tmp\"
   jq -e . \"\$tmp\" >/dev/null
   mv \"\$tmp\" \"\$cfg\"
   [ -n \"\$owner_group\" ] && chown \"\$owner_group\" \"\$cfg\" || true
@@ -382,8 +373,8 @@ for cfg in \"\${found_cfgs[@]}\"; do
 done
 
 echo
-echo '--- Очистка BRAVE_API_KEY / SEARCH_PROVIDER=brave в env-файлах ---'
-mapfile -t env_files < <(grep -RIl -E '(^|[[:space:]])(BRAVE_API_KEY|SEARCH_PROVIDER|search_provider)[[:space:]]*[:=]' /etc/openclaw /opt/openclaw /root/.openclaw 2>/dev/null || true)
+echo '--- Очистка BRAVE/KIMI/MOONSHOT и legacy SEARCH_PROVIDER в env-файлах ---'
+mapfile -t env_files < <(grep -RIl -E '(^|[[:space:]])(BRAVE_API_KEY|KIMI_API_KEY|MOONSHOT_API_KEY|SEARCH_PROVIDER|search_provider)[[:space:]]*[:=]' /etc/openclaw /opt/openclaw /root/.openclaw 2>/dev/null || true)
 echo \"env_files_found=\${#env_files[@]}\"
 edited_env_files=0
 for f in \"\${env_files[@]}\"; do
@@ -394,6 +385,8 @@ for f in \"\${env_files[@]}\"; do
   tmp=\"\$(mktemp)\"
   perl -0pe '
     s/^[ \t]*BRAVE_API_KEY[ \t]*[:=].*\n//mg;
+    s/^[ \t]*KIMI_API_KEY[ \t]*[:=].*\n//mg;
+    s/^[ \t]*MOONSHOT_API_KEY[ \t]*[:=].*\n//mg;
     s/^[ \t]*SEARCH_PROVIDER[ \t]*[:=].*\n//mg;
     s/^[ \t]*search_provider[ \t]*[:=].*\n//mg;
   ' \"\$f\" > \"\$tmp\"
@@ -409,62 +402,60 @@ done
 echo \"env_files_edited=\$edited_env_files\"
 
 echo
-echo '--- Проверка runtime web_search (duckduckgo support) ---'
+echo '--- Проверка runtime web_search (OpenAI fallback support) ---'
 if [ \"\$container_exists\" -eq 1 ]; then
-  host_supports_duck=0
-  src_supports_duck=0
-  dist_supports_duck=0
-  container_supports_build=0
-  host_src_web_search='/opt/openclaw/src/agents/tools/web-search.ts'
-  container_root=\"\$(docker exec \"\$container_name\" sh -lc 'p=\$(command -v openclaw 2>/dev/null || true); if [ -n \"\$p\" ]; then readlink -f \"\$p\" | xargs dirname; fi' 2>/dev/null || true)\"
-  container_src_web_search=\"\${container_root}/src/agents/tools/web-search.ts\"
-  container_src_dir=\"\$(dirname \"\$container_src_web_search\")\"
-  container_dist_glob=\"\${container_root}/dist/redact-snapshot-*.js\"
-  container_package_json=\"\${container_root}/package.json\"
+  host_dist_root='/opt/openclaw/dist'
+  host_supports_openai=0
+  container_supports_openai=0
+  container_ready=0
+  for i in \$(seq 1 20); do
+    container_state=\"\$(docker inspect --format '{{.State.Status}} {{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' \"\$container_name\" 2>/dev/null || true)\"
+    echo \"runtime_probe_\${i}=\${container_state}\"
+    container_status=\"\$(printf '%s' \"\$container_state\" | awk '{print \$1}')\"
+    if [ \"\$container_status\" = 'running' ]; then
+      container_ready=1
+      break
+    fi
+    sleep 2
+  done
+  container_root='/app'
+  if [ \"\$container_ready\" -eq 1 ]; then
+    container_root=\"\$(docker exec \"\$container_name\" sh -lc 'if [ -d /app/dist ]; then printf /app; exit 0; fi; p=\$(command -v openclaw 2>/dev/null || true); if [ -n \"\$p\" ]; then readlink -f \"\$p\" | xargs dirname; fi' 2>/dev/null || printf /app)\"
+  fi
+  container_dist_dir=\"\${container_root}/dist\"
 
-  if [ -f \"\$host_src_web_search\" ] && grep -nE 'SEARCH_PROVIDERS.*duckduckgo' \"\$host_src_web_search\" >/dev/null 2>&1; then
-    host_supports_duck=1
+  if [ -d \"\$host_dist_root\" ] && grep -RInE 'OPENAI_RESPONSES_ENDPOINT|resolveOpenAiSearchApiKey' \"\$host_dist_root\" >/dev/null 2>&1; then
+    host_supports_openai=1
   fi
 
-  if docker exec \"\$container_name\" sh -lc \"[ -f '\$container_src_web_search' ] && grep -nE 'SEARCH_PROVIDERS.*duckduckgo' '\$container_src_web_search' >/dev/null 2>&1\"; then
-    src_supports_duck=1
-  fi
-
-  if docker exec \"\$container_name\" sh -lc \"grep -RInE 'tools\\.web\\.search\\.provider.*duckduckgo' \$container_dist_glob >/dev/null 2>&1\"; then
-    dist_supports_duck=1
-  fi
-
-  if docker exec \"\$container_name\" sh -lc \"[ -f '\$container_package_json' ]\"; then
-    container_supports_build=1
+  if [ \"\$container_ready\" -eq 1 ] && [ -n \"\$container_dist_dir\" ] && docker exec \"\$container_name\" sh -lc \"[ -d '\$container_dist_dir' ] && grep -RInE 'OPENAI_RESPONSES_ENDPOINT|resolveOpenAiSearchApiKey' '\$container_dist_dir' >/dev/null 2>&1\"; then
+    container_supports_openai=1
   fi
 
   echo \"container_root=\${container_root:-<unknown>}\"
-  echo \"host_supports_duck=\$host_supports_duck\"
-  echo \"src_supports_duck=\$src_supports_duck\"
-  echo \"dist_supports_duck=\$dist_supports_duck\"
-  echo \"container_supports_build=\$container_supports_build\"
+  echo \"container_dist_dir=\${container_dist_dir:-<unknown>}\"
+  echo \"host_supports_openai=\$host_supports_openai\"
+  echo \"container_supports_openai=\$container_supports_openai\"
 
-  if [ \"\$src_supports_duck\" -eq 0 ] && [ \"\$host_supports_duck\" -eq 1 ] && [ -n \"\$container_root\" ]; then
-    echo 'runtime_sync=copy_host_web-search.ts_to_container'
-    docker exec \"\$container_name\" sh -lc \"mkdir -p '\$container_src_dir'\"
-    docker cp \"\$host_src_web_search\" \"\$container_name:\$container_src_web_search\"
-    src_supports_duck=1
+  if [ \"\$host_supports_openai\" -ne 1 ]; then
+    echo 'ОШИБКА: host dist не содержит OpenAI web_search fallback' >&2
+    exit 1
   fi
 
-  if [ \"\$src_supports_duck\" -eq 1 ] && [ \"\$dist_supports_duck\" -eq 0 ] && [ \"\$container_supports_build\" -eq 1 ]; then
-    echo 'rebuild_reason=dist_outdated_for_duckduckgo'
-    build_log=\"\$(mktemp)\"
-    set +e
-    docker exec \"\$container_name\" sh -lc \"cd '\$container_root' && if command -v pnpm >/dev/null 2>&1; then pnpm build; else npm run build; fi\" >\"\$build_log\" 2>&1
-    build_rc=\$?
-    set -e
-    echo \"rebuild_rc=\$build_rc\"
-    if [ \"\$build_rc\" -ne 0 ]; then
-      echo 'ОШИБКА: rebuild OpenClaw внутри контейнера завершился ошибкой' >&2
-      tail -n 220 \"\$build_log\" || true
+  if [ \"\$container_ready\" -eq 1 ] && [ \"\$container_supports_openai\" -eq 0 ] && [ -n \"\$container_dist_dir\" ]; then
+    sync_stamp=\"\$(date '+%Y%m%d_%H%M%S_%Z')\"
+    backup_path=\"/root/openclaw-dist-backup.\${sync_stamp}.tgz\"
+    echo \"runtime_sync=copy_host_dist_to_container backup=\${backup_path}\"
+    docker exec -u 0 \"\$container_name\" sh -lc \"cd '\$container_root' && tar -czf /tmp/openclaw-dist-backup.tgz dist\"
+    docker cp \"\$container_name:/tmp/openclaw-dist-backup.tgz\" \"\$backup_path\"
+    docker exec -u 0 \"\$container_name\" sh -lc \"rm -rf '\$container_dist_dir' && mkdir -p '\$container_dist_dir'\"
+    docker cp \"\$host_dist_root/.\" \"\$container_name:\$container_dist_dir/\"
+    docker exec -u 0 \"\$container_name\" sh -lc \"chown -R node:node '\$container_dist_dir'\"
+
+    if ! docker exec \"\$container_name\" sh -lc \"grep -RInE 'OPENAI_RESPONSES_ENDPOINT|resolveOpenAiSearchApiKey' '\$container_dist_dir' >/dev/null 2>&1\"; then
+      echo 'ОШИБКА: после синхронизации container dist не содержит OpenAI web_search fallback' >&2
       exit 1
     fi
-    tail -n 80 \"\$build_log\" || true
   fi
 else
   echo 'runtime_check_skipped=container_absent'
@@ -514,14 +505,14 @@ echo \"restart_method=\$restart_method\"
 
 echo
 echo '--- Тест web_search(\"latest AI news\") ---'
-agent_prompt=\"Сделай web_search по запросу: \${search_query}. Верни только provider и 3 URL. Обязательно используй tool web_search.\"
+agent_prompt=\"Сделай web_search по запросу: \${search_query}. Обязательно используй tool web_search. Верни только provider и одну короткую найденную деталь.\"
 agent_out=\"\$(mktemp)\"
 set +e
 if [ \"\$container_exists\" -eq 1 ]; then
-  docker exec \"\$container_name\" openclaw agent --to +10000000001 --message \"\$agent_prompt\" --json --timeout 180 >\"\$agent_out\" 2>&1
+  docker exec \"\$container_name\" openclaw agent --agent main --to +10000000001 --message \"\$agent_prompt\" --json --timeout 180 >\"\$agent_out\" 2>&1
   agent_rc=\$?
 else
-  openclaw agent --to +10000000001 --message \"\$agent_prompt\" --json --timeout 180 >\"\$agent_out\" 2>&1
+  openclaw agent --agent main --to +10000000001 --message \"\$agent_prompt\" --json --timeout 180 >\"\$agent_out\" 2>&1
   agent_rc=\$?
 fi
 set -e
@@ -538,39 +529,48 @@ if [ -z \"\$agent_json\" ]; then
   agent_json=\"\$(cat \"\$agent_out\")\"
 fi
 
-if printf '%s\n' \"\$agent_json\" | grep -qi 'missing_brave_api_key'; then
-  echo 'ОШИБКА: web_search вернул missing_brave_api_key после фикса' >&2
+if printf '%s\n' \"\$agent_json\" | grep -Eqi 'missing_brave_api_key|missing_kimi_api_key|missing_moonshot_api_key'; then
+  echo 'ОШИБКА: web_search вернул ошибку legacy provider key после фикса' >&2
   printf '%s\n' \"\$agent_json\" | sed -n '1,200p'
   exit 1
 fi
 
-if ! printf '%s\n' \"\$agent_json\" | grep -qi 'web_search'; then
-  echo 'ОШИБКА: openclaw agent не вызвал tool web_search в тестовом прогоне' >&2
+if printf '%s\n' \"\$agent_json\" | grep -qi 'missing_openai_api_key'; then
+  echo 'ОШИБКА: web_search вернул missing_openai_api_key после фикса' >&2
   printf '%s\n' \"\$agent_json\" | sed -n '1,200p'
   exit 1
 fi
 
-provider_seen=\"\$(printf '%s\n' \"\$agent_json\" | jq -r '.. | .provider? // empty' 2>/dev/null | grep -E 'duckduckgo|brave|perplexity|grok|gemini|kimi' | head -n1 || true)\"
-urls_from_json=\"\$(printf '%s\n' \"\$agent_json\" | jq -r '.. | .url? // empty' 2>/dev/null | sed '/^$/d' | head -n 5 || true)\"
-if [ -z \"\$urls_from_json\" ]; then
-  urls_from_json=\"\$(printf '%s\n' \"\$agent_json\" | grep -Eo 'https?://[^\"[:space:]]+' | head -n 5 || true)\"
+provider_seen=\"\$(printf '%s\n' \"\$agent_json\" | jq -r '.. | .provider? // empty' 2>/dev/null | grep -E 'duckduckgo' | head -n1 || true)\"
+payload_preview=\"\$(printf '%s\n' \"\$agent_json\" | jq -r '(.result.payloads[]?.text // empty), (.payloads[]?.text // empty)' 2>/dev/null | sed '/^$/d' | head -n1 || true)\"
+if [ -z \"\$provider_seen\" ]; then
+  echo 'ОШИБКА: smoke-тест не смог определить provider web_search' >&2
+  printf '%s\n' \"\$agent_json\" | sed -n '1,220p'
+  exit 1
 fi
-if [ -z \"\$urls_from_json\" ]; then
-  echo 'ОШИБКА: web_search не вернул валидные ссылки в ответе агента' >&2
+
+if [ -n \"\$provider_target\" ] && [ \"\$provider_target\" != 'auto' ] && [ \"\$provider_target\" != 'default' ] && [ \"\$provider_seen\" != \"\$provider_target\" ]; then
+  echo \"ОШИБКА: smoke-тест вернул provider=\${provider_seen}, ожидался \${provider_target}\" >&2
+  printf '%s\n' \"\$agent_json\" | sed -n '1,220p'
+  exit 1
+fi
+
+if [ -z \"\$payload_preview\" ]; then
+  echo 'ОШИБКА: smoke-тест вернул пустой payload' >&2
   printf '%s\n' \"\$agent_json\" | sed -n '1,220p'
   exit 1
 fi
 
 echo \"web_search_test_provider=\${provider_seen:-<unknown>}\"
 echo 'web_search_test_status=ok'
-echo 'web_search_test_urls_begin'
-printf '%s\n' \"\$urls_from_json\"
-echo 'web_search_test_urls_end'
+echo 'web_search_test_payload_begin'
+printf '%s\n' \"\$payload_preview\"
+echo 'web_search_test_payload_end'
 
 if [ \"\$container_exists\" -eq 1 ]; then
-  if docker logs --since \"\$restart_since\" --tail 300 \"\$container_name\" 2>&1 | grep -qi 'missing_brave_api_key'; then
-    echo 'ОШИБКА: в логах после рестарта найден missing_brave_api_key' >&2
-    docker logs --since \"\$restart_since\" --tail 300 \"\$container_name\" 2>&1 | grep -i 'missing_brave_api_key' || true
+  if docker logs --since \"\$restart_since\" --tail 300 \"\$container_name\" 2>&1 | grep -Eqi 'missing_brave_api_key|missing_kimi_api_key|missing_moonshot_api_key'; then
+    echo 'ОШИБКА: в логах после рестарта найдена ошибка legacy provider key' >&2
+    docker logs --since \"\$restart_since\" --tail 300 \"\$container_name\" 2>&1 | grep -Ei 'missing_brave_api_key|missing_kimi_api_key|missing_moonshot_api_key' || true
     exit 1
   fi
 fi

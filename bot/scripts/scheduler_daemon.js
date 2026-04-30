@@ -1,12 +1,25 @@
 import { createBotModules } from "../src/index.js";
 import { createDaemonScheduler } from "../src/scheduler/daemonScheduler.js";
 import { createTelegramTransport } from "../src/services/telegramTransport.js";
+import {
+  buildTelegramRoutingConfig,
+  resolveTelegramChatId
+} from "../src/services/telegramTargets.js";
 
 function resolveTarget(env) {
+  const routing = buildTelegramRoutingConfig(env);
   const userId = String(env.TELEGRAM_OWNER_ID || env.JOBS_USER_ID || "").trim();
-  const chatId = String(env.TELEGRAM_CHAT_ID || env.JOBS_CHAT_ID || "").trim();
+  const chatId = resolveTelegramChatId({
+    chatId: String(env.JOBS_CHAT_ID || env.TELEGRAM_CHAT_ID || "").trim(),
+    chatAlias: String(env.JOBS_CHAT_ALIAS || env.TELEGRAM_DEFAULT_CHAT_ALIAS || "").trim(),
+    defaultChatId: routing.defaultChatId,
+    targets: routing.targets,
+    allowedChatIds: routing.allowedChatIds
+  });
   if (!userId || !chatId) {
-    throw new Error("Не заданы TELEGRAM_OWNER_ID/TELEGRAM_CHAT_ID (или JOBS_USER_ID/JOBS_CHAT_ID)");
+    throw new Error(
+      "Не заданы TELEGRAM_OWNER_ID и Telegram target (TELEGRAM_CHAT_ID, TELEGRAM_TARGETS + JOBS_CHAT_ALIAS или JOBS_CHAT_ID)"
+    );
   }
   return { userId, chatId };
 }

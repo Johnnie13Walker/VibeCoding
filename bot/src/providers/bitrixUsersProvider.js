@@ -1,3 +1,5 @@
+import { isBitrixAppNotConfiguredError, listBitrixMethod } from "./bitrixAppState.js";
+
 const TERMINATED_KEYS = [
   "UF_EMPLOYMENT_DATE",
   "UF_DISMISSAL_DATE",
@@ -55,7 +57,20 @@ function isActiveEmployee(user) {
   return true;
 }
 
-async function callBitrixListUsers({ bitrixBaseUrl, bitrixToken, timeoutMs = 9000 }) {
+function buildBitrixUsersUrl({ bitrixWebhookUrl, bitrixBaseUrl, bitrixToken, start }) {
+  if (bitrixWebhookUrl) {
+    const url = new URL(`${String(bitrixWebhookUrl).replace(/\/$/, "")}/user.get.json`);
+    url.searchParams.set("start", String(start));
+    return url;
+  }
+
+  const url = new URL(`${String(bitrixBaseUrl).replace(/\/$/, "")}/rest/user.get.json`);
+  url.searchParams.set("auth", String(bitrixToken));
+  url.searchParams.set("start", String(start));
+  return url;
+}
+
+async function callBitrixListUsers({ bitrixWebhookUrl, bitrixBaseUrl, bitrixToken, timeoutMs = 9000 }) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   const users = [];
@@ -63,27 +78,21 @@ async function callBitrixListUsers({ bitrixBaseUrl, bitrixToken, timeoutMs = 900
 
   try {
     while (true) {
-      const url = new URL(`${bitrixBaseUrl.replace(/\/$/, "")}/rest/user.get.json`);
-      url.searchParams.set("auth", bitrixToken);
-      url.searchParams.set("start", String(start));
-
+      const url = buildBitrixUsersUrl({ bitrixWebhookUrl, bitrixBaseUrl, bitrixToken, start });
       const res = await fetch(url, { signal: controller.signal });
       if (!res.ok) {
-        throw new Error(`Bitrix HTTP ${res.status}`);
+        throw new Error(`Bitrix users HTTP ${res.status}`);
       }
-      const body = await res.json();
-      if (body.error) {
-        throw new Error(`Bitrix error: ${body.error_description || body.error}`);
-      }
-
-      const chunk = Array.isArray(body.result) ? body.result : [];
-      users.push(...chunk);
-
-      const next = body.next;
-      if (next === undefined || next === null || Number(next) <= start || chunk.length === 0) {
+      const payload = await res.json();
+      const batch = Array.isArray(payload?.result) ? payload.result : [];
+      users.push(...batch);
+      if (!payload?.next || batch.length === 0) {
         break;
       }
-      start = Number(next);
+      start = Number(payload.next || 0);
+      if (!Number.isFinite(start) || start <= 0) {
+        break;
+      }
     }
   } finally {
     clearTimeout(timer);
@@ -102,19 +111,57 @@ export function createBitrixUsersProvider({ config, logger = console }) {
         return { status: "ok", users, source: "fixture" };
       }
 
-      if (!config.bitrixBaseUrl || !config.bitrixToken) {
+      const hasAppAuth = Boolean(config.bitrixAppStateDir || config.bitrixAppInstallStateFile);
+      const hasWebhookFallback = Boolean(
+        config.bitrixWebhookUrl || (config.bitrixBaseUrl && config.bitrixToken)
+      );
+
+      if (!hasAppAuth && !hasWebhookFallback) {
         return { status: "not_configured", users: [] };
       }
 
       try {
-        const rawUsers = await callBitrixListUsers({
-          bitrixBaseUrl: config.bitrixBaseUrl,
-          bitrixToken: config.bitrixToken
-        });
+        let rawUsers;
+        let source = "bitrix_app";
+        if (hasAppAuth) {
+          rawUsers = await listBitrixMethod({
+            config,
+            method: "user.get"
+          });
+        } else {
+          rawUsers = await callBitrixListUsers({
+            bitrixWebhookUrl: config.bitrixWebhookUrl,
+            bitrixBaseUrl: config.bitrixBaseUrl,
+            bitrixToken: config.bitrixToken,
+            timeoutMs: config.bitrixTimeoutMs
+          });
+          source = "bitrix_webhook";
+        }
         const users = rawUsers.map(normalizeBitrixUser).filter(isActiveEmployee);
-        return { status: "ok", users, source: "bitrix" };
+        return { status: "ok", users, source };
       } catch (error) {
-        logger.error?.("[bitrixUsersProvider] listActiveUsers failed", error);
+        if (hasAppAuth && isBitrixAppNotConfiguredError(error) && hasWebhookFallback) {
+          try {
+            const rawUsers = await callBitrixListUsers({
+              bitrixWebhookUrl: config.bitrixWebhookUrl,
+              bitrixBaseUrl: config.bitrixBaseUrl,
+              bitrixToken: config.bitrixToken,
+              timeoutMs: config.bitrixTimeoutMs
+            });
+            const users = rawUsers.map(normalizeBitrixUser).filter(isActiveEmployee);
+            return { status: "ok", users, source: "bitrix_webhook" };
+          } catch (fallbackError) {
+            logger.error?.(
+              "[bitrixUsersProvider] fallback listActiveUsers failed",
+              String(fallbackError?.message || fallbackError)
+            );
+            return { status: "error", users: [], error: String(fallbackError?.message || fallbackError) };
+          }
+        }
+        if (hasAppAuth && isBitrixAppNotConfiguredError(error)) {
+          return { status: "not_configured", users: [] };
+        }
+        logger.error?.("[bitrixUsersProvider] listActiveUsers failed", String(error?.message || error));
         return { status: "error", users: [], error: String(error?.message || error) };
       }
     }

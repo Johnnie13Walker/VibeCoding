@@ -1,14 +1,5 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
-echo "Updating repository..."
-git pull origin dev
-
-echo "Restarting services..."
-
-if command -v docker >/dev/null 2>&1; then
-    docker compose down || true
-    docker compose up -d --build
-fi
-
-echo "Deploy complete."
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+exec "$ROOT_DIR/devops/deploy.sh" "$@"

@@ -138,9 +138,6 @@ send_telegram_status() {
   echo
 } >"$DAILY_REPORT"
 
-run_step "vpn_verify" "Проверка VPN" bash "$ROOT_DIR/checks/vpn_verify.sh"
-run_step "vpn_smoke" "Smoke Happ subscription" bash "$ROOT_DIR/checks/vpn_smoke_happ.sh"
-run_step "morning_report" "Формирование утреннего VPN отчета" bash "$ROOT_DIR/checks/morning_health_report.sh"
 run_step "whoop_morning_report" "Проверка свежести утреннего WHOOP отчета" \
   bash "$ROOT_DIR/infra/orchestrator/workflows/whoop_morning_report_check.sh"
 run_step "context_contract" "Проверка актуальности контракта контекста" \
@@ -148,7 +145,7 @@ run_step "context_contract" "Проверка актуальности конт�
 run_step "instruction_conflicts" "Проверка конфликтов инструкций" \
   bash "$ROOT_DIR/checks/instruction_conflicts.sh"
 run_step "integrations_verify" "Проверка интеграций и bot smoke" \
-  env ENV_FILE="$ENV_INTEGRATIONS_FILE" bash "$ROOT_DIR/scripts/verify_integrations.sh" "$INTEGRATIONS_REPORT_DIR"
+  env ENV_FILE="$ENV_INTEGRATIONS_FILE" bash "$ROOT_DIR/scripts/verify_live_integrations.sh" "$INTEGRATIONS_REPORT_DIR"
 
 INTEGRATIONS_REPORT_FILE="$(ls -1t "$INTEGRATIONS_REPORT_DIR"/health_*_MSK.txt 2>/dev/null | head -n1 || true)"
 

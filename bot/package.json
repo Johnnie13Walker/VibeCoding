@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node ./tests/smoke.test.js",
+    "test": "node ./tests/smoke.test.js && node ./tests/bitrix_app_state.test.js",
     "smoke:notifications": "node ./scripts/smoke_notifications.js",
     "jobs:run-once": "node ./scripts/run_jobs_once.js",
     "scheduler:daemon": "node ./scripts/scheduler_daemon.js"

@@ -50,14 +50,13 @@ collect_sensitive_candidates() {
       -not -path './venv/*' \
       -not -path './reports/*' \
       -not -name '*.example' || true
-    find . -type f -path './infra/happ-vpn.env' || true
   } | sed 's#^\./##' | sort -u
 }
 
 extract_env_names() {
   {
     rg -n --no-filename --no-messages '^[A-Z][A-Z0-9_]*=' .env* || true
-    rg -n --no-filename --no-messages '(OPENAI_API_KEY|TELEGRAM_BOT_TOKEN|BITRIX_TOKEN|WHOOP_TOKEN|BRAVE_API_KEY|TODOIST|VPN|API_KEY|TOKEN|SECRET)' "${SEARCH_DIRS[@]}" || true
+    rg -n --no-filename --no-messages '(OPENAI_API_KEY|TELEGRAM_BOT_TOKEN|BITRIX_CLIENT_ID|BITRIX_CLIENT_SECRET|BITRIX_OAUTH_TOKEN_URL|WHOOP_TOKEN|TODOIST|API_KEY|TOKEN|SECRET)' "${SEARCH_DIRS[@]}" || true
   } | sed -E 's/^([A-Z][A-Z0-9_]*)=.*/\1/' \
     | rg '^[A-Z][A-Z0-9_]*$' \
     | sort -u || true
@@ -105,14 +104,16 @@ write_env_example() {
     echo "# Шаблон переменных окружения (без значений)"
     echo "OPENAI_API_KEY="
     echo "TELEGRAM_BOT_TOKEN="
-    echo "BITRIX_TOKEN="
+    echo "BITRIX_APP_STATE_DIR="
+    echo "BITRIX_CLIENT_ID="
+    echo "BITRIX_CLIENT_SECRET="
+    echo "BITRIX_OAUTH_TOKEN_URL="
     echo "WHOOP_TOKEN="
-    echo "BRAVE_API_KEY="
     if [[ -n "$vars" ]]; then
       while IFS= read -r v; do
         [[ -z "$v" ]] && continue
         case "$v" in
-          OPENAI_API_KEY|TELEGRAM_BOT_TOKEN|BITRIX_TOKEN|WHOOP_TOKEN|BRAVE_API_KEY) continue ;;
+          OPENAI_API_KEY|TELEGRAM_BOT_TOKEN|BITRIX_APP_STATE_DIR|BITRIX_CLIENT_ID|BITRIX_CLIENT_SECRET|BITRIX_OAUTH_TOKEN_URL|WHOOP_TOKEN) continue ;;
         esac
         echo "$v="
       done <<< "$vars"
