@@ -91,8 +91,13 @@ class SalesDispatchContractTests(unittest.TestCase):
                 check=False,
                 timeout=30,
             )
+            reports = sorted(Path(tmp_dir).glob("sales_followup_*.txt"))
+            report_text = reports[0].read_text(encoding="utf-8") if reports else ""
 
         self.assertEqual(completed.returncode, 0, completed.stderr + completed.stdout)
+        self.assertEqual(len(reports), 1)
+        self.assertIn("Контроль до конца дня", report_text)
+        self.assertNotIn("Фокус РОПа", report_text)
 
     def test_weekly_workflow_passes_dry_run_format_validation(self) -> None:
         with tempfile.TemporaryDirectory(prefix="sales-weekly-workflow-") as tmp_dir:

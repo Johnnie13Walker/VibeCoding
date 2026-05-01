@@ -35,6 +35,7 @@ from .report_contract import SALES_RUNTIME_REPORT_TYPES, sales_followup_report_t
 from .risk_detector import detect_risks
 from .sales_formatter import (
     format_focus_sales_report,
+    format_followup_report,
     format_pipeline_report,
     format_risks_report,
     format_sales_brief,
@@ -580,6 +581,8 @@ class SalesAgent:
                 risk_report,
                 communications_summary=communications_summary,
             )
+        if report_type == "followup":
+            return format_followup_report(analysis, risk_report)
         return format_weekly_review(
             analysis,
             risk_report,

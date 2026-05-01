@@ -37,6 +37,7 @@ MOCK_TEXT = {
     "pipeline": "📊 Pipeline\n\nMOCK pipeline report",
     "risks": "🚨 Риски по продажам\n\nMOCK risks report",
     "focus": "🎯 Фокус РОПа\n\nMOCK focus report",
+    "followup": "📌 Контроль до конца дня\n\nMOCK follow-up report",
     "weekly": "🗓 Еженедельный отчёт Льва Петровича\n\nMOCK weekly report",
     "bitrixcheck": "Bitrix connection: OK\n\nДоступно:\n- сделки\n- встречи\n- брифы\n- задачи\n\nWazzup API: OK (channels, webhooks)\nWazzup история: История диалогов считается из webhook archive; документированный read-only endpoint dialogs/messages не подтвержден\nWazzup диалоги: OK (45 payloads; вчера dialogs=21, messages=64; latest=19.03 23:10)",
 }

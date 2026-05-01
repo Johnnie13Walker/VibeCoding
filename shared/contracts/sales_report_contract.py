@@ -7,7 +7,7 @@ from typing import Final
 SALES_PRIMARY_REPORT: Final[str] = "sales"
 SALES_FOLLOWUP_REPORTS: Final[tuple[str, ...]] = ("risks", "focus")
 SALES_DISPATCH_SEQUENCE: Final[tuple[str, ...]] = (SALES_PRIMARY_REPORT, *SALES_FOLLOWUP_REPORTS)
-SALES_RUNTIME_REPORT_TYPES: Final[frozenset[str]] = frozenset({"sales", "pipeline", "risks", "focus", "weekly"})
+SALES_RUNTIME_REPORT_TYPES: Final[frozenset[str]] = frozenset({"sales", "pipeline", "risks", "focus", "followup", "weekly"})
 
 
 def sales_dispatch_sequence(report_type: str) -> tuple[str, ...]:

@@ -21,6 +21,10 @@ REPORT_FORMATS: dict[str, dict[str, str]] = {
         "template_id": "lev_petrovich.rop_focus.daily_v2",
         "headline": "🎯 Фокус РОПа",
     },
+    "followup": {
+        "template_id": "lev_petrovich.sales_followup.daily_v1",
+        "headline": "📌 Контроль до конца дня",
+    },
     "weekly": {
         "template_id": "lev_petrovich.sales_weekly.v1",
         "headline": "📊 Отчёт Льва Петровича по продажам",
@@ -52,6 +56,11 @@ REPORT_REQUIRED_MARKERS: dict[str, list[str]] = {
         "Без следующего шага",
         "Без коммуникации > 14 дн.",
         "Сделки с просрочками",
+    ],
+    "followup": [
+        "📌 Контроль до конца дня",
+        "Что ещё висит",
+        "Что требует реакции до конца дня",
     ],
     "weekly": [
         "📊 Отчёт Льва Петровича по продажам",

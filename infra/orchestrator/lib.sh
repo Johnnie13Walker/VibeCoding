@@ -95,6 +95,7 @@ agents/__init__.py
 agents/larisa_ivanovna
 agents/lev_petrovich
 agents/sales_agent
+apps/lev_petrovich
 cloudbot/__init__.py
 cloudbot/business_day.py
 cloudbot/compat
@@ -117,6 +118,8 @@ infra/orchestrator/workflows/sales_morning_report.sh
 infra/orchestrator/workflows/sales_morning_report_check.sh
 infra/orchestrator/workflows/sales_weekly_review.sh
 scripts/run_sales_copilot.py
+shared/contracts
+shared/time
 EOF
 }
 
