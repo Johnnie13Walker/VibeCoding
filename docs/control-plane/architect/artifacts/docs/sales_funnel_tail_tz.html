@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ТЗ по хвосту воронки продаж для Bitrix24</title>
+  <style>
+    :root {
+      --bg: #f2f5f9;
+      --paper: rgba(255, 255, 255, 0.9);
+      --paper-strong: #ffffff;
+      --ink: #16202b;
+      --muted: #607286;
+      --line: #d7e0ea;
+      --accent: #0f766e;
+      --accent-soft: #d8f0eb;
+      --secondary: #1d4ed8;
+      --secondary-soft: #dbe8ff;
+      --warning: #b45309;
+      --warning-soft: #fde7c7;
+      --danger: #b91c1c;
+      --danger-soft: #fee2e2;
+      --shadow: 0 22px 54px rgba(15, 23, 42, 0.12);
+      --radius: 24px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Avenir Next", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(15, 118, 110, 0.14), transparent 32%),
+        radial-gradient(circle at top right, rgba(29, 78, 216, 0.11), transparent 28%),
+        linear-gradient(180deg, #eef3f8 0%, var(--bg) 100%);
+    }
+
+    .page {
+      width: min(1440px, calc(100vw - 32px));
+      margin: 24px auto 56px;
+    }
+
+    .hero,
+    .panel {
+      background: var(--paper);
+      border: 1px solid rgba(215, 224, 234, 0.9);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+
+    .hero {
+      padding: 34px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      right: -80px;
+      top: -100px;
+      width: 320px;
+      height: 320px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(15, 118, 110, 0.18), transparent 70%);
+      pointer-events: none;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    h1,
+    h2,
+    h3 {
+      margin: 0;
+      letter-spacing: -0.03em;
+    }
+
+    h1 {
+      margin-top: 18px;
+      font-size: clamp(34px, 5vw, 58px);
+      line-height: 0.95;
+      max-width: 900px;
+    }
+
+    .lead {
+      margin: 18px 0 0;
+      max-width: 920px;
+      color: var(--muted);
+      font-size: 18px;
+      line-height: 1.6;
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 24px;
+    }
+
+    .meta-item {
+      padding: 10px 14px;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.78);
+      border: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+      gap: 20px;
+      margin-top: 20px;
+    }
+
+    .panel {
+      padding: 24px;
+    }
+
+    .span-12 { grid-column: span 12; }
+    .span-8 { grid-column: span 8; }
+    .span-7 { grid-column: span 7; }
+    .span-6 { grid-column: span 6; }
+    .span-5 { grid-column: span 5; }
+    .span-4 { grid-column: span 4; }
+
+    .panel-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      align-items: flex-start;
+      margin-bottom: 18px;
+    }
+
+    .panel-title {
+      font-size: 26px;
+      line-height: 1.1;
+    }
+
+    .panel-subtitle {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.55;
+      max-width: 720px;
+    }
+
+    .badge {
+      padding: 10px 14px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      white-space: nowrap;
+    }
+
+    .badge-current {
+      background: var(--warning-soft);
+      color: var(--warning);
+    }
+
+    .badge-target {
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+
+    .badge-action {
+      background: var(--secondary-soft);
+      color: var(--secondary);
+    }
+
+    .funnel {
+      display: flex;
+      gap: 12px;
+      overflow-x: auto;
+      padding-bottom: 6px;
+      scrollbar-width: thin;
+    }
+
+    .funnel-wrap {
+      display: grid;
+      gap: 14px;
+    }
+
+    .funnel-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .stage {
+      min-width: 170px;
+      padding: 18px;
+      border-radius: 22px;
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(246, 249, 252, 0.96));
+      position: relative;
+      flex: 1 1 190px;
+    }
+
+    .stage::after {
+      content: "→";
+      position: absolute;
+      right: -10px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #90a0b3;
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .stage:last-child::after {
+      display: none;
+    }
+
+    .funnel-row .stage:nth-child(4)::after {
+      display: none;
+    }
+
+    .funnel-row.tight .stage {
+      flex-basis: 200px;
+    }
+
+    .stage-number {
+      display: inline-flex;
+      width: 32px;
+      height: 32px;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      font-size: 13px;
+      font-weight: 800;
+      margin-bottom: 12px;
+    }
+
+    .stage.current .stage-number {
+      background: var(--warning-soft);
+      color: var(--warning);
+    }
+
+    .stage.target .stage-number {
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+
+    .stage.new {
+      border: 2px solid rgba(29, 78, 216, 0.25);
+      background: linear-gradient(180deg, #f8fbff, #eef5ff);
+    }
+
+    .stage.new .stage-number {
+      background: var(--secondary-soft);
+      color: var(--secondary);
+    }
+
+    .stage h3 {
+      font-size: 18px;
+      line-height: 1.15;
+      margin-bottom: 8px;
+    }
+
+    .stage p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .compare {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+
+    .compare-card {
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      padding: 20px;
+      background: rgba(255,255,255,0.84);
+    }
+
+    .compare-card h3 {
+      font-size: 20px;
+      margin-bottom: 12px;
+    }
+
+    .compare-card ul,
+    .checklist ul,
+    .block ul {
+      margin: 0;
+      padding-left: 20px;
+      color: var(--muted);
+      line-height: 1.65;
+    }
+
+    .block-stack {
+      display: grid;
+      gap: 16px;
+    }
+
+    .block {
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      padding: 20px;
+      background: rgba(255,255,255,0.84);
+    }
+
+    .block-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: flex-start;
+      margin-bottom: 12px;
+    }
+
+    .block h3 {
+      font-size: 22px;
+      margin-bottom: 6px;
+    }
+
+    .mini {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.55;
+      margin: 0 0 14px;
+    }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .chip {
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.92);
+      font-size: 13px;
+      color: #415365;
+      font-weight: 600;
+    }
+
+    .chip.required {
+      border-color: rgba(15, 118, 110, 0.22);
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+
+    .chip.robot {
+      border-color: rgba(29, 78, 216, 0.24);
+      background: var(--secondary-soft);
+      color: var(--secondary);
+    }
+
+    .chip.risk {
+      border-color: rgba(185, 28, 28, 0.18);
+      background: var(--danger-soft);
+      color: var(--danger);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      overflow: hidden;
+      border-radius: 18px;
+      font-size: 14px;
+    }
+
+    thead th {
+      background: #edf4fb;
+      color: #304254;
+      text-align: left;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    tbody td {
+      padding: 14px 16px;
+      border-bottom: 1px solid #e6edf5;
+      vertical-align: top;
+      line-height: 1.55;
+    }
+
+    tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    .diagram {
+      display: grid;
+      gap: 16px;
+    }
+
+    .diagram-step {
+      display: grid;
+      grid-template-columns: 96px 1fr;
+      gap: 16px;
+      align-items: start;
+      padding: 18px;
+      border-radius: 22px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.86);
+    }
+
+    .diagram-id {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 92px;
+      border-radius: 18px;
+      background: linear-gradient(180deg, #eff7f5, #d8f0eb);
+      color: var(--accent);
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-size: 14px;
+    }
+
+    .diagram-id span {
+      font-size: 28px;
+      line-height: 1;
+      margin-top: 6px;
+    }
+
+    .callout {
+      padding: 18px 20px;
+      border-radius: 22px;
+      background: linear-gradient(135deg, rgba(15, 118, 110, 0.1), rgba(29, 78, 216, 0.08));
+      border: 1px solid rgba(15, 118, 110, 0.18);
+      color: #1e3a4b;
+      line-height: 1.65;
+    }
+
+    .checklist {
+      border: 1px dashed rgba(29, 78, 216, 0.32);
+      border-radius: 22px;
+      padding: 20px;
+      background: rgba(255,255,255,0.78);
+    }
+
+    .footer-note {
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    @media (max-width: 1100px) {
+      .span-8,
+      .span-7,
+      .span-6,
+      .span-5,
+      .span-4 {
+        grid-column: span 12;
+      }
+    }
+
+    @media (max-width: 740px) {
+      .page {
+        width: min(100vw - 18px, 100%);
+        margin: 12px auto 34px;
+      }
+
+      .hero,
+      .panel {
+        border-radius: 20px;
+      }
+
+      .hero,
+      .panel {
+        padding: 18px;
+      }
+
+      .diagram-step {
+        grid-template-columns: 1fr;
+      }
+
+      .diagram-id {
+        min-height: 72px;
+      }
+
+      table,
+      thead,
+      tbody,
+      th,
+      td,
+      tr {
+        display: block;
+      }
+
+      thead {
+        display: none;
+      }
+
+      tbody td {
+        padding: 10px 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="hero">
+      <div class="eyebrow">Bitrix24 / ТЗ на внедрение</div>
+      <h1>Хвост воронки продаж: новая логика стадий, контрольные поля и автоматизация</h1>
+      <p class="lead">
+        Документ для настройки воронки <strong>Продажи</strong> в Bitrix24. Цель: сделать финальную часть сделки прозрачной,
+        убрать слепую зону между переговорами и оплатой, добавить контрольные поля и роботов без перегруза карточки.
+      </p>
+      <div class="meta">
+        <div class="meta-item">Текущая проблема: этап <strong>Подготовка договора</strong> слишком широкий</div>
+        <div class="meta-item">Новый принцип: на каждом этапе один результат и один контроль</div>
+        <div class="meta-item">Результат: видно, где зависает решение, реквизиты, договор или оплата</div>
+      </div>
+    </section>
+
+    <div class="grid">
+      <section class="panel span-12">
+        <div class="panel-head">
+          <div>
+            <h2 class="panel-title">1. Сравнение воронки: как было и как должно стать</h2>
+            <p class="panel-subtitle">
+              Сейчас хвост сделки сводится к одному слишком общему этапу. Ниже показано, как текущая структура
+              превращается в управляемую модель с контрольными точками.
+            </p>
+          </div>
+        </div>
+
+        <div class="compare">
+          <div class="compare-card">
+            <div class="badge badge-current">Текущая логика</div>
+            <div class="funnel" style="margin-top: 16px;">
+              <div class="stage current"><div class="stage-number">1</div><h3>Квалификация</h3><p>Вход в активную работу менеджера.</p></div>
+              <div class="stage current"><div class="stage-number">2</div><h3>Подготовка БРИФа</h3><p>Фиксация потребности и исходных вводных.</p></div>
+              <div class="stage current"><div class="stage-number">3</div><h3>Подготовка КП</h3><p>Формирование коммерческого предложения.</p></div>
+              <div class="stage current"><div class="stage-number">4</div><h3>Догрев и переговоры</h3><p>Созвоны, защита предложения, обсуждение условий.</p></div>
+              <div class="stage current"><div class="stage-number">5</div><h3>Подготовка договора</h3><p>Слишком широкий этап: здесь теряются решение, реквизиты, правки и счет.</p></div>
+              <div class="stage current"><div class="stage-number">6</div><h3>УСПЕХ</h3><p>Финал без нормальной детализации хвоста.</p></div>
+            </div>
+          </div>
+
+          <div class="compare-card">
+            <div class="badge badge-target">Целевая логика</div>
+            <div class="funnel-wrap" style="margin-top: 16px;">
+              <div class="funnel-row tight">
+                <div class="stage target"><div class="stage-number">1</div><h3>Квалификация</h3><p>Без изменений.</p></div>
+                <div class="stage target"><div class="stage-number">2</div><h3>Подготовка БРИФа</h3><p>Без изменений.</p></div>
+                <div class="stage target"><div class="stage-number">3</div><h3>Подготовка КП</h3><p>Без изменений.</p></div>
+                <div class="stage target"><div class="stage-number">4</div><h3>Догрев и переговоры</h3><p>Последний общий переговорный этап.</p></div>
+              </div>
+              <div class="funnel-row tight">
+                <div class="stage new"><div class="stage-number">5</div><h3>Получить решение</h3><p>Зафиксировать коммерческое yes/no/позже.</p></div>
+                <div class="stage new"><div class="stage-number">6</div><h3>Получить реквизиты</h3><p>Подтвердить плательщика и готовность к документам.</p></div>
+                <div class="stage new"><div class="stage-number">7</div><h3>Согласовать договор</h3><p>Провести договор через отправку и правки.</p></div>
+                <div class="stage new"><div class="stage-number">8</div><h3>Получить оплату</h3><p>Проконтролировать счет и факт денег.</p></div>
+                <div class="stage target"><div class="stage-number">9</div><h3>УСПЕХ</h3><p>Финал после оплаты, а не после обещания.</p></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel span-7">
+        <div class="panel-head">
+          <div>
+            <h2 class="panel-title">2. Что именно нужно внедрить</h2>
+            <p class="panel-subtitle">
+              Внедрение делается не через переписывание всей карточки сделки, а через компактный хвостовой блок контроля.
+            </p>
+          </div>
+          <div class="badge badge-action">4 новых стадии</div>
+        </div>
+
+        <div class="block-stack">
+          <div class="block">
+            <h3>Базовый сквозной контрольный блок</h3>
+            <p class="mini">Эти поля задают единый ритм контроля по всем новым этапам хвоста сделки.</p>
+            <div class="chips">
+              <div class="chip required">Результат текущего этапа</div>
+              <div class="chip required">Дата следующего контроля</div>
+              <div class="chip required">Комментарий по этапу</div>
+              <div class="chip risk">Причина стопа / отказа</div>
+            </div>
+          </div>
+
+          <div class="block">
+            <h3>Специальные контрольные поля</h3>
+            <p class="mini">Только там, где без специальных признаков этап не проконтролировать.</p>
+            <div class="chips">
+              <div class="chip required">Реквизиты получены</div>
+              <div class="chip required">Плательщик подтвержден</div>
+              <div class="chip required">Статус договора</div>
+              <div class="chip required">Счёт выставлен</div>
+              <div class="chip required">Оплата получена</div>
+              <div class="chip required">Дата оплаты</div>
+            </div>
+          </div>
+
+          <div class="callout">
+            <strong>Ключевой принцип внедрения:</strong> на каждом новом этапе есть один понятный результат,
+            одна дата контроля и одна автоматическая задача ответственному. Переход вперед разрешается только после
+            заполнения контрольного поля этапа.
+          </div>
+        </div>
+      </section>
+
+      <section class="panel span-5">
+        <div class="panel-head">
+          <div>
+            <h2 class="panel-title">3. Визуальная логика процесса</h2>
+            <p class="panel-subtitle">Короткая схема, чтобы интегратор и РОП видели поток работы без чтения длинного текста.</p>
+          </div>
+        </div>
+
+        <div class="diagram">
+          <div class="diagram-step">
+            <div class="diagram-id">Шаг <span>1</span></div>
+            <div>
+              <h3>Получить решение</h3>
+              <p class="mini">Менеджер получает финальный ответ клиента и фиксирует результат этапа.</p>
+              <div class="chips">
+                <div class="chip required">Решение клиента</div>
+                <div class="chip required">Дата следующего контроля</div>
+                <div class="chip robot">Задача на входе</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="diagram-step">
+            <div class="diagram-id">Шаг <span>2</span></div>
+            <div>
+              <h3>Получить реквизиты</h3>
+              <p class="mini">Подтверждается плательщик и готовность запускать документы без копирования всех реквизитов в сделку.</p>
+              <div class="chips">
+                <div class="chip required">Реквизиты получены</div>
+                <div class="chip required">Контакт для документов</div>
+                <div class="chip robot">Напоминание по сроку</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="diagram-step">
+            <div class="diagram-id">Шаг <span>3</span></div>
+            <div>
+              <h3>Согласовать договор</h3>
+              <p class="mini">Контролируется отправка договора, правки и финальное согласование.</p>
+              <div class="chips">
+                <div class="chip required">Договор отправлен</div>
+                <div class="chip required">Статус договора</div>
+                <div class="chip robot">Задача на доработку</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="diagram-step">
+            <div class="diagram-id">Шаг <span>4</span></div>
+            <div>
+              <h3>Получить оплату</h3>
+              <p class="mini">Контролируется выставление счета, план оплаты и факт денег.</p>
+              <div class="chips">
+                <div class="chip required">Счёт выставлен</div>
+                <div class="chip required">Оплата получена</div>
+                <div class="chip robot">Автопереход в УСПЕХ</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel span-12">
+        <div class="panel-head">
+          <div>
+            <h2 class="panel-title">4. Этапы, поля и автоматизация</h2>
+            <p class="panel-subtitle">
+              Это основной блок для настройки: что добавляется на каждом этапе, что должно быть обязательным и какие роботы нужны.
+            </p>
+          </div>
+        </div>
+
+        <div class="block-stack">
+          <div class="block">
+            <div class="block-head">
+              <div>
+                <h3>Этап 1. Получить решение</h3>
+                <p class="mini">К этому моменту уже есть клиент, контакт, сумма, КП и история переговоров. Здесь нужно зафиксировать только результат решения клиента и контроль следующего шага.</p>
+              </div>
+              <div class="badge badge-target">Новая стадия</div>
+            </div>
+
+            <table>
+              <thead>
+                <tr>
+                  <th>Что заполняется дополнительно</th>
+                  <th>Тип / логика</th>
+                  <th>Автоматизация</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>Решение клиента</strong><br>Варианты: `Согласен`, `Отказ`, `Позже / вернуться`, `Нужны уточнения`</td>
+                  <td>Главный результат этапа</td>
+                  <td>При входе ставить задачу `Получить решение клиента`</td>
+                </tr>
+                <tr>
+                  <td><strong>Дата решения / дата следующего контакта</strong></td>
+                  <td>Дата контроля по этапу</td>
+                  <td>Если поле пустое дольше X дней, напоминание менеджеру</td>
+                </tr>
+                <tr>
+                  <td><strong>Комментарий по решению</strong></td>
+                  <td>Короткая фиксация сути ответа клиента</td>
+                  <td>Обязателен для выхода из стадии</td>
+                </tr>
+                <tr>
+                  <td><strong>Причина отказа</strong></td>
+                  <td>Только если ответ отрицательный</td>
+                  <td>Если выбран `Отказ`, требовать причину и переводить в `ОТВАЛ`</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="block">
+            <div class="block-head">
+              <div>
+                <h3>Этап 2. Получить реквизиты</h3>
+                <p class="mini">Не нужно снова собирать всё по клиенту. Здесь фиксируется только то, что документы можно запускать.</p>
+              </div>
+              <div class="badge badge-target">Новая стадия</div>
+            </div>
+
+            <table>
+              <thead>
+                <tr>
+                  <th>Что заполняется дополнительно</th>
+                  <th>Тип / логика</th>
+                  <th>Автоматизация</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>Реквизиты получены</strong></td>
+                  <td>Контрольный флаг этапа</td>
+                  <td>Если `!= Да`, стадия остается под контролем</td>
+                </tr>
+                <tr>
+                  <td><strong>Плательщик подтвержден</strong></td>
+                  <td>Подтверждение корректного юрлица / плательщика</td>
+                  <td>Обязательное условие перехода дальше</td>
+                </tr>
+                <tr>
+                  <td><strong>Контакт для документов</strong></td>
+                  <td>Кому отправлять договор и счет</td>
+                  <td>Обязательное поле для выхода из стадии</td>
+                </tr>
+                <tr>
+                  <td><strong>Email для документов</strong></td>
+                  <td>Канал отправки документов</td>
+                  <td>Если пустой дольше X дней, напоминание менеджеру и при необходимости РОПу</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="block">
+            <div class="block-head">
+              <div>
+                <h3>Этап 3. Согласовать договор</h3>
+                <p class="mini">На этом этапе уже не собираются исходные данные. Здесь контролируется именно согласование договора и правки.</p>
+              </div>
+              <div class="badge badge-target">Новая стадия</div>
+            </div>
+
+            <table>
+              <thead>
+                <tr>
+                  <th>Что заполняется дополнительно</th>
+                  <th>Тип / логика</th>
+                  <th>Автоматизация</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>Договор отправлен</strong></td>
+                  <td>Флаг факта отправки</td>
+                  <td>Если не заполнен, напоминание менеджеру</td>
+                </tr>
+                <tr>
+                  <td><strong>Дата отправки договора</strong></td>
+                  <td>Дата запуска SLA по договору</td>
+                  <td>Обязательна, если договор отправлен</td>
+                </tr>
+                <tr>
+                  <td><strong>Статус договора</strong><br>Варианты: `На согласовании`, `Есть правки`, `Согласован`, `Стоп`</td>
+                  <td>Главный результат этапа</td>
+                  <td>Если `Есть правки`, ставить новую задачу на доработку; если `Согласован`, переводить в `Получить оплату`</td>
+                </tr>
+                <tr>
+                  <td><strong>Комментарий по согласованию</strong></td>
+                  <td>Что именно требует клиент или юристы</td>
+                  <td>Обязателен для сохранения управленческого контекста</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="block">
+            <div class="block-head">
+              <div>
+                <h3>Этап 4. Получить оплату</h3>
+                <p class="mini">Финансовый контроль перед успехом: сначала счет, затем план оплаты, затем факт денег.</p>
+              </div>
+              <div class="badge badge-target">Новая стадия</div>
+            </div>
+
+            <table>
+              <thead>
+                <tr>
+                  <th>Что заполняется дополнительно</th>
+                  <th>Тип / логика</th>
+                  <th>Автоматизация</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>Счёт выставлен</strong></td>
+                  <td>Контроль старта оплаты</td>
+                  <td>Если `!= Да`, напоминание менеджеру</td>
+                </tr>
+                <tr>
+                  <td><strong>Дата выставления счёта</strong></td>
+                  <td>Дата запуска контроля оплаты</td>
+                  <td>Нужна для управленческого контроля срока</td>
+                </tr>
+                <tr>
+                  <td><strong>Плановая дата оплаты</strong></td>
+                  <td>Ожидаемый дедлайн денег</td>
+                  <td>Если дата прошла, а оплаты нет, уведомление менеджеру</td>
+                </tr>
+                <tr>
+                  <td><strong>Оплата получена</strong> и <strong>Дата оплаты</strong></td>
+                  <td>Финальный результат этапа</td>
+                  <td>Если `Оплата получена = Да`, автоматически переводить в `УСПЕХ`</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel span-8">
+        <div class="panel-head">
+          <div>
+            <h2 class="panel-title">5. Правила автоматизации</h2>
+            <p class="panel-subtitle">Общая логика, которая должна одинаково работать на всех новых этапах хвоста сделки.</p>
+          </div>
+        </div>
+
+        <div class="block-stack">
+          <div class="block">
+            <h3>Общий сценарий роботов</h3>
+            <ul>
+              <li>На каждом новом этапе автоматически создаётся задача ответственному.</li>
+              <li>На каждом этапе есть один обязательный результат этапа.</li>
+              <li>Если результат не заполнен в срок, идёт напоминание менеджеру.</li>
+              <li>Если срок просрочен повторно, идёт эскалация руководителю.</li>
+              <li>Переход вперёд разрешён только если заполнено контрольное поле этапа.</li>
+              <li>Переход в `ОТВАЛ` всегда требует `Причину отказа`.</li>
+            </ul>
+          </div>
+
+          <div class="block">
+            <h3>Список обязательных автозадач</h3>
+            <div class="chips">
+              <div class="chip robot">Получить решение клиента</div>
+              <div class="chip robot">Получить реквизиты</div>
+              <div class="chip robot">Отправить и согласовать договор</div>
+              <div class="chip robot">Контроль оплаты</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel span-4">
+        <div class="panel-head">
+          <div>
+            <h2 class="panel-title">6. Что должен увидеть интегратор</h2>
+            <p class="panel-subtitle">Короткая управленческая суть без лишней теории.</p>
+          </div>
+        </div>
+
+        <div class="checklist">
+          <ul>
+            <li>Нужно добавить 4 новые стадии после `Догрев и переговоры`.</li>
+            <li>Нужно добавить компактный хвостовой блок полей, а не переписывать всю карточку сделки.</li>
+            <li>Нужно настроить обязательность полей по переходам, а не глобально.</li>
+            <li>Нужно повесить роботов на вход в каждую новую стадию.</li>
+            <li>Нужно завязать напоминания на дату контроля и дату оплаты.</li>
+            <li>Нужно переводить в `УСПЕХ` только после подтверждения оплаты.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="panel span-12">
+        <div class="panel-head">
+          <div>
+            <h2 class="panel-title">7. Чек-лист работ по Bitrix24</h2>
+            <p class="panel-subtitle">Финальный список действий, который можно использовать как прямое ТЗ на настройку.</p>
+          </div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Блок</th>
+              <th>Что сделать</th>
+              <th>Результат</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Стадии</strong></td>
+              <td>Добавить стадии `Получить решение`, `Получить реквизиты`, `Согласовать договор`, `Получить оплату`</td>
+              <td>Финальный хвост воронки становится прозрачным</td>
+            </tr>
+            <tr>
+              <td><strong>Поля</strong></td>
+              <td>Добавить контрольные поля по этапам и общий хвостовой блок контроля</td>
+              <td>На каждом этапе фиксируется результат и срок</td>
+            </tr>
+            <tr>
+              <td><strong>Обязательность</strong></td>
+              <td>Сделать обязательность полей по переходам между стадиями</td>
+              <td>Менеджеры не смогут переводить пустые сделки вперед</td>
+            </tr>
+            <tr>
+              <td><strong>Роботы</strong></td>
+              <td>Настроить автозадачи при входе в каждую новую стадию</td>
+              <td>Каждый этап начинает жить как управляемое действие</td>
+            </tr>
+            <tr>
+              <td><strong>Напоминания</strong></td>
+              <td>Настроить напоминания по `Дате следующего контроля` и `Плановой дате оплаты`</td>
+              <td>Сделки не зависают без внимания</td>
+            </tr>
+            <tr>
+              <td><strong>Автопереходы</strong></td>
+              <td>Настроить логические переходы по заполнению ключевых полей</td>
+              <td>Хвост воронки проходит по правилам, а не вручную на память</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <p class="footer-note">
+          Рекомендуемый смысл финала: `УСПЕХ` наступает после подтверждённой оплаты, а не после устного согласия или отправки договора.
+        </p>
+      </section>
+    </div>
+  </div>
+</body>
+</html>

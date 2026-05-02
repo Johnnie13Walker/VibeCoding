@@ -64,6 +64,27 @@ Included:
 
 Scripts are quarantined and not wired into runtime.
 
+### Batch 3 — report artifacts
+
+Copied report artifacts into:
+
+`docs/control-plane/architect/artifacts/`
+
+Included:
+
+- root `specification.txt`;
+- root-level business report docs from `architect/docs`;
+- generated `.docx` report exports from `architect/output/doc`;
+- selected `.xlsx` field-audit workbooks from `architect/docs/architecture` and `architect/outputs`.
+
+Excluded:
+
+- temporary Office lock files such as `~$*.xlsx`;
+- zero-byte TSV exports;
+- `tmp/`;
+- local browser/tool output;
+- local app folders.
+
 ## Not moved or deleted
 
 The following remain in `/Users/pro2kuror/Desktop/architect`:
@@ -92,6 +113,8 @@ Reason:
 - some files may be local tool output;
 - some files may belong to separate projects, not Cloudbot;
 - deletion is intentionally deferred.
+
+Note: many useful `.xlsx`, `.docx`, `.html` and `.json` report artifacts have now been copied into the canonical repo. The list above refers to leftovers that still need cleanup or deletion decisions in the legacy workspace.
 
 ## Runtime safety
 
