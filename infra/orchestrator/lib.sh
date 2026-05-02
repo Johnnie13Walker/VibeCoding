@@ -95,6 +95,8 @@ agents/__init__.py
 agents/larisa_ivanovna
 agents/lev_petrovich
 agents/sales_agent
+apps/finansist
+apps/larisa_ivanovna
 apps/lev_petrovich
 cloudbot/__init__.py
 cloudbot/business_day.py

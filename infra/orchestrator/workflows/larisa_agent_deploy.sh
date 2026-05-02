@@ -137,7 +137,7 @@ printf '%s\n' '${RELEASED_AT_MSK}' > '${STAGING_RELEASE_DIR}/RELEASED_AT_MSK'
 find '${STAGING_RELEASE_DIR}' -type f \\( -name '._*' -o -name '.DS_Store' \\) -delete
 chmod +x '${STAGING_RELEASE_DIR}/run_larisa_daily_brief_from_runtime_env.sh'
 bash -n '${STAGING_RELEASE_DIR}/run_larisa_daily_brief_from_runtime_env.sh'
-python3 -m compileall -q '${STAGING_RELEASE_DIR}/agents' '${STAGING_RELEASE_DIR}/cloudbot'
+python3 -m compileall -q '${STAGING_RELEASE_DIR}/agents' '${STAGING_RELEASE_DIR}/apps' '${STAGING_RELEASE_DIR}/cloudbot' '${STAGING_RELEASE_DIR}/shared'
 rm -rf '${TARGET_RELEASE_DIR}'
 mv '${STAGING_RELEASE_DIR}' '${TARGET_RELEASE_DIR}'
 ln -sfn '${TARGET_RELEASE_DIR}' '${CURRENT_LINK}'
