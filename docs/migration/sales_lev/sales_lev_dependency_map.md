@@ -1,49 +1,53 @@
 # Sales / Lev Dependency Map
 
-Дата фиксации: 2026-04-28 МСК.
+Дата фиксации: 2026-05-02 МСК.
 
-Статус: read-only dependency map. Этот документ не меняет `agents/*`, imports, runtime, env, cron/systemd/docker или deploy.
+Статус: dependency map after `apps/*` cutover. Этот документ не меняет runtime, env, cron/systemd/docker или deploy.
 
 ## 1. Current practical role
 
-`agents/sales_agent` остается active temporary compatibility layer для Lev/Sales.
+`apps/lev_petrovich` является canonical Lev/Sales entrypoint.
 
-Его нельзя удалять, переносить или retire в текущей миграционной волне.
+`apps/lev_petrovich/legacy_sales_agent` является canonical implementation path для Sales legacy runtime layer.
+
+`agents/sales_agent` остается active temporary compatibility layer для старых импортов. Его нельзя удалять или retire без отдельного approval.
 
 ## 2. Confirmed dependencies
 
 | Area | Confirmed dependency | Risk |
 | --- | --- | --- |
-| `agents/lev_petrovich/agent.py` | imports `agents.sales_agent.sales_agent` | Lev facade is currently backed by SalesAgent |
-| `agents/sales_agent/sales_agent.py` | imports `agents.lev_petrovich.telegram_route` | two-way coupling between Sales and Lev route |
-| `scripts/run_sales_copilot.py` | imports `agents.sales_agent.report_contract` and calls `agents.lev_petrovich` module | runtime bridge depends on current paths |
-| `cloudbot/devops/sales_dispatch_health.py` | imports `agents.sales_agent.report_contract`, `agents.sales_agent.sales_formatter`, `agents.lev_petrovich.telegram_route` | dispatch health depends on Sales/Lev compatibility |
-| `tests/test_lev_petrovich_runtime.py` | imports `agents.lev_petrovich`, `agents.sales_agent.*`, `scripts.run_sales_copilot` | tests lock current compatibility paths |
-| `tests/test_sales_dispatch_contract.py` | imports `agents.sales_agent.report_contract` | report contract is still under sales_agent |
+| `apps/lev_petrovich/agent.py` | imports `apps.lev_petrovich.legacy_sales_agent.sales_agent` | canonical Lev facade is backed by canonical SalesAgent |
+| `apps/lev_petrovich/legacy_sales_agent/sales_agent.py` | imports `apps.lev_petrovich.telegram_route` | Sales route dependency is now canonical, not shim-based |
+| `agents/lev_petrovich/*` | re-exports `apps.lev_petrovich.*` | old imports and `python -m agents.lev_petrovich` remain compatible |
+| `agents/sales_agent/*` | re-exports `apps.lev_petrovich.legacy_sales_agent.*` | old Sales imports remain compatible |
+| `scripts/run_sales_copilot.py` | imports canonical report contract from `apps.lev_petrovich.legacy_sales_agent.report_contract` | script is on canonical path |
+| `cloudbot/devops/sales_dispatch_health.py` | uses shared contracts and formatter metadata | dispatch health no longer requires old Sales import paths |
+| `tests/integration/test_app_compatibility_contract.py` | imports both canonical paths and shims | tests lock compatibility behavior |
+| `tests/integration/test_sales_dispatch_contract.py` | imports canonical report contract | report contract is no longer pinned to `agents/sales_agent` |
 
 ## 3. Live-critical surfaces
 
 Treat these as live-critical until proven otherwise:
 
 ```text
-agents/sales_agent/sales_agent.py
-agents/sales_agent/report_contract.py
-agents/sales_agent/sales_formatter.py
-agents/lev_petrovich/agent.py
-agents/lev_petrovich/telegram_route.py
+apps/lev_petrovich/agent.py
+apps/lev_petrovich/telegram_route.py
+apps/lev_petrovich/legacy_sales_agent/sales_agent.py
+apps/lev_petrovich/legacy_sales_agent/report_contract.py
+apps/lev_petrovich/legacy_sales_agent/sales_formatter.py
 scripts/run_sales_copilot.py
 cloudbot/devops/sales_dispatch_health.py
+agents/sales_agent/*
+agents/lev_petrovich/*
 ```
 
 ## 4. Blocked actions
 
 Blocked:
 
-- moving `agents/sales_agent`;
 - retiring `agents/sales_agent`;
-- rewriting `agents.sales_agent.*` imports;
-- moving `report_contract.py`;
-- changing `scripts/run_sales_copilot.py`;
+- deleting `agents/sales_agent`;
+- changing Sales runtime event/report semantics without approval;
 - changing Sales Telegram routing;
 - changing report formatting contract.
 
@@ -51,18 +55,19 @@ Blocked:
 
 Before any retirement track:
 
-1. Replacement Lev/Sales entrypoint.
-2. Replacement report contract location.
-3. Compatibility shim strategy.
-4. `scripts/run_sales_copilot.py` bridge validation.
-5. Sales dispatch health validation.
-6. Lev/Sales smoke checklist.
-7. Rollback plan without runtime pointer changes.
+1. Prove no live/runtime import still requires `agents.sales_agent.*`.
+2. Prove no external script still invokes `python -m agents.lev_petrovich`.
+3. Keep a compatibility shim strategy for one release window.
+4. Validate `scripts/run_sales_copilot.py`.
+5. Validate Sales dispatch health.
+6. Run Lev/Sales smoke checklist.
+7. Document rollback plan without runtime pointer changes.
 
 ## 6. Verdict
 
 ```text
-sales_agent remains compatibility layer
-retirement blocked
-next safe step: runtime bridge map
+apps/lev_petrovich is canonical
+apps/lev_petrovich/legacy_sales_agent is canonical Sales legacy implementation
+agents/sales_agent remains compatibility layer
+retirement still blocked
 ```
