@@ -20,7 +20,7 @@ Fix the compatibility rules after the `apps/*` migration so cleanup can continue
 | `agents/larisa_ivanovna` | shim | keep until a separate import-retirement window |
 | `agents/finansist` | shim | keep until a separate import-retirement window |
 | `agents/lev_petrovich` | shim | keep until a separate import-retirement window |
-| `agents/sales_agent` | temporary shim | do not delete or retire silently |
+| `agents/sales_agent` | temporary shim | do not delete, move, rename or retire without dedicated approval |
 
 ## Current cleanup decision
 
@@ -31,6 +31,7 @@ Compatibility shims remain only for old external imports, old scripts and runtim
 - `apps/lev_petrovich/agent.py` imports Sales runtime from `apps.lev_petrovich.legacy_sales_agent`.
 - `agents/sales_agent/*` still re-exports the same canonical implementation.
 - `agents/sales_agent` is not an archive and not approved for deletion.
+- `agents/sales_agent` must stay present even when canonical code imports `apps/*` directly.
 
 ## Required checks
 

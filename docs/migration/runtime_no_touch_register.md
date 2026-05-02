@@ -1,6 +1,6 @@
 # Runtime No-Touch Register
 
-Дата фиксации: 2026-04-28 МСК.
+Дата фиксации: 2026-05-02 МСК.
 
 Статус: no-touch register. Этот документ не меняет runtime.
 
@@ -56,6 +56,13 @@ agents/lev_petrovich
 agents/larisa_ivanovna
 ```
 
+Important:
+
+- `agents/sales_agent` is an active temporary compatibility layer.
+- It is not an archive and not cleanup trash.
+- Do not delete, move, rename or retire it without a dedicated approval package.
+- Do not remove old imports unless `tests.integration.test_app_compatibility_contract` stays green.
+
 ## 5. Why this exists
 
 Structural migration must not accidentally become runtime migration.
@@ -72,5 +79,6 @@ Runtime changes require:
 
 ```text
 runtime no-touch remains active
-production/runtime migration blocked
+production/runtime pointer changes blocked
+agents/sales_agent retirement blocked
 ```
