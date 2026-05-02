@@ -130,6 +130,24 @@ The legacy workspace now contains only:
 - `.gitignore`
 - `README.md`
 
+### Batch 6 — wrapper symlink cleanup
+
+Completed on `2026-05-02 МСК`.
+
+Removed legacy symlink from:
+
+`/Users/pro2kuror/Desktop/Cloudbot/architect`
+
+Updated wrapper files:
+
+- `/Users/pro2kuror/Desktop/Cloudbot/README.md`
+- `/Users/pro2kuror/Desktop/Cloudbot/bin/verify_workspace.sh`
+
+The wrapper now exposes only active navigation targets:
+
+- `engineer`
+- `paperclip`
+
 ## Not moved or deleted
 
 No source-of-truth files remain in `/Users/pro2kuror/Desktop/architect`.
@@ -157,11 +175,10 @@ This consolidation did not change:
    - one-off audit tool;
    - archive;
    - delete later from legacy workspace.
-3. Keep `/Users/pro2kuror/Desktop/architect` as a pointer-stub until the wrapper strategy is finalized.
-4. After the final wrapper decision, either keep or remove `Cloudbot/architect` symlink.
+3. Keep or archive `/Users/pro2kuror/Desktop/architect` as a separate local stub decision outside the Cloudbot wrapper.
 
 ## Current verdict
 
 The important text docs, report artifacts and control-plane scripts have been consolidated into the canonical engineer repo.
 
-The remaining folder work is the wrapper/symlink decision. It is not runtime migration.
+The folder consolidation work is complete for Cloudbot source-of-truth and wrapper navigation. Any remaining decision about `/Users/pro2kuror/Desktop/architect` is local archive housekeeping, not runtime migration.

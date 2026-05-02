@@ -12,7 +12,7 @@ Canonical locations:
 | Control-plane docs and migrated architect materials | `/Users/pro2kuror/Desktop/OpenClo/projects/engineer/docs/control-plane` |
 | Control-plane scripts/tools quarantine | `/Users/pro2kuror/Desktop/OpenClo/projects/engineer/tools/control-plane` |
 | Navigation wrapper | `/Users/pro2kuror/Desktop/Cloudbot` |
-| Legacy pointer-stub | `/Users/pro2kuror/Desktop/architect` |
+| Legacy stub outside wrapper | `/Users/pro2kuror/Desktop/architect` |
 
 ## Completed
 
@@ -23,6 +23,7 @@ Canonical locations:
 - Legacy `architect` tracked source files removed and replaced with a pointer `README.md`.
 - Ignored/generated leftovers in `architect` removed.
 - Wrapper `Cloudbot/README.md` updated to point users at `engineer/docs/control-plane`.
+- Legacy `Cloudbot/architect` symlink removed from the wrapper.
 
 ## Current legacy architect state
 
@@ -49,7 +50,6 @@ This folder cleanup did not change:
 
 ## Remaining non-folder migration work
 
-1. Confirm scheduled Sales follow-up after `dev_3b160ba` at `2026-05-02 17:10 МСК`.
-2. Close Phase 9 observation docs after the scheduled proof.
-3. Decide whether to keep or remove the `Cloudbot/architect` symlink.
-4. Continue runtime cleanup only after scheduled observations stay green.
+1. Continue runtime cleanup only through explicitly approved, scoped steps.
+2. Keep `/opt/openclaw` on a separate server-only audit track.
+3. Keep or archive `/Users/pro2kuror/Desktop/architect` as a separate local stub decision, outside the Cloudbot wrapper.
