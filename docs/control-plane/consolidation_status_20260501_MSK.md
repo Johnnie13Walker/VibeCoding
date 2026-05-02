@@ -38,6 +38,13 @@ Included:
 - root `README.md`
 - root `baseline_*.md`
 - root `opencloud_*.md`
+- module README files:
+  - `devops/README.md`
+  - `orchestrator/README.md`
+  - `providers/README.md`
+  - `skills/README.md`
+  - `telegram/README.md`
+  - `workflows/README.md`
 - `docs/PLAN.md`
 - `docs/STATUS.md`
 - `docs/architecture/*.md`
