@@ -92,6 +92,22 @@ Excluded:
 - local browser/tool output;
 - local app folders.
 
+### Batch 4 — legacy architect cleanup
+
+Completed on `2026-05-02 МСК`.
+
+Legacy source-of-truth files were removed from:
+
+`/Users/pro2kuror/Desktop/architect`
+
+The workspace now acts as a pointer-stub. Its `README.md` directs users to the canonical locations:
+
+- `/Users/pro2kuror/Desktop/OpenClo/projects/engineer/docs/control-plane`
+- `/Users/pro2kuror/Desktop/OpenClo/projects/engineer`
+- `/Users/pro2kuror/Desktop/Cloudbot`
+
+Ignored local/generated artifacts remain outside git and are not part of the canonical source tree.
+
 ## Not moved or deleted
 
 The following remain in `/Users/pro2kuror/Desktop/architect`:
@@ -112,7 +128,7 @@ The following remain in `/Users/pro2kuror/Desktop/architect`:
 - `.playwright-mcp/`
 - `.publish-belberry/`
 - `.netlify/`
-- local app/project folders such as `acoola-landing/`
+- local app/project folders that are not Cloudbot source-of-truth
 
 Reason:
 
@@ -121,7 +137,7 @@ Reason:
 - some files may belong to separate projects, not Cloudbot;
 - deletion is intentionally deferred.
 
-Note: many useful `.xlsx`, `.docx`, `.html` and `.json` report artifacts have now been copied into the canonical repo. The list above refers to leftovers that still need cleanup or deletion decisions in the legacy workspace.
+Note: many useful `.xlsx`, `.docx`, `.html` and `.json` report artifacts have now been copied into the canonical repo. The list above refers to ignored local leftovers that still need archive/delete decisions outside the source tree.
 
 ## Runtime safety
 
@@ -144,12 +160,11 @@ This consolidation did not change:
    - one-off audit tool;
    - archive;
    - delete later from legacy workspace.
-3. Add or update ignore rules in `/Users/pro2kuror/Desktop/architect` for generated artifacts.
-4. Archive binary/generated reports after explicit approval.
-5. Only after review, replace duplicated `architect` docs with pointers or delete them from the legacy workspace.
+3. Archive or delete ignored binary/generated leftovers after explicit approval.
+4. Keep `/Users/pro2kuror/Desktop/architect` as a pointer-stub until the wrapper strategy is finalized.
 
 ## Current verdict
 
-The important text docs and control-plane scripts have been consolidated into the canonical engineer repo.
+The important text docs, report artifacts and control-plane scripts have been consolidated into the canonical engineer repo.
 
-The remaining work is cleanup/classification of generated and binary artifacts, not runtime migration.
+The remaining work is cleanup/classification of ignored generated and binary artifacts, not runtime migration.
