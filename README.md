@@ -25,7 +25,8 @@ python3 checks/smoke_test.py
 ```
 
 ## Контур Ларисы Ивановны
-- Основной агент: `agents/larisa_ivanovna/`
+- Канонический агент: `apps/larisa_ivanovna/`
+- Compatibility shim: `agents/larisa_ivanovna/`
 - Публичные команды: `/today`, `/brief`, `/day`, `/meetings`, `/tasks`, `/weather`, `/plan-day`, `/plan`
 - Плановый запуск: cron `09:00` МСК через workflow `larisa_daily_brief`
 - Отдельный News-контур и команда `/news` удалены из активной архитектуры

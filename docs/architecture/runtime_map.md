@@ -12,7 +12,7 @@
 -> `cloudbot/orchestrator/orchestrator.py`
 -> `cloudbot/orchestrator/router.py`
 -> `cloudbot/workflows/<workflow>.py`
--> `agents/*` или `cloudbot/providers/*`
+-> `apps/*`, compatibility `agents/*` или `cloudbot/providers/*`
 -> `send_reply`
 
 Что важно:
@@ -56,9 +56,11 @@
 
 - `make verify`, `make preflight`, `make openclaw.*`
 - `infra/orchestrator/run_workflow.sh <workflow>`
-- `python3 -m agents.larisa_ivanovna ...`
+- `python3 -m apps.larisa_ivanovna ...` для canonical local checks
+- `python3 -m agents.larisa_ivanovna ...` как compatibility CLI, пока server wrappers не переведены
 - `python3 -m agents.news_agent.news_agent ...`
-- `python3 -m agents.lev_petrovich ...`
+- `python3 -m apps.lev_petrovich ...` для canonical local checks
+- `python3 -m agents.lev_petrovich ...` как compatibility CLI, пока server wrappers не переведены
 - `python3 -m agents.sales_agent.sales_agent ...` только как compatibility-path до завершения миграции
 
 Что важно:

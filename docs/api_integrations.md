@@ -39,6 +39,7 @@
 - Skill: `cloudbot/skills/web_search.py`.
 
 ## Контур Ларисы Ивановны
-- Агент: `agents/larisa_ivanovna/`.
+- Канонический агент: `apps/larisa_ivanovna/`.
+- Compatibility shim: `agents/larisa_ivanovna/`.
 - Workflow-адаптеры: `cloudbot/workflows/day_briefing.py`, `cloudbot/workflows/meetings_summary.py`, `cloudbot/workflows/tasks_summary.py`, `cloudbot/workflows/larisa_weather.py`, `cloudbot/workflows/larisa_plan_day.py`.
 - Telegram-команды: `/today`, `/brief`, `/day`, `/meetings`, `/tasks`, `/weather`, `/plan-day`, `/plan`.

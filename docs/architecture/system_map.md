@@ -11,7 +11,7 @@
 ## Смежные контуры на текущей машине
 
 - `/Users/pro2kuror/Desktop/architect` — control-plane / documentation workspace; это не runtime-код, а слой контрактов, чеклистов и статусов.
-- `/Users/pro2kuror/Desktop/OpenClo/projects/commercial-director` — внешний локальный knowledge/migration contour без `.git`; по зафиксированному контракту больше не должен считаться source of truth после переноса роли в `agents/lev_petrovich`.
+- `/Users/pro2kuror/Desktop/OpenClo/projects/commercial-director` — внешний локальный knowledge/migration contour без `.git`; по зафиксированному контракту больше не должен считаться source of truth после переноса роли в `apps/lev_petrovich`.
 - `/Users/pro2kuror/Desktop/OpenClo/projects/whoop` — отдельный локальный WHOOP-модуль без `.git`, со своим `.venv` и скриптами; это standalone/sandbox контур, а не канонический runtime Cloudbot без отдельного deploy-контракта.
 
 ## Что не считать каноническим runtime без отдельной миграции
@@ -39,9 +39,9 @@
 - `/etc/cron.d/openclaw-todo-digest` + `/root/.openclaw/workspace/todo-integration` — legacy server-only scheduler contour; `digest:evening`, `reminders:tick` и `execution:tick` всё ещё активны.
 - `cloudbot-bitrix-app.service` с `WorkingDirectory=/opt/openclaw` и `ExecStart=/usr/bin/python3 /opt/openclaw/local/bitrix_app_server.py` — отдельный server-only Bitrix app contour.
 
-## Ключевые агенты
+## Ключевые приложения и compatibility layers
 
-### `agents/larisa_ivanovna`
+### `apps/larisa_ivanovna`
 
 Персональный ассистентный контур:
 
@@ -54,7 +54,11 @@
 - планирование дня;
 - создание встречи.
 
-### `agents/lev_petrovich`
+Compatibility shim:
+
+- `agents/larisa_ivanovna`
+
+### `apps/lev_petrovich`
 
 Лев Петрович / Sales Copilot:
 
@@ -66,7 +70,9 @@
 
 Архитектурная оговорка:
 
-- `agents/lev_petrovich` — канонический runtime entrypoint роли.
+- `apps/lev_petrovich` — канонический runtime entrypoint роли.
+- `apps/lev_petrovich/legacy_sales_agent` — канонический implementation path для Sales legacy runtime layer.
+- `agents/lev_petrovich` — compatibility shim.
 - `agents/sales_agent` — временный compatibility-слой до полного переноса legacy-имени.
 
 ### `agents/news_agent`
@@ -106,7 +112,7 @@
 -> `cloudbot/orchestrator/orchestrator.py`
 -> `cloudbot/orchestrator/router.py`
 -> `cloudbot/workflows/*`
--> `agents/*` или `cloudbot/providers/*`
+-> `apps/*`, compatibility `agents/*` или `cloudbot/providers/*`
 -> ответ в Telegram
 
 ### Cron path
@@ -114,14 +120,15 @@
 `configs/schedules.cron`
 -> `infra/orchestrator/run_workflow.sh`
 -> `infra/orchestrator/workflows/*.sh`
--> `python3 -m agents.*` или `scripts/*`
+-> `python3 -m apps.*`, compatibility `python3 -m agents.*` или `scripts/*`
 -> отчет в `reports/*`
 
 ### Manual operator path
 
 - `make *`
 - `infra/orchestrator/run_workflow.sh <workflow>`
-- точечные agent CLI через `python3 -m agents.*`
+- точечные canonical app CLI через `python3 -m apps.*`
+- compatibility CLI через `python3 -m agents.*`
 
 Ручной путь допустим для диагностики и controlled run. Боевой сценарий при наличии workflow должен идти через оркестратор.
 
@@ -138,7 +145,7 @@
 -> `scripts/run_sales_copilot.py`
 -> SSH на сервер
 -> чтение live env/state
--> локальный запуск `agents.lev_petrovich`
+-> локальный запуск canonical `apps.lev_petrovich` или compatibility `agents.lev_petrovich` по wrapper-контракту
 
 Этот контур критичен, потому что часть runtime-правды находится вне локального репозитория.
 
@@ -169,8 +176,11 @@
 - `cloudbot/bot/telegram/*`
 - `cloudbot/orchestrator/*`
 - `cloudbot/workflows/*`
-- `agents/larisa_ivanovna/*`
-- `agents/lev_petrovich/*`
+- `apps/larisa_ivanovna/*`
+- `apps/lev_petrovich/*`
+- `apps/lev_petrovich/legacy_sales_agent/*`
+- `agents/larisa_ivanovna/*` как compatibility shim
+- `agents/lev_petrovich/*` как compatibility shim
 - `agents/sales_agent/*` как временный compatibility-слой
 - `agents/news_agent/*`
 - `cloudbot/providers/*`

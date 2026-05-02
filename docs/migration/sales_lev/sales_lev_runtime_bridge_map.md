@@ -1,6 +1,6 @@
 # Sales / Lev Runtime Bridge Map
 
-Дата фиксации: 2026-04-28 МСК.
+Дата фиксации: 2026-05-02 МСК.
 
 Статус: read-only bridge map. Этот документ не меняет `scripts/run_sales_copilot.py`, runtime, env или Telegram routing.
 
@@ -14,10 +14,11 @@ scripts/run_sales_copilot.py
 
 | Line area | Confirmed behavior |
 | --- | --- |
-| `agents.sales_agent.report_contract` | imports `SALES_RUNTIME_REPORT_TYPES` and `sales_followup_report_types` |
+| `apps.lev_petrovich.legacy_sales_agent.report_contract` | imports `sales_followup_report_types` |
+| `shared.contracts.sales_runtime_contract` | imports runtime report type contract |
 | remote token file | has default `/root/.openclaw/telegram/commercial-director.bot_token` |
-| subprocess path | calls `python -m agents.lev_petrovich --report <type>` |
-| in-process path | imports `build_sales_report_from_env` from `agents.lev_petrovich.agent` |
+| subprocess path | calls compatibility CLI `python -m agents.lev_petrovich --report <type>` |
+| in-process path | imports `build_sales_report_from_env` from canonical `apps.lev_petrovich.agent` |
 | Telegram delivery | resolves bot token/chat ids inside bridge |
 | followups | builds risks/focus followups through report contract |
 
@@ -36,8 +37,8 @@ These tests patch `scripts.run_sales_copilot.subprocess.run`, so they protect br
 
 Bridge is high-risk because it connects:
 
-- `agents.sales_agent.report_contract`;
-- `agents.lev_petrovich`;
+- canonical `apps.lev_petrovich.agent`;
+- compatibility CLI `agents.lev_petrovich`;
 - Telegram token/chat routing;
 - followup report sequence;
 - local and possible runtime execution modes.
@@ -47,8 +48,8 @@ Bridge is high-risk because it connects:
 Blocked without separate approval:
 
 - moving `scripts/run_sales_copilot.py`;
-- changing imports in the bridge;
-- changing `python -m agents.lev_petrovich`;
+- changing imports in the bridge without compatibility tests;
+- changing `python -m agents.lev_petrovich` subprocess path before server wrapper cutover;
 - changing token file path;
 - changing Telegram chat fallback;
 - changing followup report order.
