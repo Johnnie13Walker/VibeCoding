@@ -73,7 +73,8 @@
 ## Канонический контур
 
 - knowledge/spec слой Льва Петровича живёт в `docs/roles/lev_petrovich` внутри канонического runtime-репозитория;
-- канонический runtime entrypoint роли: `agents/lev_petrovich`;
+- канонический runtime entrypoint роли: `apps/lev_petrovich`;
+- `agents/lev_petrovich` остаётся compatibility shim;
 - `agents/sales_agent` остаётся compatibility-именем до завершения миграции;
 - внешняя папка `projects/commercial-director` больше не должна считаться source of truth после переноса этого набора файлов;
 - расписание отчётов зафиксировано на уровне knowledge-контракта, но live `Bitrix24`, production `cron`, Telegram routing и server state всё ещё требуют отдельной operational верификации.
