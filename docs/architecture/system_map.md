@@ -154,7 +154,8 @@ Compatibility shim:
 Целевой контур для agent runtime:
 
 - source of truth: `origin -> https://github.com/Johnnie13Walker/codex-base.git`
-- deploy bundle: `infra/orchestrator/workflows/larisa_agent_deploy.sh` и `infra/orchestrator/workflows/news_agent_deploy.sh`
+- deploy bundle: `infra/orchestrator/workflows/larisa_agent_deploy.sh` и `infra/orchestrator/workflows/sales_agent_deploy.sh`
+- release manifest: `infra/orchestrator/lib.sh::cloudbot_runtime_files`
 - server releases: `/opt/cloudbot-runtime/larisa/releases/<release_id>`
 - active runtime: `/opt/cloudbot-runtime/larisa/current`
 

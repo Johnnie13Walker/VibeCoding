@@ -73,12 +73,14 @@
 В текущем репозитории явно присутствует operational deploy path:
 
 - `infra/orchestrator/workflows/larisa_agent_deploy.sh`
-- `infra/orchestrator/workflows/news_agent_deploy.sh`
+- `infra/orchestrator/workflows/sales_agent_deploy.sh`
 
 Архитектурное замечание:
 
-- В операционных инструкциях может встречаться ссылка на `scripts/deploy.sh`, но в текущем runtime-репозитории такой канонический deploy entrypoint не подтвержден.
+- В операционных инструкциях может встречаться ссылка на `scripts/deploy.sh`, но в текущем runtime-репозитории канонический deploy entrypoint для agent runtime — `infra/orchestrator/run_workflow.sh`.
 - До отдельной верификации каноническим deploy path следует считать путь через `infra/orchestrator/run_workflow.sh`.
+- Release package manifest должен браться из `infra/orchestrator/lib.sh::cloudbot_runtime_files`.
+- Manifest обязан включать `apps/`, `agents/`, `cloudbot/`, `shared/`, `infra/` и нужные `scripts/`.
 
 Целевой server delivery contour для agent runtime:
 
@@ -125,7 +127,7 @@
 - Manual operator ingress: `TBD`
 - Deploy ingress:
   - `infra/orchestrator/workflows/larisa_agent_deploy.sh`
-  - `infra/orchestrator/workflows/news_agent_deploy.sh`
+  - `infra/orchestrator/workflows/sales_agent_deploy.sh`
   - live runtime target: `/opt/cloudbot-runtime/larisa/current`
 - Rollback ingress:
   - `infra/orchestrator/workflows/cloudbot_runtime_rollback.sh`
