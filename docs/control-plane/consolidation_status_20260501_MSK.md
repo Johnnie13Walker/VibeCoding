@@ -108,36 +108,33 @@ The workspace now acts as a pointer-stub. Its `README.md` directs users to the c
 
 Ignored local/generated artifacts remain outside git and are not part of the canonical source tree.
 
-## Not moved or deleted
+### Batch 5 — ignored artifact cleanup
 
-The following remain in `/Users/pro2kuror/Desktop/architect`:
+Completed on `2026-05-02 МСК`.
 
-- `.xlsx`
-- `.docx`
-- `.png`
-- `.pdf`
-- `.html`
-- `.json`
-- `.tsv`
-- `.zip`
+Removed ignored/generated leftovers from the legacy workspace:
+
 - `.DS_Store`
-- `~$*.xlsx`
+- `.netlify/`
+- `.playwright-mcp/`
+- `.publish-belberry/`
+- `.serena/`
 - `output/`
 - `outputs/`
 - `tmp/`
-- `.playwright-mcp/`
-- `.publish-belberry/`
-- `.netlify/`
-- local app/project folders that are not Cloudbot source-of-truth
+- local SEO dashboard PDF/PNG render artifacts
 
-Reason:
+The legacy workspace now contains only:
 
-- generated artifacts and binary reports need owner classification;
-- some files may be local tool output;
-- some files may belong to separate projects, not Cloudbot;
-- deletion is intentionally deferred.
+- `.git/`
+- `.gitignore`
+- `README.md`
 
-Note: many useful `.xlsx`, `.docx`, `.html` and `.json` report artifacts have now been copied into the canonical repo. The list above refers to ignored local leftovers that still need archive/delete decisions outside the source tree.
+## Not moved or deleted
+
+No source-of-truth files remain in `/Users/pro2kuror/Desktop/architect`.
+
+Useful `.xlsx`, `.docx`, `.html` and `.json` report artifacts were copied into the canonical repo before cleanup.
 
 ## Runtime safety
 
@@ -160,11 +157,11 @@ This consolidation did not change:
    - one-off audit tool;
    - archive;
    - delete later from legacy workspace.
-3. Archive or delete ignored binary/generated leftovers after explicit approval.
-4. Keep `/Users/pro2kuror/Desktop/architect` as a pointer-stub until the wrapper strategy is finalized.
+3. Keep `/Users/pro2kuror/Desktop/architect` as a pointer-stub until the wrapper strategy is finalized.
+4. After the final wrapper decision, either keep or remove `Cloudbot/architect` symlink.
 
 ## Current verdict
 
 The important text docs, report artifacts and control-plane scripts have been consolidated into the canonical engineer repo.
 
-The remaining work is cleanup/classification of ignored generated and binary artifacts, not runtime migration.
+The remaining folder work is the wrapper/symlink decision. It is not runtime migration.
