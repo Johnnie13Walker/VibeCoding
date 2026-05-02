@@ -30,6 +30,18 @@ The following live paths remain separate runtime concerns:
 - `agents/sales_agent` remains a temporary compatibility layer, not an archive.
 - Server runtime cutover is not part of these local source commits.
 
+## 2026-05-02 МСК cleanup note
+
+`apps/lev_petrovich/agent.py` now imports Sales runtime directly from the canonical path:
+
+`apps.lev_petrovich.legacy_sales_agent.sales_agent`
+
+The `agents/sales_agent` shim remains available for old imports and runtime compatibility.
+
+The compatibility contract is documented in:
+
+`docs/migration/compatibility_layers_contract_20260502_MSK.md`
+
 ## Tests passed after migration
 
 - `python3 -m unittest tests.integration.test_larisa_agent tests.integration.test_larisa_search`
@@ -37,6 +49,7 @@ The following live paths remain separate runtime concerns:
 - `python3 checks/smoke_test.py`
 - targeted import compatibility checks for `apps.*` and `agents.*`
 - `python3 -m unittest tests.integration.test_lev_petrovich_runtime tests.integration.test_sales_dispatch_contract`
+- `python3 -m unittest tests.integration.test_app_compatibility_contract`
 
 ## Next candidates
 

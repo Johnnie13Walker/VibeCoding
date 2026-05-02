@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from agents.sales_agent.sales_agent import (
+from apps.lev_petrovich.legacy_sales_agent.sales_agent import (
     SalesAgent,
     SalesAgentError,
     build_sales_report_from_env,
