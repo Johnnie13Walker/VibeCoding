@@ -4,7 +4,9 @@ set -euo pipefail
 TZ=Europe/Moscow
 export TZ
 
-cd "/Users/pro2kuror/Desktop/OpenClo/projects/engineer"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="${CLOUDBOT_ENGINEER_ROOT:-$(cd "${SCRIPT_DIR}/.." && pwd)}"
+cd "$REPO_ROOT"
 
 echo "== Лариса: финализация интеграций ($(date '+%F %T %Z')) =="
 

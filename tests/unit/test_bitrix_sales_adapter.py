@@ -81,6 +81,36 @@ class BitrixSalesAdapterPortalBaseTests(unittest.TestCase):
 
         self.assertEqual(adapter.portal_base_url(), "https://belberrycrm.bitrix24.ru")
 
+    def test_normalize_crm_items_keeps_source_and_utm_fields(self) -> None:
+        adapter = BitrixSalesAdapter(
+            provider=_FakeProvider(""),
+            app_auth=_FakeAppAuth(_FakeState(domain="belberrycrm.bitrix24.ru")),
+        )
+
+        result = adapter._normalize_crm_items(  # noqa: SLF001
+            [
+                {
+                    "ID": "101",
+                    "TITLE": "example.ru",
+                    "SOURCE_ID": "SEO",
+                    "SOURCE_DESCRIPTION": "органика",
+                    "UTM_SOURCE": "yandex",
+                    "UTM_MEDIUM": "cpc",
+                    "UTM_CAMPAIGN": "brand",
+                    "UTM_CONTENT": "ad-1",
+                    "UTM_TERM": "seo",
+                }
+            ]
+        )
+
+        self.assertEqual(result[0]["source_id"], "SEO")
+        self.assertEqual(result[0]["source_description"], "органика")
+        self.assertEqual(result[0]["utm_source"], "yandex")
+        self.assertEqual(result[0]["utm_medium"], "cpc")
+        self.assertEqual(result[0]["utm_campaign"], "brand")
+        self.assertEqual(result[0]["utm_content"], "ad-1")
+        self.assertEqual(result[0]["utm_term"], "seo")
+
     def test_keeps_provider_portal_base_when_it_is_already_client_portal(self) -> None:
         adapter = BitrixSalesAdapter(
             provider=_FakeProvider("https://belberrycrm.bitrix24.ru/rest/1/token"),

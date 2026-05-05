@@ -38,6 +38,11 @@ DEAL_SELECT_FIELDS = [
     "IS_NEW",
     "SOURCE_ID",
     "SOURCE_DESCRIPTION",
+    "UTM_SOURCE",
+    "UTM_MEDIUM",
+    "UTM_CAMPAIGN",
+    "UTM_CONTENT",
+    "UTM_TERM",
     "COMMENTS",
     "UF_*",
 ]
@@ -163,6 +168,18 @@ def _extract_items(payload: Any) -> list[dict[str, Any]]:
     if isinstance(payload, dict):
         for key in ("items", "tasks", "events"):
             nested = payload.get(key)
+            if isinstance(nested, list):
+                return [item for item in nested if isinstance(item, dict)]
+    return []
+
+
+def _extract_category_items(payload: Any) -> list[dict[str, Any]]:
+    data = payload.get("result") if isinstance(payload, dict) and "result" in payload else payload
+    if isinstance(data, list):
+        return [item for item in data if isinstance(item, dict)]
+    if isinstance(data, dict):
+        for key in ("categories", "items", "result"):
+            nested = data.get(key)
             if isinstance(nested, list):
                 return [item for item in nested if isinstance(item, dict)]
     return []
@@ -513,6 +530,11 @@ class BitrixSalesAdapter:
                     "moved_at": _normalize_datetime(item.get("MOVED_TIME")),
                     "source_id": str(item.get("SOURCE_ID") or "").strip() or None,
                     "source_description": str(item.get("SOURCE_DESCRIPTION") or "").strip() or None,
+                    "utm_source": str(item.get("UTM_SOURCE") or "").strip() or None,
+                    "utm_medium": str(item.get("UTM_MEDIUM") or "").strip() or None,
+                    "utm_campaign": str(item.get("UTM_CAMPAIGN") or "").strip() or None,
+                    "utm_content": str(item.get("UTM_CONTENT") or "").strip() or None,
+                    "utm_term": str(item.get("UTM_TERM") or "").strip() or None,
                     "comments": str(item.get("COMMENTS") or "").strip() or None,
                     "last_activity_at": _normalize_datetime(
                         item.get("LAST_ACTIVITY_TIME")
@@ -553,7 +575,7 @@ class BitrixSalesAdapter:
 
     def get_deals(
         self,
-        limit: int = 50,
+        limit: int | None = 50,
         *,
         category_id: int | str | None = None,
         filter_params: Mapping[str, Any] | None = None,
@@ -574,7 +596,8 @@ class BitrixSalesAdapter:
             limit=limit,
             use_sales_app=True,
         )
-        return self._normalize_crm_items(items[:limit])
+        selected_items = items if limit is None else items[:limit]
+        return self._normalize_crm_items(selected_items)
 
     def get_recent_deals(
         self,
@@ -615,6 +638,23 @@ class BitrixSalesAdapter:
 
     def get_deal_source_map(self) -> list[dict[str, Any]]:
         return self._get_status_map("SOURCE")
+
+    def get_deal_category_map(self) -> dict[str, str]:
+        try:
+            if self.sales_read_mode() == "app_oauth":
+                payload = self.app_auth.call_payload("crm.category.list", params={"entityTypeId": 2}, default={})
+            else:
+                payload = self.provider.call_method("crm.category.list", params={"entityTypeId": 2}, default={})
+        except BITRIX_RUNTIME_ERRORS:
+            return {}
+
+        categories: dict[str, str] = {}
+        for item in _extract_category_items(payload):
+            category_id = str(item.get("id") or item.get("ID") or "").strip()
+            name = str(item.get("name") or item.get("NAME") or "").strip()
+            if category_id:
+                categories[category_id] = name or category_id
+        return categories
 
     def get_deal_fields_meta(self) -> dict[str, Any]:
         try:

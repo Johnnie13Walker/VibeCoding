@@ -11,7 +11,8 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
-from urllib.parse import parse_qs, urlparse
+from urllib.error import HTTPError, URLError
+from urllib.parse import parse_qs, urlencode, urlparse
 from urllib.request import Request, urlopen
 from zoneinfo import ZoneInfo
 
@@ -22,10 +23,18 @@ def _env(name: str, default: str) -> str:
     return str(os.getenv(name) or default).strip()
 
 
+def _int_env(name: str, default: int) -> int:
+    try:
+        return int(_env(name, str(default)))
+    except ValueError:
+        return default
+
+
 APP_HOST = _env("BITRIX_APP_HOST", "127.0.0.1")
 APP_PORT = int(_env("BITRIX_APP_PORT", "8787"))
 STATE_DIR = Path(_env("BITRIX_APP_STATE_DIR", "/opt/openclaw/state/bitrix_app"))
 WAZZUP_FORWARD_URL = _env("WAZZUP_WEBHOOK_FORWARD_URL", "")
+BITRIX_TIMEOUT_SEC = _int_env("BITRIX_TIMEOUT_SEC", 10)
 
 
 def _now_iso() -> str:
@@ -76,6 +85,14 @@ def _pick(payload: dict[str, Any], *keys: str) -> str:
         value = payload.get(key)
         if value not in (None, ""):
             return str(value)
+        if "[" in key and key.endswith("]"):
+            parent, child = key.split("[", 1)
+            child = child[:-1]
+            nested = payload.get(parent)
+            if isinstance(nested, dict):
+                value = nested.get(child)
+                if value not in (None, ""):
+                    return str(value)
     return ""
 
 
@@ -137,6 +154,424 @@ def _forward_wazzup_payload(payload: dict[str, Any]) -> str:
     with urlopen(request, timeout=10) as response:  # noqa: S310
         response.read()
     return "ok"
+
+
+def _string_id(value: Any) -> str:
+    raw = str(value or "").strip()
+    if raw.endswith(".0") and raw[:-2].isdigit():
+        raw = raw[:-2]
+    return raw
+
+
+def _int_or(value: Any, default: int) -> int:
+    raw = str(value or "").strip()
+    if not raw:
+        return default
+    try:
+        return int(float(raw))
+    except ValueError:
+        return default
+
+
+def _is_yes(value: Any, *, default: bool = False) -> bool:
+    raw = str(value or "").strip().lower()
+    if not raw:
+        return default
+    return raw in {"1", "true", "y", "yes", "да"}
+
+
+def _extract_property(payload: dict[str, Any], name: str) -> str:
+    variants = (
+        name,
+        name.upper(),
+        name.lower(),
+        f"properties[{name}]",
+        f"properties[{name.upper()}]",
+        f"properties[{name.lower()}]",
+        f"Properties[{name}]",
+        f"PROPERTY[{name}]",
+    )
+    value = _pick(payload, *variants)
+    if value:
+        return value
+    properties = payload.get("properties") or payload.get("Properties") or payload.get("PROPERTY")
+    if isinstance(properties, dict):
+        for key in (name, name.upper(), name.lower()):
+            value = properties.get(key)
+            if value not in (None, ""):
+                return str(value)
+    return ""
+
+
+def _extract_id_from_document(value: Any, prefix: str) -> str:
+    if isinstance(value, list):
+        values = [str(item) for item in value]
+    else:
+        raw = str(value or "")
+        values = raw.replace("[", " ").replace("]", " ").replace(",", " ").split()
+    marker = f"{prefix}_"
+    for item in values:
+        if marker in item:
+            return _string_id(item.rsplit(marker, 1)[-1].strip("'\""))
+    return ""
+
+
+def _extract_sync_request(payload: dict[str, Any]) -> dict[str, Any]:
+    company_id = _string_id(
+        _extract_property(payload, "companyId")
+        or _extract_property(payload, "company_id")
+        or _extract_property(payload, "COMPANY_ID")
+        or _extract_id_from_document(
+            payload.get("document_id")
+            or payload.get("DOCUMENT_ID")
+            or payload.get("documentId")
+            or payload.get("DocumentId")
+            or payload.get("document_id[2]")
+            or payload.get("DOCUMENT_ID[2]"),
+            "COMPANY",
+        )
+    )
+    deal_id = _string_id(
+        _extract_property(payload, "dealId")
+        or _extract_property(payload, "deal_id")
+        or _extract_property(payload, "DEAL_ID")
+    )
+    include_closed = _is_yes(
+        _extract_property(payload, "syncClosedDeals")
+        or _extract_property(payload, "includeClosedDeals"),
+        default=True,
+    )
+    max_deals = _int_or(_extract_property(payload, "maxDeals"), 50)
+    if max_deals <= 0:
+        max_deals = 50
+    return {
+        "company_id": company_id,
+        "deal_id": deal_id,
+        "include_closed": include_closed,
+        "max_deals": min(max_deals, 200),
+    }
+
+
+def _load_latest_auth_payload() -> dict[str, Any]:
+    for name in ("handler.latest.json", "install.latest.json"):
+        path = STATE_DIR / name
+        if not path.exists():
+            continue
+        try:
+            record = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        payload = record.get("payload")
+        if isinstance(payload, dict):
+            return payload
+    return {}
+
+
+def _auth_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    merged = _load_latest_auth_payload()
+    merged.update(payload)
+    return merged
+
+
+def _client_endpoint(payload: dict[str, Any]) -> str:
+    endpoint = _pick(payload, "auth[client_endpoint]", "client_endpoint")
+    if endpoint:
+        return endpoint.rstrip("/")
+    domain = _pick(payload, "auth[domain]", "DOMAIN", "domain")
+    if domain and "." in domain:
+        return f"https://{domain}/rest"
+    return ""
+
+
+def _access_token(payload: dict[str, Any]) -> str:
+    return _pick(payload, "auth[access_token]", "AUTH_ID", "auth_id", "access_token")
+
+
+def _flatten_rest_params(prefix: str, value: Any) -> list[tuple[str, str]]:
+    if isinstance(value, dict):
+        pairs: list[tuple[str, str]] = []
+        for key, item in value.items():
+            pairs.extend(_flatten_rest_params(f"{prefix}[{key}]", item))
+        return pairs
+    if isinstance(value, (list, tuple)):
+        pairs = []
+        for item in value:
+            pairs.extend(_flatten_rest_params(f"{prefix}[]", item))
+        return pairs
+    if value is None:
+        return [(prefix, "")]
+    return [(prefix, str(value))]
+
+
+def _bitrix_call_payload(auth_payload: dict[str, Any], method: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
+    endpoint = _client_endpoint(auth_payload)
+    token = _access_token(auth_payload)
+    if not endpoint or not token:
+        raise RuntimeError("В payload БП нет Bitrix auth/client_endpoint")
+
+    body_pairs = [("auth", token)]
+    for key, value in (params or {}).items():
+        body_pairs.extend(_flatten_rest_params(str(key), value))
+    request = Request(
+        f"{endpoint}/{method}.json",
+        method="POST",
+        data=urlencode(body_pairs).encode("utf-8"),
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+    )
+    try:
+        with urlopen(request, timeout=BITRIX_TIMEOUT_SEC) as response:  # noqa: S310
+            raw = response.read().decode("utf-8", errors="replace")
+    except HTTPError as error:
+        raw = error.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"Bitrix HTTP {error.code}: {raw[:400]}") from None
+    except URLError as error:
+        raise RuntimeError(f"Bitrix URL error: {error.reason}") from None
+
+    try:
+        payload = json.loads(raw or "{}")
+    except json.JSONDecodeError as error:
+        raise RuntimeError(f"Bitrix вернул невалидный JSON: {error}") from None
+    if not isinstance(payload, dict):
+        raise RuntimeError("Bitrix вернул неожиданный формат ответа")
+    if payload.get("error"):
+        raise RuntimeError(f"Bitrix error {payload.get('error')}: {payload.get('error_description')}")
+    return payload
+
+
+def _bitrix_call(auth_payload: dict[str, Any], method: str, params: dict[str, Any] | None = None, default: Any = None) -> Any:
+    payload = _bitrix_call_payload(auth_payload, method, params)
+    result = payload.get("result")
+    return default if result is None else result
+
+
+def _normalize_link(item: dict[str, Any], *, default_sort: int) -> dict[str, Any] | None:
+    contact_id = _string_id(item.get("CONTACT_ID") or item.get("contactId") or item.get("contact_id"))
+    if not contact_id:
+        return None
+    return {
+        "CONTACT_ID": int(contact_id),
+        "SORT": _int_or(item.get("SORT") or item.get("sort"), default_sort),
+        "ROLE_ID": _int_or(item.get("ROLE_ID") or item.get("roleId") or item.get("role_id"), 0),
+        "IS_PRIMARY": "Y" if _is_yes(item.get("IS_PRIMARY") or item.get("isPrimary") or item.get("is_primary")) else "N",
+    }
+
+
+def _normalize_links(items: list[dict[str, Any]], *, default_sort: int = 10) -> list[dict[str, Any]]:
+    links: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for index, item in enumerate(items):
+        link = _normalize_link(item, default_sort=default_sort + (index * 10))
+        if not link:
+            continue
+        contact_id = str(link["CONTACT_ID"])
+        if contact_id in seen:
+            continue
+        seen.add(contact_id)
+        links.append(link)
+    return links
+
+
+def _build_sync_plan(
+    *,
+    deal_id: str,
+    company_id: str,
+    company_contact_items: list[dict[str, Any]],
+    deal_contact_items: list[dict[str, Any]],
+) -> dict[str, Any]:
+    company_links = _normalize_links(company_contact_items)
+    deal_links = _normalize_links(deal_contact_items)
+    existing_deal_ids = {str(item["CONTACT_ID"]) for item in deal_links}
+    primary_assigned = any(item.get("IS_PRIMARY") == "Y" for item in deal_links)
+    max_sort = max([_int_or(item.get("SORT"), 0) for item in deal_links] + [0])
+    additions: list[dict[str, Any]] = []
+    skipped_existing: list[str] = []
+
+    for company_link in sorted(company_links, key=lambda item: (_int_or(item.get("SORT"), 0), str(item["CONTACT_ID"]))):
+        contact_id = str(company_link["CONTACT_ID"])
+        if contact_id in existing_deal_ids:
+            skipped_existing.append(contact_id)
+            continue
+        max_sort = max(max_sort + 10, _int_or(company_link.get("SORT"), 0))
+        addition = {
+            "CONTACT_ID": company_link["CONTACT_ID"],
+            "SORT": max_sort,
+            "ROLE_ID": company_link["ROLE_ID"],
+            "IS_PRIMARY": "N",
+        }
+        if not primary_assigned:
+            addition["IS_PRIMARY"] = "Y"
+            primary_assigned = True
+        additions.append(addition)
+        existing_deal_ids.add(contact_id)
+
+    return {
+        "deal_id": str(deal_id),
+        "company_id": str(company_id),
+        "existing_deal_contact_ids": [str(item["CONTACT_ID"]) for item in deal_links],
+        "company_contact_ids": [str(item["CONTACT_ID"]) for item in company_links],
+        "skipped_existing_contact_ids": skipped_existing,
+        "additions": additions,
+        "additions_count": len(additions),
+    }
+
+
+def _list_company_deals(
+    auth_payload: dict[str, Any],
+    *,
+    company_id: str,
+    include_closed: bool,
+    max_deals: int,
+) -> list[dict[str, Any]]:
+    deals: list[dict[str, Any]] = []
+    start = 0
+    while len(deals) < max_deals:
+        filters: dict[str, Any] = {"COMPANY_ID": company_id}
+        if not include_closed:
+            filters["CLOSED"] = "N"
+        payload = _bitrix_call_payload(
+            auth_payload,
+            "crm.deal.list",
+            {
+                "filter": filters,
+                "select": ["ID", "TITLE", "COMPANY_ID", "CLOSED"],
+                "order": {"ID": "DESC"},
+                "start": start,
+            },
+        )
+        result = payload.get("result")
+        if not isinstance(result, list):
+            break
+        deals.extend(item for item in result if isinstance(item, dict))
+        next_start = payload.get("next")
+        if next_start is None:
+            break
+        start = _int_or(next_start, 0)
+        if start <= 0:
+            break
+    return deals[:max_deals]
+
+
+def _sync_deal_contacts(
+    auth_payload: dict[str, Any],
+    *,
+    deal_id: str,
+    expected_company_id: str,
+    company_contact_items: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    deal = _bitrix_call(auth_payload, "crm.deal.get", {"id": deal_id}, default={})
+    if not isinstance(deal, dict):
+        deal = {}
+    company_id = _string_id(deal.get("COMPANY_ID") or expected_company_id)
+    if expected_company_id and company_id and str(company_id) != str(expected_company_id):
+        return {
+            "ok": False,
+            "status": "company_mismatch",
+            "deal_id": str(deal_id),
+            "company_id": company_id,
+            "expected_company_id": expected_company_id,
+        }
+
+    if not company_id:
+        return {"ok": False, "status": "no_company", "deal_id": str(deal_id)}
+
+    if company_contact_items is None:
+        company_items = _bitrix_call(auth_payload, "crm.company.contact.items.get", {"id": company_id}, default=[])
+    else:
+        company_items = company_contact_items
+    deal_items = _bitrix_call(auth_payload, "crm.deal.contact.items.get", {"id": deal_id}, default=[])
+    if not isinstance(company_items, list):
+        company_items = []
+    if not isinstance(deal_items, list):
+        deal_items = []
+
+    plan = _build_sync_plan(
+        deal_id=str(deal_id),
+        company_id=company_id,
+        company_contact_items=[item for item in company_items if isinstance(item, dict)],
+        deal_contact_items=[item for item in deal_items if isinstance(item, dict)],
+    )
+    applied: list[dict[str, Any]] = []
+    for addition in plan["additions"]:
+        fields = {
+            "CONTACT_ID": addition["CONTACT_ID"],
+            "SORT": addition["SORT"],
+            "IS_PRIMARY": addition["IS_PRIMARY"],
+        }
+        result = _bitrix_call(auth_payload, "crm.deal.contact.add", {"id": deal_id, "fields": fields}, default=None)
+        applied.append({"fields": fields, "result": result})
+
+    return {
+        "ok": True,
+        "status": "applied",
+        "deal_id": str(deal_id),
+        "deal_title": str(deal.get("TITLE") or ""),
+        "company_id": company_id,
+        "plan": plan,
+        "applied": applied,
+    }
+
+
+def _sync_deal_contacts_from_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    auth = _auth_payload(payload)
+    request = _extract_sync_request(payload)
+    company_id = request["company_id"]
+    deal_id = request["deal_id"]
+
+    if deal_id:
+        result = _sync_deal_contacts(auth, deal_id=deal_id, expected_company_id=company_id)
+        return {
+            "ok": bool(result.get("ok")),
+            "event": "sync_deal_contacts",
+            "request": request,
+            "deals_count": 1,
+            "added_contacts_count": int(result.get("plan", {}).get("additions_count", 0)) if isinstance(result.get("plan"), dict) else 0,
+            "results": [result],
+            "saved_at": _now_iso(),
+        }
+
+    if not company_id:
+        return {
+            "ok": False,
+            "event": "sync_deal_contacts",
+            "status": "no_company",
+            "message": "Не передан companyId и не найден COMPANY_ID в document_id",
+            "request": request,
+            "saved_at": _now_iso(),
+        }
+
+    company_items = _bitrix_call(auth, "crm.company.contact.items.get", {"id": company_id}, default=[])
+    if not isinstance(company_items, list):
+        company_items = []
+    deals = _list_company_deals(
+        auth,
+        company_id=company_id,
+        include_closed=bool(request["include_closed"]),
+        max_deals=int(request["max_deals"]),
+    )
+    results = [
+        _sync_deal_contacts(
+            auth,
+            deal_id=str(deal.get("ID")),
+            expected_company_id=company_id,
+            company_contact_items=[item for item in company_items if isinstance(item, dict)],
+        )
+        for deal in deals
+        if _string_id(deal.get("ID"))
+    ]
+    return {
+        "ok": all(bool(item.get("ok")) for item in results) if results else True,
+        "event": "sync_deal_contacts",
+        "request": request,
+        "deals_count": len(results),
+        "deal_ids": [str(item.get("deal_id")) for item in results],
+        "added_contacts_count": sum(
+            int(item.get("plan", {}).get("additions_count", 0))
+            for item in results
+            if isinstance(item.get("plan"), dict)
+        ),
+        "results": results,
+        "saved_at": _now_iso(),
+    }
 
 
 def _slugify_event_name(value: str | None) -> str:
@@ -299,7 +734,7 @@ class BitrixAppHandler(BaseHTTPRequestHandler):
         if path == "/healthz":
             self._send_bytes(HTTPStatus.OK, b"ok", content_type="text/plain; charset=utf-8")
             return
-        if path not in {"/bitrix/app/install", "/bitrix/app/handler"}:
+        if path not in {"/bitrix/app/install", "/bitrix/app/handler", "/bitrix/app/sync-deal-contacts"}:
             self._send_bytes(HTTPStatus.NOT_FOUND, b"not found", content_type="text/plain; charset=utf-8")
             return
 
@@ -307,6 +742,10 @@ class BitrixAppHandler(BaseHTTPRequestHandler):
         body_data = _read_body(self)
         payload = _merge_payload(query_data, body_data)
         headers = {key: value for key, value in self.headers.items()}
+        if path == "/bitrix/app/sync-deal-contacts":
+            self._handle_sync_deal_contacts(payload, headers)
+            return
+
         if path.endswith("/install"):
             event = "install"
         elif _is_wazzup_payload(payload):
@@ -347,6 +786,31 @@ class BitrixAppHandler(BaseHTTPRequestHandler):
             f"<p><code>{escape(event)}</code></p>"
         )
         self._send_bytes(HTTPStatus.OK, _html_page("Cloudbot Bitrix App", body))
+
+    def _handle_sync_deal_contacts(self, payload: dict[str, Any], headers: dict[str, Any]) -> None:
+        event = "sync_deal_contacts"
+        if _has_payload(payload):
+            _persist_payload(event, payload, headers)
+        try:
+            result = _sync_deal_contacts_from_payload(payload)
+        except Exception as error:  # noqa: BLE001
+            result = {
+                "ok": False,
+                "event": event,
+                "status": "error",
+                "error": str(error),
+                "saved_at": _now_iso(),
+            }
+        status_label = "ok" if result.get("ok") else "error"
+        print(
+            f"{_safe_log(event, payload)} status={status_label}"
+            f" company_id={result.get('request', {}).get('company_id', '-') if isinstance(result.get('request'), dict) else '-'}"
+            f" deals={result.get('deals_count', '-')}"
+            f" added={result.get('added_contacts_count', '-')}",
+            file=sys.stderr,
+            flush=True,
+        )
+        self._send_json(HTTPStatus.OK, result)
 
     def _send_json(self, status: HTTPStatus, payload: dict[str, Any]) -> None:
         body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
