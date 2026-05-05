@@ -1,5 +1,6 @@
 import { createSign } from "node:crypto";
 import { readFile } from "node:fs/promises";
+import { formatPeriodLabel, monthsFromCohortByBrand } from "./marketing_dashboard_period.mjs";
 
 const SHEET_URL = "https://docs.google.com/spreadsheets/d/11LWdg8HGOHyDh3QlEEJlD4yfrMTVkUAzEdVxnyvfRZM/edit#gid=0";
 const SA_PATH = process.env.MARKETING_GOOGLE_SERVICE_ACCOUNT_JSON || process.env.GOOGLE_SERVICE_ACCOUNT_JSON || "/Users/pro2kuror/Downloads/finance-director-sheets-903611b799c3.json";
@@ -83,16 +84,6 @@ function fmtInt(value) {
 }
 function fmtMoney(value) {
   return `${fmtInt(value)} ₽`;
-}
-function formatPeriodLabel(months) {
-  if (!months.length) return "";
-  const fmt = new Intl.DateTimeFormat("ru-RU", { month: "long", year: "numeric", timeZone: "Europe/Moscow" });
-  const toLabel = (month) => {
-    const dt = new Date(`${month}-01T00:00:00+03:00`);
-    const text = fmt.format(dt);
-    return text.charAt(0).toUpperCase() + text.slice(1);
-  };
-  return `${toLabel(months[0])} — ${toLabel(months[months.length - 1])}`;
 }
 function formatMoscowTimestamp() {
   const fmt = new Intl.DateTimeFormat("ru-RU", {
@@ -278,7 +269,7 @@ for (const [key, metrics] of Object.entries(data.cohort_by_source || {})) {
 }
 const allSources = Array.from(sourceAgg.values())
   .sort((a, b) => b.obr - a.obr || b.sale - a.sale || b.revenue - a.revenue || b.lead - a.lead || a.source.localeCompare(b.source, "ru"));
-const cohortMonths = Array.from(new Set(Object.keys(data.cohort_by_brand || {}).map((key) => key.split("|||")[0]))).sort();
+const cohortMonths = monthsFromCohortByBrand(data.cohort_by_brand || {});
 const periodLabel = formatPeriodLabel(cohortMonths);
 const updatedAt = formatMoscowTimestamp();
 const acoolaSources = brandSourceMetrics(data, "Acoola Team");

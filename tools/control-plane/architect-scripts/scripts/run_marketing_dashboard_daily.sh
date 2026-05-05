@@ -123,6 +123,7 @@ run_step "Сборка вкладки Динамика источников 2026
 run_step "Сборка вкладки Спам по источникам" node "${ROOT_DIR}/scripts/build_spam_source_sheet.mjs"
 run_step "Визуальное оформление вкладок" node "${ROOT_DIR}/scripts/beautify_dashboard_tabs.mjs"
 run_step "Компактное отображение вкладок" node "${ROOT_DIR}/scripts/compact_dashboard_tabs.mjs"
+run_step "Проверка отсутствия жёстко прошитых месяцев" node "${ROOT_DIR}/scripts/check_marketing_dashboard_month_literals.mjs"
 run_verify
 write_status "OK" "" 0
 log "Ежедневное обновление маркетингового дашборда завершено"

@@ -1,5 +1,6 @@
 import { createSign } from "node:crypto";
 import { readFile } from "node:fs/promises";
+import { formatPeriodLabel, latestMonth, monthsFromCohortByBrand } from "./marketing_dashboard_period.mjs";
 
 const SHEET_URL = "https://docs.google.com/spreadsheets/d/11LWdg8HGOHyDh3QlEEJlD4yfrMTVkUAzEdVxnyvfRZM/edit#gid=0";
 const SA_PATH = process.env.MARKETING_GOOGLE_SERVICE_ACCOUNT_JSON || process.env.GOOGLE_SERVICE_ACCOUNT_JSON || "/Users/pro2kuror/Downloads/finance-director-sheets-903611b799c3.json";
@@ -545,6 +546,9 @@ const cohortTotals = expectedCohortTotals(cohort);
 const spamFilter = cohort.meta?.spam_filter || {};
 const acoola = brandCohort(cohort, "Acoola Team");
 const belberry = brandCohort(cohort, "Belberry");
+const cohortMonths = monthsFromCohortByBrand(cohort.cohort_by_brand || {});
+const expectedPeriodLabel = formatPeriodLabel(cohortMonths);
+const expectedLatestMonth = latestMonth(cohortMonths);
 const noBrandRows = (cohort.detail_rows || []).filter((row) => !row.brand || row.brand === "Без бренда");
 const sourceRows = cohortSourceRows(cohort);
 const sourceRowsWithoutNoBrand = sourceRows.filter((row) => row.brand !== "Без бренда");
@@ -635,7 +639,7 @@ for (const [title, expected] of Object.entries(LAYOUT_EXPECTATIONS)) {
 }
 
 const ceo = values.get("ceo");
-expectIncludes("CEO Dashboard: период", cell(ceo, 2, 2), "Апрель 2026");
+expectIncludes("CEO Dashboard: период", cell(ceo, 2, 2), expectedPeriodLabel);
 checkMetricBlock("CEO Dashboard / когорта", ceo, 7, 1, cohortTotals, ["obr", "lead", "kp", "contract", "sale", "revenue"], 2);
 checkMetricBlock("CEO Dashboard / событийный слой", ceo, 13, 1, eventTotals, ["lead", "kp", "contract", "sale", "revenue"], 2);
 expectEqual("CEO Dashboard / без бренда", cell(ceo, 9, 11), noBrandRows.length);
@@ -644,8 +648,9 @@ checkMetricRow("CEO Dashboard / Belberry", ceo, "Belberry", belberry, ["obr", "l
 checkMetricRow("CEO Dashboard / Итого бренды", ceo, "Итого", cohortTotals, ["obr", "lead", "kp", "contract", "sale", "revenue"]);
 
 const cohortFilter = values.get("cohortFilter");
-expectText("Когортный фильтр / апрель в селекторе", cell(cohortFilter, 5, 5), "2026-04");
-expectEqual("Когортный фильтр / апрель включён", cell(cohortFilter, 6, 5) === true ? 1 : 0, 1);
+const cohortSelectorMonthCol = (cohortFilter[4] || []).findIndex((value) => String(value ?? "").trim() === expectedLatestMonth) + 1;
+expectEqual("Когортный фильтр / последний месяц есть в селекторе", cohortSelectorMonthCol > 0 ? 1 : 0, 1);
+if (cohortSelectorMonthCol > 0) expectEqual("Когортный фильтр / последний месяц включён", cell(cohortFilter, 6, cohortSelectorMonthCol) === true ? 1 : 0, 1);
 checkMetricBlock("Когортный фильтр / общая сводка", cohortFilter, 11, 1, cohortTotals, ["obr", "lead", "kp", "contract", "sale", "revenue"]);
 checkMetricBlock("Когортный фильтр / Acoola", cohortFilter, 11, 8, acoola, ["obr", "lead", "kp", "contract", "sale", "revenue"]);
 checkMetricBlock("Когортный фильтр / Belberry", cohortFilter, 11, 15, belberry, ["obr", "lead", "kp", "contract", "sale", "revenue"]);
@@ -658,8 +663,9 @@ if (cohortAcoolaSourceRow && cohortBelberrySourceRow) expectGreater("Когор�
 const eventFilter = values.get("eventFilter");
 const acoolaEvents = eventByBrand.get("Acoola Team") || {};
 const belberryEvents = eventByBrand.get("Belberry") || {};
-expectText("Событийный фильтр / апрель в селекторе", cell(eventFilter, 5, 5), "2026-04");
-expectEqual("Событийный фильтр / апрель включён", cell(eventFilter, 6, 5) === true ? 1 : 0, 1);
+const eventSelectorMonthCol = (eventFilter[4] || []).findIndex((value) => String(value ?? "").trim() === expectedLatestMonth) + 1;
+expectEqual("Событийный фильтр / последний месяц есть в селекторе", eventSelectorMonthCol > 0 ? 1 : 0, 1);
+if (eventSelectorMonthCol > 0) expectEqual("Событийный фильтр / последний месяц включён", cell(eventFilter, 6, eventSelectorMonthCol) === true ? 1 : 0, 1);
 checkMetricBlock("Событийный фильтр / общая сводка", eventFilter, 11, 1, eventTotals, ["lead", "kp", "contract", "sale", "revenue"]);
 checkMetricBlock("Событийный фильтр / Acoola", eventFilter, 11, 8, acoolaEvents, ["lead", "kp", "contract", "sale", "revenue"]);
 checkMetricBlock("Событийный фильтр / Belberry", eventFilter, 11, 15, belberryEvents, ["lead", "kp", "contract", "sale", "revenue"]);
