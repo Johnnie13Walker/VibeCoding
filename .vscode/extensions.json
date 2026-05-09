@@ -1,0 +1,32 @@
+{
+  "recommendations": [
+    "ms-vscode.vscode-typescript-next",
+    "esbenp.prettier-vscode",
+    "dbaeumer.vscode-eslint",
+    "ms-vscode.vscode-json",
+    "redhat.vscode-yaml",
+    "ms-vscode-remote.remote-containers",
+    "ms-vscode.vscode-docker",
+    "ms-vscode.vscode-git-graph",
+    "ms-python.python",
+    "ms-toolsai.jupyter",
+    "ms-vscode.vscode-markdown-notebook",
+    "github.copilot",
+    "github.copilot-chat",
+    "ms-vscode.vscode-pull-request-github",
+    "gruntfuggly.todo-tree",
+    "christian-kohler.path-intellisense",
+    "bradlc.vscode-tailwindcss",
+    "ms-vscode.vscode-jest",
+    "humao.rest-client",
+    "ms-vscode.hexeditor",
+    "ms-vscode.vscode-git-graph",
+    "ms-vscode.vscode-live-share",
+    "ms-vscode.vscode-remote-ssh",
+    "ms-vscode.vscode-remote-ssh-edit"
+  ],
+  "unwantedRecommendations": [
+    "ms-vscode.vscode-typescript",
+    "hookyqr.beautify"
+  ]
+}

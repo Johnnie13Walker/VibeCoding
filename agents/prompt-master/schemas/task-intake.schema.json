@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "task-intake.schema.json",
+  "title": "PromptMasterTaskIntake",
+  "type": "object",
+  "required": ["raw_input", "normalized_task", "business_goal", "task_types", "expected_output"],
+  "properties": {
+    "raw_input": {
+      "type": "string",
+      "description": "Исходный хаотичный вход пользователя."
+    },
+    "normalized_task": {
+      "type": "string",
+      "description": "Очищенная и структурированная формулировка задачи."
+    },
+    "business_goal": {
+      "type": "string",
+      "description": "Бизнес-цель задачи."
+    },
+    "expected_output": {
+      "type": "string",
+      "description": "Конечный артефакт или результат."
+    },
+    "task_types": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "разработка",
+          "архитектура",
+          "DevOps",
+          "интеграции",
+          "аналитика",
+          "продажи",
+          "маркетинг",
+          "SEO",
+          "автоматизация",
+          "финансы",
+          "HR",
+          "research",
+          "контент",
+          "продукт",
+          "визуальный артефакт",
+          "документация",
+          "операционный процесс"
+        ]
+      }
+    },
+    "missing_data": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "risks": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "domain": {
+      "type": "string",
+      "enum": ["personal", "belberry", "shared", "unknown"]
+    },
+    "requires_sources": {
+      "type": "boolean"
+    },
+    "requires_write_worker": {
+      "type": "boolean"
+    },
+    "is_visual": {
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": false
+}
+

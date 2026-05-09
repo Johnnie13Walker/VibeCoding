@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "agent-routing.schema.json",
+  "title": "PromptMasterAgentRouting",
+  "type": "object",
+  "required": ["flow_type", "agents", "execution_order", "acceptance_checklist"],
+  "properties": {
+    "flow_type": {
+      "type": "string",
+      "enum": ["single-agent", "multi-agent", "visual", "engineering", "research"]
+    },
+    "agents": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "role", "prompt"],
+        "properties": {
+          "name": { "type": "string" },
+          "role": { "type": "string" },
+          "prompt": { "type": "string" },
+          "file_ownership": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "depends_on": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "output_format": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "execution_order": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["step", "agents"],
+        "properties": {
+          "step": { "type": "integer", "minimum": 1 },
+          "agents": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "mode": {
+            "type": "string",
+            "enum": ["parallel", "sequence"]
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "context_handoff": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "acceptance_checklist": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "status": {
+      "type": "string",
+      "enum": ["ОК", "Нужны данные", "Есть риски", "Не готово"]
+    }
+  },
+  "additionalProperties": false
+}
