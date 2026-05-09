@@ -107,6 +107,10 @@ Thumbs.db
 # Local AI/IDE session state
 .claude/
 
+# Локальные ops-конфиги: реальный remote-ops.env держим только на машине,
+# в репо коммитим только .example
+shared/integrations/infra/remote-ops.env
+
 # AI-specific
 *.pkl
 *.h5
