@@ -38,6 +38,14 @@
 - Провайдер: `cloudbot/providers/search_provider.py`.
 - Skill: `cloudbot/skills/web_search.py`.
 
+## Obsidian
+- Тип интеграции: файловый Markdown vault с синхронизацией через private GitHub repository.
+- Боевой путь vault: `OBSIDIAN_VAULT_PATH`, по умолчанию `/srv/cloudbot/obsidian-vault`.
+- Git remote: `OBSIDIAN_GIT_REMOTE`.
+- Timezone для daily notes и пользовательских сообщений: `Europe/Moscow`.
+- Целевые provider/skills описаны в `shared/docs/integrations/obsidian_vault.md`.
+- Vault не должен содержать `.env`, токены, private keys и другие секреты.
+
 ## Контур Ларисы Ивановны
 - Канонический агент: `apps/larisa_ivanovna/`.
 - Compatibility shim: `agents/larisa_ivanovna/`.
