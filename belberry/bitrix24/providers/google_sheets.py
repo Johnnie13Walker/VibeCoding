@@ -1,4 +1,4 @@
-"""Read-only Google Sheets provider через service account JWT."""
+"""Google Sheets provider через service account JWT."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Mapping, Sequence
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
@@ -18,10 +18,12 @@ from zoneinfo import ZoneInfo
 MOSCOW_TZ = ZoneInfo("Europe/Moscow")
 DEFAULT_TIMEOUT_SEC = 20
 READ_SCOPE = "https://www.googleapis.com/auth/spreadsheets.readonly"
+RW_SCOPE = "https://www.googleapis.com/auth/spreadsheets"
 TOKEN_AUDIENCE = "https://oauth2.googleapis.com/token"
 TOKEN_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:jwt-bearer"
 RETRY_DELAYS_SEC = (1.0, 2.0)
 READ_METHODS = ("spreadsheets.values.get", "spreadsheets.get")
+WRITE_METHODS = ("spreadsheets.batchUpdate", "spreadsheets.values.update", "spreadsheets.values.append")
 
 
 @dataclass(frozen=True)
@@ -122,6 +124,7 @@ def _build_jwt_assertion(
     private_key: str,
     token_uri: str,
     now: datetime,
+    scope: str = READ_SCOPE,
 ) -> str:
     if now.tzinfo is None:
         now = now.replace(tzinfo=timezone.utc)
@@ -131,7 +134,7 @@ def _build_jwt_assertion(
     header = {"alg": "RS256", "typ": "JWT"}
     claims = {
         "iss": client_email,
-        "scope": READ_SCOPE,
+        "scope": scope,
         "aud": token_uri,
         "iat": iat,
         "exp": exp,
@@ -168,6 +171,28 @@ def _string_rows(values: Any) -> tuple[tuple[str, ...], ...]:
     return tuple(rows)
 
 
+def _sheet_names(metadata: Mapping[str, Any]) -> set[str]:
+    sheets = metadata.get("sheets")
+    if not isinstance(sheets, list):
+        return set()
+    return {
+        str(item.get("properties", {}).get("title") or "")
+        for item in sheets
+        if isinstance(item, Mapping) and isinstance(item.get("properties"), Mapping)
+    }
+
+
+def _column_name(index: int) -> str:
+    if index < 1:
+        raise GoogleSheetsError("column index must be positive")
+    result = ""
+    value = index
+    while value:
+        value, remainder = divmod(value - 1, 26)
+        result = chr(65 + remainder) + result
+    return result
+
+
 class GoogleSheetsClient:
     def __init__(
         self,
@@ -184,8 +209,7 @@ class GoogleSheetsClient:
         self.now_utc = now_utc
         self.timeout_sec = int(timeout_sec or DEFAULT_TIMEOUT_SEC)
         self._service_account: dict[str, Any] | None = None
-        self._access_token = ""
-        self._access_token_expires_at = datetime(1970, 1, 1, tzinfo=timezone.utc)
+        self._access_tokens: dict[str, tuple[str, datetime]] = {}
 
     @classmethod
     def from_env(
@@ -222,13 +246,14 @@ class GoogleSheetsClient:
                 continue
             return _parse_json_response(response, context=context)
 
-    def _access_token_value(self) -> str:
+    def _access_token_value(self, scope: str = READ_SCOPE) -> str:
         now = self.now_utc()
         if now.tzinfo is None:
             now = now.replace(tzinfo=timezone.utc)
         now = now.astimezone(timezone.utc)
-        if self._access_token and now < self._access_token_expires_at:
-            return self._access_token
+        cached = self._access_tokens.get(scope)
+        if cached and now < cached[1]:
+            return cached[0]
         payload = self._service_account_payload()
         token_uri = self._token_uri()
         assertion = _build_jwt_assertion(
@@ -236,6 +261,7 @@ class GoogleSheetsClient:
             private_key=_require_text(payload, "private_key"),
             token_uri=token_uri,
             now=now,
+            scope=scope,
         )
         request = Request(
             token_uri,
@@ -251,13 +277,28 @@ class GoogleSheetsClient:
             expires_in = int(token_payload.get("expires_in") or 3600)
         except (TypeError, ValueError):
             expires_in = 3600
-        self._access_token = token
-        self._access_token_expires_at = now + timedelta(seconds=max(60, expires_in - 60))
+        self._access_tokens[scope] = (token, now + timedelta(seconds=max(60, expires_in - 60)))
         return token
 
-    def _authed_get(self, url: str, *, context: str) -> dict[str, Any]:
-        request = Request(url, method="GET", headers={"Authorization": f"Bearer {self._access_token_value()}"})
+    def _authed_request(
+        self,
+        url: str,
+        *,
+        context: str,
+        method: str = "GET",
+        body: Mapping[str, Any] | None = None,
+        scope: str = READ_SCOPE,
+    ) -> dict[str, Any]:
+        data = None
+        headers = {"Authorization": f"Bearer {self._access_token_value(scope)}"}
+        if body is not None:
+            data = json.dumps(body, ensure_ascii=False, sort_keys=True).encode("utf-8")
+            headers["Content-Type"] = "application/json"
+        request = Request(url, method=method, data=data, headers=headers)
         return self._send(request, context=context)
+
+    def _authed_get(self, url: str, *, context: str) -> dict[str, Any]:
+        return self._authed_request(url, context=context)
 
     def metadata(self, sheet_id: str) -> dict[str, Any]:
         clean_id = str(sheet_id or "").strip()
@@ -274,13 +315,7 @@ class GoogleSheetsClient:
         if not clean_name:
             raise GoogleSheetsError("sheet_name is required")
         metadata = self.metadata(clean_id)
-        sheets = metadata.get("sheets")
-        sheet_names = {
-            str(item.get("properties", {}).get("title") or "")
-            for item in sheets
-            if isinstance(item, Mapping) and isinstance(item.get("properties"), Mapping)
-        } if isinstance(sheets, list) else set()
-        if clean_name not in sheet_names:
+        if clean_name not in _sheet_names(metadata):
             raise GoogleSheetsError(f"sheet not found: {clean_name}")
         range_name = quote(f"{clean_name}!A:Z", safe="")
         url = f"https://sheets.googleapis.com/v4/spreadsheets/{quote(clean_id, safe='')}/values/{range_name}"
@@ -295,7 +330,68 @@ class GoogleSheetsClient:
             fetched_at_msk=_now_msk(self.now_utc),
         )
 
+    def add_sheet(self, sheet_id: str, sheet_name: str) -> dict[str, Any]:
+        clean_id = str(sheet_id or "").strip()
+        clean_name = str(sheet_name or "").strip()
+        if not clean_id:
+            raise GoogleSheetsError("sheet_id is required")
+        if not clean_name:
+            raise GoogleSheetsError("sheet_name is required")
+        if clean_name in _sheet_names(self.metadata(clean_id)):
+            raise GoogleSheetsError(f"sheet already exists: {clean_name}")
+        url = f"https://sheets.googleapis.com/v4/spreadsheets/{quote(clean_id, safe='')}:batchUpdate"
+        return self._authed_request(
+            url,
+            context="spreadsheets.batchUpdate",
+            method="POST",
+            scope=RW_SCOPE,
+            body={"requests": [{"addSheet": {"properties": {"title": clean_name}}}]},
+        )
+
+    def write_header(self, sheet_id: str, sheet_name: str, header: Sequence[str]) -> dict[str, Any]:
+        clean_id = str(sheet_id or "").strip()
+        clean_name = str(sheet_name or "").strip()
+        values = [str(item) for item in header]
+        if not clean_id:
+            raise GoogleSheetsError("sheet_id is required")
+        if not clean_name:
+            raise GoogleSheetsError("sheet_name is required")
+        if not values:
+            raise GoogleSheetsError("header is required")
+        end_col = _column_name(len(values))
+        range_name = quote(f"{clean_name}!A1:{end_col}1", safe="")
+        query = urlencode({"valueInputOption": "RAW"})
+        url = f"https://sheets.googleapis.com/v4/spreadsheets/{quote(clean_id, safe='')}/values/{range_name}?{query}"
+        return self._authed_request(
+            url,
+            context="spreadsheets.values.update",
+            method="PUT",
+            scope=RW_SCOPE,
+            body={"values": [values]},
+        )
+
+    def append_rows(self, sheet_id: str, sheet_name: str, rows: Sequence[Sequence[str]]) -> dict[str, Any]:
+        clean_id = str(sheet_id or "").strip()
+        clean_name = str(sheet_name or "").strip()
+        values = [[str(cell) for cell in row] for row in rows]
+        if not clean_id:
+            raise GoogleSheetsError("sheet_id is required")
+        if not clean_name:
+            raise GoogleSheetsError("sheet_name is required")
+        if not values:
+            return {"updates": {"updatedRows": 0}}
+        range_name = quote(f"{clean_name}!A2", safe="")
+        query = urlencode({"valueInputOption": "RAW", "insertDataOption": "INSERT_ROWS"})
+        url = f"https://sheets.googleapis.com/v4/spreadsheets/{quote(clean_id, safe='')}/values/{range_name}:append?{query}"
+        return self._authed_request(
+            url,
+            context="spreadsheets.values.append",
+            method="POST",
+            scope=RW_SCOPE,
+            body={"values": values},
+        )
+
 
 def sheets_methods_used() -> tuple[str, ...]:
-    """Декларация read-only Google Sheets API methods."""
-    return READ_METHODS
+    """Декларация используемых Google Sheets API methods."""
+    return (*READ_METHODS, *WRITE_METHODS)

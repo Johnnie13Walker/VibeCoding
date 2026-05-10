@@ -23,12 +23,15 @@ from belberry.bitrix24.providers.google_sheets import (
     SheetSnapshot,
     _b64url,
     _build_jwt_assertion,
+    _column_name,
     _json_b64url,
     _load_json_object,
     _parse_json_response,
+    _sheet_names,
     _sign_rs256,
     _string_rows,
     sheets_methods_used,
+    RW_SCOPE,
     urllib_transport,
 )
 
@@ -62,6 +65,7 @@ class FakeTransport:
                 ["empty.ru"],
             ]
         }
+        self.write_payload: dict[str, Any] = {"ok": True}
 
     def __call__(self, request, timeout_sec: int) -> Response:
         headers = {str(key): str(value) for key, value in request.header_items()}
@@ -76,12 +80,16 @@ class FakeTransport:
             self.last_jwt_signature = signature
             return Response(status=200, body=json.dumps({"access_token": "access-token", "expires_in": 3600}))
         if request.full_url.startswith("https://sheets.googleapis.com/v4/spreadsheets/sheet-123/values/"):
+            if request.get_method() in {"PUT", "POST"}:
+                return Response(status=200, body=json.dumps(self.write_payload))
             if self.fail_values_once:
                 self.fail_values_once = False
                 return Response(status=503, body=json.dumps({"error": {"message": "try later"}}))
             return Response(status=200, body=json.dumps(self.values_payload))
         if request.full_url == "https://sheets.googleapis.com/v4/spreadsheets/sheet-123":
             return Response(status=200, body=json.dumps(self.metadata_payload))
+        if request.full_url == "https://sheets.googleapis.com/v4/spreadsheets/sheet-123:batchUpdate":
+            return Response(status=200, body=json.dumps({"replies": [{"addSheet": {"properties": {"title": "Дубликаты 3"}}}]}))
         return Response(status=404, body=json.dumps({"error": {"message": "not found"}}))
 
 
@@ -115,12 +123,19 @@ class GoogleSheetsTests(unittest.TestCase):
             now_utc=lambda: self.now,
         )
 
-    def test_sheets_methods_used_are_read_only(self) -> None:
+    def test_sheets_methods_used_declares_reads_and_writes(self) -> None:
         methods = sheets_methods_used()
 
-        self.assertEqual(methods, ("spreadsheets.values.get", "spreadsheets.get"))
-        forbidden = ("append", "update", "batch")
-        self.assertFalse([method for method in methods if any(word in method.lower() for word in forbidden)])
+        self.assertEqual(
+            methods,
+            (
+                "spreadsheets.values.get",
+                "spreadsheets.get",
+                "spreadsheets.batchUpdate",
+                "spreadsheets.values.update",
+                "spreadsheets.values.append",
+            ),
+        )
 
     def test_from_env_reads_service_account_path(self) -> None:
         client = GoogleSheetsClient.from_env(
@@ -277,7 +292,77 @@ class GoogleSheetsTests(unittest.TestCase):
         header, claims, signature = jwt.split(".")
         self.assertEqual(_decode_jwt_segment(header), {"alg": "RS256", "typ": "JWT"})
         self.assertEqual(_decode_jwt_segment(claims)["exp"], 1778408700)
+        self.assertEqual(_decode_jwt_segment(claims)["scope"], "https://www.googleapis.com/auth/spreadsheets.readonly")
         self.assertTrue(signature)
+
+    def test_write_methods_use_correct_scope(self) -> None:
+        client = self.client()
+
+        client.write_header("sheet-123", "Дубликаты 3", ["A"])
+
+        self.assertEqual(self.transport.last_jwt_claims["scope"], RW_SCOPE)
+
+    def test_add_sheet_uses_batch_update_body_and_rejects_existing(self) -> None:
+        client = self.client()
+
+        payload = client.add_sheet("sheet-123", "Дубликаты 3")
+
+        self.assertIn("replies", payload)
+        self.assertEqual([call[0] for call in self.transport.calls], ["POST", "GET", "POST", "POST"])
+        body = json.loads((self.transport.calls[-1][2] or b"").decode("utf-8"))
+        self.assertEqual(body["requests"][0]["addSheet"]["properties"]["title"], "Дубликаты 3")
+
+        self.transport.metadata_payload = {"sheets": [{"properties": {"title": "Дубликаты 3"}}]}
+        with self.assertRaisesRegex(GoogleSheetsError, "already exists"):
+            client.add_sheet("sheet-123", "Дубликаты 3")
+
+    def test_write_header_uses_values_update_range(self) -> None:
+        client = self.client()
+
+        client.write_header("sheet-123", "Дубликаты 3", ["A", "B", "C"])
+
+        method, url, data, _headers = self.transport.calls[-1]
+        self.assertEqual(method, "PUT")
+        self.assertIn("valueInputOption=RAW", url)
+        self.assertIn("Дубликаты 3!A1:C1", unquote(url))
+        self.assertEqual(json.loads((data or b"").decode("utf-8")), {"values": [["A", "B", "C"]]})
+
+    def test_append_rows_uses_values_append_range_and_empty_rows_noop(self) -> None:
+        client = self.client()
+
+        self.assertEqual(client.append_rows("sheet-123", "Дубликаты 3", []), {"updates": {"updatedRows": 0}})
+        client.append_rows("sheet-123", "Дубликаты 3", [["1", "Title"]])
+
+        method, url, data, _headers = self.transport.calls[-1]
+        self.assertEqual(method, "POST")
+        self.assertIn("insertDataOption=INSERT_ROWS", url)
+        self.assertIn("valueInputOption=RAW", url)
+        self.assertIn("Дубликаты 3!A2:append", unquote(url))
+        self.assertEqual(json.loads((data or b"").decode("utf-8")), {"values": [["1", "Title"]]})
+
+    def test_write_methods_validate_required_inputs(self) -> None:
+        client = self.client()
+
+        with self.assertRaisesRegex(GoogleSheetsError, "sheet_id"):
+            client.add_sheet("", "x")
+        with self.assertRaisesRegex(GoogleSheetsError, "sheet_name"):
+            client.add_sheet("sheet-123", "")
+        with self.assertRaisesRegex(GoogleSheetsError, "sheet_id"):
+            client.write_header("", "x", ["A"])
+        with self.assertRaisesRegex(GoogleSheetsError, "sheet_name"):
+            client.write_header("sheet-123", "", ["A"])
+        with self.assertRaisesRegex(GoogleSheetsError, "header"):
+            client.write_header("sheet-123", "x", [])
+        with self.assertRaisesRegex(GoogleSheetsError, "sheet_id"):
+            client.append_rows("", "x", [["x"]])
+        with self.assertRaisesRegex(GoogleSheetsError, "sheet_name"):
+            client.append_rows("sheet-123", "", [["x"]])
+
+    def test_sheet_names_and_column_name_edge_cases(self) -> None:
+        self.assertEqual(_sheet_names({}), set())
+        self.assertEqual(_column_name(27), "AA")
+        with self.assertRaisesRegex(GoogleSheetsError, "column index"):
+            _column_name(0)
 
     def test_jwt_helper_accepts_naive_now(self) -> None:
         jwt = _build_jwt_assertion(
