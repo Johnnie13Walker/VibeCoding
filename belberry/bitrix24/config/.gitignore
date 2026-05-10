@@ -1,0 +1,15 @@
+# Реальные локальные доступы и секреты
+.env
+.env.*
+!.env.example
+
+# Реальные Google service account JSON и другие ключи
+*.json
+!*.example.json
+*.key
+*.pem
+*.crt
+
+# Локальное состояние OAuth
+state/
+tokens/
