@@ -16,9 +16,21 @@ Cloudbot server: /srv/cloudbot/obsidian-vault
 
 ## Статус
 
-Статус: проектный контракт.
+Статус: серверная инфра выполнена 2026-05-10, ждёт переноса runtime-кода.
 
-В текущем локальном репозитории нет runtime-кода `cloudbot/providers` и `cloudbot/skills`, поэтому этот документ фиксирует безопасный контракт подключения. Реализация должна добавляться в серверный runtime-контур Cloudbot после подтверждения расположения кода.
+Что уже сделано:
+
+- Private repo `Johnnie13Walker/cloudbot-obsidian-vault` создан, deploy key с правом записи привязан.
+- На сервере (`ams-1-vm-76ds`, под пользователем `ops`) сгенерирован SSH key `~/.ssh/obsidian_vault_ed25519`, прописан Host alias `github.com-obsidian-vault`.
+- Vault развёрнут в `/srv/cloudbot/obsidian-vault` с базовой структурой каталогов и запушен в `main`.
+- В `/opt/openclaw/.env` добавлен блок `OBSIDIAN_*` (бэкап `.env.bak.20260510_054432_UTC.obsidian-bootstrap`).
+- Smoke-push с сервера проходит (коммит `9fd59da` виден на GitHub).
+- Локальный клон для Obsidian desktop: `~/Documents/Cloudbot-Vault`.
+
+Что осталось:
+
+- Перенос provider/skills из `shared/templates/cloudbot/obsidian/` в runtime-репозиторий Cloudbot (`cloudbot/providers/`, `cloudbot/skills/`) и подключение в bootstrap. Расположение runtime-репо на момент бутстрапа не подтверждено — нужен явный путь до выполнения Шага 4.
+- Telegram smoke и проверка логов (Шаги 7–8 runbook'а) — после переноса runtime-кода.
 
 ## Конфигурация
 
