@@ -75,18 +75,17 @@ def _required_text(value: Any, field_name: str) -> str:
     return text
 
 
-def _sort_backup_deals(backup: Mapping[str, Any]) -> dict[str, Any]:
-    normalized = dict(backup)
+def _sorted_backup_deals(backup: Mapping[str, Any]) -> list[Any]:
     deals = backup.get("deals")
     if isinstance(deals, list):
-        normalized["deals"] = sorted(
+        return sorted(
             deals,
             key=lambda item: (
                 _string_id(item.get("id")) if isinstance(item, Mapping) else "",
                 _canonical_json(item),
             ),
         )
-    return normalized
+    return []
 
 
 def _normalize_for_json(value: Any) -> Any:
@@ -108,7 +107,7 @@ def backup_fingerprint(backup: Mapping[str, Any]) -> str:
         raise ValueError("backup must be a mapping")
     payload = {
         "schema": FINGERPRINT_SCHEMA_VERSION,
-        "backup": _sort_backup_deals(backup),
+        "deals": _sorted_backup_deals(backup),
     }
     return hashlib.sha256(_canonical_json(payload).encode("utf-8")).hexdigest()
 

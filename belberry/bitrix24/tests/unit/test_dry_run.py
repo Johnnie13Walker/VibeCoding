@@ -5,6 +5,8 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
+from typing import Any, Mapping
+from unittest.mock import patch
 
 from belberry.bitrix24.orchestration.dry_run import (
     DRY_RUN_ARTIFACT_FILENAME,
@@ -18,6 +20,47 @@ from belberry.bitrix24.orchestration.dry_run import (
 )
 from belberry.bitrix24.orchestration.run import load_manifest
 from belberry.bitrix24.policies.operation_key import POLICY_VERSION
+from belberry.bitrix24.providers.bitrix_reconciler import ReconcileSettings, live_reconcile
+
+
+class FakeReconcileBitrix:
+    def __init__(self) -> None:
+        self.deals = {
+            "10": {"ID": "10", "TITLE": "Цель", "CATEGORY_ID": "0", "STAGE_ID": "NEW", "SOURCE_ID": "CALL"},
+            "20": {"ID": "20", "TITLE": "Дубль", "CATEGORY_ID": "0", "STAGE_ID": "NEW", "SOURCE_ID": "CALL"},
+        }
+
+    def call_method(self, method: str, params: Mapping[str, Any] | None = None, *, default: Any = None) -> Any:
+        params = dict(params or {})
+        if method == "crm.deal.get":
+            return self.deals.get(str(params.get("id")), default)
+        if method in {"crm.deal.productrows.get", "crm.deal.contact.items.get", "crm.timeline.comment.list"}:
+            return []
+        if method == "crm.status.list":
+            return []
+        raise AssertionError(f"unexpected call_method {method}")
+
+    def call_payload(
+        self,
+        method: str,
+        params: Mapping[str, Any] | None = None,
+        *,
+        default: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        if method == "crm.category.list":
+            return {"result": {"categories": []}}
+        raise AssertionError(f"unexpected call_payload {method}")
+
+    def list_method(
+        self,
+        method: str,
+        params: Mapping[str, Any] | None = None,
+        *,
+        limit: int | None = None,
+    ) -> list[dict[str, Any]]:
+        if method == "crm.activity.list":
+            return []
+        raise AssertionError(f"unexpected list_method {method}")
 
 
 class DryRunTests(unittest.TestCase):
@@ -94,9 +137,36 @@ class DryRunTests(unittest.TestCase):
 
         self.assertNotEqual(backup_fingerprint(self._backup()), backup_fingerprint(backup))
 
+    def test_backup_fingerprint_ignores_created_at_and_summaries(self) -> None:
+        backup = self._backup()
+        changed = self._backup()
+        backup["created_at_msk"] = "2026-05-10T09:30:00+03:00"
+        changed["created_at_msk"] = "2026-05-10T09:31:00+03:00"
+        backup["summaries"] = [{"id": "10", "title": "before"}]
+        changed["summaries"] = [{"id": "10", "title": "after"}]
+
+        self.assertEqual(backup_fingerprint(backup), backup_fingerprint(changed))
+
+    def test_fingerprint_stable_across_two_reconciles(self) -> None:
+        settings = ReconcileSettings(portal_base_url="https://portal.example")
+        with patch(
+            "belberry.bitrix24.providers.bitrix_reconciler._now_msk",
+            side_effect=("2026-05-10T09:30:00+03:00", "2026-05-10T09:31:00+03:00"),
+        ):
+            first = live_reconcile(oauth=FakeReconcileBitrix(), deal_ids=["10", "20"], target_id="10", settings=settings)
+            second = live_reconcile(oauth=FakeReconcileBitrix(), deal_ids=["10", "20"], target_id="10", settings=settings)
+
+        self.assertNotEqual(first["created_at_msk"], second["created_at_msk"])
+        self.assertEqual(backup_fingerprint(first), backup_fingerprint(second))
+
     def test_backup_fingerprint_rejects_non_mapping(self) -> None:
         with self.assertRaisesRegex(ValueError, "backup"):
             backup_fingerprint(["not", "mapping"])  # type: ignore[arg-type]
+
+    def test_backup_fingerprint_accepts_backup_without_deals(self) -> None:
+        fingerprint = backup_fingerprint({"created_at_msk": "2026-05-10T09:30:00+03:00"})
+
+        self.assertRegex(fingerprint, r"^[0-9a-f]{64}$")
 
     def test_build_dry_run_artifact_sets_policy_version_and_fingerprint(self) -> None:
         artifact = self._artifact()

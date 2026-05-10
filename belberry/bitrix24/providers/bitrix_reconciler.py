@@ -56,6 +56,10 @@ class ReconcileSettings:
     activity_select: tuple[str, ...] = ACTIVITY_SELECT_DEFAULT
 
 
+class BitrixReconcileError(RuntimeError):
+    """Ошибка read-only reconcile, которая делает merge decision небезопасным."""
+
+
 def _now_msk() -> str:
     return datetime.now(MOSCOW_TZ).isoformat(timespec="seconds")
 
@@ -89,31 +93,43 @@ def _error_payload(error: Exception) -> dict[str, Any]:
     return {"ok": False, "status": "error", "message": str(error or "unknown error")}
 
 
-def _safe_call_list(oauth: BitrixReadClient, method: str, params: Mapping[str, Any]) -> list[Any]:
+def _read_optional_status_list(oauth: BitrixReadClient, entity_id: str) -> list[Any]:
     try:
-        result = oauth.call_method(method, params, default=[])
-    except Exception as error:  # noqa: BLE001
-        return [{"__error__": _error_payload(error)}]
+        result = oauth.call_method("crm.status.list", {"filter": {"ENTITY_ID": entity_id}}, default=[])
+    except Exception:  # noqa: BLE001
+        return []
     return result if isinstance(result, list) else []
 
 
-def _safe_list_method(oauth: BitrixReadClient, method: str, params: Mapping[str, Any]) -> list[dict[str, Any]]:
+def _read_required_call_list(
+    oauth: BitrixReadClient,
+    method: str,
+    params: Mapping[str, Any],
+    *,
+    deal_id: str,
+) -> list[Any]:
     try:
-        return oauth.list_method(method, params)
+        result = oauth.call_method(method, params, default=[])
     except Exception as error:  # noqa: BLE001
-        return [{"__error__": _error_payload(error)}]
+        raise BitrixReconcileError(f"child read failed: {method} for deal {deal_id}") from error
+    if not isinstance(result, list):
+        raise BitrixReconcileError(f"child read returned non-list: {method} for deal {deal_id}")
+    return result
 
 
-def _status_map(oauth: BitrixReadClient, entity_id: str) -> dict[str, str]:
-    items = _safe_call_list(oauth, "crm.status.list", {"filter": {"ENTITY_ID": entity_id}})
-    result: dict[str, str] = {}
-    for item in items:
-        if not isinstance(item, Mapping) or "__error__" in item:
-            continue
-        status_id = _text_id(item.get("STATUS_ID") or item.get("ID"))
-        name = str(item.get("NAME") or item.get("TITLE") or "").strip()
-        if status_id:
-            result[status_id] = name or status_id
+def _read_required_list_method(
+    oauth: BitrixReadClient,
+    method: str,
+    params: Mapping[str, Any],
+    *,
+    deal_id: str,
+) -> list[dict[str, Any]]:
+    try:
+        result = oauth.list_method(method, params)
+    except Exception as error:  # noqa: BLE001
+        raise BitrixReconcileError(f"child read failed: {method} for deal {deal_id}") from error
+    if not isinstance(result, list):
+        raise BitrixReconcileError(f"child read returned non-list: {method} for deal {deal_id}")
     return result
 
 
@@ -134,6 +150,19 @@ def _category_map(oauth: BitrixReadClient) -> dict[str, str]:
         name = str(item.get("name") or item.get("NAME") or "").strip()
         if category_id:
             result[category_id] = name or category_id
+    return result
+
+
+def _status_map(oauth: BitrixReadClient, entity_id: str) -> dict[str, str]:
+    items = _read_optional_status_list(oauth, entity_id)
+    result: dict[str, str] = {}
+    for item in items:
+        if not isinstance(item, Mapping):
+            continue
+        status_id = _text_id(item.get("STATUS_ID") or item.get("ID"))
+        name = str(item.get("NAME") or item.get("TITLE") or "").strip()
+        if status_id:
+            result[status_id] = name or status_id
     return result
 
 
@@ -187,9 +216,19 @@ def _deal_backup(oauth: BitrixReadClient, deal_id: str, *, settings: ReconcileSe
         "id": deal_id,
         "exists": True,
         "deal": dict(deal),
-        "product_rows": _safe_call_list(oauth, "crm.deal.productrows.get", {"id": deal_id}),
-        "contacts": _safe_call_list(oauth, "crm.deal.contact.items.get", {"id": deal_id}),
-        "activities": _safe_list_method(
+        "product_rows": _read_required_call_list(
+            oauth,
+            "crm.deal.productrows.get",
+            {"id": deal_id},
+            deal_id=deal_id,
+        ),
+        "contacts": _read_required_call_list(
+            oauth,
+            "crm.deal.contact.items.get",
+            {"id": deal_id},
+            deal_id=deal_id,
+        ),
+        "activities": _read_required_list_method(
             oauth,
             "crm.activity.list",
             {
@@ -197,14 +236,16 @@ def _deal_backup(oauth: BitrixReadClient, deal_id: str, *, settings: ReconcileSe
                 "order": {"CREATED": "ASC"},
                 "select": settings.activity_select,
             },
+            deal_id=deal_id,
         ),
-        "timeline_comments": _safe_call_list(
+        "timeline_comments": _read_required_call_list(
             oauth,
             "crm.timeline.comment.list",
             {
                 "filter": {"ENTITY_TYPE": "deal", "ENTITY_ID": deal_id},
                 "order": {"CREATED": "ASC"},
             },
+            deal_id=deal_id,
         ),
     }
 

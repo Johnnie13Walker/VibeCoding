@@ -8,6 +8,7 @@ from belberry.bitrix24.policies.merge_policy import build_policy_plan
 from belberry.bitrix24.providers.bitrix_oauth import BitrixOAuthError
 from belberry.bitrix24.providers.bitrix_reconciler import (
     ACTIVITY_SELECT_DEFAULT,
+    BitrixReconcileError,
     ReconcileSettings,
     crm_methods_used,
     live_reconcile,
@@ -191,13 +192,21 @@ class BitrixReconcilerTests(unittest.TestCase):
         self.assertFalse(backup["deals"][0]["exists"])
         self.assertEqual(backup["deals"][0]["error"]["status"], "access denied")
 
-    def test_child_read_errors_are_embedded_in_list_fields(self) -> None:
+    def test_generic_deal_get_error_is_captured_as_missing_error_payload(self) -> None:
         fake = FakeBitrix()
-        fake.fail_methods["crm.activity.list"] = BitrixOAuthError("rate", code="QUERY_LIMIT_EXCEEDED")
+        fake.fail_methods["crm.deal.get"] = RuntimeError("plain failure")
 
         backup = live_reconcile(oauth=fake, deal_ids=["10", "20"], target_id="10", settings=self.settings())
 
-        self.assertEqual(backup["deals"][0]["activities"][0]["__error__"]["code"], "QUERY_LIMIT_EXCEEDED")
+        self.assertFalse(backup["deals"][0]["exists"])
+        self.assertEqual(backup["deals"][0]["error"]["message"], "plain failure")
+
+    def test_child_read_failure_aborts_reconcile(self) -> None:
+        fake = FakeBitrix()
+        fake.fail_methods["crm.activity.list"] = BitrixOAuthError("rate", code="QUERY_LIMIT_EXCEEDED")
+
+        with self.assertRaisesRegex(BitrixReconcileError, "crm.activity.list"):
+            live_reconcile(oauth=fake, deal_ids=["10", "20"], target_id="10", settings=self.settings())
 
     def test_category_and_status_errors_fall_back_to_ids(self) -> None:
         fake = FakeBitrix()
@@ -244,21 +253,26 @@ class BitrixReconcilerTests(unittest.TestCase):
 
         self.assertEqual(backup["summaries"][0]["category_name"], "7")
 
-    def test_non_list_child_payloads_become_empty_lists(self) -> None:
+    def test_non_list_child_payload_aborts_reconcile(self) -> None:
         fake = FakeBitrix()
         fake.contacts["10"] = "bad"  # type: ignore[assignment]
 
-        backup = live_reconcile(oauth=fake, deal_ids=["10", "20"], target_id="10", settings=self.settings())
+        with self.assertRaisesRegex(BitrixReconcileError, "non-list"):
+            live_reconcile(oauth=fake, deal_ids=["10", "20"], target_id="10", settings=self.settings())
 
-        self.assertEqual(backup["deals"][0]["contacts"], [])
+    def test_non_list_activity_payload_aborts_reconcile(self) -> None:
+        fake = FakeBitrix()
+        fake.activities["10"] = "bad"  # type: ignore[assignment]
 
-    def test_generic_child_exception_is_embedded_as_error_payload(self) -> None:
+        with self.assertRaisesRegex(BitrixReconcileError, "non-list"):
+            live_reconcile(oauth=fake, deal_ids=["10", "20"], target_id="10", settings=self.settings())
+
+    def test_generic_child_exception_aborts_reconcile(self) -> None:
         fake = FakeBitrix()
         fake.fail_methods["crm.timeline.comment.list"] = RuntimeError("plain failure")
 
-        backup = live_reconcile(oauth=fake, deal_ids=["10", "20"], target_id="10", settings=self.settings())
-
-        self.assertEqual(backup["deals"][0]["timeline_comments"][0]["__error__"]["message"], "plain failure")
+        with self.assertRaisesRegex(BitrixReconcileError, "crm.timeline.comment.list"):
+            live_reconcile(oauth=fake, deal_ids=["10", "20"], target_id="10", settings=self.settings())
 
     def test_invalid_ids_raise_before_reading_crm(self) -> None:
         fake = FakeBitrix()
@@ -286,6 +300,23 @@ class BitrixReconcilerTests(unittest.TestCase):
 
         called = {method for _, method, _ in fake.calls}
         self.assertTrue(called.issubset(set(crm_methods_used())))
+
+    def test_malformed_status_items_are_ignored(self) -> None:
+        class BadStatusPayload(FakeBitrix):
+            def call_method(self, method, params=None, *, default=None):
+                if method == "crm.status.list":
+                    self.calls.append(("call_method", method, params))
+                    return ["bad", {"STATUS_ID": "CALL", "NAME": "Звонок"}]
+                return super().call_method(method, params, default=default)
+
+        backup = live_reconcile(
+            oauth=BadStatusPayload(),
+            deal_ids=["10", "20"],
+            target_id="10",
+            settings=self.settings(),
+        )
+
+        self.assertEqual(backup["summaries"][0]["source_name"], "Звонок")
 
 
 if __name__ == "__main__":
