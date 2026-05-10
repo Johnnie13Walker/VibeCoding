@@ -68,6 +68,24 @@ def mask_url(value: Any) -> str:
     return f"{parsed.scheme}://{parsed.netloc}/***"
 
 
+def sanitize_bitrix_text(
+    text: Any,
+    *,
+    webhook_url: Any = None,
+    endpoint: Any = None,
+) -> str:
+    """Маскирует Bitrix endpoint/URL в человекочитаемых ошибках."""
+    safe = str(text or "").strip()
+    if not safe:
+        return "unknown error"
+
+    for candidate in (str(webhook_url or "").strip(), str(endpoint or "").strip()):
+        if candidate:
+            safe = safe.replace(candidate, mask_url(candidate))
+
+    return URL_PATTERN.sub(lambda match: mask_url(match.group(0)), safe)
+
+
 def _is_secret_key(key: str) -> bool:
     lowered = key.lower()
     return any(hint.lower() in lowered for hint in SECRET_KEY_HINTS)
