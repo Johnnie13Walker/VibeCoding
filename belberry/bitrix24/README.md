@@ -6,6 +6,16 @@
 
 Здесь хранятся только рабочие материалы, схемы, решения, runbooks и безопасные шаблоны. Реальные выгрузки из Bitrix24, персональные данные, токены и `.env` в git не добавляются.
 
+## Setup
+
+Перед первым запуском в новом окружении установите runtime-зависимости:
+
+```bash
+python3 -m pip install -r belberry/bitrix24/requirements.txt --user
+```
+
+`cryptography` нужна для `providers/google_sheets.py`: модуль подписывает service account JWT через RS256 для read-only доступа к Google Sheets API. Остальная duplicate-merge логика по-прежнему опирается на stdlib.
+
 ## Структура
 
 ```text
