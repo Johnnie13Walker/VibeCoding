@@ -117,7 +117,9 @@ def updated_group(sheets: Mock) -> Group:
     queue_updates = [
         call for call in sheets.update.call_args_list if call.args[0] == classify.QUEUE_SHEET
     ]
-    return Group.from_sheet_row(queue_updates[-1].args[2][0], GROUP_HEADERS)
+    rows = queue_updates[-1].args[2]
+    row = rows[1] if rows and rows[0] == GROUP_HEADERS else rows[0]
+    return Group.from_sheet_row(row, GROUP_HEADERS)
 
 
 def appended_conflicts(sheets: Mock) -> list[list[str]]:
@@ -151,6 +153,23 @@ def test_classify_respects_limit(tmp_path: Path, monkeypatch) -> None:
     classify.run(make_args(limit=2), config=make_config(tmp_path))
 
     assert bitrix.find_companies_by_inn.call_count == 2
+
+
+def test_classify_updates_queue_in_single_bulk_write(tmp_path: Path, monkeypatch) -> None:
+    bitrix = Mock()
+    setup_bitrix(bitrix)
+    sheets = Mock()
+    sheets.read.side_effect = sheet_reader(queue_rows(make_group("111"), make_group("222")))
+    install_clients(monkeypatch, bitrix, sheets)
+
+    classify.run(make_args(limit=2), config=make_config(tmp_path))
+
+    queue_updates = [
+        call for call in sheets.update.call_args_list if call.args[0] == classify.QUEUE_SHEET
+    ]
+    assert len(queue_updates) == 1
+    assert queue_updates[0].args[1] == "A1:O3"
+    assert queue_updates[0].args[2][0] == GROUP_HEADERS
 
 
 def test_classify_class_A_empty_losers(tmp_path: Path, monkeypatch) -> None:

@@ -102,11 +102,15 @@ def run(args, config=None) -> None:
     _ensure_sheet_header(sheets, CONFLICTS_SHEET, CONFLICT_HEADERS)
     if all_conflicts:
         sheets.append(CONFLICTS_SHEET, [conflict.to_sheet_row() for conflict in all_conflicts])
-    for row_number, group in updated_groups:
-        sheets.update(QUEUE_SHEET, f"A{row_number}:O{row_number}", [group.to_sheet_row()])
+    groups_after = _groups_after_updates(queue_items, updated_groups)
+    sheets.update(
+        QUEUE_SHEET,
+        f"A1:O{len(groups_after) + 1}",
+        [GROUP_HEADERS, *[group.to_sheet_row() for group in groups_after]],
+    )
 
     print(f"Classify: обработано {len(updated_groups)} групп, конфликтов {len(all_conflicts)}")
-    status_counts = _status_counts(_groups_after_updates(queue_items, updated_groups))
+    status_counts = _status_counts(groups_after)
     text = (
         f"Classify: обработано {len(updated_groups)} групп. "
         f"Классы: A={class_counts['A']} / B={class_counts['B']} / C={class_counts['C']}. "
