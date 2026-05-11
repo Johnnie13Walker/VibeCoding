@@ -279,6 +279,9 @@ class BitrixClient:
                 body = self._post(method, params)
             except HTTPError as exc:
                 last_error = exc
+                error_body = _http_error_body(exc)
+                if error_body is not None and _is_not_found_body(error_body):
+                    return error_body
                 if exc.code < 500 or attempt == attempts - 1:
                     if exc.code >= 500:
                         raise BitrixRateLimited(
@@ -399,6 +402,20 @@ class BitrixClient:
 
 def _is_not_found_body(body: dict[str, Any]) -> bool:
     return body.get("error_description") == "Not found"
+
+
+def _http_error_body(exc: HTTPError) -> dict[str, Any] | None:
+    try:
+        raw = exc.read()
+    except Exception:
+        return None
+    if not raw:
+        return None
+    try:
+        body = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return None
+    return body if isinstance(body, dict) else None
 
 
 def _params_hash(params: dict) -> str:

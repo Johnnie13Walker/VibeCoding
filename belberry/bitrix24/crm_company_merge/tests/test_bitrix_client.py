@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import time
+from io import BytesIO
 from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError
@@ -128,6 +129,18 @@ def test_get_company_returns_none_on_not_found(
     state_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     install_urlopen(monkeypatch, [{"error": "", "error_description": "Not found"}])
+
+    company = BitrixClient(state_path).get_company("404")
+
+    assert company is None
+
+
+def test_get_company_returns_none_on_http_400_not_found(
+    state_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    body = json.dumps({"error": "", "error_description": "Not found"}).encode("utf-8")
+    http_400 = HTTPError("https://example", 400, "Bad Request", hdrs=None, fp=BytesIO(body))
+    install_urlopen(monkeypatch, [http_400])
 
     company = BitrixClient(state_path).get_company("404")
 
