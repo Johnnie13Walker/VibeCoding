@@ -171,6 +171,27 @@ def test_paginate_yields_all_pages(state_path: Path, monkeypatch: pytest.MonkeyP
     assert "next" not in calls[0]["data"]
 
 
+def test_paginate_supports_item_list_result_shape(
+    state_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    install_urlopen(
+        monkeypatch,
+        [
+            {"result": {"items": [{"id": 1}, {"id": 2}]}},
+        ],
+    )
+
+    rows = list(
+        BitrixClient(state_path).paginate(
+            "crm.item.list",
+            {"entityTypeId": 177, "filter": {"companyId": "100"}},
+            id_field="id",
+        )
+    )
+
+    assert rows == [{"id": 1}, {"id": 2}]
+
+
 def test_state_expired_triggers_sync(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     state = tmp_path / "install.latest.json"
     write_state(state, expires=1, token="old-token")

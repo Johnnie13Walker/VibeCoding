@@ -92,7 +92,7 @@ class BitrixClient:
             page_params["start"] = -1
 
             body = self.call(method, page_params)
-            records = body.get("result") or []
+            records = _result_records(body.get("result"))
             if not records:
                 break
 
@@ -418,6 +418,14 @@ def _int_id(value: Any) -> int:
         return int(str(value))
     except (TypeError, ValueError):
         return 0
+
+
+def _result_records(result: Any) -> list[dict]:
+    if isinstance(result, list):
+        return [record for record in result if isinstance(record, dict)]
+    if isinstance(result, dict) and isinstance(result.get("items"), list):
+        return [record for record in result["items"] if isinstance(record, dict)]
+    return []
 
 
 def _flatten_params(params: dict[str, Any], prefix: str | None = None) -> list[tuple[str, Any]]:
