@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -157,6 +158,24 @@ def test_merge_processes_only_transferred(tmp_path: Path, monkeypatch) -> None:
 
     bitrix.delete_company.assert_called_once_with("200")
     assert updated_group(sheets, index=2).status == Status.MERGED
+
+
+def test_merge_telegram_message_format(tmp_path: Path, monkeypatch) -> None:
+    bitrix = Mock()
+    setup_bitrix(bitrix)
+    sheets = Mock()
+    sheets.read.side_effect = sheet_reader(queue_rows(make_group("111")))
+    notify = Mock(return_value=True)
+    monkeypatch.setattr(merge, "send_telegram", notify)
+    install_clients(monkeypatch, bitrix, sheets)
+    config = replace(make_config(tmp_path), telegram_bot_token="token", telegram_chat_id=81681699)
+
+    merge.run(make_args(limit=1), config=config)
+
+    text = notify.call_args.args[2]
+    assert "✅ Merge завершён" in text
+    assert "📈 Прогресс" in text
+    assert "Очередь сейчас:" in text
 
 
 def test_merge_accepts_manual_queue_columns(tmp_path: Path, monkeypatch) -> None:

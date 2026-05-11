@@ -20,7 +20,7 @@ from crm_company_merge.models import (
     Group,
     LogEntry,
 )
-from crm_company_merge.notifications import send_telegram
+from crm_company_merge.notifications import build_progress_message, send_telegram
 from crm_company_merge.sheets_client import SheetsClient
 from crm_company_merge.state import Status
 
@@ -104,11 +104,15 @@ def run(args, config=None) -> None:
     )
     groups_after = _groups_after_updates(queue_items, updated_groups)
     status_counts = _status_counts(groups_after)
-    text = (
-        f"Merge: {len(targets)} групп. Обновлений полей: {total_field_updates}. "
-        f"Удалений: {total_deletes}. Сбоев: {total_failed}. Очередь: "
-        f"{status_counts[Status.TRANSFERRED]} TRANSFERRED / "
-        f"{status_counts[Status.MERGED]} MERGED / {status_counts[Status.FAILED]} FAILED"
+    text = build_progress_message(
+        stage_title="Merge завершён",
+        batch_stats=[
+            ("Групп обработано", len(targets)),
+            ("Полей обновлено", total_field_updates),
+            ("Удалений", total_deletes),
+            ("Сбоев", total_failed),
+        ],
+        queue_counts=_queue_counts_for_message(status_counts),
     )
     if config.telegram_bot_token and config.telegram_chat_id is not None:
         send_telegram(config.telegram_bot_token, config.telegram_chat_id, text)
@@ -449,6 +453,10 @@ def _status_counts(groups: list[Group]) -> dict[Status, int]:
     for group in groups:
         counts[group.status] += 1
     return counts
+
+
+def _queue_counts_for_message(status_counts: dict[Status, int]) -> dict[str, int]:
+    return {status.value: count for status, count in status_counts.items()}
 
 
 def _log_entry(

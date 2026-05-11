@@ -10,7 +10,7 @@ from zoneinfo import ZoneInfo
 from crm_company_merge.bitrix_client import BitrixClient
 from crm_company_merge.config import Config
 from crm_company_merge.models import GROUP_HEADERS, INVENTORY_HEADERS, Group, InventoryRecord
-from crm_company_merge.notifications import send_telegram
+from crm_company_merge.notifications import build_progress_message, send_telegram
 from crm_company_merge.sheets_client import SheetsClient
 from crm_company_merge.state import Status
 
@@ -97,12 +97,13 @@ def run(args, config=None) -> None:
         print(f"Inventory: обработано {processed} групп, всего связей {total_records}")
 
         status_counts = _status_counts(_groups_after_updates(queue_items, updated_groups))
-        text = (
-            f"Inventory: обработано {processed} групп, всего связей {total_records}. "
-            f"Очередь: {status_counts[Status.NEW]} NEW / "
-            f"{status_counts[Status.INVENTORIED]} INVENTORIED / "
-            f"{status_counts[Status.APPROVED]} APPROVED / "
-            f"{status_counts[Status.FAILED]} FAILED"
+        text = build_progress_message(
+            stage_title="Inventory завершён",
+            batch_stats=[
+                ("Групп обработано", processed),
+                ("Связей найдено", total_records),
+            ],
+            queue_counts=_queue_counts_for_message(status_counts),
         )
         if config.telegram_bot_token and config.telegram_chat_id is not None:
             send_telegram(config.telegram_bot_token, config.telegram_chat_id, text)
@@ -339,6 +340,10 @@ def _status_counts(groups: list[Group]) -> dict[Status, int]:
     for group in groups:
         counts[group.status] += 1
     return counts
+
+
+def _queue_counts_for_message(status_counts: dict[Status, int]) -> dict[str, int]:
+    return {status.value: count for status, count in status_counts.items()}
 
 
 def _format_type_counts(type_counts: Counter[str]) -> str:

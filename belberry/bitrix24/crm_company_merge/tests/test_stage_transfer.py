@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -177,6 +178,26 @@ def test_transfer_processes_only_approved_plan_ready(tmp_path: Path, monkeypatch
 
     bitrix.update_contact.assert_called_once_with("c1", {"COMPANY_ID": "100"})
     assert updated_group(sheets, index=3).status == Status.TRANSFERRED
+
+
+def test_transfer_telegram_message_format(tmp_path: Path, monkeypatch) -> None:
+    bitrix = Mock()
+    setup_bitrix(bitrix)
+    sheets = Mock()
+    queue = queue_rows(make_group("111"))
+    inv = inventory_rows(record("111", "200", "Contact", "c1"))
+    sheets.read.side_effect = sheet_reader(queue, inv)
+    notify = Mock(return_value=True)
+    monkeypatch.setattr(transfer, "send_telegram", notify)
+    install_clients(monkeypatch, bitrix, sheets)
+    config = replace(make_config(tmp_path), telegram_bot_token="token", telegram_chat_id=81681699)
+
+    transfer.run(make_args(limit=1), config=config)
+
+    text = notify.call_args.args[2]
+    assert "✅ Transfer завершён" in text
+    assert "📈 Прогресс" in text
+    assert "Очередь сейчас:" in text
 
 
 def test_transfer_accepts_manual_queue_columns(tmp_path: Path, monkeypatch) -> None:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -90,6 +91,24 @@ def test_inventory_respects_limit(tmp_path: Path, monkeypatch) -> None:
 
     assert bitrix.find_companies_by_inn.call_count == 2
     assert sheets.update.call_count == 3  # Inventory header + 2 queue rows
+
+
+def test_inventory_telegram_message_format(tmp_path: Path, monkeypatch) -> None:
+    bitrix = Mock()
+    empty_bitrix(bitrix)
+    sheets = Mock()
+    sheets.read.side_effect = [queue_rows(make_group("111")), []]
+    notify = Mock(return_value=True)
+    monkeypatch.setattr(inventory, "send_telegram", notify)
+    install_clients(monkeypatch, bitrix, sheets)
+    config = replace(make_config(tmp_path), telegram_bot_token="token", telegram_chat_id=81681699)
+
+    inventory.run(make_args(limit=1), config=config)
+
+    text = notify.call_args.args[2]
+    assert "✅ Inventory завершён" in text
+    assert "📈 Прогресс" in text
+    assert "Очередь сейчас:" in text
 
 
 def test_inventory_writes_progress_after_each_group(tmp_path: Path, monkeypatch) -> None:

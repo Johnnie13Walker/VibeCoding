@@ -11,7 +11,7 @@ from googleapiclient.errors import HttpError
 from crm_company_merge.bitrix_client import BitrixClient
 from crm_company_merge.config import Config
 from crm_company_merge.models import GROUP_HEADERS, Group
-from crm_company_merge.notifications import send_telegram
+from crm_company_merge.notifications import build_progress_message, send_telegram
 from crm_company_merge.sheets_client import SheetsClient
 from crm_company_merge.state import Status
 
@@ -62,11 +62,10 @@ def run(args, config=None) -> None:
         print(f"Добавлено {len(new_rows)} новых групп в очередь merge")
 
     status_counts = _status_counts(existing_groups, len(new_rows))
-    text = (
-        f"Discover: найдено {len(new_rows)} новых групп дублей. "
-        f"Очередь: {status_counts[Status.NEW]} NEW / "
-        f"{status_counts[Status.INVENTORIED]} INVENTORIED / "
-        f"{status_counts[Status.APPROVED]} APPROVED"
+    text = build_progress_message(
+        stage_title="Discover завершён",
+        batch_stats=[("Новых групп дублей", len(new_rows))],
+        queue_counts=_queue_counts_for_message(status_counts),
     )
     if args.dry_run:
         print(f"[dry-run] would notify {text}")
@@ -190,6 +189,10 @@ def _status_counts(existing_groups: list[Group], new_count: int) -> dict[Status,
         counts[group.status] += 1
     counts[Status.NEW] += new_count
     return counts
+
+
+def _queue_counts_for_message(status_counts: dict[Status, int]) -> dict[str, int]:
+    return {status.value: count for status, count in status_counts.items()}
 
 
 def _format_mtime(path: Path, timezone: str) -> str:

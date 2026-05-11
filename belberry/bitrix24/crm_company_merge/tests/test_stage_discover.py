@@ -102,6 +102,32 @@ def test_discover_collects_new_inns(tmp_path: Path, monkeypatch) -> None:
     assert {row[0] for row in appended_rows} == {"111", "444"}
 
 
+def test_discover_telegram_message_format(tmp_path: Path, monkeypatch) -> None:
+    bitrix = Mock()
+    bitrix.paginate.return_value = iter(
+        [
+            {"RQ_INN": "111", "ENTITY_ID": "1"},
+            {"RQ_INN": "111", "ENTITY_ID": "2"},
+        ]
+    )
+    sheets = Mock()
+    sheets.read.side_effect = lambda sheet, *args, **kwargs: {
+        discover.HISTORICAL_DUPLICATES_SHEET: [],
+        discover.QUEUE_SHEET: [],
+    }[sheet]
+    notify = Mock(return_value=True)
+    monkeypatch.setattr(discover, "BitrixClient", Mock(return_value=bitrix))
+    monkeypatch.setattr(discover, "SheetsClient", Mock(return_value=sheets))
+    monkeypatch.setattr(discover, "send_telegram", notify)
+
+    discover.run(make_args(), config=make_config(tmp_path))
+
+    text = notify.call_args.args[2]
+    assert "✅ Discover завершён" in text
+    assert "📈 Прогресс" in text
+    assert "Очередь сейчас:" in text
+
+
 def test_discover_idempotent(tmp_path: Path, monkeypatch) -> None:
     bitrix = Mock()
     bitrix.paginate.return_value = iter(

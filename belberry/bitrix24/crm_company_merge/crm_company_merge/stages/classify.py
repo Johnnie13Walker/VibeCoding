@@ -18,7 +18,7 @@ from crm_company_merge.models import (
     Group,
     InventoryRecord,
 )
-from crm_company_merge.notifications import send_telegram
+from crm_company_merge.notifications import build_progress_message, send_telegram
 from crm_company_merge.sheets_client import SheetsClient
 from crm_company_merge.state import Status
 
@@ -111,11 +111,16 @@ def run(args, config=None) -> None:
 
     print(f"Classify: обработано {len(updated_groups)} групп, конфликтов {len(all_conflicts)}")
     status_counts = _status_counts(groups_after)
-    text = (
-        f"Classify: обработано {len(updated_groups)} групп. "
-        f"Классы: A={class_counts['A']} / B={class_counts['B']} / C={class_counts['C']}. "
-        f"Очередь: {status_counts[Status.PLAN_READY]} PLAN_READY / "
-        f"{status_counts[Status.MANUAL]} MANUAL / {status_counts[Status.FAILED]} FAILED"
+    text = build_progress_message(
+        stage_title="Classify завершён",
+        batch_stats=[
+            ("Групп обработано", len(updated_groups)),
+            ("Класс A", class_counts["A"]),
+            ("Класс B", class_counts["B"]),
+            ("Класс C", class_counts["C"]),
+            ("Конфликтов", len(all_conflicts)),
+        ],
+        queue_counts=_queue_counts_for_message(status_counts),
     )
     if config.telegram_bot_token and config.telegram_chat_id is not None:
         send_telegram(config.telegram_bot_token, config.telegram_chat_id, text)
@@ -417,6 +422,10 @@ def _status_counts(groups: list[Group]) -> dict[Status, int]:
     for group in groups:
         counts[group.status] += 1
     return counts
+
+
+def _queue_counts_for_message(status_counts: dict[Status, int]) -> dict[str, int]:
+    return {status.value: count for status, count in status_counts.items()}
 
 
 def _count_filled_fields(company: dict) -> int:
