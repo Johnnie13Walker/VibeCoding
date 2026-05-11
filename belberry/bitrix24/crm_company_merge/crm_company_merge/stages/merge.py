@@ -404,13 +404,15 @@ def _build_conflict_index(rows: list[list]) -> dict[str, list[Conflict]]:
     if not rows:
         return {}
     headers = [str(value) for value in rows[0]]
-    if headers != CONFLICT_HEADERS:
+    if headers[: len(CONFLICT_HEADERS)] != CONFLICT_HEADERS:
         raise ValueError("Лист 'Конфликты полей' должен начинаться с CONFLICT_HEADERS")
     index: dict[str, list[Conflict]] = defaultdict(list)
     for row in rows[1:]:
         if not row:
             continue
-        conflict = _conflict_from_row([str(value) for value in row], headers)
+        conflict = _conflict_from_row(
+            [str(value) for value in row[: len(CONFLICT_HEADERS)]], CONFLICT_HEADERS
+        )
         index[conflict.inn].append(conflict)
     return index
 

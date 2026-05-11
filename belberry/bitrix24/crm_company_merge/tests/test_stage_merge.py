@@ -78,6 +78,13 @@ def conflicts_rows(*rows: list[str]) -> list[list[str]]:
     return [CONFLICT_HEADERS, *rows]
 
 
+def conflicts_rows_with_manual_columns(*rows: list[str]) -> list[list[str]]:
+    return [
+        [*CONFLICT_HEADERS, "Что делать", "Компания"],
+        *[[*row, "manual note", "company link"] for row in rows],
+    ]
+
+
 def install_clients(monkeypatch, bitrix: Mock, sheets: Mock) -> None:
     monkeypatch.setattr(merge, "BitrixClient", Mock(return_value=bitrix))
     monkeypatch.setattr(merge, "SheetsClient", Mock(return_value=sheets))
@@ -188,6 +195,23 @@ def test_merge_applies_loser_wins_field_set(tmp_path: Path, monkeypatch) -> None
     sheets.read.side_effect = sheet_reader(
         queue_rows(make_group("111")),
         conflicts_rows(conflict_row("111", "TITLE", "loser_wins", winner_value="Short", loser_value="Long Title")),
+    )
+    install_clients(monkeypatch, bitrix, sheets)
+
+    merge.run(make_args(limit=1), config=make_config(tmp_path))
+
+    bitrix.update_company.assert_called_once_with("100", {"TITLE": "Long Title"})
+
+
+def test_merge_accepts_manual_conflict_columns(tmp_path: Path, monkeypatch) -> None:
+    bitrix = Mock()
+    setup_bitrix(bitrix)
+    sheets = Mock()
+    sheets.read.side_effect = sheet_reader(
+        queue_rows(make_group("111")),
+        conflicts_rows_with_manual_columns(
+            conflict_row("111", "TITLE", "loser_wins", winner_value="Short", loser_value="Long Title")
+        ),
     )
     install_clients(monkeypatch, bitrix, sheets)
 
