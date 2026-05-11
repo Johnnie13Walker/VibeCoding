@@ -120,8 +120,15 @@ def updated_group(sheets: Mock, index: int = 1) -> Group:
     queue_updates = [
         call for call in sheets.update.call_args_list if call.args[0] == transfer.QUEUE_SHEET
     ]
-    rows = queue_updates[-1].args[2]
-    return Group.from_sheet_row(rows[index], GROUP_HEADERS)
+    row_number = index + 1
+    for call in reversed(queue_updates):
+        range_ = call.args[1]
+        rows = call.args[2]
+        if range_.startswith(f"A{row_number}:"):
+            return Group.from_sheet_row(rows[0], GROUP_HEADERS)
+        if range_.startswith("A1:") and len(rows) > index:
+            return Group.from_sheet_row(rows[index], GROUP_HEADERS)
+    raise AssertionError(f"queue row {row_number} was not updated")
 
 
 def log_rows(sheets: Mock) -> list[list[str]]:
@@ -183,7 +190,32 @@ def test_transfer_respects_limit(tmp_path: Path, monkeypatch) -> None:
     assert bitrix.update_contact.call_count == 2
     assert updated_group(sheets, index=1).status == Status.TRANSFERRED
     assert updated_group(sheets, index=2).status == Status.TRANSFERRED
-    assert updated_group(sheets, index=3).status == Status.PLAN_READY
+    queue_updates = [
+        call for call in sheets.update.call_args_list if call.args[0] == transfer.QUEUE_SHEET
+    ]
+    assert not any(call.args[1].startswith("A4:") for call in queue_updates)
+
+
+def test_transfer_persists_after_each_group(tmp_path: Path, monkeypatch) -> None:
+    bitrix = Mock()
+    setup_bitrix(bitrix)
+    sheets = Mock()
+    queue = queue_rows(make_group("111"), make_group("222"))
+    inv = inventory_rows(record("111", "200", "Contact", "c1"), record("222", "200", "Contact", "c2"))
+    sheets.read.side_effect = sheet_reader(queue, inv)
+    events: list[str] = []
+    sheets.append.side_effect = lambda *args, **kwargs: events.append(f"append:{args[0]}")
+    sheets.update.side_effect = lambda *args, **kwargs: events.append(f"update:{args[0]}:{args[1]}")
+    install_clients(monkeypatch, bitrix, sheets)
+
+    transfer.run(make_args(limit=2), config=make_config(tmp_path))
+
+    queue_updates = [event for event in events if event.startswith(f"update:{transfer.QUEUE_SHEET}:")]
+    assert queue_updates == [
+        f"update:{transfer.QUEUE_SHEET}:A2:O2",
+        f"update:{transfer.QUEUE_SHEET}:A3:O3",
+    ]
+    assert events.index(f"update:{transfer.QUEUE_SHEET}:A2:O2") < events.index(f"update:{transfer.QUEUE_SHEET}:A3:O3")
 
 
 def test_transfer_moves_deal_with_comment(tmp_path: Path, monkeypatch) -> None:
@@ -294,6 +326,25 @@ def test_transfer_creates_backup_sheet(tmp_path: Path, monkeypatch) -> None:
     assert backup_appends
     assert backup_appends[0].args[1][0][2] == "Company"
     assert backup_appends[0].args[1][0][3] == "200"
+
+
+def test_transfer_does_not_create_empty_backup_sheet(tmp_path: Path, monkeypatch) -> None:
+    bitrix = Mock()
+    setup_bitrix(bitrix)
+    bitrix.get_company.side_effect = lambda company_id: {"ID": company_id} if company_id == "100" else None
+    sheets = Mock()
+    sheets.read.side_effect = sheet_reader(
+        queue_rows(make_group("111")),
+        inventory_rows(record("111", "200", "Contact", "c1")),
+    )
+    install_clients(monkeypatch, bitrix, sheets)
+
+    transfer.run(make_args(limit=1), config=make_config(tmp_path))
+
+    assert not any(
+        call.args[0].startswith("Backup merge ") for call in sheets.ensure_sheet.call_args_list
+    )
+    assert updated_group(sheets).status == Status.DONE
 
 
 def test_transfer_skips_when_winner_disappeared(tmp_path: Path, monkeypatch) -> None:

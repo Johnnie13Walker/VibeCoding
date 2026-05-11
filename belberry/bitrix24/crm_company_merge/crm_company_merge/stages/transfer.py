@@ -58,12 +58,12 @@ def run(args, config=None) -> None:
     backup_sheet = f"Backup merge {now.strftime('%Y-%m-%d %H-%M')}"
     company_cache: dict[str, dict | None] = {}
     updated_groups: list[tuple[int, Group]] = []
-    backup_rows: list[list[str]] = []
-    log_entries: list[LogEntry] = []
     total_transferred = 0
     total_failed = 0
     dry_run_counts: Counter[str] = Counter()
     dry_run_actions = 0
+    backup_sheet_created = False
+    merge_log_ready = False
 
     for item in targets:
         group_result = _transfer_group(
@@ -76,12 +76,31 @@ def run(args, config=None) -> None:
             dry_run=args.dry_run,
         )
         updated_groups.append((item.row_number, group_result.group))
-        backup_rows.extend(group_result.backup_rows)
-        log_entries.extend(group_result.log_entries)
         total_transferred += group_result.transferred
         total_failed += group_result.failed
         dry_run_counts.update(group_result.dry_run_counts)
         dry_run_actions += group_result.dry_run_actions
+
+        if not args.dry_run:
+            if group_result.backup_rows:
+                if not backup_sheet_created:
+                    sheets.ensure_sheet(backup_sheet)
+                    sheets.update(backup_sheet, "A1", [BACKUP_HEADERS])
+                    backup_sheet_created = True
+                sheets.append(backup_sheet, group_result.backup_rows)
+            if group_result.log_entries:
+                if not merge_log_ready:
+                    _ensure_sheet_header(sheets, MERGE_LOG_SHEET, LOG_ENTRY_HEADERS)
+                    merge_log_ready = True
+                sheets.append(
+                    MERGE_LOG_SHEET,
+                    [entry.to_sheet_row() for entry in group_result.log_entries],
+                )
+            sheets.update(
+                QUEUE_SHEET,
+                f"A{item.row_number}:O{item.row_number}",
+                [group_result.group.to_sheet_row()],
+            )
 
     if args.dry_run:
         print(
@@ -93,26 +112,11 @@ def run(args, config=None) -> None:
         )
         return
 
-    sheets.ensure_sheet(backup_sheet)
-    sheets.update(backup_sheet, "A1", [BACKUP_HEADERS])
-    if backup_rows:
-        sheets.append(backup_sheet, backup_rows)
-
-    _ensure_sheet_header(sheets, MERGE_LOG_SHEET, LOG_ENTRY_HEADERS)
-    if log_entries:
-        sheets.append(MERGE_LOG_SHEET, [entry.to_sheet_row() for entry in log_entries])
-
-    groups_after = _groups_after_updates(queue_items, updated_groups)
-    sheets.update(
-        QUEUE_SHEET,
-        f"A1:O{len(groups_after) + 1}",
-        [GROUP_HEADERS, *[group.to_sheet_row() for group in groups_after]],
-    )
-
     print(
         f"Transfer: обработано {len(targets)} групп. "
         f"Перенесено: {total_transferred}. Сбоев: {total_failed}"
     )
+    groups_after = _groups_after_updates(queue_items, updated_groups)
     status_counts = _status_counts(groups_after)
     text = (
         f"Transfer: {len(targets)} групп. Перенесено: {total_transferred}. "
