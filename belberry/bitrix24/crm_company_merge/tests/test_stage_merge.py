@@ -55,6 +55,13 @@ def queue_rows(*groups: Group) -> list[list[str]]:
     return [GROUP_HEADERS, *[group.to_sheet_row() for group in groups]]
 
 
+def queue_rows_with_manual_columns(*groups: Group) -> list[list[str]]:
+    return [
+        [*GROUP_HEADERS, "Что делать", "Главная карточка", "Дубли"],
+        *[[*group.to_sheet_row(), "ручная заметка", "winner link", "loser link"] for group in groups],
+    ]
+
+
 def conflict_row(
     inn: str,
     field: str,
@@ -143,6 +150,19 @@ def test_merge_processes_only_transferred(tmp_path: Path, monkeypatch) -> None:
 
     bitrix.delete_company.assert_called_once_with("200")
     assert updated_group(sheets, index=2).status == Status.MERGED
+
+
+def test_merge_accepts_manual_queue_columns(tmp_path: Path, monkeypatch) -> None:
+    bitrix = Mock()
+    setup_bitrix(bitrix)
+    sheets = Mock()
+    sheets.read.side_effect = sheet_reader(queue_rows_with_manual_columns(make_group("111")))
+    install_clients(monkeypatch, bitrix, sheets)
+
+    merge.run(make_args(limit=1), config=make_config(tmp_path))
+
+    bitrix.delete_company.assert_called_once_with("200")
+    sheets.update.assert_any_call(merge.QUEUE_SHEET, "A2:O2", [updated_group(sheets).to_sheet_row()])
 
 
 def test_merge_applies_winner_wins_no_update(tmp_path: Path, monkeypatch) -> None:

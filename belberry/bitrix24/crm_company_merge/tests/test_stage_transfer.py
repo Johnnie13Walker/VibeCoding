@@ -56,6 +56,13 @@ def queue_rows(*groups: Group) -> list[list[str]]:
     return [GROUP_HEADERS, *[group.to_sheet_row() for group in groups]]
 
 
+def queue_rows_with_manual_columns(*groups: Group) -> list[list[str]]:
+    return [
+        [*GROUP_HEADERS, "Что делать", "Главная карточка", "Дубли"],
+        *[[*group.to_sheet_row(), "ручная заметка", "winner link", "loser link"] for group in groups],
+    ]
+
+
 def inventory_rows(*records: InventoryRecord) -> list[list[str]]:
     return [INVENTORY_HEADERS, *[record.to_sheet_row() for record in records]]
 
@@ -170,6 +177,21 @@ def test_transfer_processes_only_approved_plan_ready(tmp_path: Path, monkeypatch
 
     bitrix.update_contact.assert_called_once_with("c1", {"COMPANY_ID": "100"})
     assert updated_group(sheets, index=3).status == Status.TRANSFERRED
+
+
+def test_transfer_accepts_manual_queue_columns(tmp_path: Path, monkeypatch) -> None:
+    bitrix = Mock()
+    setup_bitrix(bitrix)
+    sheets = Mock()
+    queue = queue_rows_with_manual_columns(make_group("111"))
+    inv = inventory_rows(record("111", "200", "Contact", "c1"))
+    sheets.read.side_effect = sheet_reader(queue, inv)
+    install_clients(monkeypatch, bitrix, sheets)
+
+    transfer.run(make_args(limit=1), config=make_config(tmp_path))
+
+    bitrix.update_contact.assert_called_once_with("c1", {"COMPANY_ID": "100"})
+    assert updated_group(sheets).status == Status.TRANSFERRED
 
 
 def test_transfer_respects_limit(tmp_path: Path, monkeypatch) -> None:

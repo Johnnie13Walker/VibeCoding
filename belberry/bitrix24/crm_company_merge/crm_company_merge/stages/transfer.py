@@ -423,10 +423,15 @@ def _parse_queue_rows(rows: list[list]) -> list[QueueItem]:
     if not rows:
         return []
     headers = [str(value) for value in rows[0]]
-    if headers != GROUP_HEADERS:
+    if headers[: len(GROUP_HEADERS)] != GROUP_HEADERS:
         raise ValueError("Лист 'Очередь merge' должен начинаться с GROUP_HEADERS")
     return [
-        QueueItem(index, Group.from_sheet_row([str(value) for value in row], headers))
+        QueueItem(
+            index,
+            Group.from_sheet_row(
+                [str(value) for value in row[: len(GROUP_HEADERS)]], GROUP_HEADERS
+            ),
+        )
         for index, row in enumerate(rows[1:], start=2)
         if row
     ]

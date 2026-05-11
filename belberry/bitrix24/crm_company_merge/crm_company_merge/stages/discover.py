@@ -122,8 +122,12 @@ def _parse_queue_groups(rows: list[list]) -> list[Group]:
     if not rows:
         return []
     headers = [str(value) for value in rows[0]]
-    if headers == GROUP_HEADERS:
-        return [Group.from_sheet_row([str(value) for value in row], headers) for row in rows[1:] if row]
+    if headers[: len(GROUP_HEADERS)] == GROUP_HEADERS:
+        return [
+            Group.from_sheet_row([str(value) for value in row[: len(GROUP_HEADERS)]], GROUP_HEADERS)
+            for row in rows[1:]
+            if row
+        ]
 
     groups: list[Group] = []
     for row in rows:
