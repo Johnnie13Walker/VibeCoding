@@ -92,6 +92,25 @@ def test_inventory_respects_limit(tmp_path: Path, monkeypatch) -> None:
     assert sheets.update.call_count == 3  # Inventory header + 2 queue rows
 
 
+def test_inventory_writes_progress_after_each_group(tmp_path: Path, monkeypatch) -> None:
+    bitrix = Mock()
+    empty_bitrix(bitrix)
+    sheets = Mock()
+    sheets.read.side_effect = [queue_rows(make_group("111"), make_group("222")), []]
+    events: list[str] = []
+    sheets.append.side_effect = lambda *args, **kwargs: events.append(f"append:{args[0]}")
+    sheets.update.side_effect = lambda *args, **kwargs: events.append(f"update:{args[0]}:{args[1]}")
+    install_clients(monkeypatch, bitrix, sheets)
+
+    inventory.run(make_args(limit=2), config=make_config(tmp_path))
+
+    assert events == [
+        "update:Inventory:A1",
+        "update:Очередь merge:A2:O2",
+        "update:Очередь merge:A3:O3",
+    ]
+
+
 def test_inventory_collects_all_relationships(tmp_path: Path, monkeypatch) -> None:
     bitrix = Mock()
     bitrix.find_companies_by_inn.return_value = ["100", "200"]

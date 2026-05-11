@@ -45,7 +45,9 @@ def run(args, config=None) -> None:
     total_records = 0
     type_counts: Counter[str] = Counter()
     updated_groups: list[tuple[int, Group]] = []
-    inventory_batches: list[list[InventoryRecord]] = []
+
+    if not args.dry_run:
+        _ensure_inventory_header(sheets)
 
     for item in targets:
         group = item.group
@@ -59,6 +61,8 @@ def run(args, config=None) -> None:
                 last_action_at=now,
             )
             updated_groups.append((item.row_number, failed))
+            if not args.dry_run:
+                sheets.update(QUEUE_SHEET, f"A{item.row_number}:O{item.row_number}", [failed.to_sheet_row()])
             processed += 1
             continue
 
@@ -73,11 +77,15 @@ def run(args, config=None) -> None:
             last_action_at=now,
             error_message=None,
         )
-        inventory_batches.append(records)
         updated_groups.append((item.row_number, updated))
         processed += 1
         total_records += len(records)
         type_counts.update(record.entity_type for record in records)
+
+        if not args.dry_run:
+            if records:
+                sheets.append(INVENTORY_SHEET, [record.to_sheet_row() for record in records])
+            sheets.update(QUEUE_SHEET, f"A{item.row_number}:O{item.row_number}", [updated.to_sheet_row()])
 
     if args.dry_run:
         print(
@@ -86,12 +94,6 @@ def run(args, config=None) -> None:
         )
         print(f"[dry-run] relationship_types {_format_type_counts(type_counts)}")
     else:
-        _ensure_inventory_header(sheets)
-        for records in inventory_batches:
-            if records:
-                sheets.append(INVENTORY_SHEET, [record.to_sheet_row() for record in records])
-        for row_number, group in updated_groups:
-            sheets.update(QUEUE_SHEET, f"A{row_number}:O{row_number}", [group.to_sheet_row()])
         print(f"Inventory: обработано {processed} групп, всего связей {total_records}")
 
         status_counts = _status_counts(_groups_after_updates(queue_items, updated_groups))
