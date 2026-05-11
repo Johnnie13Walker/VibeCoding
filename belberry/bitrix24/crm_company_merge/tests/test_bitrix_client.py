@@ -199,6 +199,7 @@ def test_paginate_raises_when_id_filter_does_not_advance(
         monkeypatch,
         [
             {"result": [{"ID": "1"} for _ in range(50)]},
+            {"result": [{"ID": "1"} for _ in range(50)]},
         ],
     )
 
