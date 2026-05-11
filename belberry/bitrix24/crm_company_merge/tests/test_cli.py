@@ -58,12 +58,12 @@ def test_inventory_requires_limit() -> None:
     assert "для стадии 'inventory' обязателен флаг --limit N" in result.stderr
 
 
-def test_inventory_with_limit_reaches_stage_stub() -> None:
-    result = run_cli("inventory", "--limit", "5")
+def test_verify_reaches_stage_stub() -> None:
+    result = run_cli("verify")
 
     assert result.returncode != 0
     assert "NotImplementedError" in result.stderr
-    assert "stage 'inventory' not implemented yet" in result.stderr
+    assert "stage 'verify' not implemented yet" in result.stderr
 
 
 def test_config_from_env_requires_mandatory_variables(monkeypatch: pytest.MonkeyPatch) -> None:
