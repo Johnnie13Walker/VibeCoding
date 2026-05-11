@@ -290,6 +290,25 @@ def test_classify_conflict_text_loser_wins(tmp_path: Path, monkeypatch) -> None:
     assert appended_conflicts(sheets)[0][5] == "loser_wins"
 
 
+def test_conflict_empty_loser_value_written_as_empty_string(tmp_path: Path, monkeypatch) -> None:
+    bitrix = Mock()
+    companies = {
+        "100": {"ID": "100", "TITLE": "X", "UF_CRM_TEST_WINNER_MARKER": "filled"},
+        "200": {"ID": "200", "TITLE": None},
+    }
+    setup_bitrix(bitrix, companies=companies)
+    sheets = Mock()
+    sheets.read.side_effect = sheet_reader(queue_rows(make_group("111")))
+    install_clients(monkeypatch, bitrix, sheets)
+
+    classify.run(make_args(limit=1), config=make_config(tmp_path))
+
+    conflict = appended_conflicts(sheets)[0]
+    assert conflict[1] == "TITLE"
+    assert conflict[3] == "X"
+    assert conflict[4] == ""
+
+
 def test_classify_conflict_text_equal_manual(tmp_path: Path, monkeypatch) -> None:
     bitrix = Mock()
     setup_bitrix(bitrix, companies=base_companies(title_100="Alpha", title_200="Bravo"))

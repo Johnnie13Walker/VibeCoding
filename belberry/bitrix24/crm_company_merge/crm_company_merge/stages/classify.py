@@ -306,8 +306,8 @@ def _field_conflict(inn: str, field: str, winner_value: Any, loser_value: Any) -
         inn=inn,
         field=field,
         kind=kind,
-        winner_value=str(winner_norm),
-        loser_value=str(loser_norm),
+        winner_value="" if _is_empty_value(winner_norm) else str(winner_norm),
+        loser_value="" if _is_empty_value(loser_norm) else str(loser_norm),
         resolution=resolution,
         applied=False,
     )
