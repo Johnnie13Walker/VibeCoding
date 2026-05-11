@@ -4,6 +4,7 @@ from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
+from googleapiclient.errors import HttpError
 
 from crm_company_merge import sheets_client
 from crm_company_merge.sheets_client import SheetsClient
@@ -14,6 +15,21 @@ class FakeRequest:
         self.response = response or {}
 
     def execute(self) -> dict:
+        return self.response
+
+
+class FlakyRequest:
+    def __init__(self, failures: int, status: int, response: dict | None = None):
+        self.failures = failures
+        self.status = status
+        self.response = response or {}
+        self.calls = 0
+
+    def execute(self) -> dict:
+        self.calls += 1
+        if self.calls <= self.failures:
+            response = Mock(status=self.status, reason="rate limited")
+            raise HttpError(response, b"rate limited")
         return self.response
 
 
@@ -176,3 +192,16 @@ def test_get_sheet_titles(fake_service: FakeService, tmp_path: Path) -> None:
     }
 
     assert make_client(tmp_path / "sa.json").get_sheet_titles() == ["Queue", "Inventory"]
+
+
+def test_execute_with_retry_uses_long_backoff_for_429(
+    fake_service: FakeService, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    sleeps: list[int] = []
+    monkeypatch.setattr(sheets_client.time, "sleep", lambda delay: sleeps.append(delay))
+    client = make_client(tmp_path / "sa.json")
+    request = FlakyRequest(failures=4, status=429, response={"ok": True})
+
+    assert client._execute_with_retry(request) == {"ok": True}
+
+    assert sleeps == [5, 10, 20, 40]

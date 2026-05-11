@@ -121,15 +121,17 @@ class SheetsClient:
         return body.get("sheets", [])
 
     def _execute_with_retry(self, request) -> dict[str, Any]:
-        delays = (1, 2, 4)
-        attempts = len(delays) + 1
-        for attempt in range(attempts):
+        delays: tuple[int, ...] = ()
+        for attempt in range(5):
             try:
                 result = request.execute()
                 return result if isinstance(result, dict) else {}
             except HttpError as exc:
                 status = getattr(exc.resp, "status", 0)
-                if status not in {429, 500, 502, 503, 504} or attempt == attempts - 1:
+                if status not in {429, 500, 502, 503, 504}:
+                    raise
+                delays = _retry_delays(status)
+                if attempt >= len(delays):
                     raise
                 time.sleep(delays[attempt])
         return {}
@@ -147,3 +149,9 @@ def _find_sheet_id(sheets: list[dict[str, Any]], title: str) -> int | None:
         if properties.get("title") == title:
             return int(properties["sheetId"])
     return None
+
+
+def _retry_delays(status: int) -> tuple[int, ...]:
+    if status == 429:
+        return (5, 10, 20, 40)
+    return (1, 2, 4)
