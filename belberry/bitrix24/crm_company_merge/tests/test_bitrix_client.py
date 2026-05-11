@@ -192,6 +192,38 @@ def test_paginate_supports_item_list_result_shape(
     assert rows == [{"id": 1}, {"id": 2}]
 
 
+def test_paginate_raises_when_id_filter_does_not_advance(
+    state_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    install_urlopen(
+        monkeypatch,
+        [
+            {"result": [{"ID": "1"} for _ in range(50)]},
+        ],
+    )
+
+    with pytest.raises(Exception, match="pagination did not advance"):
+        list(BitrixClient(state_path).paginate("crm.timeline.comment.list", {}))
+
+
+def test_list_timeline_comments_uses_start_next(
+    state_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls = install_urlopen(
+        monkeypatch,
+        [
+            {"result": [{"ID": "1"}], "next": 50},
+            {"result": [{"ID": "2"}]},
+        ],
+    )
+
+    rows = BitrixClient(state_path).list_timeline_comments("company", "14644")
+
+    assert rows == [{"ID": "1"}, {"ID": "2"}]
+    assert calls[0]["data"]["start"] == ["0"]
+    assert calls[1]["data"]["start"] == ["50"]
+
+
 def test_state_expired_triggers_sync(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     state = tmp_path / "install.latest.json"
     write_state(state, expires=1, token="old-token")

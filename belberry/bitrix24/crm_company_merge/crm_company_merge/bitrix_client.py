@@ -98,7 +98,13 @@ class BitrixClient:
 
             for record in records:
                 yield record
-                last_id = max(last_id, _int_id(record.get(id_field)))
+            next_last_id = max(_int_id(record.get(id_field)) for record in records)
+            if next_last_id <= last_id:
+                raise BitrixError(
+                    f"Bitrix pagination did not advance for {method} by {id_field}; "
+                    "method may not support filter[>ID]"
+                )
+            last_id = next_last_id
 
             if len(records) < 50:
                 break
@@ -174,12 +180,25 @@ class BitrixClient:
         )
 
     def list_timeline_comments(self, entity_type: str, entity_id: str) -> list[dict]:
-        return list(
-            self.paginate(
+        comments: list[dict] = []
+        start: int | None = 0
+        seen_starts: set[int] = set()
+        while start is not None:
+            if start in seen_starts:
+                raise BitrixError("Bitrix timeline comment pagination repeated start value")
+            seen_starts.add(start)
+            body = self.call(
                 "crm.timeline.comment.list",
-                {"filter": {"ENTITY_TYPE": entity_type, "ENTITY_ID": entity_id}},
+                {
+                    "filter": {"ENTITY_TYPE": entity_type, "ENTITY_ID": entity_id},
+                    "order": {"ID": "ASC"},
+                    "start": start,
+                },
             )
-        )
+            comments.extend(_result_records(body.get("result")))
+            raw_next = body.get("next")
+            start = int(raw_next) if raw_next is not None else None
+        return comments
 
     def get_company(self, company_id: str) -> dict | None:
         return self._get_or_none("crm.company.get", {"id": company_id})
