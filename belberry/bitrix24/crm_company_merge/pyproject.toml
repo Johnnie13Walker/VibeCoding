@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "crm-company-merge"
+version = "0.1.0"
+description = "Workflow service for safe Bitrix24 company duplicate merge."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "google-api-python-client",
+    "google-auth",
+    "tzdata",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "responses",
+]
+
+[project.scripts]
+crm-company-merge = "crm_company_merge.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["crm_company_merge*"]
