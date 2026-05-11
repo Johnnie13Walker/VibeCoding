@@ -61,6 +61,10 @@ crm-company-merge resume
 
 Рабочая таблица: `1WaCtF2BeBorGXkZa0a53Bi6T_lKHeZZwQPEO8qIzmFU` — «Дубли сделок Bitrix24 — Реанимация». В ней уже есть листы «Анализ дублей», «План merge», «Дубли компаний ИНН».
 
+## Bitrix OAuth Sync
+
+Перед каждым Bitrix REST-вызовом клиент проверяет срок жизни OAuth state. Если токен истекает меньше чем через 5 минут, вызывается `shared/scripts/bitrix-sync-state.sh`. На VPS этот скрипт читает `BITRIX_CLIENT_ID` и `BITRIX_CLIENT_SECRET` из `/opt/openclaw/.env`, делает `refresh_token` flow через `https://oauth.bitrix24.tech/oauth/token/`, атомарно обновляет `/opt/openclaw/state/bitrix_app/install.latest.json`, ставит права `600` и проверяет результат через `/profile`.
+
 ## Конфигурация
 
 Пример окружения лежит в `deploy/env.example`. Обязательные переменные:
