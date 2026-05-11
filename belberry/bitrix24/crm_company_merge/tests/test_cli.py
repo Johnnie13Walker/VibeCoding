@@ -20,6 +20,8 @@ STAGES = (
     "rollback",
     "status",
     "migrate-pilot",
+    "reclassify-failed",
+    "export-manual",
     "pause",
     "resume",
 )

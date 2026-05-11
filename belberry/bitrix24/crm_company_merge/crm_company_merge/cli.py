@@ -18,6 +18,8 @@ STAGES = (
     "rollback",
     "status",
     "migrate-pilot",
+    "reclassify-failed",
+    "export-manual",
     "pause",
     "resume",
 )
@@ -26,6 +28,8 @@ LIMIT_REQUIRED_STAGES = {"inventory", "classify", "transfer", "merge"}
 
 STAGE_MODULES = {
     "migrate-pilot": "migrate_pilot",
+    "reclassify-failed": "reclassify_failed",
+    "export-manual": "export_manual",
 }
 
 
