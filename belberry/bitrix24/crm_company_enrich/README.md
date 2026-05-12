@@ -1,9 +1,9 @@
 # crm_company_enrich
 
-Обогащение компаний Bitrix24 ИНН и реквизитами. Цель — закрыть техдолг ~1000
-компаний без записи `RQ_INN`: обогатить их ИНН через web/UF/rusprofile и либо
-создать реквизит, либо смержить с компанией-дубликатом, у которой реквизит
-уже есть.
+Обогащение компаний Bitrix24 ИНН и реквизитами. Текущая цель — закрыть остаток
+deal-merge групп, которые не прошли smart-фильтр из-за отсутствующего `RQ_INN`:
+обогатить ИНН через domain/WEB/UF/rusprofile и либо создать реквизит, либо
+зафиксировать, что ИНН уже есть у текущей/другой компании.
 
 Форк по структуре `crm_deal_merge` — общий Bitrix-OAuth state, общая таблица
 Google Sheets (отдельная вкладка `company_enrich_queue`), общий sync-script.
@@ -12,19 +12,18 @@ Google Sheets (отдельная вкладка `company_enrich_queue`), общ
 
 | Стадия | Тип | Реализация |
 |---|---|---|
-| `discover` | READ-only Bitrix + Sheets write | готова |
+| `discover` | READ-only Bitrix + Sheets write | готова; источник — `merge_groups` (`PLAN_READY`, `ИНН=—`, domain непустой) |
 | `enrich-web` | HTTP fetch + Sheets write | готова |
 | `classify` | READ-only Bitrix + Sheets write | готова |
 | `mark-approved` | Sheets write | готова |
 | `status` | Sheets read | готова |
-| `apply` | WRITE Bitrix | **stub** (exit 2) |
-| `merge-dupes` | WRITE Bitrix | **stub** (exit 2) |
-| `verify` | READ-only Bitrix | **stub** (exit 2) |
+| `apply` | WRITE Bitrix | готова; запускать только после явного go и сначала с `--dry-run` |
+| `merge-dupes` | WRITE Bitrix | stub |
+| `verify` | READ-only Bitrix | готова для `APPLIED_PENDING_BP` |
 | `rollback` | WRITE Bitrix | **stub** (exit 2) |
 
-Write-стадии заморожены до завершения prod-run `crm_deal_merge transfer`
-(PID 20750). Контракты каждой stub задокументированы в docstring файла
-`stages/*.py`.
+До явного подтверждения пользователя выполняются только `discover`,
+`enrich-web`, `classify` и `status`. `apply` не запускать.
 
 ## Порядок запуска
 
@@ -35,8 +34,9 @@ pip install -e .
 bash ../../../shared/scripts/bitrix-sync-state.sh
 
 python3 -m crm_company_enrich.cli discover
-python3 -m crm_company_enrich.cli enrich-web --sample
-python3 -m crm_company_enrich.cli enrich-web                   # без лимита
+CCE_ENRICH_HTTP_TIMEOUT_S=4 CCE_ENRICH_HTTP_RETRIES=1 \
+  CCE_ENRICH_HTTP_DELAY_S=0.1 \
+  python3 -m crm_company_enrich.cli enrich-web --limit 30
 python3 -m crm_company_enrich.cli classify
 python3 -m crm_company_enrich.cli status --detailed
 
