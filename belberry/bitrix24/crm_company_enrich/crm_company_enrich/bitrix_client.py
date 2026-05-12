@@ -247,6 +247,19 @@ class BitrixClient:
             )
         return str(rid)
 
+    def update_company(self, company_id: str, fields: dict) -> bool:
+        """crm.company.update — обновить произвольные поля компании.
+
+        Используется apply-стадией в гибридном режиме для «touch»: трогаем
+        COMMENTS (добавляем trailing space) чтобы обновить DATE_MODIFY и
+        триггернуть AUTO_EXECUTE=2 bizproc'ы (в том числе обогащение по ИНН).
+        """
+        body = self.call(
+            "crm.company.update",
+            {"id": company_id, "fields": fields},
+        )
+        return bool(body.get("result"))
+
     def start_workflow(self, template_id: int, document_type: list) -> dict:
         """bizproc.workflow.start — best-effort, не подавляем сетевые retries,
         но 4xx-ошибки (403/400) пробрасываем как BitrixError для caller-side handle.
