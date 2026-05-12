@@ -98,12 +98,10 @@ def cmd_status(args: argparse.Namespace) -> int:
 
 def cmd_apply(args: argparse.Namespace) -> int:
     from .stages import apply
-    try:
-        apply.run(dry_run=args.dry_run, limit=args.limit)
-        return 0
-    except NotImplementedError as exc:
-        print(f"WARN: {exc}", file=sys.stderr)
-        return 2
+    bx, sheets = _make_clients()
+    summary = apply.run(bx, sheets, dry_run=args.dry_run, limit=args.limit)
+    print(json.dumps(summary, indent=2, ensure_ascii=False))
+    return 1 if summary.get("failed", 0) else 0
 
 
 def cmd_merge_dupes(args: argparse.Namespace) -> int:
@@ -175,9 +173,23 @@ def main() -> None:
     sp.add_argument("--detailed", action="store_true")
     sp.set_defaults(func=cmd_status)
 
-    sp = sub.add_parser("apply", help="STUB: создать реквизиты для APPROVED строк (exit 2)")
-    sp.add_argument("--dry-run", action="store_true")
-    sp.add_argument("--limit", type=int)
+    sp = sub.add_parser(
+        "apply",
+        help=(
+            "WRITE: создать реквизиты для APPROVED+CREATE_REQ строк "
+            "(--dry-run печатает план без write)"
+        ),
+    )
+    sp.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Не вызывать Bitrix.add, только напечатать план и payload",
+    )
+    sp.add_argument(
+        "--limit",
+        type=int,
+        help="Ограничить число обрабатываемых APPROVED строк",
+    )
     sp.set_defaults(func=cmd_apply)
 
     sp = sub.add_parser("merge-dupes", help="STUB: смержить компании с MERGE_INTO target_action (exit 2)")
