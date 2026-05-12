@@ -45,7 +45,13 @@ from ..config import (
     ENTITY_TYPE_COMPANY,
     TAB_BACKUP,
 )
-from ..models import QueueRow, TargetAction, is_valid_inn_format, normalize_inn
+from ..models import (
+    QueueRow,
+    TargetAction,
+    clean_company_name_for_requisite,
+    is_valid_inn_format,
+    normalize_inn,
+)
 from ..sheet_store import read_queue, replace_row, update_row
 from ..sheets_client import SheetsClient
 from ..state import Status
@@ -384,15 +390,21 @@ def _build_payload(
           • если ИНН 10 цифр и discovered_name пустой — оставляем пустым
             (рискованно ставить случайное название юрлица);
           • иначе → discovered_name or bitrix_title.
+        В любом случае значение прогоняется через clean_company_name_for_requisite
+        (снятие SEO-хвостов rusprofile, HTML-entities, HTML-title trail). Если
+        после чистки осталось пусто/мусор — RQ_COMPANY_NAME_FULL не выставляется,
+        и bizproc позже подтянет название из ЕГРЮЛ.
       - NAME — человекочитаемый ярлык реквизита.
     """
-    rq_company_name = ""
-    if discovered_source == "rusprofile" and discovered_name:
-        rq_company_name = discovered_name
-    elif len(inn) == 10 and not discovered_name:
+    clean_discovered = clean_company_name_for_requisite(discovered_name)
+    clean_bitrix = clean_company_name_for_requisite(bitrix_title)
+
+    if discovered_source == "rusprofile" and clean_discovered:
+        rq_company_name = clean_discovered
+    elif len(inn) == 10 and not clean_discovered:
         rq_company_name = ""  # ЮЛ без точного имени → не выдумываем
     else:
-        rq_company_name = discovered_name or bitrix_title or ""
+        rq_company_name = clean_discovered or clean_bitrix or ""
 
     payload: dict[str, Any] = {
         "ENTITY_TYPE_ID": ENTITY_TYPE_COMPANY,
