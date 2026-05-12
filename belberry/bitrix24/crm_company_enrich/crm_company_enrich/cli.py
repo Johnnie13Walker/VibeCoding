@@ -144,7 +144,7 @@ def cmd_promote(args: argparse.Namespace) -> int:
 def cmd_apply(args: argparse.Namespace) -> int:
     from .stages import apply
     bx, sheets = _make_clients()
-    summary = apply.run(bx, sheets, dry_run=args.dry_run, limit=args.limit)
+    summary = apply.run(bx, sheets, dry_run=args.dry_run, limit=args.limit, action=args.action)
     print(json.dumps(summary, indent=2, ensure_ascii=False))
     return 1 if summary.get("failed", 0) else 0
 
@@ -232,6 +232,11 @@ def main() -> None:
         "--limit",
         type=int,
         help="Ограничить число обрабатываемых APPROVED строк",
+    )
+    sp.add_argument(
+        "--action",
+        choices=["CREATE_REQ", "MERGE_INTO", "SKIP_ALREADY"],
+        help="Обрабатывать только APPROVED строки с указанным target_action",
     )
     sp.set_defaults(func=cmd_apply)
 

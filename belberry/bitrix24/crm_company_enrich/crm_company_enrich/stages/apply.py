@@ -136,6 +136,7 @@ def run(
     *,
     dry_run: bool = False,
     limit: int | None = None,
+    action: str | None = None,
     sleep_s: float | None = None,
     now: datetime | None = None,
     preset_id: int | None = None,
@@ -173,7 +174,8 @@ def run(
     now = now or datetime.now(MOSCOW_TZ)
 
     queue = read_queue(sheets)
-    targets = _select_targets(queue, limit=limit)
+    target_action = TargetAction(action) if action else None
+    targets = _select_targets(queue, limit=limit, action=target_action)
 
     applied = 0
     applied_pending_bp = 0
@@ -487,6 +489,7 @@ def run(
         },
         "ts_msk": now.isoformat(timespec="seconds"),
         "dry_run": dry_run,
+        "action": target_action.value if target_action else None,
     }
     print(
         f"[apply] applied={applied} applied_pending_bp={applied_pending_bp} "
@@ -510,6 +513,7 @@ def _select_targets(
     queue: list[tuple[int, QueueRow]],
     *,
     limit: int | None,
+    action: TargetAction | None = None,
 ) -> list[tuple[int, QueueRow]]:
     """Отобрать APPROVED строки. Идемпотентность: terminal-статусы skip."""
     out: list[tuple[int, QueueRow]] = []
@@ -517,6 +521,8 @@ def _select_targets(
         if row.status in TERMINAL_STATUSES:
             continue
         if row.status != Status.APPROVED:
+            continue
+        if action is not None and row.target_action != action:
             continue
         out.append((row_number, row))
         if limit is not None and len(out) >= limit:
