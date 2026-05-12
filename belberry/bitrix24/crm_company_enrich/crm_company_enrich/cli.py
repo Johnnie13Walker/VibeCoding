@@ -96,6 +96,51 @@ def cmd_status(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_promote(args: argparse.Namespace) -> int:
+    """Промоушн MANUAL_REVIEW → ENRICHED после ручной проверки.
+
+    Только Sheets-write; никаких Bitrix-вызовов. На следующем запуске classify
+    подберёт строку и проставит target_action.
+    """
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    from .sheet_store import read_queue, replace_row, update_row
+    from .state import Status
+
+    _, sheets = _make_clients()
+    queue = read_queue(sheets)
+    now = datetime.now(ZoneInfo("Europe/Moscow"))
+    promoted = 0
+    not_found = True
+    for row_number, row in queue:
+        if str(row.company_id) != str(args.company_id):
+            continue
+        not_found = False
+        if row.status != Status.MANUAL_REVIEW:
+            print(
+                f"[promote] company {row.company_id}: status={row.status.value} "
+                f"(ожидался MANUAL_REVIEW) — пропускаю"
+            )
+            break
+        updated = replace_row(
+            row,
+            status=Status.ENRICHED,
+            last_action_at=now,
+            error_message=f"promoted from MANUAL_REVIEW at {now.isoformat(timespec='seconds')}",
+        )
+        update_row(sheets, row_number, updated)
+        promoted += 1
+        print(f"[promote] company {row.company_id}: MANUAL_REVIEW → ENRICHED")
+        break
+    if not_found:
+        print(f"[promote] company {args.company_id}: строка не найдена в очереди", file=sys.stderr)
+        return 1
+    summary = {"promoted": promoted, "company_id": args.company_id}
+    print(json.dumps(summary, indent=2, ensure_ascii=False))
+    return 0 if promoted else 1
+
+
 def cmd_apply(args: argparse.Namespace) -> int:
     from .stages import apply
     bx, sheets = _make_clients()
@@ -191,6 +236,13 @@ def main() -> None:
         help="Ограничить число обрабатываемых APPROVED строк",
     )
     sp.set_defaults(func=cmd_apply)
+
+    sp = sub.add_parser(
+        "promote",
+        help="SHEETS: перевести строку MANUAL_REVIEW → ENRICHED после ручной проверки",
+    )
+    sp.add_argument("--company-id", required=True, help="Bitrix company_id строки в очереди")
+    sp.set_defaults(func=cmd_promote)
 
     sp = sub.add_parser("merge-dupes", help="STUB: смержить компании с MERGE_INTO target_action (exit 2)")
     sp.add_argument("--dry-run", action="store_true")

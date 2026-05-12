@@ -15,6 +15,7 @@ class Status(str, Enum):
     NEW = "NEW"
     ENRICHED = "ENRICHED"
     ENRICH_FAILED = "ENRICH_FAILED"
+    MANUAL_REVIEW = "MANUAL_REVIEW"  # enrich дал слабый сигнал (unverified rusprofile) → ручная проверка
     CLASSIFIED = "CLASSIFIED"
     APPROVED = "APPROVED"
     APPLIED = "APPLIED"          # реквизит создан (CREATE_REQ путь)
@@ -26,11 +27,14 @@ class Status(str, Enum):
     ROLLED_BACK = "ROLLED_BACK"
 
 
-# Линейный порядок (для идемпотентности): не понижаем статус строки при повторных запусках
+# Линейный порядок (для идемпотентности): не понижаем статус строки при повторных запусках.
+# MANUAL_REVIEW сидит между ENRICHED и CLASSIFIED — данные обогащены, но требуют
+# ручного промоушна (promote CLI) прежде чем classify/apply возьмут строку.
 ORDER: dict[Status, int] = {
     Status.NEW: 0,
     Status.ENRICH_FAILED: 1,
     Status.ENRICHED: 2,
+    Status.MANUAL_REVIEW: 2,
     Status.CLASSIFIED: 3,
     Status.APPROVED: 4,
     Status.APPLIED: 5,
