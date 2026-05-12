@@ -223,6 +223,59 @@ class BitrixClient:
         result = body.get("result")
         return result if isinstance(result, list) else []
 
+    # ------------------------------ write methods (apply) ------------------------------
+
+    def add_requisite(self, fields: dict) -> str:
+        """crm.requisite.add — создать новый реквизит. Возвращает строковый ID.
+
+        Минимальный набор fields: ENTITY_TYPE_ID, ENTITY_ID, PRESET_ID, NAME,
+        RQ_INN, опционально RQ_COMPANY_NAME_FULL. Низкоуровневые retries
+        полностью наследуются от self.call (которая дёргает _call_with_retries).
+
+        Bitrix REST возвращает result либо int (id), либо dict {"ID": "...", ...}.
+        Нормализуем к str.
+        """
+        body = self.call("crm.requisite.add", {"fields": fields})
+        result = body.get("result")
+        if isinstance(result, dict):
+            rid = result.get("ID") or result.get("id")
+        else:
+            rid = result
+        if rid in (None, "", 0, "0"):
+            raise BitrixError(
+                f"crm.requisite.add returned empty id: {body!r}"
+            )
+        return str(rid)
+
+    def start_workflow(self, template_id: int, document_type: list) -> dict:
+        """bizproc.workflow.start — best-effort, не подавляем сетевые retries,
+        но 4xx-ошибки (403/400) пробрасываем как BitrixError для caller-side handle.
+
+        Возвращает {"workflow_id": "..."} при успехе.
+        """
+        body = self.call(
+            "bizproc.workflow.start",
+            {
+                "TEMPLATE_ID": template_id,
+                "DOCUMENT_ID": document_type,
+            },
+        )
+        result = body.get("result")
+        if isinstance(result, dict):
+            wf_id = result.get("ID") or result.get("WORKFLOW_ID") or result.get("id")
+        else:
+            wf_id = result
+        if wf_id in (None, "", 0, "0"):
+            raise BitrixError(
+                f"bizproc.workflow.start returned empty workflow id: {body!r}"
+            )
+        return {"workflow_id": str(wf_id)}
+
+    def delete_requisite(self, requisite_id: str) -> bool:
+        """crm.requisite.delete — для rollback-стадии. Возвращает True/False."""
+        body = self.call("crm.requisite.delete", {"id": requisite_id})
+        return bool(body.get("result"))
+
     # ------------------------------ helpers ------------------------------
 
     def _get_or_none(self, method: str, params: dict) -> dict | None:

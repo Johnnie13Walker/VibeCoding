@@ -49,6 +49,7 @@ SHEET_ID = os.environ.get(
 # Вкладки этого модуля
 TAB_QUEUE = "company_enrich_queue"   # очередь компаний к обогащению
 TAB_LOG = "company_enrich_log"       # лог write-операций (для будущих apply/merge)
+TAB_BACKUP = "enrich_backup"         # backup snapshot перед write-операциями apply
 
 # Вкладки, которые мы только читаем (deal-merge статус)
 TAB_DEAL_MERGE_GROUPS = "merge_groups"
@@ -67,3 +68,16 @@ ENRICH_USER_AGENT = (
     "Mozilla/5.0 (compatible; belberry-crm-enrich/0.1; "
     "+https://belberrycrm.bitrix24.ru)"
 )
+
+# Apply stage tunables
+# PRESET_ID реквизита для CREATE_REQ. Стандартный preset «Юридическое лицо» на
+# большинстве порталов = 1; меняется через ENV для прогонов на dev-портале.
+CCE_PRESET_ID = int(os.environ.get("CCE_PRESET_ID", "1"))
+
+# Опциональный bizproc-шаблон, запускаемый после успешного crm.requisite.add.
+# Не задан → apply не пытается дернуть bizproc (bizproc_status=not_configured).
+_bp_raw = os.environ.get("CCE_BIZPROC_TEMPLATE_ID", "").strip()
+CCE_BIZPROC_TEMPLATE_ID: int | None = int(_bp_raw) if _bp_raw.isdigit() else None
+
+# Пауза между write-запросами (rate-limit для crm.requisite.add).
+CCE_APPLY_SLEEP_S = float(os.environ.get("CCE_APPLY_SLEEP_S", "0.5"))
