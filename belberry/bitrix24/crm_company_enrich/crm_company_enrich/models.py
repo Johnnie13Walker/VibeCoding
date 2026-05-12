@@ -264,18 +264,38 @@ def _int(v: str) -> int:
 WEB_DELIMITERS = re.compile(r"[|;,\n]+")
 
 
-def extract_web_url(web_field: str | None) -> str | None:
-    """Bitrix хранит WEB как 'https://foo.ru|WORK\nhttps://bar.ru|HOME'.
+def extract_web_url(web_field) -> str | None:
+    """Достать URL из поля WEB Bitrix.
 
-    Возвращаем первое непустое значение (без |TYPE-суффикса), либо None.
+    Bitrix REST реально возвращает multi-field как list[dict]:
+        [{"ID": "...", "VALUE": "https://example.ru", "VALUE_TYPE": "WORK"}, ...]
+
+    Legacy/fixture-формат: строка "https://foo.ru|WORK\\nhttps://bar.ru|HOME".
+
+    Возвращаем первое непустое значение либо None.
     """
     if not web_field:
         return None
+    # Bitrix REST multi-field format: list of {"VALUE": "...", "VALUE_TYPE": "WORK"}
+    if isinstance(web_field, list):
+        for item in web_field:
+            if isinstance(item, dict):
+                url = (item.get("VALUE") or item.get("URL") or "").strip()
+                if url:
+                    return url
+            elif item:
+                url = str(item).split("|", 1)[0].strip()
+                if url:
+                    return url
+        return None
+    if isinstance(web_field, dict):
+        url = (web_field.get("VALUE") or web_field.get("URL") or "").strip()
+        return url or None
+    # legacy/string fallback (kept for backward-compat with old fixtures)
     for chunk in WEB_DELIMITERS.split(str(web_field)):
         chunk = chunk.strip()
         if not chunk:
             continue
-        # отделяем |TYPE
         url = chunk.split("|", 1)[0].strip()
         if url:
             return url
