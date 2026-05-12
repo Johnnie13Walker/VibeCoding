@@ -19,6 +19,7 @@ class Status(str, Enum):
     CLASSIFIED = "CLASSIFIED"
     APPROVED = "APPROVED"
     APPLIED = "APPLIED"          # реквизит создан (CREATE_REQ путь)
+    APPLIED_PENDING_BP = "APPLIED_PENDING_BP"  # реквизит создан, BP не подтянул ОГРН/КПП — нужна проверка
     MERGED = "MERGED"            # компания смержена с дубликатом (MERGE_INTO путь)
     SKIPPED = "SKIPPED"          # уже было правильно (SKIP_ALREADY)
     VERIFIED = "VERIFIED"
@@ -38,6 +39,7 @@ ORDER: dict[Status, int] = {
     Status.CLASSIFIED: 3,
     Status.APPROVED: 4,
     Status.APPLIED: 5,
+    Status.APPLIED_PENDING_BP: 5,
     Status.MERGED: 5,
     Status.SKIPPED: 5,
     Status.FAILED: 5,
