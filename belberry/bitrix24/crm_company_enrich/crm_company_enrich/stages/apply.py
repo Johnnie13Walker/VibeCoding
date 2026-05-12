@@ -40,6 +40,7 @@ from zoneinfo import ZoneInfo
 from ..bitrix_client import BitrixClient, BitrixError
 from ..config import (
     CCE_APPLY_CLEANUP_DUPLICATE,
+    CCE_APPLY_SET_BRAND,
     CCE_APPLY_SLEEP_S,
     CCE_BIZPROC_TEMPLATE_ID,
     CCE_BIZPROC_WAIT_S,
@@ -48,11 +49,15 @@ from ..config import (
     CCE_WRITE_NAME_FULL,
     ENTITY_TYPE_COMPANY,
     TAB_BACKUP,
+    UF_BRAND_ACOOLA_ID,
+    UF_BRAND_BELBERRY_ID,
+    UF_BRAND_FIELD,
 )
 from ..models import (
     QueueRow,
     TargetAction,
     clean_company_name_for_requisite,
+    is_medical_company,
     is_valid_inn_format,
     normalize_inn,
 )
@@ -78,12 +83,16 @@ BACKUP_HEADERS = [
     "bp_verify_enriched",
     "enriched_requisite_id",
     "cleanup_status",
+    "brand_set",
 ]
 # Legacy headers — для миграции при первом запуске новых apply.
-# Поддерживаем 2 уровня legacy: 7-колоночный (до hybrid) и 10-колоночный
-# (hybrid без cleanup).
+# Поддерживаем 3 уровня legacy:
+#   V1 — 7 колонок (до hybrid),
+#   V2 — 10 колонок (hybrid без cleanup),
+#   V3 — 11 колонок (hybrid + cleanup, без brand_set).
 _BACKUP_HEADERS_LEGACY_V1 = BACKUP_HEADERS[:7]
 _BACKUP_HEADERS_LEGACY_V2 = BACKUP_HEADERS[:10]
+_BACKUP_HEADERS_LEGACY_V3 = BACKUP_HEADERS[:11]
 
 # Статусы, в которых apply уже считает строку «обработанной» (idempotency).
 TERMINAL_STATUSES = frozenset(
@@ -125,6 +134,14 @@ class ApplyOutcome:
     # "failed"            — delete_requisite кинул исключение (apply не FAIL'им).
     cleanup_status: str = ""
     cleanup_message: str = ""
+    # Auto-set UF_CRM_684FE59BA3C8C («Бренд проекта») после успешного
+    # crm.requisite.add. Значения:
+    #   ""             — не выставлялось (set_brand disabled / dry-run);
+    #   "Belberry"     — выставлен ID=2444 (медицинский сегмент);
+    #   "Acoola Team"  — выставлен ID=2442 (всё кроме медицины);
+    #   "failed: ..."  — update_company упал (apply не FAIL'им — реквизит
+    #                    уже создан).
+    brand_set: str = ""
 
 
 # ----- public API -----
@@ -145,6 +162,7 @@ def run(
     company_touch: bool | None = None,
     bizproc_wait_s: int | None = None,
     cleanup_duplicate: bool | None = None,
+    set_brand: bool | None = None,
 ) -> dict:
     """Выполнить apply-стадию. Для прод-CLI передаются клиенты; в тестах — фейки.
 
@@ -171,6 +189,8 @@ def run(
         bizproc_wait_s = CCE_BIZPROC_WAIT_S
     if cleanup_duplicate is None:
         cleanup_duplicate = CCE_APPLY_CLEANUP_DUPLICATE
+    if set_brand is None:
+        set_brand = CCE_APPLY_SET_BRAND
     now = now or datetime.now(MOSCOW_TZ)
 
     queue = read_queue(sheets)
@@ -192,6 +212,10 @@ def run(
     cleanup_merged_in_place = 0
     cleanup_skipped = 0
     cleanup_failed = 0
+    brand_belberry = 0
+    brand_acoola = 0
+    brand_skipped = 0
+    brand_failed = 0
 
     # Backup-таб подготавливается лениво: только если действительно есть
     # CREATE_REQ-кандидаты И не dry-run.
@@ -355,6 +379,37 @@ def run(
             failed += 1
             continue
 
+        # ----- AUTO-SET BRAND (UF_CRM_684FE59BA3C8C) -----
+        #
+        # Делаем ДО touch+BP: если BP-шаблон зависит от бренда (например,
+        # роутит задачу/уведомление по бренду), он уже увидит правильное
+        # значение. Best-effort: ошибка update_company не FAIL'ит apply.
+        if set_brand:
+            is_med = is_medical_company(
+                bitrix_title=row.company_name,
+                discovered_name=row.discovered_name,
+                web=row.web,
+                domain=row.web,
+            )
+            brand_id = UF_BRAND_BELBERRY_ID if is_med else UF_BRAND_ACOOLA_ID
+            brand_label = "Belberry" if is_med else "Acoola Team"
+            try:
+                bx.update_company(row.company_id, {UF_BRAND_FIELD: brand_id})
+                outcome.brand_set = brand_label
+                if is_med:
+                    brand_belberry += 1
+                else:
+                    brand_acoola += 1
+            except Exception as exc:  # noqa: BLE001 — best-effort
+                outcome.brand_set = f"failed: {str(exc)[:50]}"
+                brand_failed += 1
+                print(
+                    f"[apply] company {row.company_id}: brand set failed: {exc}"
+                )
+        else:
+            outcome.brand_set = ""
+            brand_skipped += 1
+
         # ----- HYBRID: touch + BP + verify -----
         #
         # 1. touch: trigger DATE_MODIFY + AUTO_EXECUTE=2 BPs (best-effort).
@@ -455,6 +510,8 @@ def run(
             msg_parts.append("verify=not_enriched")
         if outcome.cleanup_status:
             msg_parts.append(f"cleanup={outcome.cleanup_status}")
+        if outcome.brand_set:
+            msg_parts.append(f"brand={outcome.brand_set}")
 
         _update(
             sheets,
@@ -487,6 +544,12 @@ def run(
             "skipped": cleanup_skipped,
             "failed": cleanup_failed,
         },
+        "brand": {
+            "belberry": brand_belberry,
+            "acoola": brand_acoola,
+            "skipped": brand_skipped,
+            "failed": brand_failed,
+        },
         "ts_msk": now.isoformat(timespec="seconds"),
         "dry_run": dry_run,
         "action": target_action.value if target_action else None,
@@ -501,7 +564,9 @@ def run(
         f"not_enriched={verify_not_enriched}) "
         f"cleanup=(deleted_duplicate={cleanup_deleted_duplicate} "
         f"merged_in_place={cleanup_merged_in_place} skipped={cleanup_skipped} "
-        f"failed={cleanup_failed}) dry_run={dry_run}"
+        f"failed={cleanup_failed}) "
+        f"brand=(belberry={brand_belberry} acoola={brand_acoola} "
+        f"skipped={brand_skipped} failed={brand_failed}) dry_run={dry_run}"
     )
     return summary
 
@@ -657,10 +722,9 @@ def _update(
 def _ensure_backup_sheet(sheets: SheetsClient) -> None:
     """Идемпотентно: создать вкладку enrich_backup + заголовки, если ещё нет.
 
-    Если таб уже создан в старом формате (legacy 7 колонок до hybrid или
-    legacy 10 колонок без cleanup_status), расширим header до текущего
-    11-колоночного in-place. Старые данные не трогаем — новые поля будут
-    пустыми для legacy-строк.
+    Если таб уже создан в старом формате (legacy 7 / 10 / 11 колонок),
+    расширим header до текущего 12-колоночного in-place. Старые данные не
+    трогаем — новые поля будут пустыми для legacy-строк.
     """
     sheets.ensure_sheet(TAB_BACKUP)
     existing = sheets.read(TAB_BACKUP, "A1:Z1")
@@ -670,10 +734,12 @@ def _ensure_backup_sheet(sheets: SheetsClient) -> None:
     cur = [str(x) for x in existing[0]]
     if len(cur) >= len(BACKUP_HEADERS):
         return
-    # Поддерживаем 2 уровня legacy: V1 (7 колонок, до hybrid) и V2 (10
-    # колонок, hybrid без cleanup). В обоих случаях префикс совпадает
-    # с текущим header — миграция безопасна.
-    if cur[: len(_BACKUP_HEADERS_LEGACY_V2)] == _BACKUP_HEADERS_LEGACY_V2:
+    # Поддерживаем 3 уровня legacy: V1 (7 колонок, до hybrid),
+    # V2 (10 колонок, hybrid без cleanup), V3 (11 колонок, hybrid+cleanup
+    # без brand_set). Во всех случаях префикс совпадает с текущим header.
+    if cur[: len(_BACKUP_HEADERS_LEGACY_V3)] == _BACKUP_HEADERS_LEGACY_V3:
+        sheets.update(TAB_BACKUP, "A1", [BACKUP_HEADERS])
+    elif cur[: len(_BACKUP_HEADERS_LEGACY_V2)] == _BACKUP_HEADERS_LEGACY_V2:
         sheets.update(TAB_BACKUP, "A1", [BACKUP_HEADERS])
     elif cur[: len(_BACKUP_HEADERS_LEGACY_V1)] == _BACKUP_HEADERS_LEGACY_V1:
         sheets.update(TAB_BACKUP, "A1", [BACKUP_HEADERS])
@@ -708,6 +774,7 @@ def _append_backup_row(
         verify_cell,
         outcome.enriched_requisite_id or "",
         outcome.cleanup_status or "",
+        outcome.brand_set or "",
     ]
     sheets.append(TAB_BACKUP, [row])
 

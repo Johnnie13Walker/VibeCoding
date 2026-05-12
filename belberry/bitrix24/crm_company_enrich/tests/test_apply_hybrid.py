@@ -199,6 +199,7 @@ def test_hybrid_happy_path_touch_bp_verify_enriched(no_sleep):
         bizproc_template_id=5614,
         bizproc_wait_s=10,
         company_touch=True,
+        set_brand=False,  # тест про touch+BP+verify, brand-set покрыт отдельно
     )
 
     # add вызван
@@ -333,6 +334,7 @@ def test_hybrid_bp_failure_still_applied_no_verify(no_sleep):
         bizproc_template_id=5614,
         bizproc_wait_s=10,
         company_touch=True,
+        set_brand=False,
     )
 
     assert summary["applied"] == 1
@@ -373,6 +375,7 @@ def test_hybrid_touch_disabled_skips_update_company(no_sleep):
         bizproc_template_id=5614,
         bizproc_wait_s=10,
         company_touch=False,
+        set_brand=False,
     )
 
     # touch отключён
