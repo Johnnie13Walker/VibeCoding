@@ -137,6 +137,22 @@ def _is_dns_error(exc: BaseException | None) -> bool:
     )
 
 
+def _classify_error(exc: BaseException | None) -> str:
+    """Короткий ярлык типа ошибки для финального лога (ssl/dns/conn/timeout/...)."""
+    if exc is None:
+        return "unknown"
+    import requests  # local — не тянем requests на module-import
+    if isinstance(exc, requests.exceptions.SSLError):
+        return "ssl"
+    if _is_dns_error(exc):
+        return "dns"
+    if isinstance(exc, requests.exceptions.Timeout):
+        return "timeout"
+    if isinstance(exc, requests.exceptions.ConnectionError):
+        return "conn"
+    return type(exc).__name__.lower()
+
+
 class HttpFetcher:
     """Production fetcher через requests (lazy import — в тестах подменяется).
 
@@ -203,7 +219,8 @@ class HttpFetcher:
             time.sleep(backoff)
             attempt += 1
 
-        print(f"[enrich-web] fetch failed after {attempt} attempts {url}: {last_err}")
+        # Один verdict-лог на URL — иначе на 8 paths × 5 attempts получаем 40 строк.
+        print(f"[fetch] {url}: {attempt} attempts failed (last: {_classify_error(last_err)})")
         return None
 
 

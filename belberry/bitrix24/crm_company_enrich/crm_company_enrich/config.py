@@ -64,9 +64,11 @@ PORTAL_DOMAIN = "belberrycrm.bitrix24.ru"
 ENRICH_HTTP_TIMEOUT_S = 10
 ENRICH_HTTP_DELAY_S = 1.0
 ENRICH_HTTP_RETRIES = 3
-ENRICH_USER_AGENT = (
-    "Mozilla/5.0 (compatible; belberry-crm-enrich/0.1; "
-    "+https://belberrycrm.bitrix24.ru)"
+ENRICH_USER_AGENT = os.environ.get(
+    "CCE_ENRICH_USER_AGENT",
+    # Полноценный Chrome-like UA: некоторые сайты блокируют явные bot-UA.
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
 )
 
 # Apply stage tunables
