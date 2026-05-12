@@ -81,3 +81,17 @@ CCE_BIZPROC_TEMPLATE_ID: int | None = int(_bp_raw) if _bp_raw.isdigit() else Non
 
 # Пауза между write-запросами (rate-limit для crm.requisite.add).
 CCE_APPLY_SLEEP_S = float(os.environ.get("CCE_APPLY_SLEEP_S", "0.5"))
+
+
+def _env_bool(name: str, default: bool = False) -> bool:
+    raw = os.environ.get(name, "").strip().lower()
+    if not raw:
+        return default
+    return raw in {"1", "true", "yes", "on", "y"}
+
+
+# Записывать ли RQ_COMPANY_NAME_FULL в payload crm.requisite.add. По умолчанию
+# FALSE — после post-mortem с Ecodent (HTML-title бренда вместо юр.названия)
+# мы не доверяем enrich-сорсам для юр.названия. Bitrix-bizproc / ручной ввод
+# подтянет название из ЕГРЮЛ.
+CCE_WRITE_NAME_FULL = _env_bool("CCE_WRITE_NAME_FULL", default=False)

@@ -161,7 +161,11 @@ def test_happy_path_create_req_calls_add_and_sets_applied():
     bx = FakeBitrix(existing_requisites={"10": []})
     sheets = FakeSheets([row])
 
-    summary = apply.run(bx, sheets, sleep_s=0, bizproc_template_id=None)
+    # Опт-ин на RQ_COMPANY_NAME_FULL — иначе по умолчанию name-поле не пишется
+    # (см. CCE_WRITE_NAME_FULL, post-mortem с Ecodent).
+    summary = apply.run(
+        bx, sheets, sleep_s=0, bizproc_template_id=None, write_name_full=True
+    )
 
     assert summary["applied"] == 1
     assert summary["failed"] == 0
@@ -461,7 +465,10 @@ def test_backup_records_failure_too():
 
 
 def test_payload_uses_bitrix_title_when_no_discovered_name_for_12_digit_inn():
-    """12-значный ИНН (ИП) — discovered_name пустой → берём bitrix_title."""
+    """12-значный ИНН (ИП) — discovered_name пустой → берём bitrix_title.
+
+    Опт-ин на RQ_COMPANY_NAME_FULL обязателен (см. CCE_WRITE_NAME_FULL).
+    """
     row = _approved_create_req(
         cid="10",
         inn="500100732259",  # 12 цифр
@@ -471,7 +478,9 @@ def test_payload_uses_bitrix_title_when_no_discovered_name_for_12_digit_inn():
     bx = FakeBitrix(existing_requisites={"10": []})
     sheets = FakeSheets([row])
 
-    apply.run(bx, sheets, sleep_s=0, bizproc_template_id=None)
+    apply.run(
+        bx, sheets, sleep_s=0, bizproc_template_id=None, write_name_full=True
+    )
     payload = bx.add_calls[0]
     assert payload["RQ_INN"] == "500100732259"
     assert payload["NAME"] == "Реквизиты ИП"

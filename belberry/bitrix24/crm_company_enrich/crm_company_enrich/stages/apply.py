@@ -42,6 +42,7 @@ from ..config import (
     CCE_APPLY_SLEEP_S,
     CCE_BIZPROC_TEMPLATE_ID,
     CCE_PRESET_ID,
+    CCE_WRITE_NAME_FULL,
     ENTITY_TYPE_COMPANY,
     TAB_BACKUP,
 )
@@ -112,6 +113,7 @@ def run(
     now: datetime | None = None,
     preset_id: int | None = None,
     bizproc_template_id: Any = _BIZPROC_SENTINEL,
+    write_name_full: bool | None = None,
 ) -> dict:
     """Выполнить apply-стадию. Для прод-CLI передаются клиенты; в тестах — фейки.
 
@@ -130,6 +132,8 @@ def run(
     preset_id = CCE_PRESET_ID if preset_id is None else preset_id
     if bizproc_template_id is _BIZPROC_SENTINEL:
         bizproc_template_id = CCE_BIZPROC_TEMPLATE_ID
+    if write_name_full is None:
+        write_name_full = CCE_WRITE_NAME_FULL
     now = now or datetime.now(MOSCOW_TZ)
 
     queue = read_queue(sheets)
@@ -255,6 +259,7 @@ def run(
             discovered_source=row.discovered_source,
             bitrix_title=row.company_name,
             preset_id=preset_id,
+            write_name_full=write_name_full,
         )
 
         outcome = ApplyOutcome(
@@ -379,23 +384,34 @@ def _build_payload(
     discovered_source: str | None,
     bitrix_title: str,
     preset_id: int,
+    write_name_full: bool = False,
 ) -> dict:
     """Сконструировать поля для crm.requisite.add.
 
     Правила:
       - PRESET_ID = preset_id (default 1, обычно «ЮЛ»).
-      - RQ_COMPANY_NAME_FULL:
-          • если discovered_source == "rusprofile" и есть discovered_name —
-            используем (rusprofile даёт точное юр.название);
-          • если ИНН 10 цифр и discovered_name пустой — оставляем пустым
-            (рискованно ставить случайное название юрлица);
-          • иначе → discovered_name or bitrix_title.
-        В любом случае значение прогоняется через clean_company_name_for_requisite
-        (снятие SEO-хвостов rusprofile, HTML-entities, HTML-title trail). Если
-        после чистки осталось пусто/мусор — RQ_COMPANY_NAME_FULL не выставляется,
-        и bizproc позже подтянет название из ЕГРЮЛ.
+      - RQ_COMPANY_NAME_FULL — по умолчанию НЕ записывается. После Ecodent-инцидента
+        (HTML-title бренда «Стоматология в Сколково» вместо юр.названия) мы решили
+        не доверять enrich-сорсам в качестве источника юр.названия. bizproc /
+        ручной ввод подтянет название из ЕГРЮЛ.
+        Опт-ин через env CCE_WRITE_NAME_FULL=1 (или write_name_full=True).
+        При опт-ин: для rusprofile/rusprofile_verified — discovered_name,
+        для ЮЛ (10 цифр) без discovered_name — пусто, иначе discovered_name
+        либо bitrix_title (через clean_company_name_for_requisite).
       - NAME — человекочитаемый ярлык реквизита.
     """
+    payload: dict[str, Any] = {
+        "ENTITY_TYPE_ID": ENTITY_TYPE_COMPANY,
+        "ENTITY_ID": int(company_id),
+        "PRESET_ID": int(preset_id),
+        "NAME": "Реквизиты ЮЛ" if len(inn) == 10 else "Реквизиты ИП",
+        "RQ_INN": inn,
+    }
+
+    if not write_name_full:
+        # Default conservative: RQ_COMPANY_NAME_FULL не выставляем.
+        return payload
+
     clean_discovered = clean_company_name_for_requisite(discovered_name)
     clean_bitrix = clean_company_name_for_requisite(bitrix_title)
 
@@ -406,13 +422,6 @@ def _build_payload(
     else:
         rq_company_name = clean_discovered or clean_bitrix or ""
 
-    payload: dict[str, Any] = {
-        "ENTITY_TYPE_ID": ENTITY_TYPE_COMPANY,
-        "ENTITY_ID": int(company_id),
-        "PRESET_ID": int(preset_id),
-        "NAME": "Реквизиты ЮЛ" if len(inn) == 10 else "Реквизиты ИП",
-        "RQ_INN": inn,
-    }
     if rq_company_name:
         payload["RQ_COMPANY_NAME_FULL"] = rq_company_name
     return payload

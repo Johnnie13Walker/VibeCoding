@@ -98,7 +98,9 @@ def test_apply_uses_clean_name_in_rq_company_name_full():
     bx = FakeBitrix(existing_requisites={"42": []})
     sheets = FakeSheets([row])
 
-    summary = apply.run(bx, sheets, sleep_s=0, bizproc_template_id=None)
+    summary = apply.run(
+        bx, sheets, sleep_s=0, bizproc_template_id=None, write_name_full=True
+    )
 
     assert summary["applied"] == 1
     assert len(bx.add_calls) == 1
