@@ -123,12 +123,16 @@ CCE_WRITE_NAME_FULL = _env_bool("CCE_WRITE_NAME_FULL", default=False)
 CCE_APPLY_CLEANUP_DUPLICATE = _env_bool("CCE_APPLY_CLEANUP_DUPLICATE", default=True)
 
 # Brand auto-set: после успешного crm.requisite.add выставляем UF поле
-# «Бренд проекта» (UF_CRM_684FE59BA3C8C) на основе эвристики
-# is_medical_company:
-#   True  → 2444 (Belberry, медицинский сегмент)
-#   False → 2442 (Acoola Team, всё остальное)
+# «Бренд проекта» (UF_CRM_1737098476975 — строковое, не enum) на основе
+# эвристики is_medical_company:
+#   True  → "Belberry"     (медицинский сегмент)
+#   False → "Acoola Team"  (всё остальное)
 # Default TRUE. Disable через CCE_APPLY_SET_BRAND=0/false.
-UF_BRAND_FIELD = "UF_CRM_684FE59BA3C8C"
-UF_BRAND_BELBERRY_ID = "2444"
-UF_BRAND_ACOOLA_ID = "2442"
+#
+# История: ранее использовалось enum-поле UF_CRM_684FE59BA3C8C (2444/2442),
+# но UI карточки компании читает именно это строковое поле, которое
+# BP 5614 заполняет автоматически из ЕГРЮЛ. Сменили на правильное.
+UF_BRAND_FIELD = "UF_CRM_1737098476975"
+UF_BRAND_BELBERRY = "Belberry"
+UF_BRAND_ACOOLA = "Acoola Team"
 CCE_APPLY_SET_BRAND = _env_bool("CCE_APPLY_SET_BRAND", default=True)

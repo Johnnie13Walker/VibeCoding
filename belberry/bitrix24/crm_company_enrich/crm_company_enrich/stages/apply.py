@@ -49,8 +49,8 @@ from ..config import (
     CCE_WRITE_NAME_FULL,
     ENTITY_TYPE_COMPANY,
     TAB_BACKUP,
-    UF_BRAND_ACOOLA_ID,
-    UF_BRAND_BELBERRY_ID,
+    UF_BRAND_ACOOLA,
+    UF_BRAND_BELBERRY,
     UF_BRAND_FIELD,
 )
 from ..models import (
@@ -134,11 +134,11 @@ class ApplyOutcome:
     # "failed"            — delete_requisite кинул исключение (apply не FAIL'им).
     cleanup_status: str = ""
     cleanup_message: str = ""
-    # Auto-set UF_CRM_684FE59BA3C8C («Бренд проекта») после успешного
-    # crm.requisite.add. Значения:
+    # Auto-set UF_CRM_1737098476975 («Бренд проекта», строковое) после
+    # успешного crm.requisite.add. Значения:
     #   ""             — не выставлялось (set_brand disabled / dry-run);
-    #   "Belberry"     — выставлен ID=2444 (медицинский сегмент);
-    #   "Acoola Team"  — выставлен ID=2442 (всё кроме медицины);
+    #   "Belberry"     — медицинский сегмент;
+    #   "Acoola Team"  — всё кроме медицины;
     #   "failed: ..."  — update_company упал (apply не FAIL'им — реквизит
     #                    уже создан).
     brand_set: str = ""
@@ -379,7 +379,7 @@ def run(
             failed += 1
             continue
 
-        # ----- AUTO-SET BRAND (UF_CRM_684FE59BA3C8C) -----
+        # ----- AUTO-SET BRAND (UF_CRM_1737098476975 «Бренд проекта») -----
         #
         # Делаем ДО touch+BP: если BP-шаблон зависит от бренда (например,
         # роутит задачу/уведомление по бренду), он уже увидит правильное
@@ -391,11 +391,10 @@ def run(
                 web=row.web,
                 domain=row.web,
             )
-            brand_id = UF_BRAND_BELBERRY_ID if is_med else UF_BRAND_ACOOLA_ID
-            brand_label = "Belberry" if is_med else "Acoola Team"
+            brand_value = UF_BRAND_BELBERRY if is_med else UF_BRAND_ACOOLA
             try:
-                bx.update_company(row.company_id, {UF_BRAND_FIELD: brand_id})
-                outcome.brand_set = brand_label
+                bx.update_company(row.company_id, {UF_BRAND_FIELD: brand_value})
+                outcome.brand_set = brand_value
                 if is_med:
                     brand_belberry += 1
                 else:

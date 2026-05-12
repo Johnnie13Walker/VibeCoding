@@ -18,7 +18,7 @@ from __future__ import annotations
 import pytest
 
 from crm_company_enrich.bitrix_client import BitrixError
-from crm_company_enrich.config import TAB_BACKUP, TAB_QUEUE
+from crm_company_enrich.config import TAB_BACKUP, TAB_QUEUE, UF_BRAND_FIELD
 from crm_company_enrich.models import QUEUE_HEADERS, QueueRow, TargetAction
 from crm_company_enrich.stages import apply
 from crm_company_enrich.stages.apply import BACKUP_HEADERS
@@ -706,12 +706,12 @@ def test_cleanup_skipped_when_verify_not_enriched(no_sleep):
 
 
 # =========================================================================
-# 14. brand auto-set: medical title → Belberry (UF_CRM_684FE59BA3C8C = 2444)
+# 14. brand auto-set: medical title → Belberry (UF_BRAND_FIELD = "Belberry")
 # =========================================================================
 
 
 def test_brand_set_belberry_for_medical_company(no_sleep):
-    """Медицинский title → update_company с UF_CRM_684FE59BA3C8C = '2444'."""
+    """Медицинский title → update_company с UF_BRAND_FIELD = 'Belberry'."""
     row = _approved_row(cid="20")
     row.company_name = "Стоматология SmileLab"
     bx = FakeBitrix(
@@ -733,7 +733,7 @@ def test_brand_set_belberry_for_medical_company(no_sleep):
     assert len(bx.update_company_calls) == 1
     cid, fields = bx.update_company_calls[0]
     assert cid == "20"
-    assert fields == {"UF_CRM_684FE59BA3C8C": "2444"}
+    assert fields == {UF_BRAND_FIELD: "Belberry"}
 
     assert summary["brand"]["belberry"] == 1
     assert summary["brand"]["acoola"] == 0
@@ -749,12 +749,12 @@ def test_brand_set_belberry_for_medical_company(no_sleep):
 
 
 # =========================================================================
-# 15. brand auto-set: non-medical → Acoola Team (UF_CRM_684FE59BA3C8C = 2442)
+# 15. brand auto-set: non-medical → Acoola Team (UF_BRAND_FIELD = "Acoola Team")
 # =========================================================================
 
 
 def test_brand_set_acoola_for_non_medical_company(no_sleep):
-    """Не-медицинский title (автосервис) → UF_CRM_684FE59BA3C8C = '2442'."""
+    """Не-медицинский title (автосервис) → UF_BRAND_FIELD = 'Acoola Team'."""
     row = _approved_row(cid="21")
     row.company_name = "ИП Соколов Автосервис BMW"
     bx = FakeBitrix(
@@ -775,7 +775,7 @@ def test_brand_set_acoola_for_non_medical_company(no_sleep):
     assert len(bx.update_company_calls) == 1
     cid, fields = bx.update_company_calls[0]
     assert cid == "21"
-    assert fields == {"UF_CRM_684FE59BA3C8C": "2442"}
+    assert fields == {UF_BRAND_FIELD: "Acoola Team"}
 
     assert summary["brand"]["belberry"] == 0
     assert summary["brand"]["acoola"] == 1
@@ -794,7 +794,7 @@ def test_brand_set_acoola_for_non_medical_company(no_sleep):
 
 
 def test_brand_set_disabled_skips_update_company(no_sleep):
-    """set_brand=False → update_company НЕ должен содержать UF_CRM_684FE59BA3C8C."""
+    """set_brand=False → update_company НЕ должен содержать UF_BRAND_FIELD."""
     row = _approved_row(cid="22")
     row.company_name = "Стоматология SmileLab"  # был бы Belberry если включено
     bx = FakeBitrix(
@@ -814,9 +814,9 @@ def test_brand_set_disabled_skips_update_company(no_sleep):
 
     # Никаких update_company вызовов вообще
     assert bx.update_company_calls == []
-    # И ни в одном из вызовов нет UF_CRM brand-поля (sanity)
+    # И ни в одном из вызовов нет UF brand-поля (sanity)
     for _, fields in bx.update_company_calls:
-        assert "UF_CRM_684FE59BA3C8C" not in fields
+        assert UF_BRAND_FIELD not in fields
 
     assert summary["brand"]["belberry"] == 0
     assert summary["brand"]["acoola"] == 0
