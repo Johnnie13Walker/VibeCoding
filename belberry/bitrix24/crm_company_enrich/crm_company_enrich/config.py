@@ -61,9 +61,9 @@ DEAL_MERGE_ACTIVE_STATUSES = frozenset({"APPROVED", "TRANSFERRED", "MERGED", "MA
 PORTAL_DOMAIN = "belberrycrm.bitrix24.ru"
 
 # Web fetch behaviour
-ENRICH_HTTP_TIMEOUT_S = 10
-ENRICH_HTTP_DELAY_S = 1.0
-ENRICH_HTTP_RETRIES = 3
+ENRICH_HTTP_TIMEOUT_S = float(os.environ.get("CCE_ENRICH_HTTP_TIMEOUT_S", "10"))
+ENRICH_HTTP_DELAY_S = float(os.environ.get("CCE_ENRICH_HTTP_DELAY_S", "1.0"))
+ENRICH_HTTP_RETRIES = int(os.environ.get("CCE_ENRICH_HTTP_RETRIES", "3"))
 ENRICH_USER_AGENT = os.environ.get(
     "CCE_ENRICH_USER_AGENT",
     # Полноценный Chrome-like UA: некоторые сайты блокируют явные bot-UA.
