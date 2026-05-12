@@ -518,7 +518,15 @@ def _touch_company(bx: BitrixClient, company_id: str) -> None:
     """Минимальное изменение COMMENTS чтобы триггернуть DATE_MODIFY + AUTO_EXECUTE=2 BPs.
 
     Best-effort: любые ошибки логируются и не FAIL'ят apply (реквизит уже создан).
+
+    Bitrix-сервер обрезает trailing whitespace при сохранении COMMENTS — если
+    отправить `current + " "`, поле эффективно не меняется и DATE_MODIFY не
+    обновляется (silent no-op, видели на cid=9118). Поэтому добавляем
+    видимый newline-маркер с уникальным uuid-токеном, который сервер не
+    тримит.
     """
+    import uuid
+
     try:
         company = bx.get_company(company_id)
     except Exception as exc:  # noqa: BLE001
@@ -528,11 +536,8 @@ def _touch_company(bx: BitrixClient, company_id: str) -> None:
         print(f"[apply] touch company {company_id}: not found, skip")
         return
     comments = company.get("COMMENTS") or ""
-    if isinstance(comments, str) and comments.endswith(" "):
-        # Уже trailing space — добавим ещё один (touch всё равно нужен)
-        new_comments = comments + " "
-    else:
-        new_comments = f"{comments} "
+    marker = f"\n[touch {uuid.uuid4().hex[:8]}]"
+    new_comments = f"{comments}{marker}"
     try:
         bx.update_company(company_id, {"COMMENTS": new_comments})
     except Exception as exc:  # noqa: BLE001

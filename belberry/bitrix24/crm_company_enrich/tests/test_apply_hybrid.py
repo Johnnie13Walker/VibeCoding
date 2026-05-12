@@ -194,11 +194,15 @@ def test_hybrid_happy_path_touch_bp_verify_enriched(no_sleep):
 
     # add вызван
     assert len(bx.add_calls) == 1
-    # touch вызван: сначала get_company, потом update_company с COMMENTS+" "
+    # touch вызван: сначала get_company, потом update_company с COMMENTS+marker.
+    # Bitrix-сервер обрезает trailing whitespace — используем newline+uuid маркер.
     assert bx.get_company_calls == ["10"]
     assert len(bx.update_company_calls) == 1
     assert bx.update_company_calls[0][0] == "10"
-    assert bx.update_company_calls[0][1] == {"COMMENTS": "test "}
+    sent_comments = bx.update_company_calls[0][1]["COMMENTS"]
+    assert sent_comments.startswith("test\n[touch "), f"expected newline marker, got {sent_comments!r}"
+    assert sent_comments.endswith("]")
+    assert len(sent_comments) > len("test")  # реально расширено
     # workflow стартовал
     assert len(bx.workflow_calls) == 1
     assert bx.workflow_calls[0] == (5614, ["crm", "CCrmDocumentCompany", "COMPANY_10"])
