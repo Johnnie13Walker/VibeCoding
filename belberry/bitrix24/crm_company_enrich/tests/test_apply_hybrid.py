@@ -703,3 +703,129 @@ def test_cleanup_skipped_when_verify_not_enriched(no_sleep):
 
     grid = sheets.extra_tabs[TAB_BACKUP]
     assert grid[1][10] == "skipped"
+
+
+# =========================================================================
+# 14. brand auto-set: medical title → Belberry (UF_CRM_684FE59BA3C8C = 2444)
+# =========================================================================
+
+
+def test_brand_set_belberry_for_medical_company(no_sleep):
+    """Медицинский title → update_company с UF_CRM_684FE59BA3C8C = '2444'."""
+    row = _approved_row(cid="20")
+    row.company_name = "Стоматология SmileLab"
+    bx = FakeBitrix(
+        existing_requisites={"20": []},
+        company_data={"20": {"COMMENTS": ""}},
+    )
+    sheets = FakeSheets([row])
+
+    summary = apply.run(
+        bx, sheets,
+        sleep_s=0,
+        bizproc_template_id=None,  # без BP — фокус на brand-set
+        bizproc_wait_s=0,
+        company_touch=False,        # отключаем touch чтобы isolated проверять brand
+        set_brand=True,
+    )
+
+    # ровно один update_company — для brand-set
+    assert len(bx.update_company_calls) == 1
+    cid, fields = bx.update_company_calls[0]
+    assert cid == "20"
+    assert fields == {"UF_CRM_684FE59BA3C8C": "2444"}
+
+    assert summary["brand"]["belberry"] == 1
+    assert summary["brand"]["acoola"] == 0
+    assert summary["brand"]["failed"] == 0
+
+    updated = sheets.queue_row(0)
+    assert updated.status == Status.APPLIED
+    assert "brand=Belberry" in (updated.error_message or "")
+
+    grid = sheets.extra_tabs[TAB_BACKUP]
+    # 12-я колонка (index 11) — brand_set
+    assert grid[1][11] == "Belberry"
+
+
+# =========================================================================
+# 15. brand auto-set: non-medical → Acoola Team (UF_CRM_684FE59BA3C8C = 2442)
+# =========================================================================
+
+
+def test_brand_set_acoola_for_non_medical_company(no_sleep):
+    """Не-медицинский title (автосервис) → UF_CRM_684FE59BA3C8C = '2442'."""
+    row = _approved_row(cid="21")
+    row.company_name = "ИП Соколов Автосервис BMW"
+    bx = FakeBitrix(
+        existing_requisites={"21": []},
+        company_data={"21": {"COMMENTS": ""}},
+    )
+    sheets = FakeSheets([row])
+
+    summary = apply.run(
+        bx, sheets,
+        sleep_s=0,
+        bizproc_template_id=None,
+        bizproc_wait_s=0,
+        company_touch=False,
+        set_brand=True,
+    )
+
+    assert len(bx.update_company_calls) == 1
+    cid, fields = bx.update_company_calls[0]
+    assert cid == "21"
+    assert fields == {"UF_CRM_684FE59BA3C8C": "2442"}
+
+    assert summary["brand"]["belberry"] == 0
+    assert summary["brand"]["acoola"] == 1
+    assert summary["brand"]["failed"] == 0
+
+    updated = sheets.queue_row(0)
+    assert "brand=Acoola Team" in (updated.error_message or "")
+
+    grid = sheets.extra_tabs[TAB_BACKUP]
+    assert grid[1][11] == "Acoola Team"
+
+
+# =========================================================================
+# 16. brand disabled — update_company НЕ вызывается с UF_CRM brand field
+# =========================================================================
+
+
+def test_brand_set_disabled_skips_update_company(no_sleep):
+    """set_brand=False → update_company НЕ должен содержать UF_CRM_684FE59BA3C8C."""
+    row = _approved_row(cid="22")
+    row.company_name = "Стоматология SmileLab"  # был бы Belberry если включено
+    bx = FakeBitrix(
+        existing_requisites={"22": []},
+        company_data={"22": {"COMMENTS": ""}},
+    )
+    sheets = FakeSheets([row])
+
+    summary = apply.run(
+        bx, sheets,
+        sleep_s=0,
+        bizproc_template_id=None,
+        bizproc_wait_s=0,
+        company_touch=False,
+        set_brand=False,
+    )
+
+    # Никаких update_company вызовов вообще
+    assert bx.update_company_calls == []
+    # И ни в одном из вызовов нет UF_CRM brand-поля (sanity)
+    for _, fields in bx.update_company_calls:
+        assert "UF_CRM_684FE59BA3C8C" not in fields
+
+    assert summary["brand"]["belberry"] == 0
+    assert summary["brand"]["acoola"] == 0
+    assert summary["brand"]["skipped"] == 1
+    assert summary["brand"]["failed"] == 0
+
+    updated = sheets.queue_row(0)
+    assert updated.status == Status.APPLIED
+    assert "brand=" not in (updated.error_message or "")
+
+    grid = sheets.extra_tabs[TAB_BACKUP]
+    assert grid[1][11] == ""  # brand_set пустой
