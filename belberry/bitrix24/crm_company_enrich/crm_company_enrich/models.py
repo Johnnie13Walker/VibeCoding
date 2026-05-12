@@ -6,6 +6,7 @@ Classification — has_valid_inn / empty_inn / no_requisite.
 """
 from __future__ import annotations
 
+import html
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -300,6 +301,60 @@ def extract_web_url(web_field) -> str | None:
         if url:
             return url
     return None
+
+
+# ----- Cleanup discovered_name / bitrix_title before sending to crm.requisite.add -----
+
+# Регэкспы — case-insensitive, без re.MULTILINE. Применяются последовательно,
+# каждый «съедает» хвост строки целиком (`$`). Порядок важен: сначала длинные
+# узкоспецифичные хвосты, потом более общие.
+_NAME_CLEANUP_PATTERNS: tuple[re.Pattern[str], ...] = (
+    # «- результаты поиска на Rusprofile.ru»
+    re.compile(
+        r"\s*[-—–]\s*результаты\s+поиска\s+на\s+Rusprofile\.ru\s*$",
+        re.IGNORECASE,
+    ),
+    # «(ИНН 1234567890) адрес, официальный сайт и телефон»
+    re.compile(
+        r"\s*\(ИНН\s*\d{10,12}\)\s*адрес,?\s*официальный\s+сайт\s+и?\s*телефон\s*$",
+        re.IGNORECASE,
+    ),
+    # «(ИНН 1234567890)»
+    re.compile(r"\s*\(ИНН\s*\d{10,12}\)\s*$", re.IGNORECASE),
+    # «адрес, официальный сайт и телефон» без скобок
+    re.compile(
+        r"\s+адрес,?\s+официальный\s+сайт\s+и?\s*телефон\s*$",
+        re.IGNORECASE,
+    ),
+    # HTML-title trail после ` | ...` (режем от первого пайпа до конца)
+    re.compile(r"\s+\|\s+.*$"),
+)
+
+
+def clean_company_name_for_requisite(raw: str | None) -> str | None:
+    """Очистить строку discovered_name/bitrix_title перед записью в RQ_COMPANY_NAME_FULL.
+
+    Шаги:
+      1. None/пусто → None.
+      2. html.unescape (&quot; → ", &amp; → &).
+      3. Поочерёдное снятие известных SEO-хвостов (rusprofile, «адрес, официальный
+         сайт и телефон», HTML-title trail после ` | `).
+      4. Нормализация whitespace + проверка минимальной длины (>= 2 символа).
+
+    Возвращает очищенную строку или None, если после чистки осталось < 2 символов.
+    """
+    if not raw:
+        return None
+    s = html.unescape(str(raw)).strip()
+    if not s:
+        return None
+    for pattern in _NAME_CLEANUP_PATTERNS:
+        s = pattern.sub("", s).strip()
+    # Сжать повторяющиеся пробельные символы
+    s = re.sub(r"\s+", " ", s).strip()
+    if len(s) < 2:
+        return None
+    return s
 
 
 def find_uf_inn_candidate(company: dict) -> str | None:
