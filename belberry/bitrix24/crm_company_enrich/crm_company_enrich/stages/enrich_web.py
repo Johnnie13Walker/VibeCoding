@@ -114,6 +114,29 @@ class FetchResult:
     ssl_unsafe: bool = False  # True если получен через verify=False fallback
 
 
+# Базовые backoff'ы для retry-цикла. DNS-ошибки получают расширенную серию —
+# overloaded local resolver часто отдаёт ответ после большей паузы.
+_BASE_BACKOFF = (1.0, 2.0, 3.0)
+_DNS_BACKOFF = (2.0, 5.0, 10.0)
+_DNS_EXTRA_ATTEMPTS = 2  # сверх ENRICH_HTTP_RETRIES, только если детектирован DNS-fail
+
+
+def _is_dns_error(exc: BaseException | None) -> bool:
+    """Грубо детектируем NameResolutionError по тексту ошибки.
+
+    requests заворачивает urllib3.NameResolutionError в ConnectionError;
+    структурного API нет, поэтому substring-match самый надёжный путь.
+    """
+    if exc is None:
+        return False
+    msg = str(exc)
+    return (
+        "NameResolution" in msg
+        or "Name or service not known" in msg
+        or "nodename nor servname" in msg
+    )
+
+
 class HttpFetcher:
     """Production fetcher через requests (lazy import — в тестах подменяется).
 
@@ -143,9 +166,12 @@ class HttpFetcher:
     def fetch(self, url: str) -> FetchResult | None:
         import requests
 
-        delay = 1.0
-        last_err = None
-        for attempt in range(self.retries):
+        last_err: BaseException | None = None
+        attempt = 0
+        dns_extra_used = 0
+        max_attempts = self.retries  # может вырасти, если поймали DNS-fail
+
+        while attempt < max_attempts:
             try:
                 return self._do_get(url, verify=True)
             except requests.exceptions.SSLError as ssl_exc:
@@ -159,9 +185,25 @@ class HttpFetcher:
                     last_err = inner
             except Exception as exc:
                 last_err = exc
-            time.sleep(delay)
-            delay *= 2
-        print(f"[enrich-web] fetch failed after {self.retries} attempts {url}: {last_err}")
+
+            # Подбираем backoff: DNS получает расширенную серию + дополнительные attempts.
+            if _is_dns_error(last_err):
+                idx = min(attempt, len(_DNS_BACKOFF) - 1)
+                backoff = _DNS_BACKOFF[idx]
+                if (
+                    dns_extra_used < _DNS_EXTRA_ATTEMPTS
+                    and max_attempts < self.retries + _DNS_EXTRA_ATTEMPTS
+                ):
+                    max_attempts += 1
+                    dns_extra_used += 1
+            else:
+                idx = min(attempt, len(_BASE_BACKOFF) - 1)
+                backoff = _BASE_BACKOFF[idx]
+
+            time.sleep(backoff)
+            attempt += 1
+
+        print(f"[enrich-web] fetch failed after {attempt} attempts {url}: {last_err}")
         return None
 
 
