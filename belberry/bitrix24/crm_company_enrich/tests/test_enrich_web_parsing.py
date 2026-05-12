@@ -31,9 +31,15 @@ def test_extract_inn_12_digit():
     assert extract_inn_from_text(html) == "770708389300"
 
 
-def test_extract_inn_anywhere_in_text():
+def test_extract_inn_bare_requires_requisites_url():
+    # Без label и без requisites-URL — bare-число игнорируется.
     html = "Реквизиты компании 7707083893 и контакты"
-    assert extract_inn_from_text(html) == "7707083893"
+    assert extract_inn_from_text(html) is None
+    # На странице /requisites/ — bare-число принимается.
+    assert (
+        extract_inn_from_text(html, source_url="https://example.ru/requisites/")
+        == "7707083893"
+    )
 
 
 def test_extract_inn_ignores_phone_like_numbers():
