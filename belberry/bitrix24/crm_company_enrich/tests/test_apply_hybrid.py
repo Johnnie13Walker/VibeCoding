@@ -44,6 +44,7 @@ class FakeBitrix:
         raise_on_add: Exception | None = None,
         raise_on_workflow: Exception | None = None,
         raise_on_update_company: Exception | None = None,
+        raise_on_delete_requisite: Exception | None = None,
     ):
         self.existing = dict(existing_requisites or {})
         self.post_workflow = dict(post_workflow_requisites or {})
@@ -53,12 +54,14 @@ class FakeBitrix:
         self.raise_on_add = raise_on_add
         self.raise_on_workflow = raise_on_workflow
         self.raise_on_update_company = raise_on_update_company
+        self.raise_on_delete_requisite = raise_on_delete_requisite
 
         self.add_calls: list[dict] = []
         self.list_calls: list[str] = []
         self.workflow_calls: list[tuple[int, list]] = []
         self.update_company_calls: list[tuple[str, dict]] = []
         self.get_company_calls: list[str] = []
+        self.delete_requisite_calls: list[str] = []
         self._workflow_started: set[str] = set()
 
     def get_company(self, company_id: str) -> dict | None:
@@ -85,6 +88,12 @@ class FakeBitrix:
         if self.raise_on_add is not None:
             raise self.raise_on_add
         return self.add_result_id
+
+    def delete_requisite(self, requisite_id: str) -> bool:
+        if self.raise_on_delete_requisite is not None:
+            raise self.raise_on_delete_requisite
+        self.delete_requisite_calls.append(str(requisite_id))
+        return True
 
     def start_workflow(self, template_id: int, document_type: list) -> dict:
         self.workflow_calls.append((int(template_id), list(document_type)))
@@ -463,3 +472,231 @@ def test_apply_skips_applied_pending_bp_as_terminal(no_sleep):
     assert summary["applied_pending_bp"] == 0
     assert bx.add_calls == []
     assert bx.workflow_calls == []
+
+
+# =========================================================================
+# 9. cleanup — delete_duplicate happy: enriched_id != our_id → delete вызван
+# =========================================================================
+
+
+def test_cleanup_delete_duplicate_happy(no_sleep):
+    """BP создал второй реквизит (другой ID) — наш technical INN-only удалён."""
+    row = _approved_row(cid="10")
+    bx = FakeBitrix(
+        existing_requisites={"10": []},
+        add_result_id="500",  # наш technical
+        post_workflow_requisites={
+            "10": [
+                {"ID": "500", "RQ_INN": "7707083893", "RQ_OGRN": ""},   # наш
+                {"ID": "501", "RQ_INN": "7707083893", "RQ_OGRN": "1027700132195"},  # BP
+            ]
+        },
+        workflow_result={"workflow_id": "wf-cleanup-1"},
+    )
+    sheets = FakeSheets([row])
+
+    summary = apply.run(
+        bx, sheets,
+        sleep_s=0,
+        bizproc_template_id=5614,
+        bizproc_wait_s=10,
+        company_touch=False,
+        cleanup_duplicate=True,
+    )
+
+    # delete вызван ровно один раз для нашего ID
+    assert bx.delete_requisite_calls == ["500"]
+    # status в Sheets — APPLIED
+    updated = sheets.queue_row(0)
+    assert updated.status == Status.APPLIED
+    assert "cleanup=deleted_duplicate" in (updated.error_message or "")
+
+    # summary cleanup
+    assert summary["cleanup"]["deleted_duplicate"] == 1
+    assert summary["cleanup"]["merged_in_place"] == 0
+    assert summary["cleanup"]["skipped"] == 0
+    assert summary["cleanup"]["failed"] == 0
+
+    # backup-таб: cleanup_status в 11-й колонке (index 10)
+    grid = sheets.extra_tabs[TAB_BACKUP]
+    assert grid[0] == BACKUP_HEADERS
+    assert "cleanup_status" in BACKUP_HEADERS
+    assert grid[1][10] == "deleted_duplicate"
+
+
+# =========================================================================
+# 10. cleanup — merged_in_place: enriched_id == our_id → НЕ удалять
+# =========================================================================
+
+
+def test_cleanup_merged_in_place_does_not_delete(no_sleep):
+    """BP подтянул ОГРН в наш же реквизит (тот же ID) — delete не вызывать."""
+    row = _approved_row(cid="11")
+    bx = FakeBitrix(
+        existing_requisites={"11": []},
+        add_result_id="600",
+        post_workflow_requisites={
+            "11": [
+                {"ID": "600", "RQ_INN": "7707083893", "RQ_OGRN": "1027700132195"},
+            ]
+        },
+        workflow_result={"workflow_id": "wf-cleanup-2"},
+    )
+    sheets = FakeSheets([row])
+
+    summary = apply.run(
+        bx, sheets,
+        sleep_s=0,
+        bizproc_template_id=5614,
+        bizproc_wait_s=10,
+        company_touch=False,
+        cleanup_duplicate=True,
+    )
+
+    assert bx.delete_requisite_calls == []  # НЕ вызвано
+    updated = sheets.queue_row(0)
+    assert updated.status == Status.APPLIED
+    assert "cleanup=merged_in_place" in (updated.error_message or "")
+
+    assert summary["cleanup"]["merged_in_place"] == 1
+    assert summary["cleanup"]["deleted_duplicate"] == 0
+    assert summary["cleanup"]["failed"] == 0
+
+    grid = sheets.extra_tabs[TAB_BACKUP]
+    assert grid[1][10] == "merged_in_place"
+
+
+# =========================================================================
+# 11. cleanup — delete raises → cleanup_status=failed, row остаётся APPLIED
+# =========================================================================
+
+
+def test_cleanup_delete_failure_graceful(no_sleep):
+    """Если crm.requisite.delete упал — apply НЕ FAIL'ится, статус=failed."""
+    from crm_company_enrich.bitrix_client import BitrixError
+
+    row = _approved_row(cid="12")
+    bx = FakeBitrix(
+        existing_requisites={"12": []},
+        add_result_id="700",
+        post_workflow_requisites={
+            "12": [
+                {"ID": "700", "RQ_INN": "7707083893", "RQ_OGRN": ""},
+                {"ID": "701", "RQ_INN": "7707083893", "RQ_OGRN": "1027700132195"},
+            ]
+        },
+        workflow_result={"workflow_id": "wf-cleanup-3"},
+        raise_on_delete_requisite=BitrixError("ACCESS_DENIED"),
+    )
+    sheets = FakeSheets([row])
+
+    summary = apply.run(
+        bx, sheets,
+        sleep_s=0,
+        bizproc_template_id=5614,
+        bizproc_wait_s=10,
+        company_touch=False,
+        cleanup_duplicate=True,
+    )
+
+    # delete не зарегистрирован в calls (упал до append), но summary помечает failed
+    assert bx.delete_requisite_calls == []
+    assert summary["cleanup"]["failed"] == 1
+    assert summary["cleanup"]["deleted_duplicate"] == 0
+
+    # row всё равно APPLIED — реквизит создан и обогащён
+    updated = sheets.queue_row(0)
+    assert updated.status == Status.APPLIED
+    assert "cleanup=failed" in (updated.error_message or "")
+
+    grid = sheets.extra_tabs[TAB_BACKUP]
+    assert grid[1][10] == "failed"
+    assert grid[1][5] == "APPLIED"  # applied_status — не FAILED
+
+
+# =========================================================================
+# 12. cleanup disabled — delete не вызывается даже при enriched=True
+# =========================================================================
+
+
+def test_cleanup_disabled_skips_delete(no_sleep):
+    """cleanup_duplicate=False → delete не вызывается, status=пусто."""
+    row = _approved_row(cid="13")
+    bx = FakeBitrix(
+        existing_requisites={"13": []},
+        add_result_id="800",
+        post_workflow_requisites={
+            "13": [
+                {"ID": "800", "RQ_INN": "7707083893", "RQ_OGRN": ""},
+                {"ID": "801", "RQ_INN": "7707083893", "RQ_OGRN": "1027700132195"},
+            ]
+        },
+        workflow_result={"workflow_id": "wf-cleanup-4"},
+    )
+    sheets = FakeSheets([row])
+
+    summary = apply.run(
+        bx, sheets,
+        sleep_s=0,
+        bizproc_template_id=5614,
+        bizproc_wait_s=10,
+        company_touch=False,
+        cleanup_duplicate=False,
+    )
+
+    assert bx.delete_requisite_calls == []
+    assert summary["cleanup"]["deleted_duplicate"] == 0
+    assert summary["cleanup"]["merged_in_place"] == 0
+    assert summary["cleanup"]["skipped"] == 0
+    assert summary["cleanup"]["failed"] == 0
+
+    updated = sheets.queue_row(0)
+    assert updated.status == Status.APPLIED
+    # cleanup префикс не появляется в message
+    assert "cleanup=" not in (updated.error_message or "")
+
+    grid = sheets.extra_tabs[TAB_BACKUP]
+    assert grid[1][10] == ""  # cleanup_status пустой
+
+
+# =========================================================================
+# 13. cleanup — verify=not_enriched (APPLIED_PENDING_BP) → cleanup=skipped
+# =========================================================================
+
+
+def test_cleanup_skipped_when_verify_not_enriched(no_sleep):
+    """Когда BP не подтянул ОГРН — наш реквизит трогать нельзя (он
+    единственный носитель ИНН), cleanup=skipped."""
+    row = _approved_row(cid="14")
+    bx = FakeBitrix(
+        existing_requisites={"14": []},
+        add_result_id="900",
+        post_workflow_requisites={
+            # после workflow всё ещё только наш реквизит без OGRN
+            "14": [{"ID": "900", "RQ_INN": "7707083893", "RQ_OGRN": ""}]
+        },
+        workflow_result={"workflow_id": "wf-cleanup-5"},
+    )
+    sheets = FakeSheets([row])
+
+    summary = apply.run(
+        bx, sheets,
+        sleep_s=0,
+        bizproc_template_id=5614,
+        bizproc_wait_s=10,
+        company_touch=False,
+        cleanup_duplicate=True,
+    )
+
+    assert bx.delete_requisite_calls == []
+    assert summary["applied_pending_bp"] == 1
+    assert summary["cleanup"]["skipped"] == 1
+    assert summary["cleanup"]["deleted_duplicate"] == 0
+    assert summary["cleanup"]["failed"] == 0
+
+    updated = sheets.queue_row(0)
+    assert updated.status == Status.APPLIED_PENDING_BP
+    assert "cleanup=skipped" in (updated.error_message or "")
+
+    grid = sheets.extra_tabs[TAB_BACKUP]
+    assert grid[1][10] == "skipped"
