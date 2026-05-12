@@ -379,7 +379,13 @@ def _try_web(web_or_domain: str, fetch: FetcherFn, *, sleep_s: float) -> tuple[s
         if path_idx > 0:
             time.sleep(sleep_s)
         result = fetch(url)
-        if not result or result.status >= 400:
+        if not result:
+            # Если даже корень домена не ответил после retry fetcher'а, остальные
+            # стандартные paths почти наверняка дадут тот же DNS/timeout.
+            if path_idx == 0:
+                return None, None
+            continue
+        if result.status >= 400:
             continue
         inn = extract_inn_from_text(result.text, source_url=result.url or url)
         if inn:
