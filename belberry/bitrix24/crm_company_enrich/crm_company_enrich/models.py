@@ -106,6 +106,9 @@ class TargetAction(str, Enum):
 QUEUE_HEADERS = [
     "company_id",
     "🏢 Компания",                  # HYPERLINK на Bitrix card
+    "domain",                        # нормализованный домен из deal-merge группы
+    "n_losers",                      # число LOSER-сделок в deal-merge группе
+    "n_total_transferable",          # activity+timeline+contact+sp из deal-merge
     "current_inn",                   # значение из RQ_INN (если есть реквизит); пусто для no_requisite
     "web",                           # WEB-поле компании
     "uf_inn_candidate",              # любое UF_* содержащее 10/12-значное число
@@ -131,6 +134,9 @@ QUEUE_HEADERS = [
 class QueueRow:
     company_id: str
     company_name: str = ""
+    domain: str | None = None
+    n_losers: int = 0
+    n_total_transferable: int = 0
     current_inn: str | None = None
     web: str | None = None
     uf_inn_candidate: str | None = None
@@ -155,6 +161,9 @@ class QueueRow:
         return [
             self.company_id,
             self.company_link_formula or self.company_name or "",
+            self.domain or "",
+            str(self.n_losers),
+            str(self.n_total_transferable),
             self.current_inn or "",
             self.web or "",
             self.uf_inn_candidate or "",
@@ -182,6 +191,9 @@ class QueueRow:
         return cls(
             company_id=str(v.get("company_id", "")).strip(),
             company_name=v.get("🏢 Компания", "") or "",
+            domain=_none_if_empty(v.get("domain", "")),
+            n_losers=_int(v.get("n_losers", "")),
+            n_total_transferable=_int(v.get("n_total_transferable", "")),
             current_inn=_none_if_empty(v.get("current_inn", "")),
             web=_none_if_empty(v.get("web", "")),
             uf_inn_candidate=_none_if_empty(v.get("uf_inn_candidate", "")),

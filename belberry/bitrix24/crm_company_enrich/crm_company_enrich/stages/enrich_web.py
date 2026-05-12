@@ -18,7 +18,7 @@ import time
 import urllib.parse
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Callable, Iterable
+from typing import Callable, Iterable, Optional, Union
 from zoneinfo import ZoneInfo
 
 from ..config import (
@@ -225,7 +225,7 @@ class HttpFetcher:
 
 
 # Inline alias for tests: same signature as HttpFetcher.fetch
-FetcherFn = Callable[[str], FetchResult | None]
+FetcherFn = Callable[[str], Optional[FetchResult]]
 
 
 # ----- Stage -----
@@ -233,7 +233,7 @@ FetcherFn = Callable[[str], FetchResult | None]
 def run(
     sheets: SheetsClient,
     *,
-    fetcher: HttpFetcher | FetcherFn | None = None,
+    fetcher: Union[HttpFetcher, FetcherFn, None] = None,
     limit: int | None = None,
     sleep_s: float = ENRICH_HTTP_DELAY_S,
 ) -> dict:
@@ -336,9 +336,10 @@ def _enrich_one(
         if normalized:
             return normalized, "uf", row.company_name or None
 
-    # Source 2 — WEB
-    if row.web:
-        inn, name = _try_web(row.web, fetch, sleep_s=sleep_s)
+    # Source 2 — WEB / domain из deal-merge
+    web_target = row.web or row.domain
+    if web_target:
+        inn, name = _try_web(web_target, fetch, sleep_s=sleep_s)
         if inn:
             return inn, "web", name or row.company_name
 
@@ -360,7 +361,7 @@ def _enrich_one(
             verified = _verify_rusprofile_match(
                 geo_tokens=geo_tokens,
                 bitrix_title=row.company_name,
-                web=row.web,
+                web=web_target,
             )
             source = "rusprofile_verified" if verified else "rusprofile_unverified"
             return inn, source, name

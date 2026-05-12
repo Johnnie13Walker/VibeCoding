@@ -13,6 +13,15 @@ from .models import QUEUE_HEADERS, QueueRow
 from .sheets_client import SheetsClient
 
 
+def _last_col() -> str:
+    n = len(QUEUE_HEADERS)
+    out = ""
+    while n:
+        n, rem = divmod(n - 1, 26)
+        out = chr(65 + rem) + out
+    return out
+
+
 def ensure_queue_sheet(sheets: SheetsClient) -> None:
     sheets.ensure_sheet(TAB_QUEUE)
     existing = sheets.read(TAB_QUEUE, "A1:Z1")
@@ -48,7 +57,7 @@ def write_queue_rows(sheets: SheetsClient, rows: Iterable[QueueRow]) -> None:
     sheets.update(TAB_QUEUE, "A1", [QUEUE_HEADERS])
     payload = [r.to_sheet_row() for r in rows]
     if payload:
-        sheets.update(TAB_QUEUE, f"A2:T{len(payload) + 1}", payload)
+        sheets.update(TAB_QUEUE, f"A2:{_last_col()}{len(payload) + 1}", payload)
 
 
 def upsert_queue_rows(sheets: SheetsClient, rows: Iterable[QueueRow]) -> dict:
@@ -59,8 +68,6 @@ def upsert_queue_rows(sheets: SheetsClient, rows: Iterable[QueueRow]) -> dict:
     ensure_queue_sheet(sheets)
     existing = read_queue(sheets)
     existing_by_id = {row.company_id: (row_number, row) for row_number, row in existing}
-    headers = QUEUE_HEADERS
-
     updates: list[dict] = []
     appends: list[list[str]] = []
     kept = 0
@@ -73,7 +80,7 @@ def upsert_queue_rows(sheets: SheetsClient, rows: Iterable[QueueRow]) -> dict:
                 kept += 1
                 continue
             updates.append(
-                {"range": f"{TAB_QUEUE}!A{row_number}:T{row_number}", "values": [r.to_sheet_row()]}
+                {"range": f"{TAB_QUEUE}!A{row_number}:{_last_col()}{row_number}", "values": [r.to_sheet_row()]}
             )
         else:
             appends.append(r.to_sheet_row())
@@ -89,7 +96,7 @@ def upsert_queue_rows(sheets: SheetsClient, rows: Iterable[QueueRow]) -> dict:
 def update_row(sheets: SheetsClient, row_number: int, row: QueueRow) -> None:
     sheets.update(
         TAB_QUEUE,
-        f"A{row_number}:T{row_number}",
+        f"A{row_number}:{_last_col()}{row_number}",
         [row.to_sheet_row()],
     )
 
