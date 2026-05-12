@@ -97,15 +97,30 @@ def _is_junk_inn(value: str) -> bool:
 
 # ----- HttpFetcher abstraction -----
 
+# Disable InsecureRequestWarning — SSL fallback ниже намеренно ходит без
+# verify=True для сайтов с expired/self-signed сертификатами (часто у клиник).
+try:  # pragma: no cover — best-effort
+    import urllib3
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+except Exception:
+    pass
+
+
 @dataclass
 class FetchResult:
     url: str
     status: int
     text: str
+    ssl_unsafe: bool = False  # True если получен через verify=False fallback
 
 
 class HttpFetcher:
-    """Production fetcher через requests (lazy import — в тестах подменяется)."""
+    """Production fetcher через requests (lazy import — в тестах подменяется).
+
+    SSL fallback: при requests.exceptions.SSLError повторяем тот же URL с
+    verify=False (локально для запроса, не глобально). FetchResult помечается
+    ssl_unsafe=True чтобы вышестоящие слои знали.
+    """
 
     def __init__(self, timeout: float = ENRICH_HTTP_TIMEOUT_S, retries: int = ENRICH_HTTP_RETRIES):
         self.timeout = timeout
@@ -119,18 +134,33 @@ class HttpFetcher:
             self._session.headers.update({"User-Agent": ENRICH_USER_AGENT})
         return self._session
 
-    def fetch(self, url: str) -> FetchResult | None:  # pragma: no cover — реальный HTTP
+    def _do_get(self, url: str, *, verify: bool) -> FetchResult:
+        """Один HTTP GET. Бросает исключение — retry делает fetch()."""
+        session = self._ensure_session()
+        r = session.get(url, timeout=self.timeout, allow_redirects=True, verify=verify)
+        return FetchResult(url=r.url, status=r.status_code, text=r.text or "")
+
+    def fetch(self, url: str) -> FetchResult | None:
+        import requests
+
         delay = 1.0
         last_err = None
         for attempt in range(self.retries):
             try:
-                session = self._ensure_session()
-                r = session.get(url, timeout=self.timeout, allow_redirects=True)
-                return FetchResult(url=r.url, status=r.status_code, text=r.text or "")
+                return self._do_get(url, verify=True)
+            except requests.exceptions.SSLError as ssl_exc:
+                # SSL fallback — пробуем тот же URL без verify (expired/self-signed)
+                last_err = ssl_exc
+                try:
+                    result = self._do_get(url, verify=False)
+                    result.ssl_unsafe = True
+                    return result
+                except Exception as inner:
+                    last_err = inner
             except Exception as exc:
                 last_err = exc
-                time.sleep(delay)
-                delay *= 2
+            time.sleep(delay)
+            delay *= 2
         print(f"[enrich-web] fetch failed after {self.retries} attempts {url}: {last_err}")
         return None
 
