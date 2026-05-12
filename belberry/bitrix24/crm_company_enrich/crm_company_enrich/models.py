@@ -393,3 +393,67 @@ def _iter_scalars(v):
             yield from _iter_scalars(item)
     else:
         yield v
+
+
+# ----- Brand classification (Belberry vs Acoola Team) -----
+#
+# Бизнес-правило: Belberry — медицинский сегмент (клиники, врачи,
+# мед.диагностика, стоматология, косметология, аптеки и т.п.). Всё остальное —
+# Acoola Team (автосервис, ритейл, IT, общепит и т.д.). При неоднозначности
+# выбираем Belberry — наш основной сегмент.
+
+# Медицинские маркеры. Сопоставляем подстрокой по lowercased blob: ловим как
+# словоформы («клиника», «клиники», «клиник»), так и латинские fragments
+# («clinic», «medic», «dent»). Порядок не важен — first-match.
+_MEDICAL_KEYWORDS: tuple[str, ...] = (
+    "клиник", "стомат", "стом-", "дент", "медиц", "мед-", "мед.ц", "мед.центр",
+    "мед/", "врач", "диагност", "терапи", "космет", "эстетик", "здоров",
+    "пластич", "омолож", "оптик", "аптек", "лабор", "рентген", "мрт", "узи",
+    "ктг", "хирург", "онко", "кардио", "лор", "гастро", "гинеколог",
+    "дерматолог", "эндокринол", "педиатр", "психиатр", "психолог", "неврол",
+    "проктолог", "уролог",
+    "doctor", "clinic", "medic", "health", "cosm", "dent", "surg", "derma",
+    "ortho", "pharm", "healthcare", "hospital", "medspa", "beauty", "wellness",
+    "youcanlive", "healthgarden", "oncocareclinic",
+)
+
+# Не-медицинские «сильные» маркеры. Срабатывают только если в blob НЕТ
+# медицинских keywords (медицина перевешивает): иначе «Клиника-Сервис» вместе
+# с «автосервис» выпадает в Acoola по ошибке.
+_NON_MEDICAL_KEYWORDS: tuple[str, ...] = (
+    "автосервис", "авторемонт", "мфо", "микрокредит", "кредит наличными",
+    "лизинг", "страхование осаго", "недвижимость застройка", "ритейл",
+    "общепит", "мебель", "реклама агентство",
+)
+
+
+def is_medical_company(
+    bitrix_title: str | None = None,
+    discovered_name: str | None = None,
+    web: str | None = None,
+    domain: str | None = None,
+) -> bool:
+    """Эвристика: True если компания относится к медицинскому сегменту (Belberry).
+
+    Объединяет все non-None сигналы в lowercased text-blob и применяет
+    keyword-фильтры:
+      1. Если есть совпадение с медицинским keyword → True.
+      2. Если есть non-medical strong keyword (и НЕТ медицинского) → False.
+      3. Default → True (Belberry — наш основной сегмент).
+
+    Caller сам мапит bool на UF_CRM_684FE59BA3C8C ID (2444 / 2442).
+    """
+    parts = [p for p in (bitrix_title, discovered_name, web, domain) if p]
+    blob = " ".join(str(p) for p in parts).lower()
+    if not blob.strip():
+        return True  # пустые сигналы — default Belberry
+
+    for kw in _MEDICAL_KEYWORDS:
+        if kw in blob:
+            return True
+
+    for kw in _NON_MEDICAL_KEYWORDS:
+        if kw in blob:
+            return False
+
+    return True
