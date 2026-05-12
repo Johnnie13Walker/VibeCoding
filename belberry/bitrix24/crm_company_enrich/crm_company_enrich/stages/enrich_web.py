@@ -1,0 +1,293 @@
+"""Стадия enrich-web — обогащение строк status=NEW.
+
+Источники (в порядке убывания доверия):
+  1. uf            — UF_INN-кандидат, найденный discover-стадией
+  2. web           — GET https://{web}/ + /requisites/ + /реквизиты/ + /about/ + /policy/
+  3. title         — если TITLE компании выглядит как домен — пробуем как web
+  4. rusprofile    — fallback по поисковой выдаче rusprofile.ru
+
+Безопасность:
+- in_active_deal_merge=True → пропускаем (компания занята deal-merge).
+- HttpFetcher — pluggable, в тестах подменяется monkeypatch'ем.
+- Rate-limit: sleep(ENRICH_HTTP_DELAY_S) между HTTP-вызовами.
+"""
+from __future__ import annotations
+
+import re
+import time
+import urllib.parse
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Callable, Iterable
+from zoneinfo import ZoneInfo
+
+from ..config import (
+    ENRICH_HTTP_DELAY_S,
+    ENRICH_HTTP_RETRIES,
+    ENRICH_HTTP_TIMEOUT_S,
+    ENRICH_USER_AGENT,
+)
+from ..domain import normalize_domain
+from ..models import INN_LABELED, INN_ANYWHERE, QueueRow, is_valid_inn_format, normalize_inn
+from ..sheet_store import read_queue, replace_row, update_row
+from ..sheets_client import SheetsClient
+from ..state import Status, is_at_least
+
+MOSCOW_TZ = ZoneInfo("Europe/Moscow")
+
+WEB_PATHS = ("/", "/requisites/", "/реквизиты/", "/about/", "/policy/", "/о-клинике/", "/contacts/", "/контакты/")
+
+
+# ----- HttpFetcher abstraction -----
+
+@dataclass
+class FetchResult:
+    url: str
+    status: int
+    text: str
+
+
+class HttpFetcher:
+    """Production fetcher через requests (lazy import — в тестах подменяется)."""
+
+    def __init__(self, timeout: float = ENRICH_HTTP_TIMEOUT_S, retries: int = ENRICH_HTTP_RETRIES):
+        self.timeout = timeout
+        self.retries = retries
+        self._session = None
+
+    def _ensure_session(self):  # pragma: no cover — реальный HTTP не вызывается в тестах
+        if self._session is None:
+            import requests
+            self._session = requests.Session()
+            self._session.headers.update({"User-Agent": ENRICH_USER_AGENT})
+        return self._session
+
+    def fetch(self, url: str) -> FetchResult | None:  # pragma: no cover — реальный HTTP
+        delay = 1.0
+        last_err = None
+        for attempt in range(self.retries):
+            try:
+                session = self._ensure_session()
+                r = session.get(url, timeout=self.timeout, allow_redirects=True)
+                return FetchResult(url=r.url, status=r.status_code, text=r.text or "")
+            except Exception as exc:
+                last_err = exc
+                time.sleep(delay)
+                delay *= 2
+        print(f"[enrich-web] fetch failed after {self.retries} attempts {url}: {last_err}")
+        return None
+
+
+# Inline alias for tests: same signature as HttpFetcher.fetch
+FetcherFn = Callable[[str], FetchResult | None]
+
+
+# ----- Stage -----
+
+def run(
+    sheets: SheetsClient,
+    *,
+    fetcher: HttpFetcher | FetcherFn | None = None,
+    limit: int | None = None,
+    sleep_s: float = ENRICH_HTTP_DELAY_S,
+) -> dict:
+    fetch = _resolve_fetcher(fetcher)
+    now = datetime.now(MOSCOW_TZ)
+
+    queue = read_queue(sheets)
+    targets: list[tuple[int, QueueRow]] = []
+    skipped_active = 0
+    for row_number, row in queue:
+        if row.status != Status.NEW:
+            continue
+        if row.in_active_deal_merge:
+            skipped_active += 1
+            continue
+        targets.append((row_number, row))
+        if limit is not None and len(targets) >= limit:
+            break
+
+    print(f"[enrich-web] таргетов: {len(targets)}; пропущено активных deal-merge: {skipped_active}")
+
+    enriched = 0
+    failed = 0
+    by_source: dict[str, int] = {}
+
+    for idx, (row_number, row) in enumerate(targets):
+        if idx > 0:
+            time.sleep(sleep_s)
+        inn, source, name = _enrich_one(row, fetch, sleep_s=sleep_s)
+        if inn:
+            updated = replace_row(
+                row,
+                discovered_inn=inn,
+                discovered_name=name,
+                discovered_source=source,
+                status=Status.ENRICHED,
+                last_action_at=now,
+                error_message=None,
+            )
+            enriched += 1
+            by_source[source] = by_source.get(source, 0) + 1
+        else:
+            updated = replace_row(
+                row,
+                status=Status.ENRICH_FAILED,
+                last_action_at=now,
+                error_message="enrich-web: no INN found",
+            )
+            failed += 1
+        update_row(sheets, row_number, updated)
+
+    print(f"[enrich-web] ENRICHED: {enriched}; FAILED: {failed}; by_source: {by_source}")
+    return {
+        "enriched": enriched,
+        "failed": failed,
+        "skipped_in_active_merge": skipped_active,
+        "by_source": by_source,
+        "ts_msk": now.isoformat(timespec="seconds"),
+    }
+
+
+def _resolve_fetcher(fetcher: HttpFetcher | FetcherFn | None) -> FetcherFn:
+    if fetcher is None:
+        return HttpFetcher().fetch
+    if hasattr(fetcher, "fetch"):
+        return fetcher.fetch  # type: ignore[union-attr]
+    return fetcher  # callable
+
+
+def _enrich_one(
+    row: QueueRow,
+    fetch: FetcherFn,
+    *,
+    sleep_s: float,
+) -> tuple[str | None, str | None, str | None]:
+    """Возвращает (inn, source, name) или (None, None, None)."""
+
+    # Source 1 — UF
+    if row.uf_inn_candidate:
+        normalized = normalize_inn(row.uf_inn_candidate)
+        if normalized:
+            return normalized, "uf", row.company_name or None
+
+    # Source 2 — WEB
+    if row.web:
+        inn, name = _try_web(row.web, fetch, sleep_s=sleep_s)
+        if inn:
+            return inn, "web", name or row.company_name
+
+    # Source 3 — TITLE as domain
+    if row.company_name:
+        title_domain = normalize_domain(row.company_name)
+        if title_domain:
+            inn, name = _try_web(title_domain, fetch, sleep_s=sleep_s)
+            if inn:
+                return inn, "title", name or row.company_name
+
+    # Source 4 — rusprofile fallback
+    if row.company_name:
+        inn, name = _try_rusprofile(row.company_name, fetch)
+        if inn:
+            return inn, "rusprofile", name
+
+    return None, None, None
+
+
+def _try_web(web_or_domain: str, fetch: FetcherFn, *, sleep_s: float) -> tuple[str | None, str | None]:
+    """Обходим набор стандартных путей сайта и ищем ИНН в тексте."""
+    base_url = _normalize_base_url(web_or_domain)
+    if not base_url:
+        return None, None
+    for path_idx, path in enumerate(WEB_PATHS):
+        url = base_url.rstrip("/") + path
+        if path_idx > 0:
+            time.sleep(sleep_s)
+        result = fetch(url)
+        if not result or result.status >= 400:
+            continue
+        inn = extract_inn_from_text(result.text)
+        if inn:
+            name = extract_company_name_from_html(result.text)
+            return inn, name
+    return None, None
+
+
+def _try_rusprofile(company_name: str, fetch: FetcherFn) -> tuple[str | None, str | None]:
+    query = urllib.parse.quote_plus(company_name)
+    result = fetch(f"https://www.rusprofile.ru/search?query={query}")
+    if not result or result.status >= 400:
+        return None, None
+    # rusprofile в выдаче выводит ИНН отдельной строкой `ИНН: 7707083893`
+    inn = extract_inn_from_text(result.text)
+    if not inn:
+        return None, None
+    name = extract_company_name_from_html(result.text) or company_name
+    return inn, name
+
+
+def _normalize_base_url(web_or_domain: str) -> str | None:
+    s = (web_or_domain or "").strip()
+    if not s:
+        return None
+    if s.startswith(("http://", "https://")):
+        return s
+    return f"https://{s}"
+
+
+# ----- text parsing -----
+
+INN_ANYWHERE_DIGITS = re.compile(r"\d{12}|\d{10}")
+NAME_TAG = re.compile(r"<title[^>]*>([^<]{3,200})</title>", re.IGNORECASE)
+
+
+def extract_inn_from_text(text: str) -> str | None:
+    """Достать первый валидный ИНН из произвольного текста (HTML/markdown).
+
+    Стратегия:
+      1. Сначала ищем рядом со словом ИНН/INN (наиболее надёжно).
+      2. Если не нашли — fallback: любая 10/12-значная последовательность,
+         НО только если она проходит format-валидацию (10 или 12 цифр).
+    """
+    if not text:
+        return None
+
+    # 1. labeled (приоритет)
+    for m in INN_LABELED.finditer(text):
+        candidate = normalize_inn(m.group(1))
+        if candidate:
+            return candidate
+
+    # 2. anywhere — но осторожно, чтобы не вернуть телефон
+    # Игнорируем числа, окружённые «телефонной» пунктуацией: +7, (XXX), -
+    for m in INN_ANYWHERE.finditer(text):
+        raw = m.group(1)
+        start = m.start(1)
+        # Окно ±6 символов вокруг находки
+        window = text[max(0, start - 6):start]
+        if any(ch in window for ch in "+()-") and "ИНН" not in window.upper():
+            continue
+        candidate = normalize_inn(raw)
+        if candidate and is_valid_inn_format(candidate):
+            return candidate
+
+    return None
+
+
+def extract_company_name_from_html(text: str) -> str | None:
+    if not text:
+        return None
+    m = NAME_TAG.search(text)
+    if not m:
+        return None
+    return m.group(1).strip()[:200] or None
+
+
+# ----- public helpers exposed for tests -----
+
+def iter_candidate_urls(domain_or_url: str) -> Iterable[str]:
+    """Те же URL, что обходит _try_web — для тестов и debug."""
+    base = _normalize_base_url(domain_or_url)
+    if not base:
+        return []
+    return [base.rstrip("/") + p for p in WEB_PATHS]
