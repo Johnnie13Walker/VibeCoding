@@ -157,4 +157,6 @@ def test_enrich_one_rusprofile_fallback():
 
     inn, source, name = _enrich_one(row, fetcher, sleep_s=0)
     assert inn == "7707083893"
-    assert source == "rusprofile"
+    # Без geo-блока в HTML rusprofile-карточки совпадение не подтверждено →
+    # помечаем источник как unverified (см. _verify_rusprofile_match).
+    assert source == "rusprofile_unverified"

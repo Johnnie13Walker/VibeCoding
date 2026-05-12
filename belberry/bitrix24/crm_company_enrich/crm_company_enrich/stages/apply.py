@@ -399,7 +399,7 @@ def _build_payload(
     clean_discovered = clean_company_name_for_requisite(discovered_name)
     clean_bitrix = clean_company_name_for_requisite(bitrix_title)
 
-    if discovered_source == "rusprofile" and clean_discovered:
+    if discovered_source in {"rusprofile", "rusprofile_verified"} and clean_discovered:
         rq_company_name = clean_discovered
     elif len(inn) == 10 and not clean_discovered:
         rq_company_name = ""  # ЮЛ без точного имени → не выдумываем

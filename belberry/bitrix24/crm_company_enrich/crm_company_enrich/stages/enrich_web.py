@@ -170,21 +170,36 @@ def run(
     failed = 0
     by_source: dict[str, int] = {}
 
+    manual_review = 0
     for idx, (row_number, row) in enumerate(targets):
         if idx > 0:
             time.sleep(sleep_s)
         inn, source, name = _enrich_one(row, fetch, sleep_s=sleep_s)
         if inn:
+            # «rusprofile_unverified» — слабый сигнал, без geo-подтверждения; уходит в MANUAL_REVIEW.
+            target_status = (
+                Status.MANUAL_REVIEW
+                if source == "rusprofile_unverified"
+                else Status.ENRICHED
+            )
+            err_msg = (
+                "rusprofile match без geo-подтверждения — нужна ручная проверка"
+                if target_status == Status.MANUAL_REVIEW
+                else None
+            )
             updated = replace_row(
                 row,
                 discovered_inn=inn,
                 discovered_name=name,
                 discovered_source=source,
-                status=Status.ENRICHED,
+                status=target_status,
                 last_action_at=now,
-                error_message=None,
+                error_message=err_msg,
             )
-            enriched += 1
+            if target_status == Status.MANUAL_REVIEW:
+                manual_review += 1
+            else:
+                enriched += 1
             by_source[source] = by_source.get(source, 0) + 1
         else:
             updated = replace_row(
@@ -196,9 +211,13 @@ def run(
             failed += 1
         update_row(sheets, row_number, updated)
 
-    print(f"[enrich-web] ENRICHED: {enriched}; FAILED: {failed}; by_source: {by_source}")
+    print(
+        f"[enrich-web] ENRICHED: {enriched}; MANUAL_REVIEW: {manual_review}; "
+        f"FAILED: {failed}; by_source: {by_source}"
+    )
     return {
         "enriched": enriched,
+        "manual_review": manual_review,
         "failed": failed,
         "skipped_in_active_merge": skipped_active,
         "by_source": by_source,
@@ -245,11 +264,17 @@ def _enrich_one(
             if inn:
                 return inn, "title", name or row.company_name
 
-    # Source 4 — rusprofile fallback
+    # Source 4 — rusprofile fallback (с geo-верификацией)
     if row.company_name:
-        inn, name = _try_rusprofile(row.company_name, fetch)
+        inn, name, geo_tokens = _try_rusprofile(row.company_name, fetch)
         if inn:
-            return inn, "rusprofile", name
+            verified = _verify_rusprofile_match(
+                geo_tokens=geo_tokens,
+                bitrix_title=row.company_name,
+                web=row.web,
+            )
+            source = "rusprofile_verified" if verified else "rusprofile_unverified"
+            return inn, source, name
 
     return None, None, None
 
@@ -273,17 +298,26 @@ def _try_web(web_or_domain: str, fetch: FetcherFn, *, sleep_s: float) -> tuple[s
     return None, None
 
 
-def _try_rusprofile(company_name: str, fetch: FetcherFn) -> tuple[str | None, str | None]:
+def _try_rusprofile(
+    company_name: str,
+    fetch: FetcherFn,
+) -> tuple[str | None, str | None, list[str]]:
+    """Возвращает (inn, name, geo_tokens) или (None, None, []).
+
+    geo_tokens — список низкокейс-токенов адреса/региона из rusprofile-карточки
+    (используется верификатором). Может быть пустым, если карточка не отдала адрес.
+    """
     query = urllib.parse.quote_plus(company_name)
     result = fetch(f"https://www.rusprofile.ru/search?query={query}")
     if not result or result.status >= 400:
-        return None, None
+        return None, None, []
     # rusprofile в выдаче выводит ИНН отдельной строкой `ИНН: 7707083893`
     inn = extract_inn_from_text(result.text, source_url=result.url)
     if not inn:
-        return None, None
+        return None, None, []
     name = extract_company_name_from_html(result.text) or company_name
-    return inn, name
+    geo_tokens = extract_rusprofile_geo_tokens(result.text)
+    return inn, name, geo_tokens
 
 
 def _normalize_base_url(web_or_domain: str) -> str | None:
@@ -348,6 +382,111 @@ def extract_company_name_from_html(text: str) -> str | None:
     if not m:
         return None
     return m.group(1).strip()[:200] or None
+
+
+# ----- rusprofile geo verification -----
+
+# Адрес/регион на rusprofile-карточке обычно лежит в блоках с class содержащим
+# "company-address" или label "Адрес:". Парсим достаточно широко.
+_RUSPROFILE_ADDRESS_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(
+        r"<[^>]*class=\"[^\"]*(?:company-address|address)[^\"]*\"[^>]*>([^<]{3,300})</",
+        re.IGNORECASE,
+    ),
+    re.compile(r"Адрес[^:]*:\s*([^<\n]{3,300})", re.IGNORECASE),
+    re.compile(r"Регион[^:]*:\s*([^<\n]{3,200})", re.IGNORECASE),
+    re.compile(r"<address[^>]*>([^<]{3,300})</address>", re.IGNORECASE),
+)
+
+# Мини-словарь TLD → русские geo-токены для проверки .ru-доменов с региональной семантикой.
+_TLD_HINTS: dict[str, tuple[str, ...]] = {
+    "msk": ("москва", "moscow", "московская"),
+    "spb": ("санкт-петербург", "петербург", "ленинградская"),
+    "krd": ("краснодар",),
+    "ekb": ("екатеринбург", "свердловская"),
+    "nsk": ("новосибирск",),
+    "kzn": ("казань", "татарстан"),
+    "nn": ("нижний новгород", "новгород"),
+}
+
+
+def extract_rusprofile_geo_tokens(text: str) -> list[str]:
+    """Достать low-case geo-токены из адресных блоков rusprofile.
+
+    Делим адрес по запятым / точкам / переносам и возвращаем токены длиннее 3
+    символов. Не делаем NER — простой substring-match на следующем шаге.
+    """
+    if not text:
+        return []
+    tokens: list[str] = []
+    seen: set[str] = set()
+    for pat in _RUSPROFILE_ADDRESS_PATTERNS:
+        for m in pat.finditer(text):
+            blob = m.group(1).strip().lower()
+            blob = re.sub(r"&[a-z#0-9]+;", " ", blob)  # entities → space
+            for part in re.split(r"[,;/\.\n\t]+", blob):
+                part = part.strip(" -–—«»\"'()[]<>:;")
+                # Дополнительно бьём по словам — длинные «г. Краснодар» → «г», «краснодар».
+                for word in re.split(r"\s+", part):
+                    word = word.strip(" -–—«»\"'()[]<>:;.")
+                    if len(word) < 4:
+                        continue
+                    if word in seen:
+                        continue
+                    # Отсев чисто-цифровых и почтовых индексов.
+                    if word.isdigit():
+                        continue
+                    seen.add(word)
+                    tokens.append(word)
+    return tokens
+
+
+def _domain_geo_hints(web: str | None) -> list[str]:
+    """Если web вида msk-clinic.ru / spb-foo.ru — вернуть geo-токены из _TLD_HINTS."""
+    if not web:
+        return []
+    s = web.lower()
+    out: list[str] = []
+    for hint, geo_words in _TLD_HINTS.items():
+        # `msk-`, `-msk.`, `.msk.` — лёгкие маркеры
+        if re.search(rf"(?:^|[\W_]){re.escape(hint)}(?:[\W_]|$)", s):
+            out.extend(geo_words)
+    return out
+
+
+def _verify_rusprofile_match(
+    *,
+    geo_tokens: list[str],
+    bitrix_title: str | None,
+    web: str | None,
+) -> bool:
+    """Проверка совпадения geo-токенов rusprofile-карточки с upstream-сигналами row.
+
+    Match → возвращаем True (используем source="rusprofile_verified", статус ENRICHED).
+    No match → False (source="rusprofile_unverified", статус MANUAL_REVIEW).
+
+    Логика:
+      1. Если geo_tokens пуст → не верифицировано (consrvative: пользователь сам решит).
+      2. Любое substring-совпадение токена с bitrix_title.lower() → match.
+      3. Любое совпадение токена с web.lower() (например .krd. поддомен) → match.
+      4. Domain-hints: msk-* → москва и т.п. — если в geo_tokens есть москва → match.
+    """
+    if not geo_tokens:
+        return False
+    bt = (bitrix_title or "").lower()
+    web_l = (web or "").lower()
+    for token in geo_tokens:
+        if token and bt and token in bt:
+            return True
+        if token and web_l and token in web_l:
+            return True
+    # Heuristic поддомены через TLD_HINTS
+    hints = _domain_geo_hints(web)
+    if hints:
+        for hint in hints:
+            if any(hint in token or token in hint for token in geo_tokens):
+                return True
+    return False
 
 
 # ----- public helpers exposed for tests -----
