@@ -196,7 +196,17 @@ class BitrixClient:
                 "crm.requisite.list",
                 {
                     "filter": merged_filter,
-                    "select": select or ["ID", "ENTITY_ID", "RQ_INN", "RQ_KPP", "RQ_OGRN", "NAME", "RQ_COMPANY_NAME"],
+                    "select": select or [
+                        "ID",
+                        "ENTITY_ID",
+                        "RQ_INN",
+                        "RQ_KPP",
+                        "RQ_OGRN",
+                        "RQ_OGRNIP",
+                        "NAME",
+                        "RQ_COMPANY_NAME",
+                        "RQ_COMPANY_FULL_NAME",
+                    ],
                 },
             )
         )

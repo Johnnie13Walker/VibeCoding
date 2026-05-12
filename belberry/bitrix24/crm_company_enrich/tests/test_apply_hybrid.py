@@ -829,3 +829,106 @@ def test_brand_set_disabled_skips_update_company(no_sleep):
 
     grid = sheets.extra_tabs[TAB_BACKUP]
     assert grid[1][11] == ""  # brand_set пустой
+
+
+# =========================================================================
+# 17. _find_enriched_requisite_id: RQ_OGRN (ЮЛ) считается enriched
+# =========================================================================
+
+
+def test_find_enriched_with_ogrn_llc():
+    """ЮЛ: RQ_OGRN заполнен (13 цифр) → enriched."""
+    from crm_company_enrich.stages.apply import _find_enriched_requisite_id
+
+    reqs = [
+        {"ID": "100", "RQ_INN": "7707083893", "RQ_OGRN": "1234567890123", "RQ_OGRNIP": ""},
+    ]
+    assert _find_enriched_requisite_id(reqs) == "100"
+
+
+# =========================================================================
+# 18. _find_enriched_requisite_id: RQ_OGRNIP (ИП) считается enriched
+# =========================================================================
+
+
+def test_find_enriched_with_ogrnip_ip():
+    """ИП: RQ_OGRN пуст, RQ_OGRNIP (15 цифр) заполнен → enriched."""
+    from crm_company_enrich.stages.apply import _find_enriched_requisite_id
+
+    reqs = [
+        {"ID": "200", "RQ_INN": "503007461108", "RQ_OGRN": "", "RQ_OGRNIP": "123456789012345"},
+    ]
+    assert _find_enriched_requisite_id(reqs) == "200"
+
+
+# =========================================================================
+# 19. _find_enriched_requisite_id: оба пусты → not enriched
+# =========================================================================
+
+
+def test_find_not_enriched_empty():
+    """Ни RQ_OGRN, ни RQ_OGRNIP не заполнены → ''."""
+    from crm_company_enrich.stages.apply import _find_enriched_requisite_id
+
+    reqs = [
+        {"ID": "300", "RQ_INN": "7707083893", "RQ_OGRN": "", "RQ_OGRNIP": ""},
+    ]
+    assert _find_enriched_requisite_id(reqs) == ""
+    # пустой список тоже не enriched
+    assert _find_enriched_requisite_id([]) == ""
+
+
+# =========================================================================
+# 20. Hybrid: post-workflow реквизит для ИП — только RQ_OGRNIP, без RQ_OGRN
+# =========================================================================
+
+
+def test_hybrid_ip_enriched_path(no_sleep):
+    """ИП: BP подтянул только RQ_OGRNIP (12-значный ИНН, ИП Соколов) → APPLIED.
+
+    Регресс на компанию 5006 (ИП Соколов) — раньше row оставался
+    APPLIED_PENDING_BP так как _find_enriched_requisite_id смотрел только RQ_OGRN.
+    """
+    row = _approved_row(cid="5006", inn="503007461108")  # 12-значный ИНН ИП
+    bx = FakeBitrix(
+        existing_requisites={"5006": []},
+        post_workflow_requisites={
+            "5006": [
+                {
+                    "ID": "1000",
+                    "RQ_INN": "503007461108",
+                    "RQ_OGRN": "",
+                    "RQ_OGRNIP": "315502400000123",
+                    "RQ_FIRST_NAME": "Иван",
+                    "RQ_LAST_NAME": "Соколов",
+                    "RQ_SECOND_NAME": "Иванович",
+                },
+            ]
+        },
+        company_data={"5006": {"ID": "5006", "COMMENTS": ""}},
+        workflow_result={"workflow_id": "wf-ip-1"},
+    )
+    sheets = FakeSheets([row])
+
+    summary = apply.run(
+        bx, sheets,
+        sleep_s=0,
+        bizproc_template_id=5614,
+        bizproc_wait_s=10,
+        company_touch=True,
+        set_brand=False,
+    )
+
+    assert summary["applied"] == 1
+    assert summary["applied_pending_bp"] == 0
+    assert summary["verify"]["enriched"] == 1
+    assert summary["verify"]["not_enriched"] == 0
+
+    updated = sheets.queue_row(0)
+    assert updated.status == Status.APPLIED
+    assert "verify=enriched(req=1000)" in (updated.error_message or "")
+
+    grid = sheets.extra_tabs[TAB_BACKUP]
+    data_row = grid[1]
+    assert data_row[8] == "true"     # bp_verify_enriched
+    assert data_row[9] == "1000"     # enriched_requisite_id

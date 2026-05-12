@@ -29,10 +29,11 @@ MOSCOW_TZ = ZoneInfo("Europe/Moscow")
 
 
 def _find_enriched_requisite_id(requisites: list[dict]) -> str:
-    """Возвращает ID реквизита с непустым RQ_OGRN либо ''."""
+    """Возвращает ID реквизита с непустым RQ_OGRN или RQ_OGRNIP (для ИП) либо ''."""
     for req in requisites or []:
         ogrn = str(req.get("RQ_OGRN") or "").strip()
-        if ogrn:
+        ogrnip = str(req.get("RQ_OGRNIP") or "").strip()
+        if ogrn or ogrnip:
             return str(req.get("ID") or "")
     return ""
 

@@ -676,14 +676,18 @@ def _touch_company(bx: BitrixClient, company_id: str) -> None:
 
 
 def _find_enriched_requisite_id(requisites: list[dict]) -> str:
-    """Найти ID реквизита с непустым RQ_OGRN. Возвращает '' если нет.
+    """Найти ID реквизита с непустым RQ_OGRN или RQ_OGRNIP (для ИП).
 
-    BP-обогащение по ИНН подтягивает ОГРН/КПП/полное юр.название из ЕГРЮЛ —
-    наличие RQ_OGRN надёжный сигнал что bizproc отработал.
+    BP-обогащение по ИНН подтягивает:
+    - для ЮЛ — RQ_OGRN (13 цифр), RQ_KPP, RQ_COMPANY_NAME_FULL;
+    - для ИП — RQ_OGRNIP (15 цифр), RQ_FIRST/LAST/SECOND_NAME.
+
+    Наличие любого из RQ_OGRN/RQ_OGRNIP — надёжный сигнал что BP отработал.
     """
     for req in requisites or []:
         ogrn = str(req.get("RQ_OGRN") or "").strip()
-        if ogrn:
+        ogrnip = str(req.get("RQ_OGRNIP") or "").strip()
+        if ogrn or ogrnip:
             return str(req.get("ID") or "")
     return ""
 
