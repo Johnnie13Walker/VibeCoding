@@ -113,3 +113,9 @@ def _env_bool(name: str, default: bool = False) -> bool:
 # мы не доверяем enrich-сорсам для юр.названия. Bitrix-bizproc / ручной ввод
 # подтянет название из ЕГРЮЛ.
 CCE_WRITE_NAME_FULL = _env_bool("CCE_WRITE_NAME_FULL", default=False)
+
+# Hybrid apply: после успешного verify_enriched=True удалить наш technical
+# INN-only реквизит (созданный crm.requisite.add перед BP), оставив
+# BP-обогащённый дубликат с ОГРН/КПП. По умолчанию TRUE — без cleanup в UI
+# компании окажется два реквизита.
+CCE_APPLY_CLEANUP_DUPLICATE = _env_bool("CCE_APPLY_CLEANUP_DUPLICATE", default=True)

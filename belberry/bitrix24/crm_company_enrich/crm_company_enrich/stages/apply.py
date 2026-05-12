@@ -39,6 +39,7 @@ from zoneinfo import ZoneInfo
 
 from ..bitrix_client import BitrixClient, BitrixError
 from ..config import (
+    CCE_APPLY_CLEANUP_DUPLICATE,
     CCE_APPLY_SLEEP_S,
     CCE_BIZPROC_TEMPLATE_ID,
     CCE_BIZPROC_WAIT_S,
@@ -76,9 +77,13 @@ BACKUP_HEADERS = [
     "bp_workflow_id",
     "bp_verify_enriched",
     "enriched_requisite_id",
+    "cleanup_status",
 ]
-# Legacy header (до hybrid-apply) — для миграции при первом запуске нового apply.
-_BACKUP_HEADERS_LEGACY = BACKUP_HEADERS[:7]
+# Legacy headers — для миграции при первом запуске новых apply.
+# Поддерживаем 2 уровня legacy: 7-колоночный (до hybrid) и 10-колоночный
+# (hybrid без cleanup).
+_BACKUP_HEADERS_LEGACY_V1 = BACKUP_HEADERS[:7]
+_BACKUP_HEADERS_LEGACY_V2 = BACKUP_HEADERS[:10]
 
 # Статусы, в которых apply уже считает строку «обработанной» (idempotency).
 TERMINAL_STATUSES = frozenset(
@@ -112,6 +117,14 @@ class ApplyOutcome:
     bp_workflow_id: str = ""
     bp_verify_enriched: bool | None = None  # None — verify не запускался
     enriched_requisite_id: str = ""
+    # cleanup нашего technical INN-only реквизита после BP-обогащения:
+    # ""                  — cleanup не выполнялся (verify не делался / disabled);
+    # "deleted_duplicate" — BP создал второй реквизит, наш удалён;
+    # "merged_in_place"   — BP заполнил наш же реквизит (enriched_id == our_id);
+    # "skipped"           — verify=not_enriched или BP не запускался;
+    # "failed"            — delete_requisite кинул исключение (apply не FAIL'им).
+    cleanup_status: str = ""
+    cleanup_message: str = ""
 
 
 # ----- public API -----
@@ -130,6 +143,7 @@ def run(
     write_name_full: bool | None = None,
     company_touch: bool | None = None,
     bizproc_wait_s: int | None = None,
+    cleanup_duplicate: bool | None = None,
 ) -> dict:
     """Выполнить apply-стадию. Для прод-CLI передаются клиенты; в тестах — фейки.
 
@@ -154,6 +168,8 @@ def run(
         company_touch = CCE_COMPANY_TOUCH
     if bizproc_wait_s is None:
         bizproc_wait_s = CCE_BIZPROC_WAIT_S
+    if cleanup_duplicate is None:
+        cleanup_duplicate = CCE_APPLY_CLEANUP_DUPLICATE
     now = now or datetime.now(MOSCOW_TZ)
 
     queue = read_queue(sheets)
@@ -170,6 +186,10 @@ def run(
     bizproc_failed = 0
     verify_enriched = 0
     verify_not_enriched = 0
+    cleanup_deleted_duplicate = 0
+    cleanup_merged_in_place = 0
+    cleanup_skipped = 0
+    cleanup_failed = 0
 
     # Backup-таб подготавливается лениво: только если действительно есть
     # CREATE_REQ-кандидаты И не dry-run.
@@ -384,6 +404,36 @@ def run(
                 verify_not_enriched += 1
                 final_status = Status.APPLIED_PENDING_BP
 
+        # 4b. cleanup: после успешного verify удаляем наш technical
+        # INN-only реквизит, оставляя BP-обогащённый. Без cleanup UI компании
+        # покажет два реквизита (наш ЮЛ-stub + полный с ОГРН). Любая ошибка
+        # delete не FAIL'ит apply — реквизит уже создан и обогащён.
+        if not cleanup_duplicate:
+            outcome.cleanup_status = ""
+        elif outcome.bp_verify_enriched is True:
+            our_id = str(outcome.requisite_id or "")
+            enriched_id = outcome.enriched_requisite_id
+            if not our_id or not enriched_id:
+                outcome.cleanup_status = "skipped"
+                cleanup_skipped += 1
+            elif enriched_id == our_id:
+                outcome.cleanup_status = "merged_in_place"
+                cleanup_merged_in_place += 1
+            else:
+                try:
+                    bx.delete_requisite(our_id)
+                    outcome.cleanup_status = "deleted_duplicate"
+                    cleanup_deleted_duplicate += 1
+                except Exception as exc:  # noqa: BLE001 — best-effort
+                    outcome.cleanup_status = "failed"
+                    outcome.cleanup_message = f"delete_requisite({our_id}) failed: {exc}"
+                    cleanup_failed += 1
+                    print(f"[apply] company {row.company_id}: cleanup {outcome.cleanup_message}")
+        else:
+            # verify не запускался (BP disabled / failed) или not_enriched
+            outcome.cleanup_status = "skipped"
+            cleanup_skipped += 1
+
         # 5. status transition
         if final_status == Status.APPLIED:
             outcome.applied_status = "APPLIED"
@@ -401,6 +451,8 @@ def run(
             msg_parts.append(f"verify=enriched(req={outcome.enriched_requisite_id})")
         elif outcome.bp_verify_enriched is False:
             msg_parts.append("verify=not_enriched")
+        if outcome.cleanup_status:
+            msg_parts.append(f"cleanup={outcome.cleanup_status}")
 
         _update(
             sheets,
@@ -427,6 +479,12 @@ def run(
             "enriched": verify_enriched,
             "not_enriched": verify_not_enriched,
         },
+        "cleanup": {
+            "deleted_duplicate": cleanup_deleted_duplicate,
+            "merged_in_place": cleanup_merged_in_place,
+            "skipped": cleanup_skipped,
+            "failed": cleanup_failed,
+        },
         "ts_msk": now.isoformat(timespec="seconds"),
         "dry_run": dry_run,
     }
@@ -437,7 +495,10 @@ def run(
         f"skipped_other_action={skipped_other_action} failed={failed} "
         f"bizproc=(triggered={bizproc_triggered} not_configured={bizproc_not_configured} "
         f"failed={bizproc_failed}) verify=(enriched={verify_enriched} "
-        f"not_enriched={verify_not_enriched}) dry_run={dry_run}"
+        f"not_enriched={verify_not_enriched}) "
+        f"cleanup=(deleted_duplicate={cleanup_deleted_duplicate} "
+        f"merged_in_place={cleanup_merged_in_place} skipped={cleanup_skipped} "
+        f"failed={cleanup_failed}) dry_run={dry_run}"
     )
     return summary
 
@@ -590,8 +651,10 @@ def _update(
 def _ensure_backup_sheet(sheets: SheetsClient) -> None:
     """Идемпотентно: создать вкладку enrich_backup + заголовки, если ещё нет.
 
-    Если таб уже создан в старом формате (legacy 7 колонок), расширим header
-    до hybrid 10-колоночного.
+    Если таб уже создан в старом формате (legacy 7 колонок до hybrid или
+    legacy 10 колонок без cleanup_status), расширим header до текущего
+    11-колоночного in-place. Старые данные не трогаем — новые поля будут
+    пустыми для legacy-строк.
     """
     sheets.ensure_sheet(TAB_BACKUP)
     existing = sheets.read(TAB_BACKUP, "A1:Z1")
@@ -599,10 +662,14 @@ def _ensure_backup_sheet(sheets: SheetsClient) -> None:
         sheets.update(TAB_BACKUP, "A1", [BACKUP_HEADERS])
         return
     cur = [str(x) for x in existing[0]]
-    # Если первые len(_BACKUP_HEADERS_LEGACY) совпадают и колонок меньше —
-    # расширяем header in-place (старые данные не трогаем — новые поля
-    # будут пустыми для legacy-строк).
-    if len(cur) < len(BACKUP_HEADERS) and cur[: len(_BACKUP_HEADERS_LEGACY)] == _BACKUP_HEADERS_LEGACY:
+    if len(cur) >= len(BACKUP_HEADERS):
+        return
+    # Поддерживаем 2 уровня legacy: V1 (7 колонок, до hybrid) и V2 (10
+    # колонок, hybrid без cleanup). В обоих случаях префикс совпадает
+    # с текущим header — миграция безопасна.
+    if cur[: len(_BACKUP_HEADERS_LEGACY_V2)] == _BACKUP_HEADERS_LEGACY_V2:
+        sheets.update(TAB_BACKUP, "A1", [BACKUP_HEADERS])
+    elif cur[: len(_BACKUP_HEADERS_LEGACY_V1)] == _BACKUP_HEADERS_LEGACY_V1:
         sheets.update(TAB_BACKUP, "A1", [BACKUP_HEADERS])
 
 
@@ -634,6 +701,7 @@ def _append_backup_row(
         outcome.bp_workflow_id or "",
         verify_cell,
         outcome.enriched_requisite_id or "",
+        outcome.cleanup_status or "",
     ]
     sheets.append(TAB_BACKUP, [row])
 
