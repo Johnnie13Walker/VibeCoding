@@ -161,12 +161,10 @@ def cmd_merge_dupes(args: argparse.Namespace) -> int:
 
 def cmd_verify(args: argparse.Namespace) -> int:
     from .stages import verify
-    try:
-        verify.run()
-        return 0
-    except NotImplementedError as exc:
-        print(f"WARN: {exc}", file=sys.stderr)
-        return 2
+    bx, sheets = _make_clients()
+    summary = verify.run(bx, sheets, limit=args.limit)
+    print(json.dumps(summary, indent=2, ensure_ascii=False))
+    return 0
 
 
 def cmd_rollback(args: argparse.Namespace) -> int:
@@ -249,7 +247,14 @@ def main() -> None:
     sp.add_argument("--limit", type=int)
     sp.set_defaults(func=cmd_merge_dupes)
 
-    sp = sub.add_parser("verify", help="STUB: read-only проверка APPLIED/MERGED (exit 2)")
+    sp = sub.add_parser(
+        "verify",
+        help=(
+            "READ: проверить APPLIED_PENDING_BP строки — если bizproc подтянул "
+            "OGRN/КПП после wait-окна, перевести в APPLIED"
+        ),
+    )
+    sp.add_argument("--limit", type=int, help="Ограничить число проверяемых строк")
     sp.set_defaults(func=cmd_verify)
 
     sp = sub.add_parser("rollback", help="STUB: откатить write-операцию по company_id (exit 2)")
