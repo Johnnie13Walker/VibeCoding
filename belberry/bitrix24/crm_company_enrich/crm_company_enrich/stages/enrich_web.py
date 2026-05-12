@@ -28,7 +28,7 @@ from ..config import (
     ENRICH_USER_AGENT,
 )
 from ..domain import normalize_domain
-from ..models import INN_LABELED, INN_ANYWHERE, QueueRow, is_valid_inn_format, normalize_inn
+from ..models import QueueRow, is_valid_inn_format, normalize_inn
 from ..sheet_store import read_queue, replace_row, update_row
 from ..sheets_client import SheetsClient
 from ..state import Status, is_at_least
@@ -36,6 +36,63 @@ from ..state import Status, is_at_least
 MOSCOW_TZ = ZoneInfo("Europe/Moscow")
 
 WEB_PATHS = ("/", "/requisites/", "/реквизиты/", "/about/", "/policy/", "/о-клинике/", "/contacts/", "/контакты/")
+
+# Bitrix-плейсхолдеры и явный мусор в TITLE — не пытаемся использовать как домен.
+TITLE_BLACKLIST = re.compile(
+    r"(битрикс24\s+помогает|placeholder|новая\s+компания|без\s+названия|^id\s*\d+$)",
+    re.IGNORECASE,
+)
+
+# Whitelist TLD для жёсткой пост-валидации normalize_domain.
+_DOMAIN_TLD_WHITELIST = frozenset({
+    "ru", "рф", "com", "su", "org", "net", "info", "by", "kz", "ua",
+    "ee", "lv", "lt", "kg", "am", "ge", "az", "uz", "tj", "md",
+    "gov", "edu", "biz", "store", "shop", "online", "ai",
+})
+
+# Stoplist ИНН — известный мусор / явные fake-значения.
+INN_STOPLIST = frozenset({
+    "0000000000", "0123456789", "1234567890",
+    "111111111100", "999999999999", "123456789012",
+    "173937695939",  # fake ИНН из инцидента enrich-web --limit 30
+})
+
+# Двухступенчатый ИНН-парсинг: сначала только рядом с label.
+INN_NEAR_LABEL = re.compile(
+    r"(?:ИНН|INN|Tax\s*ID)[\s:№#]*?(\d{10}(?:\d{2})?)\b",
+    re.IGNORECASE,
+)
+INN_BARE = re.compile(r"\b(\d{10}(?:\d{2})?)\b")
+
+
+def _is_safe_domain_candidate(domain: str | None) -> bool:
+    """Постфильтр для normalize_domain: отвергаем мусор, не похожий на реальный хост."""
+    if not domain:
+        return False
+    s = domain.strip()
+    if not s or " " in s or len(s) > 64:
+        return False
+    parts = s.rsplit(".", 1)
+    if len(parts) != 2:
+        return False
+    tld = parts[1].lower()
+    if tld in _DOMAIN_TLD_WHITELIST:
+        return True
+    # допускаем неперечисленные 2-3-буквенные ASCII TLD (futureproof)
+    if 2 <= len(tld) <= 3 and tld.isascii() and tld.isalpha():
+        return True
+    return False
+
+
+def _is_junk_inn(value: str) -> bool:
+    """Отсев очевидно-фейковых ИНН (stoplist + строго одинаковые цифры)."""
+    if not value:
+        return True
+    if value in INN_STOPLIST:
+        return True
+    if len(set(value)) == 1:  # 1111111111, 9999999999, 000000000000
+        return True
+    return False
 
 
 # ----- HttpFetcher abstraction -----
@@ -178,9 +235,12 @@ def _enrich_one(
             return inn, "web", name or row.company_name
 
     # Source 3 — TITLE as domain
-    if row.company_name:
+    # Отрезаем дефолтные плейсхолдеры Bitrix и мусор: "Битрикс24 помогает...",
+    # "Новая компания", "ID 12345" и т.п. — попытка resolve-нуть такое
+    # как домен приводит к фолсам и фейковым ИНН.
+    if row.company_name and not TITLE_BLACKLIST.search(row.company_name):
         title_domain = normalize_domain(row.company_name)
-        if title_domain:
+        if _is_safe_domain_candidate(title_domain):
             inn, name = _try_web(title_domain, fetch, sleep_s=sleep_s)
             if inn:
                 return inn, "title", name or row.company_name
@@ -206,7 +266,7 @@ def _try_web(web_or_domain: str, fetch: FetcherFn, *, sleep_s: float) -> tuple[s
         result = fetch(url)
         if not result or result.status >= 400:
             continue
-        inn = extract_inn_from_text(result.text)
+        inn = extract_inn_from_text(result.text, source_url=result.url or url)
         if inn:
             name = extract_company_name_from_html(result.text)
             return inn, name
@@ -219,7 +279,7 @@ def _try_rusprofile(company_name: str, fetch: FetcherFn) -> tuple[str | None, st
     if not result or result.status >= 400:
         return None, None
     # rusprofile в выдаче выводит ИНН отдельной строкой `ИНН: 7707083893`
-    inn = extract_inn_from_text(result.text)
+    inn = extract_inn_from_text(result.text, source_url=result.url)
     if not inn:
         return None, None
     name = extract_company_name_from_html(result.text) or company_name
@@ -237,39 +297,46 @@ def _normalize_base_url(web_or_domain: str) -> str | None:
 
 # ----- text parsing -----
 
-INN_ANYWHERE_DIGITS = re.compile(r"\d{12}|\d{10}")
 NAME_TAG = re.compile(r"<title[^>]*>([^<]{3,200})</title>", re.IGNORECASE)
 
 
-def extract_inn_from_text(text: str) -> str | None:
+def extract_inn_from_text(text: str, *, source_url: str | None = None) -> str | None:
     """Достать первый валидный ИНН из произвольного текста (HTML/markdown).
 
     Стратегия:
-      1. Сначала ищем рядом со словом ИНН/INN (наиболее надёжно).
-      2. Если не нашли — fallback: любая 10/12-значная последовательность,
-         НО только если она проходит format-валидацию (10 или 12 цифр).
+      1. Сначала ищем рядом со словом-меткой ИНН/INN/Tax ID (сильный сигнал).
+      2. Bare 10/12-значное число — fallback ТОЛЬКО на страницах реквизитов
+         (URL содержит `requisites` / `реквизиты`), плюс отсев stoplist/junk.
+
+    Без сильного контекста (label или requisites-URL) bare-числа отбрасываются:
+    они ловят timestamps, ID, телефоны без префикса и т.п.
     """
     if not text:
         return None
 
-    # 1. labeled (приоритет)
-    for m in INN_LABELED.finditer(text):
+    # 1. labeled — наиболее надёжно.
+    for m in INN_NEAR_LABEL.finditer(text):
         candidate = normalize_inn(m.group(1))
-        if candidate:
+        if candidate and not _is_junk_inn(candidate):
             return candidate
 
-    # 2. anywhere — но осторожно, чтобы не вернуть телефон
-    # Игнорируем числа, окружённые «телефонной» пунктуацией: +7, (XXX), -
-    for m in INN_ANYWHERE.finditer(text):
-        raw = m.group(1)
-        start = m.start(1)
-        # Окно ±6 символов вокруг находки
-        window = text[max(0, start - 6):start]
-        if any(ch in window for ch in "+()-") and "ИНН" not in window.upper():
-            continue
-        candidate = normalize_inn(raw)
-        if candidate and is_valid_inn_format(candidate):
-            return candidate
+    # 2. bare-fallback разрешён только на страницах реквизитов.
+    if source_url:
+        lowered = source_url.lower()
+        if "requisites" in lowered or "реквизиты" in lowered or "%d1%80%d0%b5%d0%ba%d0%b2" in lowered:
+            for m in INN_BARE.finditer(text):
+                raw = m.group(1)
+                start = m.start(1)
+                window = text[max(0, start - 6):start]
+                # пропускаем «телефонную» пунктуацию рядом
+                if any(ch in window for ch in "+()-"):
+                    continue
+                candidate = normalize_inn(raw)
+                if not candidate or not is_valid_inn_format(candidate):
+                    continue
+                if _is_junk_inn(candidate):
+                    continue
+                return candidate
 
     return None
 
