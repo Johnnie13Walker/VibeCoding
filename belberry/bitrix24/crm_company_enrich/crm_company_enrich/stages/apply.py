@@ -41,6 +41,8 @@ from ..bitrix_client import BitrixClient, BitrixError
 from ..config import (
     CCE_APPLY_SLEEP_S,
     CCE_BIZPROC_TEMPLATE_ID,
+    CCE_BIZPROC_WAIT_S,
+    CCE_COMPANY_TOUCH,
     CCE_PRESET_ID,
     CCE_WRITE_NAME_FULL,
     ENTITY_TYPE_COMPANY,
@@ -59,7 +61,10 @@ from ..state import Status
 
 MOSCOW_TZ = ZoneInfo("Europe/Moscow")
 
-# Колонки backup-таба
+# Колонки backup-таба. Расширенные колонки (bp_workflow_id..) добавлены для
+# гибридного режима apply (touch + BP + verify). Append-only, idempotent: если
+# таб уже создан в старом формате — _ensure_backup_sheet миграция расширит
+# header.
 BACKUP_HEADERS = [
     "ts_utc",
     "company_id",
@@ -68,12 +73,18 @@ BACKUP_HEADERS = [
     "existing_requisites_json",
     "applied_status",
     "error_message",
+    "bp_workflow_id",
+    "bp_verify_enriched",
+    "enriched_requisite_id",
 ]
+# Legacy header (до hybrid-apply) — для миграции при первом запуске нового apply.
+_BACKUP_HEADERS_LEGACY = BACKUP_HEADERS[:7]
 
 # Статусы, в которых apply уже считает строку «обработанной» (idempotency).
 TERMINAL_STATUSES = frozenset(
     {
         Status.APPLIED,
+        Status.APPLIED_PENDING_BP,
         Status.FAILED,
         Status.SKIPPED,
         Status.MERGED,
@@ -92,12 +103,15 @@ class ApplyOutcome:
     company_id: str
     row_number: int
     target_action: str
-    applied_status: str  # APPLIED / SKIPPED / FAILED / DRY_RUN / NOOP
+    applied_status: str  # APPLIED / APPLIED_PENDING_BP / SKIPPED / FAILED / DRY_RUN / NOOP
     requisite_id: str | None = None
     bizproc_status: str = "not_configured"  # not_configured | triggered:<id> | failed:<msg>
     error_message: str = ""
     payload: dict | None = None
     existing_requisites: list | None = None
+    bp_workflow_id: str = ""
+    bp_verify_enriched: bool | None = None  # None — verify не запускался
+    enriched_requisite_id: str = ""
 
 
 # ----- public API -----
@@ -114,6 +128,8 @@ def run(
     preset_id: int | None = None,
     bizproc_template_id: Any = _BIZPROC_SENTINEL,
     write_name_full: bool | None = None,
+    company_touch: bool | None = None,
+    bizproc_wait_s: int | None = None,
 ) -> dict:
     """Выполнить apply-стадию. Для прод-CLI передаются клиенты; в тестах — фейки.
 
@@ -134,12 +150,17 @@ def run(
         bizproc_template_id = CCE_BIZPROC_TEMPLATE_ID
     if write_name_full is None:
         write_name_full = CCE_WRITE_NAME_FULL
+    if company_touch is None:
+        company_touch = CCE_COMPANY_TOUCH
+    if bizproc_wait_s is None:
+        bizproc_wait_s = CCE_BIZPROC_WAIT_S
     now = now or datetime.now(MOSCOW_TZ)
 
     queue = read_queue(sheets)
     targets = _select_targets(queue, limit=limit)
 
     applied = 0
+    applied_pending_bp = 0
     skipped_already_has_requisite = 0
     skipped_active_merge = 0
     skipped_other_action = 0
@@ -147,6 +168,8 @@ def run(
     bizproc_triggered = 0
     bizproc_not_configured = 0
     bizproc_failed = 0
+    verify_enriched = 0
+    verify_not_enriched = 0
 
     # Backup-таб подготавливается лениво: только если действительно есть
     # CREATE_REQ-кандидаты И не dry-run.
@@ -310,29 +333,87 @@ def run(
             failed += 1
             continue
 
-        # ----- bizproc (best-effort) -----
+        # ----- HYBRID: touch + BP + verify -----
+        #
+        # 1. touch: trigger DATE_MODIFY + AUTO_EXECUTE=2 BPs (best-effort).
+        # 2. explicit BP start: bizproc.workflow.start(template_id).
+        # 3. wait: sleep wait_s — даём BP подтянуть данные из ЕГРЮЛ.
+        # 4. verify: переcписок реквизитов, ищем строку с непустым RQ_OGRN.
+        #
+        # Любая ошибка на шагах 1/2 не FAIL'ит apply — реквизит уже создан;
+        # фиксируем bizproc_status / verify_enriched в backup и переходим
+        # к статусу строки.
+
+        # 1. touch
+        if company_touch:
+            _touch_company(bx, row.company_id)
+
+        # 2. explicit BP
         bp_status = _trigger_bizproc(bx, row.company_id, bizproc_template_id)
         outcome.bizproc_status = bp_status
         if bp_status == "not_configured":
             bizproc_not_configured += 1
         elif bp_status.startswith("triggered"):
             bizproc_triggered += 1
+            # extract workflow id для backup
+            outcome.bp_workflow_id = bp_status.split(":", 1)[1].strip()
         else:
             bizproc_failed += 1
 
+        # 3+4. wait + verify — только если BP реально запускался
+        final_status: Status = Status.APPLIED
+        if bp_status.startswith("triggered"):
+            if bizproc_wait_s > 0:
+                time.sleep(bizproc_wait_s)
+            try:
+                post_reqs = bx.list_company_requisites(row.company_id)
+            except Exception as exc:  # noqa: BLE001 — verify best-effort
+                print(
+                    f"[apply] company {row.company_id}: verify list failed: {exc} "
+                    f"— assuming not_enriched"
+                )
+                post_reqs = []
+            enriched_id = _find_enriched_requisite_id(post_reqs)
+            if enriched_id:
+                outcome.bp_verify_enriched = True
+                outcome.enriched_requisite_id = enriched_id
+                verify_enriched += 1
+                final_status = Status.APPLIED
+            else:
+                outcome.bp_verify_enriched = False
+                verify_not_enriched += 1
+                final_status = Status.APPLIED_PENDING_BP
+
+        # 5. status transition
+        if final_status == Status.APPLIED:
+            outcome.applied_status = "APPLIED"
+            applied += 1
+        else:
+            outcome.applied_status = "APPLIED_PENDING_BP"
+            applied_pending_bp += 1
+
         _append_backup_row(sheets, outcome, now)
+
+        msg_parts = [f"requisite_id={requisite_id}", f"bizproc={bp_status}"]
+        if outcome.bp_workflow_id:
+            msg_parts.append(f"wf_id={outcome.bp_workflow_id}")
+        if outcome.bp_verify_enriched is True:
+            msg_parts.append(f"verify=enriched(req={outcome.enriched_requisite_id})")
+        elif outcome.bp_verify_enriched is False:
+            msg_parts.append("verify=not_enriched")
+
         _update(
             sheets,
             row_number,
             row,
-            status=Status.APPLIED,
+            status=final_status,
             last_action_at=now,
-            error_message=f"requisite_id={requisite_id}; bizproc={bp_status}",
+            error_message="; ".join(msg_parts),
         )
-        applied += 1
 
     summary = {
         "applied": applied,
+        "applied_pending_bp": applied_pending_bp,
         "skipped_already_has_requisite": skipped_already_has_requisite,
         "skipped_active_merge": skipped_active_merge,
         "skipped_other_action": skipped_other_action,
@@ -342,15 +423,21 @@ def run(
             "not_configured": bizproc_not_configured,
             "failed": bizproc_failed,
         },
+        "verify": {
+            "enriched": verify_enriched,
+            "not_enriched": verify_not_enriched,
+        },
         "ts_msk": now.isoformat(timespec="seconds"),
         "dry_run": dry_run,
     }
     print(
-        f"[apply] applied={applied} skipped_already_has_requisite="
-        f"{skipped_already_has_requisite} skipped_active_merge={skipped_active_merge} "
+        f"[apply] applied={applied} applied_pending_bp={applied_pending_bp} "
+        f"skipped_already_has_requisite={skipped_already_has_requisite} "
+        f"skipped_active_merge={skipped_active_merge} "
         f"skipped_other_action={skipped_other_action} failed={failed} "
         f"bizproc=(triggered={bizproc_triggered} not_configured={bizproc_not_configured} "
-        f"failed={bizproc_failed}) dry_run={dry_run}"
+        f"failed={bizproc_failed}) verify=(enriched={verify_enriched} "
+        f"not_enriched={verify_not_enriched}) dry_run={dry_run}"
     )
     return summary
 
@@ -427,6 +514,44 @@ def _build_payload(
     return payload
 
 
+def _touch_company(bx: BitrixClient, company_id: str) -> None:
+    """Минимальное изменение COMMENTS чтобы триггернуть DATE_MODIFY + AUTO_EXECUTE=2 BPs.
+
+    Best-effort: любые ошибки логируются и не FAIL'ят apply (реквизит уже создан).
+    """
+    try:
+        company = bx.get_company(company_id)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[apply] touch company {company_id}: get failed: {exc}")
+        return
+    if not company:
+        print(f"[apply] touch company {company_id}: not found, skip")
+        return
+    comments = company.get("COMMENTS") or ""
+    if isinstance(comments, str) and comments.endswith(" "):
+        # Уже trailing space — добавим ещё один (touch всё равно нужен)
+        new_comments = comments + " "
+    else:
+        new_comments = f"{comments} "
+    try:
+        bx.update_company(company_id, {"COMMENTS": new_comments})
+    except Exception as exc:  # noqa: BLE001
+        print(f"[apply] touch company {company_id}: update failed: {exc}")
+
+
+def _find_enriched_requisite_id(requisites: list[dict]) -> str:
+    """Найти ID реквизита с непустым RQ_OGRN. Возвращает '' если нет.
+
+    BP-обогащение по ИНН подтягивает ОГРН/КПП/полное юр.название из ЕГРЮЛ —
+    наличие RQ_OGRN надёжный сигнал что bizproc отработал.
+    """
+    for req in requisites or []:
+        ogrn = str(req.get("RQ_OGRN") or "").strip()
+        if ogrn:
+            return str(req.get("ID") or "")
+    return ""
+
+
 def _trigger_bizproc(
     bx: BitrixClient,
     company_id: str,
@@ -458,10 +583,21 @@ def _update(
 
 
 def _ensure_backup_sheet(sheets: SheetsClient) -> None:
-    """Идемпотентно: создать вкладку enrich_backup + заголовки, если ещё нет."""
+    """Идемпотентно: создать вкладку enrich_backup + заголовки, если ещё нет.
+
+    Если таб уже создан в старом формате (legacy 7 колонок), расширим header
+    до hybrid 10-колоночного.
+    """
     sheets.ensure_sheet(TAB_BACKUP)
     existing = sheets.read(TAB_BACKUP, "A1:Z1")
     if not existing or not existing[0]:
+        sheets.update(TAB_BACKUP, "A1", [BACKUP_HEADERS])
+        return
+    cur = [str(x) for x in existing[0]]
+    # Если первые len(_BACKUP_HEADERS_LEGACY) совпадают и колонок меньше —
+    # расширяем header in-place (старые данные не трогаем — новые поля
+    # будут пустыми для legacy-строк).
+    if len(cur) < len(BACKUP_HEADERS) and cur[: len(_BACKUP_HEADERS_LEGACY)] == _BACKUP_HEADERS_LEGACY:
         sheets.update(TAB_BACKUP, "A1", [BACKUP_HEADERS])
 
 
@@ -471,6 +607,17 @@ def _append_backup_row(
     now: datetime,
 ) -> None:
     ts_utc = now.astimezone(timezone.utc).isoformat(timespec="seconds")
+    error_msg = outcome.error_message or (
+        f"requisite_id={outcome.requisite_id}; bizproc={outcome.bizproc_status}"
+        if outcome.requisite_id
+        else ""
+    )
+    if outcome.bp_verify_enriched is True:
+        verify_cell = "true"
+    elif outcome.bp_verify_enriched is False:
+        verify_cell = "false"
+    else:
+        verify_cell = ""
     row = [
         ts_utc,
         outcome.company_id,
@@ -478,11 +625,10 @@ def _append_backup_row(
         json.dumps(outcome.payload or {}, ensure_ascii=False),
         json.dumps(outcome.existing_requisites or [], ensure_ascii=False),
         outcome.applied_status,
-        outcome.error_message or (
-            f"requisite_id={outcome.requisite_id}; bizproc={outcome.bizproc_status}"
-            if outcome.requisite_id
-            else ""
-        ),
+        error_msg,
+        outcome.bp_workflow_id or "",
+        verify_cell,
+        outcome.enriched_requisite_id or "",
     ]
     sheets.append(TAB_BACKUP, [row])
 

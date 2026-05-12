@@ -356,7 +356,7 @@ def test_bizproc_triggered_writes_workflow_id():
     )
     sheets = FakeSheets([row])
 
-    summary = apply.run(bx, sheets, sleep_s=0, bizproc_template_id=42)
+    summary = apply.run(bx, sheets, sleep_s=0, bizproc_template_id=42, bizproc_wait_s=0)
 
     assert summary["bizproc"]["triggered"] == 1
     assert len(bx.workflow_calls) == 1
@@ -376,7 +376,7 @@ def test_bizproc_failure_is_recorded_but_does_not_fail_apply():
     )
     sheets = FakeSheets([row])
 
-    summary = apply.run(bx, sheets, sleep_s=0, bizproc_template_id=42)
+    summary = apply.run(bx, sheets, sleep_s=0, bizproc_template_id=42, bizproc_wait_s=0)
 
     assert summary["applied"] == 1
     assert summary["bizproc"]["failed"] == 1
