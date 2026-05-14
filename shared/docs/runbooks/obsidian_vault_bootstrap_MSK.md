@@ -191,3 +191,68 @@ desktop после `git pull`.
 - Любая запись делается под file-lock, чтобы параллельные Telegram-запросы
   не конфликтовали при `git push`.
 - Все даты, заголовки и ответы пользователю — в МСК.
+
+## Фактический production status на 2026-05-10 МСК
+
+Интеграция включена в живом OpenClaw/Larisa runtime.
+
+Фактическая схема:
+
+- Vault на сервере: `/srv/cloudbot/obsidian-vault`.
+- Vault в контейнере: `/home/node/cloudbot-obsidian-vault`.
+- Runtime workspace: `/root/.openclaw/workspace`.
+- Obsidian CLI: `/root/.openclaw/workspace/obsidian-integration/obsidian_cli.py`.
+- Obsidian provider: `/root/.openclaw/workspace/obsidian-integration/obsidian_provider.py`.
+- Deterministic gateway router: `/root/.openclaw/extensions/obsidian-router/`.
+- Router включён в `/root/.openclaw/openclaw.json` через `plugins.entries.obsidian-router.enabled=true`.
+- Trust pin: `plugins.allow=["obsidian-router"]`.
+- Telegram owner id: `81681699`.
+
+Почему добавлен `obsidian-router`:
+
+- Инструкция через `AGENTS.md` оказалась недостаточной: Telegram-сессия Larisa пыталась вызвать shell/process tool и получила ошибку `sessionId is required for this action`.
+- Для стабильности Obsidian-команды теперь перехватываются gateway plugin-ом до модели.
+- Plugin вызывает `obsidian_cli.py`, сохраняет stdout и подменяет исходящий ответ на подтверждение CLI.
+- Общий shell/exec доступ Larisa не включался.
+
+Production backup-и:
+
+- `/opt/openclaw/docker-compose.yml.bak.20260510_075226_UTC.obsidian-bind-mount`
+- `/root/.openclaw/workspace/AGENTS.md.bak.20260510_081002_UTC.obsidian-section`
+- `/root/.openclaw/workspace/AGENTS.md.bak.20260510_084204_UTC.obsidian-plugin-router`
+- `/root/.openclaw/workspace/obsidian-integration/obsidian_cli.py.bak.20260510_081423_UTC.strftime-fix`
+- `/root/.openclaw/openclaw.json.bak.20260510_085646_UTC.post-obsidian-router-stable` — стабильный rollback snapshot после включения plugin
+- `/root/.openclaw/openclaw.json.bak` — автоматический snapshot OpenClaw, перезаписывается при каждом сохранении конфига; не считать стабильным
+
+Проверенный результат:
+
+- `запомни: проверка через бот obsidian 2` создал
+  `Inbox/2026-05-10-1143-проверка-через-бот-obsidian-2.md`.
+- `дневник ...` добавил запись в `Daily/2026-05-10.md`.
+- `задача ...` создал `Tasks/2026-05-10-1147-проверить-obsidian-task-router.md` и обновил `Tasks/_index.md`.
+- `обсидиан проверка` вернул результаты поиска по vault.
+- GitHub получил commits:
+  - `2a1ed2c obsidian: новая заметка Inbox/2026-05-10-1143-проверка-через-бот-obsidian-2.md`
+  - `126f644 obsidian: новая задача Tasks/2026-05-10-1147-проверить-obsidian-task-router.md`
+  - `5ddff2e obsidian: запись в дневник Daily/2026-05-10.md`
+- Локальный клон Mac `~/Documents/Cloudbot-Vault` обновлён через `git pull --ff-only`.
+
+Операционная проверка:
+
+```bash
+ssh cloudbot-ssh-proxy 'docker ps --format "{{.Names}} {{.Status}}" | grep openclaw'
+ssh cloudbot-ssh-proxy 'docker exec openclaw-openclaw-gateway-1 node dist/index.js plugins list 2>/dev/null | grep -i obsidian -C2'
+ssh cloudbot-ssh-proxy 'sudo -u ops git -C /srv/cloudbot/obsidian-vault status -s'
+```
+
+Ожидание:
+
+- `openclaw-openclaw-gateway-1` в статусе `healthy`.
+- `obsidian-router` в статусе `loaded`.
+- `git status -s` пустой.
+
+Технический долг:
+
+- Оформить `obsidian-router` как tracked локальный plugin/package, чтобы убрать warning `loaded without install/load-path provenance`.
+- Добавить ежедневный health-check: plugin loaded, CLI syntax ok, vault writable, git push ok.
+- Не включать общий `exec`/`process` для Telegram-сессии без отдельного security review.
