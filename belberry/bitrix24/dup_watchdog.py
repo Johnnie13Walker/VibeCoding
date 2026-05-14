@@ -127,6 +127,44 @@ def find_existing_by_inn(inn, exclude_id):
     others.sort(key=lambda x: int(x["ENTITY_ID"]))
     return str(others[0]["ENTITY_ID"])
 
+
+def all_companies_by_inn(inn):
+    """Все ENTITY_ID компаний с данным RQ_INN."""
+    r = call("crm.requisite.list", [
+        ("filter[ENTITY_TYPE_ID]", "4"),
+        ("filter[RQ_INN]", inn),
+        ("select[]", "ENTITY_ID"),
+        ("start", "-1"),
+    ]).get("result", []) or []
+    return sorted({str(req["ENTITY_ID"]) for req in r}, key=int)
+
+
+def detect_tangle(cids):
+    """Тангл-сигнатура: >=3 карточек с одним ИНН + минимум 2 разных сайта/города.
+    Возвращает {sites, cities, companies} если тангл, иначе None.
+    """
+    if len(cids) < 3:
+        return None
+    sites = set()
+    cities = set()
+    companies = []
+    for cid in cids:
+        try:
+            c = call("crm.company.get", [("ID", cid)]).get("result") or {}
+        except Exception:
+            continue
+        site = (c.get("UF_CRM_5DEF838D882A2") or "").strip()
+        city = (c.get("UF_CRM_1584876724") or "").strip()
+        title = (c.get("TITLE") or "").strip()
+        if site:
+            sites.add(site)
+        if city:
+            cities.add(city)
+        companies.append({"id": cid, "title": title, "site": site, "city": city})
+    if len(sites) >= 2 or len(cities) >= 2:
+        return {"sites": sites, "cities": cities, "companies": companies}
+    return None
+
 PORTAL_BASE = "https://belberrycrm.bitrix24.ru/crm/company/details"
 
 def url_of(cid):
@@ -149,7 +187,15 @@ def main():
 
     alerts = []
     importer_bugs = []
-    alerted_pairs = set(tuple(p) for p in state.get("alerted_pairs", []))
+    tangle_alerts = []  # тангл-сигнатура: один ИНН на 3+ карточках с разными сайтами/городами
+    # Normalize legacy pairs (stored как list-of-list в JSON) → tuple (min,max) для устойчивости
+    # к смене направления existing/new при удалении одной из карточек.
+    alerted_pairs = set()
+    for p in state.get("alerted_pairs", []):
+        if len(p) >= 2:
+            a, b = str(p[0]), str(p[1])
+            alerted_pairs.add(tuple(sorted([a, b], key=int)))
+    alerted_tangles = set(state.get("alerted_tangles", []))  # set of ИНН, по которым уже сообщили
 
     for c in new_companies:
         cid = c["ID"]
@@ -170,15 +216,22 @@ def main():
         if not existing:
             continue
 
-        # Found dup
-        pair_key = (existing, cid)
+        # Normalized pair key — stable независимо от того, какая карточка была "новее"
+        pair_key = tuple(sorted([str(existing), str(cid)], key=int))
         if pair_key in alerted_pairs:
+            continue
+
+        # Idempotent guard через сами COMMENTS — если маркер уже там, не дублируем
+        # (защита от потери state-файла).
+        cur_comments = c.get("COMMENTS") or ""
+        marker_signature = f"POSSIBLE DUPLICATE OF #{existing}"
+        if marker_signature in cur_comments:
+            alerted_pairs.add(pair_key)  # синхронизируем state с реальностью
             continue
 
         # Mark new card with COMMENT
         ts = datetime.now().strftime("%Y-%m-%d %H:%M")
-        marker = f"POSSIBLE DUPLICATE OF #{existing} by dup_watchdog {ts}"
-        cur_comments = c.get("COMMENTS") or ""
+        marker = f"{marker_signature} by dup_watchdog {ts}"
         new_comments = (cur_comments + "\n\n" + marker).strip() if cur_comments else marker
         if not DRY_RUN:
             call("crm.company.update", [
@@ -187,6 +240,15 @@ def main():
             ])
         alerts.append({"new": cid, "existing": existing, "inn": inn, "title": title, "created_by": c.get("CREATED_BY_ID")})
         alerted_pairs.add(pair_key)
+
+        # Tangle-сигнатура: 3+ карточек с одним ИНН + разные сайты/города (баг типа ДАНТИСТЪ).
+        # Алертим один раз per-ИНН чтобы не повторяться.
+        if inn not in alerted_tangles:
+            all_cids = all_companies_by_inn(inn)
+            tangle = detect_tangle(all_cids)
+            if tangle:
+                tangle_alerts.append({"inn": inn, **tangle})
+                alerted_tangles.add(inn)
 
     # Build telegram report
     parts = []
@@ -204,6 +266,16 @@ def main():
         if len(importer_bugs) > 10:
             lines.append(f"... и ещё {len(importer_bugs)-10}")
         parts.append("\n".join(lines))
+    if tangle_alerts:
+        lines = [f"🪢 <b>Обнаружен ТАНГЛ — несколько разных бизнесов под одним ИНН</b>"]
+        for t in tangle_alerts:
+            lines.append(f'ИНН <code>{t["inn"]}</code> — {len(t["companies"])} карточек, sites={len(t["sites"])} cities={len(t["cities"])}:')
+            for cmp in t["companies"][:5]:
+                lines.append(f'  • <a href="{url_of(cmp["id"])}">#{cmp["id"]}</a> {cmp["title"][:35]} | city={cmp["city"]!r} site={cmp["site"]!r}')
+            if len(t["companies"]) > 5:
+                lines.append(f'  ... и ещё {len(t["companies"])-5}')
+        lines.append("Действие: проверить через rusprofile настоящий ИНН для каждой карточки и перепривязать.")
+        parts.append("\n".join(lines))
 
     if parts:
         text = "\n\n".join(parts) + f"\n\n📊 Просканировано: {len(new_companies)} новых компаний"
@@ -216,6 +288,7 @@ def main():
     state["max_id"] = new_max
     state["last_run"] = datetime.now().isoformat()
     state["alerted_pairs"] = list(alerted_pairs)[-1000:]  # keep last 1000
+    state["alerted_tangles"] = list(alerted_tangles)[-200:]
     if not DRY_RUN:
         save_state(state)
 
