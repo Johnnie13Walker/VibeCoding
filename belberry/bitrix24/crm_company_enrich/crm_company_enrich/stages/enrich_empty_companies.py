@@ -40,8 +40,10 @@ from .enrich_web import extract_company_name_from_html, extract_inn_from_text
 
 MOSCOW_TZ = ZoneInfo("Europe/Moscow")
 
-WORKSPACE_ROOT = Path("/Users/pro2kuror/Desktop/VibeCoding")
-DATA_DIR = WORKSPACE_ROOT / "belberry/bitrix24/data"
+_default_workspace = Path(__file__).resolve().parents[5] if (Path(__file__).resolve().parents[5] / "belberry/bitrix24").exists() else Path("/Users/pro2kuror/Desktop/VibeCoding")
+WORKSPACE_ROOT = Path(os.environ.get("CCE_WORKSPACE_ROOT", str(_default_workspace)))
+DATA_DIR = Path(os.environ.get("CCE_DATA_DIR", str(WORKSPACE_ROOT / "belberry/bitrix24/data")))
+DATA_DIR.mkdir(parents=True, exist_ok=True)
 INPUT_PATH = DATA_DIR / "empty_companies_to_enrich.json"
 STATE_JSON = DATA_DIR / "empty_companies_enrich_state.json"
 PLAN_JSON = DATA_DIR / "empty_companies_enrich_plan.json"
