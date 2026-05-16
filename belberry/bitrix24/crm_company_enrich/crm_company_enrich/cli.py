@@ -167,6 +167,76 @@ def cmd_verify(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_empty_discover(args: argparse.Namespace) -> int:
+    from .stages import enrich_empty_companies
+    summary = enrich_empty_companies.run_discover(limit=args.limit)
+    print(json.dumps(summary, indent=2, ensure_ascii=False))
+    return 0
+
+
+def cmd_empty_enrich(args: argparse.Namespace) -> int:
+    from .stages import enrich_empty_companies
+    summary = enrich_empty_companies.run_enrich(limit=args.limit, throttle_s=args.throttle)
+    print(json.dumps(summary, indent=2, ensure_ascii=False))
+    return 0
+
+
+def cmd_empty_upload_plan(args: argparse.Namespace) -> int:
+    from .stages import enrich_empty_companies
+    summary = enrich_empty_companies.run_upload_plan()
+    print(json.dumps(summary, indent=2, ensure_ascii=False))
+    return 0
+
+
+def cmd_empty_report(args: argparse.Namespace) -> int:
+    from .stages import enrich_empty_companies
+    summary = enrich_empty_companies.run_report(top=args.top)
+    print(json.dumps(summary, indent=2, ensure_ascii=False))
+    return 0
+
+
+def cmd_empty_manual_site(args: argparse.Namespace) -> int:
+    from .stages import enrich_empty_companies
+    summary = enrich_empty_companies.run_manual_site_sheet(limit=args.limit)
+    print(json.dumps(summary, indent=2, ensure_ascii=False))
+    return 0
+
+
+def cmd_empty_manual_site_promote(args: argparse.Namespace) -> int:
+    from .stages import enrich_empty_companies
+    if args.live and not args.confirm_promote:
+        print("Для реального promote нужны --live и --confirm-promote. Без --live выполняется dry-run.", file=sys.stderr)
+        return 2
+    summary = enrich_empty_companies.run_manual_site_promote(
+        dry_run=not args.live,
+        limit=args.limit,
+    )
+    print(json.dumps(summary, indent=2, ensure_ascii=False))
+    return 1 if summary.get("invalid") else 0
+
+
+def cmd_empty_reconcile(args: argparse.Namespace) -> int:
+    from .stages import enrich_empty_companies
+    summary = enrich_empty_companies.run_reconcile_existing(limit=args.limit, throttle_s=args.throttle)
+    print(json.dumps(summary, indent=2, ensure_ascii=False))
+    return 1 if summary.get("errors") else 0
+
+
+def cmd_empty_apply(args: argparse.Namespace) -> int:
+    from .stages import enrich_empty_companies
+    dry_run = not args.live
+    if args.live and not args.confirm_apply:
+        print("Для реального apply нужны --live и --confirm-apply. Без --live выполняется dry-run.", file=sys.stderr)
+        return 2
+    summary = enrich_empty_companies.run_apply(
+        dry_run=dry_run,
+        limit=args.limit,
+        throttle_s=args.throttle,
+    )
+    print(json.dumps(summary, indent=2, ensure_ascii=False))
+    return 1 if summary.get("failed") else 0
+
+
 def cmd_rollback(args: argparse.Namespace) -> int:
     from .stages import rollback
     try:
@@ -261,6 +331,68 @@ def main() -> None:
     )
     sp.add_argument("--limit", type=int, help="Ограничить число проверяемых строк")
     sp.set_defaults(func=cmd_verify)
+
+    sp = sub.add_parser(
+        "empty-discover",
+        help="READ/SHEETS: собрать pool пустых компаний, исключив 'Не трогать' и уже имеющие ИНН",
+    )
+    sp.add_argument("--limit", type=int)
+    sp.set_defaults(func=cmd_empty_discover)
+
+    sp = sub.add_parser(
+        "empty-enrich",
+        help="READ/HTTP: lookup ИНН + бренд-классификация для isolated empty-company pool",
+    )
+    sp.add_argument("--limit", type=int)
+    sp.add_argument("--throttle", type=float, default=0.1)
+    sp.set_defaults(func=cmd_empty_enrich)
+
+    sp = sub.add_parser(
+        "empty-upload-plan",
+        help="SHEETS: перезаписать вкладку 'Enrich empty — план' текущим plan-state",
+    )
+    sp.set_defaults(func=cmd_empty_upload_plan)
+
+    sp = sub.add_parser(
+        "empty-report",
+        help="READ: checkpoint-сводка по isolated empty-company enrichment",
+    )
+    sp.add_argument("--top", type=int, default=10)
+    sp.set_defaults(func=cmd_empty_report)
+
+    sp = sub.add_parser(
+        "empty-manual-site",
+        help="SHEETS: сформировать вкладку ручного поиска актуального сайта/ИНН",
+    )
+    sp.add_argument("--limit", type=int)
+    sp.set_defaults(func=cmd_empty_manual_site)
+
+    sp = sub.add_parser(
+        "empty-manual-site-promote",
+        help="SHEETS/WRITE: принять approve=да из ручной вкладки и подготовить к empty-apply",
+    )
+    sp.add_argument("--live", action="store_true", help="Реально обновить state/сайт в Б24")
+    sp.add_argument("--confirm-promote", action="store_true")
+    sp.add_argument("--limit", type=int)
+    sp.set_defaults(func=cmd_empty_manual_site_promote)
+
+    sp = sub.add_parser(
+        "empty-reconcile",
+        help="READ/WRITE: убрать из плана компании, уже обогащённые verified-реквизитами в Б24, и проставить бренд",
+    )
+    sp.add_argument("--limit", type=int)
+    sp.add_argument("--throttle", type=float, default=0.1)
+    sp.set_defaults(func=cmd_empty_reconcile)
+
+    sp = sub.add_parser(
+        "empty-apply",
+        help="WRITE: apply READY_TO_APPLY из isolated plan; реальный write требует --live --confirm-apply",
+    )
+    sp.add_argument("--live", action="store_true", help="Выполнить реальные Bitrix write-операции")
+    sp.add_argument("--confirm-apply", action="store_true")
+    sp.add_argument("--limit", type=int)
+    sp.add_argument("--throttle", type=float, default=0.5)
+    sp.set_defaults(func=cmd_empty_apply)
 
     sp = sub.add_parser("rollback", help="STUB: откатить write-операцию по company_id (exit 2)")
     sp.add_argument("--company-id", required=True)

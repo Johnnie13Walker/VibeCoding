@@ -76,9 +76,10 @@ ENRICH_USER_AGENT = os.environ.get(
 # большинстве порталов = 1; меняется через ENV для прогонов на dev-портале.
 CCE_PRESET_ID = int(os.environ.get("CCE_PRESET_ID", "1"))
 
-# Bizproc-шаблон, запускаемый после успешного crm.requisite.add. Дефолт 5614
-# (belberrycrm portal — «Автозаполнение реквизитов по ИНН, наполнение
-# информации лида», doc_type=CCrmDocumentCompany). Переопределяется через
+# Bizproc-шаблон, запускаемый после успешного crm.requisite.add. Дефолт 8618
+# (belberrycrm portal — «Компания. Обновление реквизитов по ИНН, наполнение
+# информации лида и сделки», doc_type=CCrmDocumentCompany). 5614/7296 стартуют,
+# но не заполняют ОГРН в company-реквизитах для текущего сценария. Переопределяется через
 # ENV для других порталов / disable через явное CCE_BIZPROC_TEMPLATE_ID=0
 # (или любая не-цифра, например "none").
 _bp_raw = os.environ.get("CCE_BIZPROC_TEMPLATE_ID", "").strip()
@@ -86,7 +87,7 @@ if _bp_raw.isdigit():
     _bp_val = int(_bp_raw)
     CCE_BIZPROC_TEMPLATE_ID: int | None = _bp_val if _bp_val > 0 else None
 elif _bp_raw == "":
-    CCE_BIZPROC_TEMPLATE_ID = 5614
+    CCE_BIZPROC_TEMPLATE_ID = 8618
 else:
     CCE_BIZPROC_TEMPLATE_ID = None
 

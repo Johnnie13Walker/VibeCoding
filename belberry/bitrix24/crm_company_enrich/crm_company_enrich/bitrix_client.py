@@ -326,6 +326,12 @@ class BitrixClient:
                 eb = _http_err_body(exc)
                 if eb is not None and _is_not_found(eb):
                     return eb
+                if exc.code == 401:
+                    self._refresh_state()
+                    if attempt == attempts - 1:
+                        raise BitrixError(f"HTTP {exc.code} on {method}") from exc
+                    time.sleep(delays[attempt])
+                    continue
                 if exc.code < 500 and exc.code != 429:
                     if attempt == attempts - 1:
                         raise BitrixError(f"HTTP {exc.code} on {method}") from exc
@@ -373,12 +379,15 @@ class BitrixClient:
             return
         if self._last_sync_at_monotonic and time.monotonic() - self._last_sync_at_monotonic < 3600:
             return
+        self._refresh_state()
+        return
+
+    def _refresh_state(self) -> None:
         if not SYNC_SCRIPT.exists():
             raise BitrixTokenExpired(f"Sync-скрипт не найден: {SYNC_SCRIPT}")
         subprocess.run([str(SYNC_SCRIPT)], check=True)
         self._state = self._read_state()
         self._last_sync_at_monotonic = time.monotonic()
-        return
 
     def _read_state(self) -> dict[str, Any]:
         try:
