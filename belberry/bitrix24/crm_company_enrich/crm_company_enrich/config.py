@@ -76,18 +76,20 @@ ENRICH_USER_AGENT = os.environ.get(
 # большинстве порталов = 1; меняется через ENV для прогонов на dev-портале.
 CCE_PRESET_ID = int(os.environ.get("CCE_PRESET_ID", "1"))
 
-# Bizproc-шаблон, запускаемый после успешного crm.requisite.add. Дефолт 8618
-# (belberrycrm portal — «Компания. Обновление реквизитов по ИНН, наполнение
-# информации лида и сделки», doc_type=CCrmDocumentCompany). 5614/7296 стартуют,
-# но не заполняют ОГРН в company-реквизитах для текущего сценария. Переопределяется через
-# ENV для других порталов / disable через явное CCE_BIZPROC_TEMPLATE_ID=0
-# (или любая не-цифра, например "none").
-_bp_raw = os.environ.get("CCE_BIZPROC_TEMPLATE_ID", "").strip()
+# Bizproc-шаблон, запускаемый после успешного crm.requisite.add.
+# На belberrycrm рабочий шаблон обогащения компаний — 5614:
+# «Автозаполнение реквизитов по ИНН». Корректно подтягивает ОГРН/КПП/адрес,
+# НЕ создаёт мусорные контакты-«ответственные лица» с placeholder-фамилией.
+# BP 8618 ранее создавал по 1-2 пустых контакта на каждый apply (зафиксировано
+# 2026-05-16, 50 шт удалено вручную).
+# Можно переопределить через CCE_BIZPROC_TEMPLATE_ID=<id>.
+# Отключить запуск можно через CCE_BIZPROC_TEMPLATE_ID=0 или любую не-цифру.
+_bp_raw = os.environ.get("CCE_BIZPROC_TEMPLATE_ID", "5614").strip()
 if _bp_raw.isdigit():
     _bp_val = int(_bp_raw)
     CCE_BIZPROC_TEMPLATE_ID: int | None = _bp_val if _bp_val > 0 else None
 elif _bp_raw == "":
-    CCE_BIZPROC_TEMPLATE_ID = 8618
+    CCE_BIZPROC_TEMPLATE_ID = 5614
 else:
     CCE_BIZPROC_TEMPLATE_ID = None
 
@@ -98,10 +100,11 @@ CCE_APPLY_SLEEP_S = float(os.environ.get("CCE_APPLY_SLEEP_S", "0.5"))
 # реквизитов (BP подтягивает данные из ЕГРЮЛ — реалистично 5-20 сек).
 CCE_BIZPROC_WAIT_S = int(os.environ.get("CCE_BIZPROC_WAIT_S", "15"))
 
-# Гибридный apply: touch компании (crm.company.update COMMENTS+=" ") перед BP
-# чтобы триггернуть DATE_MODIFY и AUTO_EXECUTE=2 шаблоны. Можно отключить
-# если на портале явный bizproc.workflow.start сам по себе работает.
-CCE_COMPANY_TOUCH = os.environ.get("CCE_COMPANY_TOUCH", "true").lower() in {"1", "true", "yes", "on", "y"}
+# Гибридный apply: touch компании (crm.company.update COMMENTS+=" ") перед BP.
+# По умолчанию выключено: на belberrycrm есть AUTO_EXECUTE=2 шаблон 5938,
+# который при любом изменении компании создаёт пустые контакты с LAST_NAME="!".
+# Включать только вручную через CCE_COMPANY_TOUCH=1 после исправления BP.
+CCE_COMPANY_TOUCH = os.environ.get("CCE_COMPANY_TOUCH", "false").lower() in {"1", "true", "yes", "on", "y"}
 
 
 def _env_bool(name: str, default: bool = False) -> bool:
@@ -126,7 +129,7 @@ CCE_APPLY_CLEANUP_DUPLICATE = _env_bool("CCE_APPLY_CLEANUP_DUPLICATE", default=T
 # Brand auto-set: после успешного crm.requisite.add выставляем UF поле
 # «Бренд проекта» (UF_CRM_1737098476975 — строковое, не enum) на основе
 # эвристики is_medical_company:
-#   True  → "Belberry"     (медицинский сегмент)
+#   True  → "Belberry"     (медорганизация оказывает медуслуги)
 #   False → "Acoola Team"  (всё остальное)
 # Default TRUE. Disable через CCE_APPLY_SET_BRAND=0/false.
 #
@@ -137,3 +140,45 @@ UF_BRAND_FIELD = "UF_CRM_1737098476975"
 UF_BRAND_BELBERRY = "Belberry"
 UF_BRAND_ACOOLA = "Acoola Team"
 CCE_APPLY_SET_BRAND = _env_bool("CCE_APPLY_SET_BRAND", default=True)
+COMPANY_UF_RUSPROFILE_CHECKO_URL = "UF_CRM_RUSPROFILE_CHECKO_URL"  # Ссылка на Rusprofile / Checko
+COMPANY_UF_ORGANIZATION_STATUS = "UF_CRM_ORG_STATUS"  # Статус организации (enum)
+COMPANY_ORGANIZATION_STATUS_ENUM = {
+    "Действующая": "8850",
+    "Ликвидирована": "8852",
+}
+
+# Поля сделки, которые зеркалируются из карточки компании после обогащения.
+# Это отдельная стадия, потому что crm.requisite/BP наполняют company-level
+# данные, а карточка сделки не всегда подтягивает их сама.
+DEAL_UF_SITE_PRIMARY = "UF_CRM_69E8AB2E0715A"      # Сайт клиента 1
+DEAL_UF_SITE_MULTI = "UF_CRM_1776434217"           # Сайт клиента
+DEAL_UF_BRAND_PROJECT = "UF_CRM_1721661506"        # Бренд проекта (enum)
+DEAL_UF_CITY = "UF_CRM_5FB3854A1EDBC"              # Город
+DEAL_UF_INN = "UF_CRM_67B35193A09DE"               # ИНН
+DEAL_UF_REVENUE_TEXT = "UF_CRM_5E79DD26CB010"      # Оборот компании (строка)
+DEAL_UF_REVENUE_MONEY = "UF_CRM_67B35193BAFB4"     # Оборот компании (деньги)
+DEAL_UF_REVENUE_NUMBER = "UF_CRM_1774971054"       # Оборот компании (число)
+DEAL_UF_INDUSTRY = "UF_CRM_6179712C57A4D"          # Сфера деятельности (enum)
+DEAL_UF_RUSPROFILE_URL = "UF_CRM_1772384612740"    # Ссылка на руспрофиль
+
+# Значения enum в сделке.
+DEAL_BRAND_ENUM = {
+    UF_BRAND_BELBERRY: "1000",
+    UF_BRAND_ACOOLA: "1820",
+}
+DEAL_INDUSTRY_ENUM = {
+    "E-commerce": "456",
+    "Медицина": "434",
+    "Туризм, отдых, путешествия": "460",
+    "Услуги для бизнеса": "498",
+    "Другое": "2122",
+}
+
+# Значения стандартного поля компании INDUSTRY.
+COMPANY_INDUSTRY_STATUS = {
+    "E-commerce": "UC_QOXULA",
+    "Медицина": "UC_0M5893",
+    "Туризм, отдых, путешествия": "UC_5ZP2PO",
+    "Услуги для бизнеса": "UC_LEDS72",
+    "Другое": "OTHER",
+}
