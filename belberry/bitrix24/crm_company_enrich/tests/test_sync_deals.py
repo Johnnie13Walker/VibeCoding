@@ -5,10 +5,13 @@ import pytest
 from crm_company_enrich.config import (
     COMPANY_INDUSTRY_STATUS,
     COMPANY_ORGANIZATION_STATUS_ENUM,
+    COMPANY_UF_CITY,
     COMPANY_UF_ORGANIZATION_STATUS,
+    COMPANY_UF_REGION,
     COMPANY_UF_RUSPROFILE_CHECKO_URL,
     DEAL_UF_BRAND_PROJECT,
     DEAL_UF_CITY,
+    DEAL_UF_REGION,
     DEAL_UF_INDUSTRY,
     DEAL_UF_INN,
     DEAL_UF_REVENUE_MONEY,
@@ -131,6 +134,7 @@ def _deal(**overrides) -> dict:
         DEAL_UF_SITE_MULTI: [],
         DEAL_UF_BRAND_PROJECT: "",
         DEAL_UF_CITY: "",
+        DEAL_UF_REGION: "",
         DEAL_UF_INN: "",
         DEAL_UF_REVENUE_TEXT: "",
         DEAL_UF_REVENUE_MONEY: "",
@@ -170,6 +174,66 @@ def test_build_deal_fields_from_company_maps_known_fields():
         organization_status="Действующая",
     )
     assert company_fields[COMPANY_UF_ORGANIZATION_STATUS] == COMPANY_ORGANIZATION_STATUS_ENUM["Действующая"]
+
+
+def test_deal_city_overwritten_when_differs_from_company():
+    desired = sync_deals.build_deal_fields_from_company(_company(**{COMPANY_UF_CITY: "Москва"}))
+    fields, skipped = sync_deals._filter_existing_fields(
+        _deal(**{DEAL_UF_CITY: "Питер"}),
+        desired,
+        overwrite=False,
+    )
+
+    assert fields[DEAL_UF_CITY] == "Москва"
+    assert DEAL_UF_CITY not in skipped
+
+
+def test_deal_region_overwritten_when_differs_from_company():
+    desired = sync_deals.build_deal_fields_from_company(
+        _company(**{COMPANY_UF_REGION: "Московская область"})
+    )
+    fields, skipped = sync_deals._filter_existing_fields(
+        _deal(**{DEAL_UF_REGION: "Ленинградская область"}),
+        desired,
+        overwrite=False,
+    )
+
+    assert fields[DEAL_UF_REGION] == "Московская область"
+    assert DEAL_UF_REGION not in skipped
+
+
+def test_deal_city_unchanged_when_matches_company():
+    desired = sync_deals.build_deal_fields_from_company(_company(**{COMPANY_UF_CITY: "Москва"}))
+    fields, skipped = sync_deals._filter_existing_fields(
+        _deal(**{DEAL_UF_CITY: "Москва"}),
+        desired,
+        overwrite=False,
+    )
+
+    assert DEAL_UF_CITY not in fields
+    assert skipped[DEAL_UF_CITY] == "mandatory_already_synced"
+
+
+def test_deal_region_skipped_when_field_undefined(monkeypatch):
+    monkeypatch.setattr(sync_deals, "DEAL_UF_REGION", None)
+    desired = sync_deals.build_deal_fields_from_company(
+        _company(**{COMPANY_UF_REGION: "Московская область"})
+    )
+
+    assert None not in desired
+    assert "UF_CRM_5E79DD26F08C9" not in desired
+
+
+def test_non_mandatory_field_still_respects_overwrite_off():
+    desired = {DEAL_UF_INN: "5406990573"}
+    fields, skipped = sync_deals._filter_existing_fields(
+        _deal(**{DEAL_UF_INN: "1111111111"}),
+        desired,
+        overwrite=False,
+    )
+
+    assert fields == {}
+    assert skipped[DEAL_UF_INN] == "already_filled"
 
 
 def test_dry_run_does_not_update_deal():

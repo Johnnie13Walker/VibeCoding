@@ -29,6 +29,9 @@ from ..config import (
     CCE_BIZPROC_WAIT_S,
     CCE_COMPANY_TOUCH,
     CCE_PRESET_ID,
+    COMPANY_REGION_ENUM_MAP,
+    COMPANY_UF_CITY,
+    COMPANY_UF_REGION,
     ENTITY_TYPE_COMPANY,
     LOG_PATH,
     SERVICE_ACCOUNT_JSON,
@@ -648,6 +651,13 @@ def run_apply(*, dry_run: bool = True, limit: int | None = None, throttle_s: flo
                 cleanup_deleted = _cleanup_trigger_requisites(bx, row.company_id, inn)
                 row.apply_status = apply_status
                 applied += 1
+                filled_address = _fill_company_address_fields(
+                    bx,
+                    row.company_id,
+                    bx.get_company(row.company_id) or {},
+                )
+                if filled_address:
+                    print(f"[empty-apply] company {row.company_id}: address_fields_filled: {filled_address}")
                 if apply_status == "APPLIED_LIQUIDATED":
                     applied_liquidated += 1
                 by_brand[row.brand_predicted] += 1
@@ -741,6 +751,13 @@ def run_apply(*, dry_run: bool = True, limit: int | None = None, throttle_s: flo
                 cleanup_deleted = _cleanup_trigger_requisites(bx, row.company_id, inn)
                 row.apply_status = apply_status
                 applied += 1
+                filled_address = _fill_company_address_fields(
+                    bx,
+                    row.company_id,
+                    bx.get_company(row.company_id) or {},
+                )
+                if filled_address:
+                    print(f"[empty-apply] company {row.company_id}: address_fields_filled: {filled_address}")
                 if apply_status == "APPLIED_LIQUIDATED":
                     applied_liquidated += 1
                 by_brand[row.brand_predicted] += 1
@@ -1510,6 +1527,55 @@ def _verify_with_retries(bx: BitrixClient, company_id: str) -> tuple[bool, dict 
                 _touch_company(bx, company_id)
             _start_bp_update(bx, company_id)
     return False, None, "BP_FAILED"
+
+
+def _fill_company_address_fields(bx: BitrixClient, company_id: str, company: dict) -> dict[str, Any]:
+    """Заполнить город/область компании из юридического адреса, не затирая ручной ввод."""
+    reg_city = _clean(company.get("REG_ADDRESS_CITY") or company.get("ADDRESS_CITY"))
+    reg_region = _clean(company.get("REG_ADDRESS_REGION") or company.get("ADDRESS_REGION"))
+    updates: dict[str, Any] = {}
+    if COMPANY_UF_CITY and reg_city and not _clean(company.get(COMPANY_UF_CITY)):
+        updates[COMPANY_UF_CITY] = reg_city
+    if COMPANY_UF_REGION and reg_region and not _clean(company.get(COMPANY_UF_REGION)):
+        region_value = (
+            _resolve_region_enum(reg_region, COMPANY_REGION_ENUM_MAP)
+            if COMPANY_REGION_ENUM_MAP
+            else reg_region
+        )
+        if region_value:
+            updates[COMPANY_UF_REGION] = region_value
+    if updates:
+        bx.update_company(company_id, updates)
+    return updates
+
+
+def _resolve_region_enum(raw_region: str, mapping: dict[str, str]) -> str:
+    norm = _normalize_region_key(raw_region)
+    return mapping.get(norm, "")
+
+
+def _normalize_region_key(raw_region: str) -> str:
+    norm = _clean(raw_region).lower()
+    replacements = (
+        ("автономный округ", ""),
+        ("республика", ""),
+        ("область", ""),
+        ("край", ""),
+        ("обл.", ""),
+        ("обл ", ""),
+        ("респ.", ""),
+        ("респ ", ""),
+        ("ао", ""),
+        ("г.", ""),
+        ("город ", ""),
+    )
+    for token, replacement in replacements:
+        norm = norm.replace(token, replacement)
+    return re.sub(r"\s+", " ", norm).strip(" .,-")
+
+
+def _clean(value: Any) -> str:
+    return str(value or "").strip()
 
 
 def _find_verified_requisite(requisites: list[dict]) -> dict | None:

@@ -22,14 +22,19 @@ from typing import Any
 
 from ..bitrix_client import BitrixClient
 from ..config import (
+    COMPANY_REGION_ENUM_MAP,
     COMPANY_UF_RUSPROFILE_CHECKO_URL,
+    COMPANY_UF_CITY,
     COMPANY_UF_ORGANIZATION_STATUS,
+    COMPANY_UF_REGION,
     COMPANY_ORGANIZATION_STATUS_ENUM,
     COMPANY_INDUSTRY_STATUS,
     DEAL_BRAND_ENUM,
+    DEAL_REGION_ENUM_MAP,
     DEAL_INDUSTRY_ENUM,
     DEAL_UF_BRAND_PROJECT,
     DEAL_UF_CITY,
+    DEAL_UF_REGION,
     DEAL_UF_INDUSTRY,
     DEAL_UF_INN,
     DEAL_UF_REVENUE_MONEY,
@@ -38,6 +43,7 @@ from ..config import (
     DEAL_UF_RUSPROFILE_URL,
     DEAL_UF_SITE_MULTI,
     DEAL_UF_SITE_PRIMARY,
+    MANDATORY_DEAL_SYNC_FIELDS,
     TELEMARKETING_ASSIGNEES,
     TELEMARKETING_CATEGORY_ID,
     TELEMARKETING_NEW_STAGE_ID,
@@ -94,6 +100,7 @@ DEAL_SELECT = [
     DEAL_UF_SITE_MULTI,
     DEAL_UF_BRAND_PROJECT,
     DEAL_UF_CITY,
+    DEAL_UF_REGION,
     DEAL_UF_INN,
     DEAL_UF_REVENUE_TEXT,
     DEAL_UF_REVENUE_MONEY,
@@ -544,7 +551,8 @@ def build_deal_fields_from_company(
     site_primary = _verified_site_from_company(company, _clean(company.get("UF_CRM_1735331882180"))).site
     sites = _site_values(company, site_primary)
     inn = _clean(company.get("UF_CRM_1735331882180"))
-    city = _clean(company.get("UF_CRM_1584876724") or company.get("ADDRESS_CITY") or company.get("REG_ADDRESS_CITY"))
+    city = _clean(company.get(COMPANY_UF_CITY) or company.get("REG_ADDRESS_CITY") or company.get("ADDRESS_CITY"))
+    region = _company_region_for_deal(company)
     revenue = _clean(
         company.get("UF_CRM_1737098549301")
         or company.get("UF_CRM_1584876707")
@@ -561,6 +569,8 @@ def build_deal_fields_from_company(
         out[DEAL_UF_RUSPROFILE_URL] = _rusprofile_url(inn)
     if city:
         out[DEAL_UF_CITY] = city
+    if DEAL_UF_REGION and region:
+        out[DEAL_UF_REGION] = region
     if revenue and revenue != "0":
         out[DEAL_UF_REVENUE_TEXT] = revenue
         out[DEAL_UF_REVENUE_NUMBER] = _number_or_string(revenue)
@@ -598,6 +608,43 @@ def build_company_fields_from_company(
     if organization_status_id:
         out[COMPANY_UF_ORGANIZATION_STATUS] = organization_status_id
     return out
+
+
+def _company_region_for_deal(company: dict[str, Any]) -> str:
+    company_region = _clean(company.get(COMPANY_UF_REGION))
+    if company_region:
+        return company_region
+    raw_region = _clean(company.get("REG_ADDRESS_REGION") or company.get("ADDRESS_REGION"))
+    if not raw_region:
+        return ""
+    if DEAL_REGION_ENUM_MAP:
+        return _resolve_region_enum(raw_region, DEAL_REGION_ENUM_MAP)
+    if COMPANY_REGION_ENUM_MAP and DEAL_UF_REGION == COMPANY_UF_REGION:
+        return _resolve_region_enum(raw_region, COMPANY_REGION_ENUM_MAP)
+    return raw_region
+
+
+def _resolve_region_enum(raw_region: str, mapping: dict[str, str]) -> str:
+    return mapping.get(_normalize_region_key(raw_region), "")
+
+
+def _normalize_region_key(raw_region: str) -> str:
+    norm = _clean(raw_region).lower()
+    for token in (
+        "автономный округ",
+        "республика",
+        "область",
+        "край",
+        "обл.",
+        "обл ",
+        "респ.",
+        "респ ",
+        "ао",
+        "г.",
+        "город ",
+    ):
+        norm = norm.replace(token, "")
+    return re.sub(r"\s+", " ", norm).strip(" .,-")
 
 
 def _deal_brand_from_company(company: dict[str, Any]) -> str:
@@ -656,6 +703,12 @@ def _filter_existing_fields(
         if _is_empty(value):
             continue
         current = deal.get(key)
+        if key in MANDATORY_DEAL_SYNC_FIELDS:
+            if not _same_value(current, value):
+                fields[key] = value
+            else:
+                skipped[key] = "mandatory_already_synced"
+            continue
         if not overwrite and not _is_empty(current):
             skipped[key] = "already_filled"
             continue
