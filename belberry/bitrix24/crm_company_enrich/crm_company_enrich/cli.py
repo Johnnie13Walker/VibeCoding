@@ -213,6 +213,19 @@ def cmd_auto_reject_telemarketing(args: argparse.Namespace) -> int:
     return 0 if not summary.get("failed") else 1
 
 
+def cmd_telemarketing_dedupe(args: argparse.Namespace) -> int:
+    from .stages import telemarketing_dedupe
+    bx, _ = _make_clients()
+    summary = telemarketing_dedupe.run(
+        bx,
+        dry_run=not args.live,
+        limit=args.limit,
+        rotation_index=args.rotation_index,
+    )
+    print(json.dumps(summary, indent=2, ensure_ascii=False))
+    return 0 if not summary.get("unresolved") else 1
+
+
 def cmd_empty_discover(args: argparse.Namespace) -> int:
     from .stages import enrich_empty_companies
     summary = enrich_empty_companies.run_discover(limit=args.limit)
@@ -434,6 +447,27 @@ def main() -> None:
         help="Конкретные стадии для скана (по умолчанию UC_1S1KIU,NEW)",
     )
     sp.set_defaults(func=cmd_auto_reject_telemarketing)
+
+    sp = sub.add_parser(
+        "telemarketing-dedupe",
+        help=(
+            "WRITE: объединить дубли сделок в воронке телемаркетинга. "
+            "По умолчанию dry-run; --live для записи в Bitrix."
+        ),
+    )
+    sp.add_argument("--live", action="store_true")
+    sp.add_argument(
+        "--limit",
+        type=int,
+        help="Ограничить число компаний (не сделок) для обработки",
+    )
+    sp.add_argument(
+        "--rotation-index",
+        type=int,
+        default=0,
+        help="Стартовый индекс ротации для переназначения winner с уволенного",
+    )
+    sp.set_defaults(func=cmd_telemarketing_dedupe)
 
     sp = sub.add_parser(
         "empty-discover",

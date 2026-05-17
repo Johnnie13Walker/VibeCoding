@@ -130,6 +130,13 @@ class SheetsClient:
             if "properties" in sheet and "title" in sheet["properties"]
         ]
 
+    def get_sheet_title_by_id(self, sheet_id: int) -> str | None:
+        for sheet in self._get_sheets():
+            properties = sheet.get("properties", {})
+            if int(properties.get("sheetId", -1)) == int(sheet_id):
+                return str(properties.get("title") or "")
+        return None
+
     def _get_sheets(self) -> list[dict[str, Any]]:
         request = self.service.spreadsheets().get(
             spreadsheetId=self.sheet_id,

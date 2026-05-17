@@ -119,6 +119,24 @@ class BitrixClient:
                     merged.update(result)
         return merged
 
+    def list_active_users(self) -> set[str]:
+        """Множество ID активных пользователей Bitrix."""
+        ids: set[str] = set()
+        start: int | str = 0
+        while True:
+            body = self.call("user.get", {"ACTIVE": "true", "start": start})
+            result = body.get("result") or []
+            for user in result:
+                if not isinstance(user, dict):
+                    continue
+                if str(user.get("ACTIVE")).lower() in {"true", "1", "y", "yes"}:
+                    ids.add(str(user.get("ID")))
+            nxt = body.get("next")
+            if nxt is None:
+                break
+            start = nxt
+        return ids
+
     # ------------------------------ companies ------------------------------
 
     DEFAULT_COMPANY_SELECT = [
@@ -261,6 +279,25 @@ class BitrixClient:
         body = self.call("crm.deal.contact.items.get", {"id": deal_id})
         result = body.get("result")
         return result if isinstance(result, list) else []
+
+    def list_deal_activities(self, deal_id: str) -> list[dict]:
+        """Активности (звонки, встречи, задачи) по сделке. OWNER_TYPE_ID=2 — deal."""
+        return list(
+            self.paginate(
+                "crm.activity.list",
+                {
+                    "filter": {"OWNER_TYPE_ID": 2, "OWNER_ID": int(deal_id)},
+                    "select": [
+                        "ID",
+                        "TYPE_ID",
+                        "SUBJECT",
+                        "CREATED",
+                        "COMPLETED",
+                        "RESPONSIBLE_ID",
+                    ],
+                },
+            )
+        )
 
     def add_deal_contact(self, deal_id: str, contact_id: str) -> bool:
         """Привязать существующий контакт к сделке."""
