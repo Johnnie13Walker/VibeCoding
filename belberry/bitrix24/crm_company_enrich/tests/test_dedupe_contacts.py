@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import csv
+
 from crm_company_enrich.stages import dedupe_contacts
 
 
@@ -127,3 +129,229 @@ def test_merge_keeps_placeholder_deal_binding(monkeypatch):
     assert bx.removed_deal_contacts == [("24318", "75774")]
     assert bx.removed_company_contacts == [("75774", "17658")]
     assert bx.deleted_contacts == ["75774"]
+
+
+class FakeBitrixForRun:
+    def __init__(
+        self,
+        *,
+        contacts: list[dict],
+        contact_deals: dict[str, list[dict]] | None = None,
+        deal_contacts: dict[str, list[dict]] | None = None,
+        company_deals: list[dict] | None = None,
+    ):
+        self.contacts = contacts
+        self.contact_deals = contact_deals or {}
+        self.deal_contacts = deal_contacts or {}
+        self.company_deals = company_deals or []
+        self.added_deal_contacts: list[tuple[str, str]] = []
+        self.removed_deal_contacts: list[tuple[str, str]] = []
+        self.removed_company_contacts: list[tuple[str, str]] = []
+        self.deleted_contacts: list[str] = []
+        self.updated_contacts: list[tuple[str, dict]] = []
+        self.timeline_comments: list[dict] = []
+
+    def list_company_contacts_full(self, company_id):
+        return list(self.contacts)
+
+    def list_contact_deals(self, contact_id):
+        return list(self.contact_deals.get(str(contact_id), []))
+
+    def list_contact_companies(self, contact_id):
+        return ["100"]
+
+    def list_company_deals(self, company_id):
+        return list(self.company_deals)
+
+    def get_company_contacts(self, company_id):
+        return [str(c["ID"]) for c in self.contacts]
+
+    def get_contact(self, contact_id):
+        for contact in self.contacts:
+            if str(contact["ID"]) == str(contact_id):
+                return contact
+        return None
+
+    def list_deal_contacts(self, deal_id):
+        return list(self.deal_contacts.get(str(deal_id), []))
+
+    def add_deal_contact(self, deal_id, contact_id):
+        self.added_deal_contacts.append((str(deal_id), str(contact_id)))
+        self.deal_contacts.setdefault(str(deal_id), []).append({"CONTACT_ID": str(contact_id)})
+        return True
+
+    def remove_deal_contact_relation(self, deal_id, contact_id):
+        self.removed_deal_contacts.append((str(deal_id), str(contact_id)))
+        current = self.deal_contacts.get(str(deal_id), [])
+        self.deal_contacts[str(deal_id)] = [
+            item for item in current
+            if str(item.get("CONTACT_ID") or item.get("ID")) != str(contact_id)
+        ]
+        return True
+
+    def remove_contact_company_relation(self, contact_id, company_id):
+        self.removed_company_contacts.append((str(contact_id), str(company_id)))
+        return True
+
+    def delete_contact(self, contact_id):
+        self.deleted_contacts.append(str(contact_id))
+        return True
+
+    def update_contact(self, contact_id, fields):
+        self.updated_contacts.append((str(contact_id), dict(fields)))
+        return True
+
+    def add_timeline_comment(self, *, owner_type_id, owner_id, text):
+        self.timeline_comments.append(
+            {"owner_type_id": owner_type_id, "owner_id": str(owner_id), "text": text}
+        )
+        return "timeline-1"
+
+
+def _placeholder_pair_with_extra_reals():
+    return [
+        _contact("1", LAST_NAME="!", NAME="Пенаев Арслан Агаевич"),
+        _contact("2", LAST_NAME="", NAME="Пенаев Арслан Агаевич"),
+        _contact("3", LAST_NAME="Сергей", NAME="Сергей"),
+        _contact("4", LAST_NAME="Юмудов", NAME="Мекан"),
+        _contact("5", LAST_NAME="Пенаева", NAME="Сельби"),
+    ]
+
+
+def _open_c50_deal(deal_id="22790"):
+    return {"ID": deal_id, "CATEGORY_ID": "50", "STAGE_ID": "C50:NEW", "CLOSED": "N"}
+
+
+def test_attach_unrelated_default_is_false(tmp_path, monkeypatch):
+    monkeypatch.setattr(dedupe_contacts, "AUDIT_CSV_PATH", tmp_path / "audit.csv")
+    bx = FakeBitrixForRun(
+        contacts=_placeholder_pair_with_extra_reals(),
+        contact_deals={"1": [{"ID": "22790"}]},
+        deal_contacts={"22790": [{"CONTACT_ID": "1"}, {"CONTACT_ID": "2"}]},
+        company_deals=[_open_c50_deal()],
+    )
+
+    summary = dedupe_contacts.run_company(bx, company_id="100", dry_run=True)
+
+    outcome = summary["outcomes"][0]
+    assert outcome["winner_contact_id"] == "2"
+    assert outcome["deals_with_added_contacts"] == {}
+    assert "3" not in str(outcome["deals_with_added_contacts"])
+    assert "4" not in str(outcome["deals_with_added_contacts"])
+    assert "5" not in str(outcome["deals_with_added_contacts"])
+
+
+def test_attach_unrelated_true_legacy_behavior(tmp_path, monkeypatch):
+    monkeypatch.setattr(dedupe_contacts, "AUDIT_CSV_PATH", tmp_path / "audit.csv")
+    bx = FakeBitrixForRun(
+        contacts=_placeholder_pair_with_extra_reals(),
+        contact_deals={"1": [{"ID": "22790"}]},
+        deal_contacts={"22790": [{"CONTACT_ID": "1"}, {"CONTACT_ID": "2"}]},
+        company_deals=[_open_c50_deal()],
+    )
+
+    summary = dedupe_contacts.run_company(
+        bx,
+        company_id="100",
+        dry_run=True,
+        attach_unrelated_company_contacts=True,
+    )
+
+    assert summary["outcomes"][0]["deals_with_added_contacts"] == {
+        "22790": ["3", "4", "5"]
+    }
+
+
+def test_attach_unrelated_false_with_multiple_reals(tmp_path, monkeypatch):
+    monkeypatch.setattr(dedupe_contacts, "AUDIT_CSV_PATH", tmp_path / "audit.csv")
+    bx = FakeBitrixForRun(
+        contacts=_placeholder_pair_with_extra_reals(),
+        contact_deals={"1": [{"ID": "22790"}]},
+        deal_contacts={"22790": [{"CONTACT_ID": "2"}]},
+        company_deals=[_open_c50_deal()],
+    )
+
+    summary = dedupe_contacts.run_company(bx, company_id="100", dry_run=True)
+
+    added = summary["outcomes"][0]["deals_with_added_contacts"]
+    assert added in ({}, {"22790": ["2"]})
+    assert "3" not in str(added)
+    assert "4" not in str(added)
+    assert "5" not in str(added)
+
+
+def test_audit_csv_row_written_on_dry_run(tmp_path, monkeypatch):
+    audit_path = tmp_path / "dedupe_contacts.csv"
+    monkeypatch.setattr(dedupe_contacts, "AUDIT_CSV_PATH", audit_path)
+    bx = FakeBitrixForRun(
+        contacts=[
+            _contact("1", LAST_NAME="!", NAME="Иванов Иван"),
+            _contact("2", LAST_NAME="Иванов", NAME="Иван"),
+        ],
+    )
+
+    dedupe_contacts.run_company(bx, company_id="100", dry_run=True)
+
+    rows = list(csv.DictReader(audit_path.open(encoding="utf-8")))
+    assert rows[-1]["dry_run"] == "true"
+    assert rows[-1]["status"] == "DRY_RUN"
+    assert rows[-1]["source"] == "placeholder_dedup"
+
+
+def test_audit_csv_row_written_on_success(tmp_path, monkeypatch):
+    audit_path = tmp_path / "dedupe_contacts.csv"
+    monkeypatch.setattr(dedupe_contacts, "AUDIT_CSV_PATH", audit_path)
+    monkeypatch.setattr(dedupe_contacts, "_backup_contact", lambda *a, **k: "")
+    bx = FakeBitrixForRun(
+        contacts=[
+            _contact("1", LAST_NAME="!", NAME="Иванов Иван"),
+            _contact("2", LAST_NAME="Иванов", NAME="Иван"),
+        ],
+    )
+
+    dedupe_contacts.run_company(bx, company_id="100", dry_run=False)
+
+    rows = list(csv.DictReader(audit_path.open(encoding="utf-8")))
+    assert rows[-1]["dry_run"] == "false"
+    assert rows[-1]["status"] == "SUCCESS"
+    assert rows[-1]["winner_contact_id"] == "2"
+
+
+def test_timeline_comment_on_deal_when_loser_transferred(tmp_path, monkeypatch):
+    monkeypatch.setattr(dedupe_contacts, "AUDIT_CSV_PATH", tmp_path / "audit.csv")
+    monkeypatch.setattr(dedupe_contacts, "_backup_contact", lambda *a, **k: "")
+    bx = FakeBitrixForRun(
+        contacts=[
+            _contact("1", LAST_NAME="!", NAME="Иванов Иван"),
+            _contact("2", LAST_NAME="Иванов", NAME="Иван"),
+        ],
+        contact_deals={"1": [{"ID": "22790"}]},
+        deal_contacts={"22790": [{"CONTACT_ID": "1"}]},
+    )
+
+    dedupe_contacts.run_company(bx, company_id="100", dry_run=False)
+
+    assert bx.added_deal_contacts == [("22790", "2")]
+    assert len(bx.timeline_comments) == 1
+    comment = bx.timeline_comments[0]
+    assert comment["owner_type_id"] == 2
+    assert comment["owner_id"] == "22790"
+    assert "[dedupe] Слит placeholder-контакт 1 в 2" in comment["text"]
+
+
+def test_no_timeline_comment_when_winner_already_attached(tmp_path, monkeypatch):
+    monkeypatch.setattr(dedupe_contacts, "AUDIT_CSV_PATH", tmp_path / "audit.csv")
+    monkeypatch.setattr(dedupe_contacts, "_backup_contact", lambda *a, **k: "")
+    bx = FakeBitrixForRun(
+        contacts=[
+            _contact("1", LAST_NAME="!", NAME="Иванов Иван"),
+            _contact("2", LAST_NAME="Иванов", NAME="Иван"),
+        ],
+        contact_deals={"1": [{"ID": "22790"}]},
+        deal_contacts={"22790": [{"CONTACT_ID": "1"}, {"CONTACT_ID": "2"}]},
+    )
+
+    dedupe_contacts.run_company(bx, company_id="100", dry_run=False)
+
+    assert bx.added_deal_contacts == []
+    assert bx.timeline_comments == []
