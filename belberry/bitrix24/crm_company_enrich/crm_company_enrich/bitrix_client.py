@@ -401,6 +401,16 @@ class BitrixClient:
             },
         )
 
+    def add_contact_company_relation(self, contact_id: str, company_id: str) -> bool:
+        """Привязать существующий контакт к компании."""
+        return self._bool_result(
+            "crm.contact.company.add",
+            {
+                "id": int(contact_id),
+                "fields": {"COMPANY_ID": int(company_id)},
+            },
+        )
+
     # ------------------------------ requisites ------------------------------
 
     def list_requisites(

@@ -44,6 +44,7 @@ from ..config import (
     DEAL_UF_RUSPROFILE_URL,
     DEAL_UF_SITE_MULTI,
     DEAL_UF_SITE_PRIMARY,
+    HOLD_MARKER_FLAG_FIELD,
     MANDATORY_DEAL_SYNC_FIELDS,
     TELEMARKETING_ASSIGNEES,
     TELEMARKETING_CATEGORY_ID,
@@ -68,6 +69,7 @@ class SyncOutcome:
     company_fields: dict[str, Any] | None = None
     company_skipped: dict[str, str] | None = None
     contacts_added: list[str] | None = None
+    company_contacts_added: list[str] | None = None
     contacts_skipped: dict[str, str] | None = None
     contact_communications: dict[str, dict[str, Any]] | None = None
     error: str = ""
@@ -285,6 +287,8 @@ def run(
     company_dry = 0
     contacts_added = 0
     contacts_dry = 0
+    company_contacts_added = 0
+    company_contacts_dry = 0
     contact_communications_updated = 0
     contact_communications_dry = 0
     processed_company_ids: set[str] = set()
@@ -336,19 +340,22 @@ def run(
             contacts_to_add=contacts_to_add,
         )
         contact_communications = _contact_communication_updates(bx, company, contact_ids)
+        company_contacts_to_add, company_contact_skipped = _missing_company_contacts(bx, cid, did)
+        contacts_skipped.update(company_contact_skipped)
 
-        if not fields and not company_fields and not contacts_to_add and not contact_communications:
-            outcomes.append(SyncOutcome(did, cid, "NOOP", {}, skipped, {}, company_skipped, [], contacts_skipped, {}))
+        if not fields and not company_fields and not contacts_to_add and not company_contacts_to_add and not contact_communications:
+            outcomes.append(SyncOutcome(did, cid, "NOOP", {}, skipped, {}, company_skipped, [], [], contacts_skipped, {}))
             noop += 1
             continue
 
         if dry_run:
-            outcomes.append(SyncOutcome(did, cid, "DRY_RUN", fields, skipped, company_fields, company_skipped, contacts_to_add, contacts_skipped, contact_communications))
+            outcomes.append(SyncOutcome(did, cid, "DRY_RUN", fields, skipped, company_fields, company_skipped, contacts_to_add, company_contacts_to_add, contacts_skipped, contact_communications))
             if fields:
                 dry += 1
             if company_fields:
                 company_dry += 1
             contacts_dry += len(contacts_to_add)
+            company_contacts_dry += len(company_contacts_to_add)
             contact_communications_dry += len(contact_communications)
             continue
 
@@ -362,18 +369,23 @@ def run(
             for contact_id in contacts_to_add:
                 if bx.add_deal_contact(did, contact_id):
                     added_now.append(contact_id)
+            company_added_now = []
+            for contact_id in company_contacts_to_add:
+                if bx.add_contact_company_relation(contact_id, cid):
+                    company_added_now.append(contact_id)
             updated_contact_communications = {}
             for contact_id, contact_fields in contact_communications.items():
                 if bx.update_contact(contact_id, contact_fields):
                     updated_contact_communications[contact_id] = contact_fields
         except Exception as exc:  # noqa: BLE001
-            outcomes.append(SyncOutcome(did, cid, "FAILED", fields, skipped, company_fields, company_skipped, contacts_to_add, contacts_skipped, contact_communications, str(exc)[:300]))
+            outcomes.append(SyncOutcome(did, cid, "FAILED", fields, skipped, company_fields, company_skipped, contacts_to_add, company_contacts_to_add, contacts_skipped, contact_communications, str(exc)[:300]))
             failed += 1
             continue
 
         contacts_added += len(added_now)
+        company_contacts_added += len(company_added_now)
         contact_communications_updated += len(updated_contact_communications)
-        outcomes.append(SyncOutcome(did, cid, "UPDATED", fields, skipped, company_fields, company_skipped, added_now, contacts_skipped, updated_contact_communications))
+        outcomes.append(SyncOutcome(did, cid, "UPDATED", fields, skipped, company_fields, company_skipped, added_now, company_added_now, contacts_skipped, updated_contact_communications))
         if fields:
             updated += 1
 
@@ -391,6 +403,8 @@ def run(
         "company_dry_run_updates": company_dry,
         "contacts_added": contacts_added,
         "contacts_dry_run_adds": contacts_dry,
+        "company_contacts_added": company_contacts_added,
+        "company_contacts_dry_run_adds": company_contacts_dry,
         "contact_communications_updated": contact_communications_updated,
         "contact_communications_dry_run_updates": contact_communications_dry,
         "failed": failed,
@@ -451,6 +465,13 @@ def build_telemarketing_existing_deal_fields(
     - отказная сделка на другом ответственном возвращается по ротации;
     - неотказная сделка не переназначается, но фиксируются воронка/источник.
     """
+    if _is_auto_rejected_deal(deal):
+        return {}, {
+            "STAGE_ID": "auto_reject_closed",
+            "CLOSED": "auto_reject_closed",
+            "ASSIGNED_BY_ID": "auto_reject_closed",
+        }
+
     fields: dict[str, Any] = {
         "CATEGORY_ID": TELEMARKETING_CATEGORY_ID,
         "STAGE_ID": TELEMARKETING_NEW_STAGE_ID,
@@ -471,6 +492,12 @@ def build_telemarketing_existing_deal_fields(
         if current_stage == TELEMARKETING_NEW_STAGE_ID:
             skipped["STAGE_ID"] = "already_in_work"
     return fields, skipped
+
+
+def _is_auto_rejected_deal(deal: dict[str, Any]) -> bool:
+    marker = deal.get(HOLD_MARKER_FLAG_FIELD)
+    marker_set = marker is True or str(marker or "").strip().upper() in {"1", "Y", "TRUE"}
+    return marker_set and str(deal.get("CLOSED") or "").strip().upper() == "Y"
 
 
 def telemarketing_assignee_for_refusal(
@@ -553,6 +580,31 @@ def _missing_deal_contacts(bx: BitrixClient, company_id: str, deal_id: str) -> t
             if has_real_alternative:
                 skipped[contact_id] = "placeholder_has_real_contact"
                 continue
+        missing.append(contact_id)
+    return missing, skipped
+
+
+def _missing_company_contacts(bx: BitrixClient, company_id: str, deal_id: str) -> tuple[list[str], dict[str, str]]:
+    """Найти контакты сделки, которые надо привязать к компании."""
+    if not hasattr(bx, "add_contact_company_relation"):
+        return [], {"company_contact_relation": "unsupported"}
+    company_contacts = {str(cid) for cid in bx.get_company_contacts(company_id) if str(cid).strip()}
+    deal_contacts = [
+        str(item.get("CONTACT_ID") or item.get("ID") or "")
+        for item in bx.list_deal_contacts(deal_id)
+        if str(item.get("CONTACT_ID") or item.get("ID") or "").strip()
+    ]
+    missing: list[str] = []
+    skipped: dict[str, str] = {}
+    for contact_id in deal_contacts:
+        if contact_id in company_contacts:
+            skipped[f"company_contact:{contact_id}"] = "already_linked"
+            continue
+        contact = bx.get_contact(contact_id) or {}
+        contact_company_id = _clean(contact.get("COMPANY_ID"))
+        if contact_company_id and contact_company_id not in {"0", company_id}:
+            skipped[f"company_contact:{contact_id}"] = f"other_primary_company:{contact_company_id}"
+            continue
         missing.append(contact_id)
     return missing, skipped
 
@@ -857,6 +909,9 @@ def _filter_existing_fields(
             else:
                 skipped[key] = "mandatory_already_synced"
             continue
+        if _can_refine_placeholder_field(key, current, value):
+            fields[key] = value
+            continue
         if not overwrite and not _is_empty(current):
             skipped[key] = "already_filled"
             continue
@@ -865,6 +920,18 @@ def _filter_existing_fields(
             continue
         fields[key] = value
     return fields, skipped
+
+
+def _can_refine_placeholder_field(key: str, current: Any, desired: Any) -> bool:
+    """Разрешить замену общего placeholder-значения на более точную классификацию."""
+    if key == "INDUSTRY":
+        return _same_value(current, COMPANY_INDUSTRY_STATUS["Другое"]) and not _same_value(
+            desired,
+            COMPANY_INDUSTRY_STATUS["Другое"],
+        )
+    if key == DEAL_UF_INDUSTRY:
+        return _clean(current) in {"2122", "604"} and _clean(desired) not in {"2122", "604"}
+    return False
 
 
 def _allow_dead_site_replacement(
@@ -908,20 +975,27 @@ def _industry_from_company(company: dict[str, Any]) -> str:
         _clean(company.get(k))
         for k in (
             "UF_CRM_1737100327954",
-            "INDUSTRY",
             "TITLE",
             "UF_CRM_1737098414068",
             "UF_CRM_1737098422264",
         )
     )
-    return _industry_from_text(text)
+    parsed = _industry_from_text(text)
+    if parsed:
+        return parsed
+
+    industry_value = _clean(company.get("INDUSTRY"))
+    for label, enum_id in COMPANY_INDUSTRY_STATUS.items():
+        if industry_value == enum_id:
+            return label
+    return ""
 
 
 def _industry_from_text(text: str, *, fallback_other: bool = False) -> str:
     text = _clean(text).lower()
     if any(s in text for s in ("47.", "рознич", "магазин", "интернет-магаз", "e-commerce", "маркетплейс")):
         return "E-commerce"
-    if any(s in text for s in ("86.", "клиник", "медицин", "стомат", "дент")):
+    if any(s in text for s in ("86.", "клиник", "медицин", "медцентр", "медико", "стомат", "дент", "доктор", "doctor", "врач")):
         return "Медицина"
     if any(s in text for s in ("туризм", "турист", "турагент", "туроператор", "путешеств", "отдых")):
         return "Туризм, отдых, путешествия"
@@ -1210,6 +1284,22 @@ def _parse_organization_status(html: str) -> str:
     text = re.sub(r"<[^>]+>", " ", html)
     text = re.sub(r"\s+", " ", text).lower()
     if any(marker in text for marker in (
+        "ликвидированная организация",
+        "организация ликвидирована",
+        "статус ликвидировано",
+        "статус: ликвидировано",
+        "прекратила деятельность",
+        "прекращение деятельности",
+        "есть решение фнс о ликвидации",
+        "решение фнс о ликвидации",
+        "в стадии банкротства",
+        "признано несостоятельным",
+        "признана несостоятельным",
+        "конкурсное производство",
+        "конкурсный управляющий",
+    )):
+        return "Ликвидирована"
+    if any(marker in text for marker in (
         "действующая организация",
         "действующее юридическое лицо",
         "статус действующее",
@@ -1218,15 +1308,6 @@ def _parse_organization_status(html: str) -> str:
         "действует с",
     )):
         return "Действующая"
-    if any(marker in text for marker in (
-        "ликвидированная организация",
-        "организация ликвидирована",
-        "статус ликвидировано",
-        "статус: ликвидировано",
-        "прекратила деятельность",
-        "прекращение деятельности",
-    )):
-        return "Ликвидирована"
     return ""
 
 
