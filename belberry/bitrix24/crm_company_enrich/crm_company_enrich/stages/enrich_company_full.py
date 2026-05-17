@@ -154,7 +154,7 @@ def run(
     ]
 
     for step_name, handler in steps:
-        if outcome.final_status in {"FAILED", "REJECTED"} and step_name not in {"WRITE_AUDIT", "RETURN_OUTCOME"}:
+        if outcome.final_status in {"FAILED", "REJECTED", "SKIPPED"} and step_name not in {"WRITE_AUDIT", "RETURN_OUTCOME"}:
             continue
         if step_name == "WRITE_AUDIT" and not outcome.final_status:
             statuses = {step.status for step in outcome.steps}
@@ -421,6 +421,13 @@ def _step_resolve_deal(bx: BitrixClient, outcome: FullEnrichmentOutcome, context
 def _step_create_deal(bx: BitrixClient, outcome: FullEnrichmentOutcome, context: dict[str, Any], flags: dict[str, Any]) -> StepOutcome:
     if context.get("deal_action") != "create":
         return StepOutcome("CREATE_DEAL", "SKIPPED", {"reason": "not_needed"})
+    company = context.get("company") or bx.get_company(outcome.company_id) or {}
+    site = _primary_site(company)
+    if not site:
+        outcome.flags.append("no_site_skipped")
+        outcome.final_status = "SKIPPED"
+        context["deal_action"] = "skip"
+        return StepOutcome("CREATE_DEAL", "SKIPPED", {"reason": "no_site_skipped"})
     rotation_index = _read_persistent_rotation_index()
     assignee = TELEMARKETING_ASSIGNEES[rotation_index % len(TELEMARKETING_ASSIGNEES)][0]
     fields = _new_deal_fields(bx, outcome.company_id, assignee)
