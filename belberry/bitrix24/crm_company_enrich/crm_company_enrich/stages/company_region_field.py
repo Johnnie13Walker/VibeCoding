@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -165,10 +166,15 @@ def _field_payload(existing: dict | None = None) -> dict[str, Any]:
 def _enum_payload(existing: dict | None = None) -> list[dict[str, Any]]:
     existing_by_xml = _existing_enum_by_xml_id(existing)
     existing_by_value = _existing_enum_by_value(existing)
+    existing_by_normalized_value = _existing_enum_by_normalized_value(existing)
     items: list[dict[str, Any]] = []
     for index, value in enumerate(REGION_RF_VALUES, start=1):
         xml_id = _enum_xml_id(value)
-        existing_item = existing_by_xml.get(xml_id) or existing_by_value.get(value)
+        existing_item = (
+            existing_by_xml.get(xml_id)
+            or existing_by_value.get(value)
+            or existing_by_normalized_value.get(_normalize_region_key(value))
+        )
         item = {
             "VALUE": value,
             "SORT": index * 10,
@@ -218,6 +224,37 @@ def _existing_enum_by_value(field: dict | None) -> dict[str, dict]:
         if value:
             out[value] = item
     return out
+
+
+def _existing_enum_by_normalized_value(field: dict | None) -> dict[str, dict]:
+    out: dict[str, dict] = {}
+    for item in _enum_items(field):
+        value = str(item.get("VALUE") or "").strip()
+        if value:
+            out[_normalize_region_key(value)] = item
+    return out
+
+
+def _normalize_region_key(raw_region: str) -> str:
+    norm = str(raw_region or "").strip().lower()
+    norm = re.sub(r"\([^)]*\)", "", norm)
+    norm = re.split(r"\s+[—-]\s+", norm, maxsplit=1)[0]
+    for token in (
+        "автономный округ",
+        "народная",
+        "республика",
+        "область",
+        "край",
+        "обл.",
+        "обл ",
+        "респ.",
+        "респ ",
+        "ао",
+        "г.",
+        "город ",
+    ):
+        norm = norm.replace(token, "")
+    return re.sub(r"\s+", " ", norm).strip(" .,-")
 
 
 def _labels_are_current(field: dict) -> bool:

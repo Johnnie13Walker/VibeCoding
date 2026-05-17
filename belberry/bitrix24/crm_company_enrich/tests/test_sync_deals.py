@@ -204,7 +204,7 @@ def test_deal_region_overwritten_when_differs_from_company():
 
 def test_deal_region_string_gets_label_from_company_region_enum_id():
     fields = sync_deals.build_deal_fields_from_company(
-        _company(**{COMPANY_UF_REGION: "9008"})
+        _company(**{COMPANY_UF_REGION: "9234"})
     )
 
     assert fields[DEAL_UF_REGION] == "Москва"

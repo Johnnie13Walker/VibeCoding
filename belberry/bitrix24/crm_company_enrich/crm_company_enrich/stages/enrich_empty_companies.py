@@ -1556,8 +1556,11 @@ def _resolve_region_enum(raw_region: str, mapping: dict[str, str]) -> str:
 
 def _normalize_region_key(raw_region: str) -> str:
     norm = _clean(raw_region).lower()
+    norm = re.sub(r"\([^)]*\)", "", norm)
+    norm = re.split(r"\s+[—-]\s+", norm, maxsplit=1)[0]
     replacements = (
         ("автономный округ", ""),
+        ("народная", ""),
         ("республика", ""),
         ("область", ""),
         ("край", ""),

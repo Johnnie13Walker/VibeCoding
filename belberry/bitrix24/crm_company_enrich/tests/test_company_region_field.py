@@ -67,6 +67,10 @@ def test_region_values_are_sorted_and_include_federal_cities():
     assert "Севастополь" in REGION_RF_VALUES
 
 
+def test_region_values_count_matches_business_list():
+    assert len(REGION_RF_VALUES) == 89
+
+
 def test_dry_run_creates_enumeration_payload_without_writes():
     bx = FakeBitrix()
 

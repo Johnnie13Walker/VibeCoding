@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from crm_company_enrich.config import COMPANY_UF_CITY, COMPANY_UF_REGION
+from crm_company_enrich.config import COMPANY_REGION_ENUM_MAP, COMPANY_UF_CITY, COMPANY_UF_REGION
+from crm_company_enrich.region_rf_config import REGION_RF_VALUES
 from crm_company_enrich.stages import enrich_empty_companies as stage
 
 
@@ -54,6 +55,32 @@ def test_region_enum_normalization_handles_obl_oblast_resp():
     assert stage._resolve_region_enum("Московская область", mapping) == "55"
     assert stage._resolve_region_enum("Респ. Татарстан", mapping) == "60"
     assert stage._resolve_region_enum("Краснодарский край", mapping) == "70"
+
+
+def test_region_normalization_handles_republic_prefix_and_brackets():
+    assert stage._resolve_region_enum("Республика Саха (Якутия)", COMPANY_REGION_ENUM_MAP) == "9286"
+
+
+def test_region_normalization_handles_em_dash_suffix():
+    assert stage._resolve_region_enum("Кемеровская область — Кузбасс", COMPANY_REGION_ENUM_MAP) == "9212"
+
+
+def test_region_normalization_handles_avtonomny_okrug():
+    assert (
+        stage._resolve_region_enum(
+            "Ханты-Мансийский автономный округ — Югра",
+            COMPANY_REGION_ENUM_MAP,
+        )
+        == "9332"
+    )
+
+
+def test_all_region_values_round_trip_through_enum_map():
+    keys = [stage._normalize_region_key(value) for value in REGION_RF_VALUES]
+
+    assert len(keys) == len(set(keys)) == 89
+    for key in keys:
+        assert key in COMPANY_REGION_ENUM_MAP
 
 
 def test_region_string_field_kept_raw(monkeypatch):
