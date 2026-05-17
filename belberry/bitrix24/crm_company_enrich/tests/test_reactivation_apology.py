@@ -191,6 +191,38 @@ def test_no_trigger_skipped_appended_to_sheets(monkeypatch):
     assert sheets.rows[0][1] == "100"
 
 
+def test_no_trigger_unresolved_dedup_on_second_run(monkeypatch):
+    class FakeSheets:
+        def __init__(self):
+            self.rows = []
+
+        def ensure_sheet(self, tab):
+            self.tab = tab
+
+        def read(self, tab, range_):
+            if range_ == "A1:H1":
+                return [["timestamp"]]
+            if range_ == "B2:B":
+                return [[row[1]] for row in self.rows]
+            return []
+
+        def update(self, tab, range_, rows):
+            self.header = rows
+
+        def append(self, tab, rows, value_input_option="RAW"):
+            self.rows.extend(rows)
+
+    sheets = FakeSheets()
+    monkeypatch.setattr(stage, "_sheets", lambda: sheets)
+    bx = FakeBitrix([apology_deal("8840")], company={})
+
+    stage.run(bx, dry_run=False, today=date(2026, 5, 17))
+    stage.run(bx, dry_run=False, today=date(2026, 5, 17))
+
+    assert len(sheets.rows) == 1
+    assert sheets.rows[0][1] == "100"
+
+
 def test_cooldown_sentinel_trigger_only_csv_empty(tmp_path, monkeypatch):
     monkeypatch.setattr(stage, "LOG_DIR", tmp_path)
     bx = FakeBitrix(

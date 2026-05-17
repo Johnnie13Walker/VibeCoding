@@ -321,6 +321,8 @@ def _append_no_trigger_unresolved(outcome: ReactivationOutcome) -> None:
                     "bitrix_link",
                 ]],
             )
+        if _unresolved_deal_already_exists(sheets, outcome.deal_id):
+            return
         sheets.append(
             UNRESOLVED_SHEET_TAB,
             [[
@@ -337,6 +339,19 @@ def _append_no_trigger_unresolved(outcome: ReactivationOutcome) -> None:
         )
     except Exception as exc:  # noqa: BLE001
         print(f"[reactivation] sheets_append_failed for deal {outcome.deal_id}: {exc}")
+
+
+def _unresolved_deal_already_exists(sheets: SheetsClient, deal_id: str) -> bool:
+    try:
+        values = sheets.read(UNRESOLVED_SHEET_TAB, "B2:B")
+    except Exception:  # noqa: BLE001
+        return False
+    existing_ids = {
+        str(row[0]).strip()
+        for row in values
+        if row and str(row[0]).strip()
+    }
+    return str(deal_id) in existing_ids
 
 
 def _sheets() -> SheetsClient:
