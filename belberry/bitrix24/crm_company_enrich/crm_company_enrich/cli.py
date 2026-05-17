@@ -243,6 +243,18 @@ def cmd_company_region_field(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_migrate_region_enum_ids(args: argparse.Namespace) -> int:
+    from .stages import migrate_region_enum_ids
+    bx, _ = _make_clients()
+    summary = migrate_region_enum_ids.run(
+        bx,
+        dry_run=not args.live,
+        limit=args.limit,
+    )
+    print(json.dumps(summary, indent=2, ensure_ascii=False))
+    return 0 if not summary.get("failed") else 1
+
+
 def cmd_empty_discover(args: argparse.Namespace) -> int:
     from .stages import enrich_empty_companies
     summary = enrich_empty_companies.run_discover(limit=args.limit)
@@ -506,6 +518,17 @@ def main() -> None:
     sp.add_argument("--apply", action="store_true", help="Реально создать или обновить поле в Bitrix24")
     sp.add_argument("--skip-verify", action="store_true", help="Не читать поле повторно после --apply")
     sp.set_defaults(func=cmd_company_region_field)
+
+    sp = sub.add_parser(
+        "migrate-region-enum-ids",
+        help=(
+            "WRITE: одноразовая миграция UF_CRM_REGION_RF — перенести orphan-ID "
+            "8962-9064 на актуальный enum после обновления поля. По умолчанию dry-run."
+        ),
+    )
+    sp.add_argument("--live", action="store_true", help="Реально записать в Bitrix")
+    sp.add_argument("--limit", type=int)
+    sp.set_defaults(func=cmd_migrate_region_enum_ids)
 
     sp = sub.add_parser(
         "empty-discover",
