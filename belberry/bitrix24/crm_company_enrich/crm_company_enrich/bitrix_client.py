@@ -171,6 +171,34 @@ class BitrixClient:
             return len(result)
         return 0
 
+    def list_company_deals(self, company_id: str, select: list[str] | None = None) -> list[dict]:
+        """Список сделок компании. Используется post-enrich синхронизацией полей."""
+        body = self.call(
+            "crm.deal.list",
+            {
+                "filter": {"COMPANY_ID": company_id},
+                "select": select or [
+                    "ID",
+                    "TITLE",
+                    "COMPANY_ID",
+                    "CATEGORY_ID",
+                    "STAGE_ID",
+                    "CLOSED",
+                    "ASSIGNED_BY_ID",
+                ],
+                "start": -1,
+            },
+        )
+        result = body.get("result")
+        return result if isinstance(result, list) else []
+
+    def get_deal(self, deal_id: str) -> dict | None:
+        return self._get_or_none("crm.deal.get", {"id": deal_id})
+
+    def update_deal(self, deal_id: str, fields: dict) -> bool:
+        body = self.call("crm.deal.update", {"id": deal_id, "fields": fields})
+        return bool(body.get("result"))
+
     def get_company_contacts(self, company_id: str) -> list[str]:
         """Список contact_id, привязанных к компании."""
         body = self.call("crm.company.contact.items.get", {"id": company_id})
@@ -178,6 +206,29 @@ class BitrixClient:
         if not isinstance(result, list):
             return []
         return [str(item.get("CONTACT_ID")) for item in result if isinstance(item, dict)]
+
+    def list_deal_contacts(self, deal_id: str) -> list[dict]:
+        """Список контактов, привязанных к сделке."""
+        body = self.call("crm.deal.contact.items.get", {"id": deal_id})
+        result = body.get("result")
+        return result if isinstance(result, list) else []
+
+    def add_deal_contact(self, deal_id: str, contact_id: str) -> bool:
+        """Привязать существующий контакт к сделке."""
+        return self._bool_result(
+            "crm.deal.contact.add",
+            {
+                "id": deal_id,
+                "fields": {"CONTACT_ID": contact_id},
+            },
+        )
+
+    def get_contact(self, contact_id: str) -> dict | None:
+        return self._get_or_none("crm.contact.get", {"id": contact_id})
+
+    def update_contact(self, contact_id: str, fields: dict) -> bool:
+        body = self.call("crm.contact.update", {"id": contact_id, "fields": fields})
+        return bool(body.get("result"))
 
     # ------------------------------ requisites ------------------------------
 

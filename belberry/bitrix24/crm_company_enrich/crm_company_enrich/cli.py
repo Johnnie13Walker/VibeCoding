@@ -167,6 +167,39 @@ def cmd_verify(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_sync_deals(args: argparse.Namespace) -> int:
+    from .stages import sync_deals
+    bx, _ = _make_clients()
+    summary = sync_deals.run(
+        bx,
+        company_id=args.company_id,
+        deal_id=args.deal_id,
+        dry_run=not args.live,
+        overwrite=args.overwrite,
+        active_only=not args.include_closed,
+        limit=args.limit,
+        telemarketing_workflow=args.telemarketing_workflow,
+        rotation_index=args.rotation_index,
+    )
+    print(json.dumps(summary, indent=2, ensure_ascii=False))
+    return 1 if summary.get("failed") else 0
+
+
+def cmd_sync_company(args: argparse.Namespace) -> int:
+    from .stages import sync_deals
+    bx, _ = _make_clients()
+    summary = sync_deals.run_company(
+        bx,
+        company_id=args.company_id,
+        inn=args.inn or "",
+        site=args.site or "",
+        dry_run=not args.live,
+        overwrite=args.overwrite,
+    )
+    print(json.dumps(summary, indent=2, ensure_ascii=False))
+    return 1 if summary.get("failed") else 0
+
+
 def cmd_empty_discover(args: argparse.Namespace) -> int:
     from .stages import enrich_empty_companies
     summary = enrich_empty_companies.run_discover(limit=args.limit)
@@ -331,6 +364,47 @@ def main() -> None:
     )
     sp.add_argument("--limit", type=int, help="Ограничить число проверяемых строк")
     sp.set_defaults(func=cmd_verify)
+
+    sp = sub.add_parser(
+        "sync-deals",
+        help=(
+            "WRITE: дозаполнить поля сделок из обогащённой компании "
+            "(по умолчанию dry-run; запись только с --live)"
+        ),
+    )
+    group = sp.add_mutually_exclusive_group(required=True)
+    group.add_argument("--company-id", help="Синхронизировать активные сделки этой компании")
+    group.add_argument("--deal-id", help="Синхронизировать одну сделку")
+    sp.add_argument("--live", action="store_true", help="Реально записать поля сделки")
+    sp.add_argument("--overwrite", action="store_true", help="Перезаписывать уже заполненные поля")
+    sp.add_argument("--include-closed", action="store_true", help="Не пропускать закрытые сделки")
+    sp.add_argument(
+        "--telemarketing-workflow",
+        action="store_true",
+        help="Вернуть отказную сделку в C50:NEW и выбрать ответственного по правилам телемаркетинга",
+    )
+    sp.add_argument(
+        "--rotation-index",
+        type=int,
+        default=0,
+        help="Индекс ротации для новых/чужих отказных сделок: 0=Дарья, 1=Аркадий",
+    )
+    sp.add_argument("--limit", type=int)
+    sp.set_defaults(func=cmd_sync_deals)
+
+    sp = sub.add_parser(
+        "sync-company",
+        help=(
+            "WRITE: дозаполнить поля компании без сделок "
+            "(Rusprofile/Checko, статус, сфера, бренд, ИНН; по умолчанию dry-run)"
+        ),
+    )
+    sp.add_argument("--company-id", required=True, help="Bitrix company_id")
+    sp.add_argument("--inn", help="ИНН, если в карточке компании он ещё пустой")
+    sp.add_argument("--site", help="Рабочий сайт, если текущий сайт компании пустой или не отвечает")
+    sp.add_argument("--live", action="store_true", help="Реально записать поля компании")
+    sp.add_argument("--overwrite", action="store_true", help="Перезаписывать уже заполненные поля")
+    sp.set_defaults(func=cmd_sync_company)
 
     sp = sub.add_parser(
         "empty-discover",

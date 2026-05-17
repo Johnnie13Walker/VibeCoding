@@ -18,6 +18,7 @@ Google Sheets (отдельная вкладка `company_enrich_queue`), общ
 | `mark-approved` | Sheets write | готова |
 | `status` | Sheets read | готова |
 | `apply` | WRITE Bitrix | готова; запускать только после явного go и сначала с `--dry-run` |
+| `sync-deals` | WRITE Bitrix | готова; дозаполняет поля активных сделок из обогащённой компании |
 | `merge-dupes` | WRITE Bitrix | stub |
 | `verify` | READ-only Bitrix | готова для `APPLIED_PENDING_BP` |
 | `rollback` | WRITE Bitrix | **stub** (exit 2) |
@@ -44,7 +45,47 @@ python3 -m crm_company_enrich.cli status --detailed
 python3 -m crm_company_enrich.cli mark-approved --all --status CLASSIFIED
 # Точечный approve с явным action:
 python3 -m crm_company_enrich.cli mark-approved --company-id 42 --action MERGE_INTO --target 100
+
+# После apply/verify можно дозаполнить связанные сделки из карточки компании:
+python3 -m crm_company_enrich.cli sync-deals --company-id 42
+python3 -m crm_company_enrich.cli sync-deals --company-id 42 --live
+python3 -m crm_company_enrich.cli sync-deals --deal-id 100 --include-closed --telemarketing-workflow --live
 ```
+
+`sync-deals` по умолчанию работает в dry-run и требует явный `--company-id`
+или `--deal-id`. Без `--overwrite` стадия заполняет только пустые поля сделки:
+«Сайт клиента», «Город», «ИНН», «Оборот», «Сфера деятельности» и
+«Бренд проекта» — только если соответствующее значение уже есть на компании.
+
+## Ручной процесс для сайтов телемаркетинга
+
+Если по компании уже есть сделка в воронке телемаркетинга, новую сделку не
+создавать. Нужно брать существующую сделку, даже если она закрыта, дозаполнять
+её через `sync-deals --deal-id <id> --include-closed --live`, переводить в
+`C50:NEW` через `--telemarketing-workflow`.
+
+Ответственные телемаркетинга:
+
+- Дарья Исаева — `2772`;
+- Аркадий Вострецов — `2832`.
+
+Если сделки нет, новую сделку назначать по очереди: `2772`, затем `2832`, затем
+снова `2772`. Для автоматизированных/пакетных прогонов индекс очереди передаётся
+как `--rotation-index`: `0` означает Дарью, `1` — Аркадия.
+
+Если сделка уже есть в отказе (`C50:APOLOGY`, `C50:LOSE`, `C50:UC_1S1KIU`), новую
+не создавать: вернуть существующую сделку в `C50:NEW`, поставить `CLOSED=N`,
+`SOURCE_ID=12` и переназначить. Если отказная сделка была на Дарье, вернуть её
+Аркадию; если была на Аркадии, вернуть Дарье. Если отказная сделка была на другом
+ответственном, назначить по ротации.
+
+Если существующая сделка не в отказе, `--telemarketing-workflow` не меняет
+ответственного, но всё равно фиксирует целевую воронку, стадию, источник и
+`CLOSED=N`.
+
+Новая сделка допустима только если у компании вообще нет сделки в нужной
+воронке. Перед созданием обязательно проверить дубли по ИНН, реквизитам,
+домену/title и списку сделок компании.
 
 ## Safety guards
 

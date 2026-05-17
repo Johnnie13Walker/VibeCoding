@@ -60,6 +60,16 @@ DEAL_MERGE_ACTIVE_STATUSES = frozenset({"APPROVED", "TRANSFERRED", "MERGED", "MA
 # Portal
 PORTAL_DOMAIN = "belberrycrm.bitrix24.ru"
 
+# Телемаркетинг: целевая воронка и ротация ответственных.
+TELEMARKETING_CATEGORY_ID = "50"
+TELEMARKETING_NEW_STAGE_ID = "C50:NEW"
+TELEMARKETING_SOURCE_ID = "12"
+TELEMARKETING_REFUSAL_STAGE_IDS = frozenset({"C50:APOLOGY", "C50:LOSE", "C50:UC_1S1KIU"})
+TELEMARKETING_ASSIGNEES = (
+    ("2772", "Дарья Исаева"),
+    ("2832", "Аркадий Вострецов"),
+)
+
 # Web fetch behaviour
 ENRICH_HTTP_TIMEOUT_S = float(os.environ.get("CCE_ENRICH_HTTP_TIMEOUT_S", "10"))
 ENRICH_HTTP_DELAY_S = float(os.environ.get("CCE_ENRICH_HTTP_DELAY_S", "1.0"))

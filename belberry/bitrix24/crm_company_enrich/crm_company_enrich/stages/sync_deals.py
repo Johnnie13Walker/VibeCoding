@@ -1,0 +1,1076 @@
+"""Синхронизация кастомных полей сделки из обогащённой компании.
+
+Эта стадия закрывает разрыв между company-enrich и CRM-сделками: BP/DaData
+наполняют карточку компании и реквизиты, но поля сделки вроде «Сайт клиента»,
+«Город», «ИНН», «Оборот» не всегда подтягиваются автоматически.
+
+Безопасность:
+- команда требует явный --company-id или --deal-id;
+- по умолчанию заполняет только пустые поля сделки;
+- --overwrite нужен для принудительной перезаписи;
+- dry-run не пишет в Bitrix.
+"""
+from __future__ import annotations
+
+import re
+import io
+import contextlib
+import urllib.parse
+import urllib.request
+from dataclasses import dataclass
+from typing import Any
+
+from ..bitrix_client import BitrixClient
+from ..config import (
+    COMPANY_UF_RUSPROFILE_CHECKO_URL,
+    COMPANY_UF_ORGANIZATION_STATUS,
+    COMPANY_ORGANIZATION_STATUS_ENUM,
+    COMPANY_INDUSTRY_STATUS,
+    DEAL_BRAND_ENUM,
+    DEAL_INDUSTRY_ENUM,
+    DEAL_UF_BRAND_PROJECT,
+    DEAL_UF_CITY,
+    DEAL_UF_INDUSTRY,
+    DEAL_UF_INN,
+    DEAL_UF_REVENUE_MONEY,
+    DEAL_UF_REVENUE_NUMBER,
+    DEAL_UF_REVENUE_TEXT,
+    DEAL_UF_RUSPROFILE_URL,
+    DEAL_UF_SITE_MULTI,
+    DEAL_UF_SITE_PRIMARY,
+    TELEMARKETING_ASSIGNEES,
+    TELEMARKETING_CATEGORY_ID,
+    TELEMARKETING_NEW_STAGE_ID,
+    TELEMARKETING_REFUSAL_STAGE_IDS,
+    TELEMARKETING_SOURCE_ID,
+    UF_BRAND_FIELD,
+    UF_BRAND_ACOOLA,
+    UF_BRAND_BELBERRY,
+)
+from ..models import is_medical_company, normalize_inn
+
+
+@dataclass
+class SyncOutcome:
+    deal_id: str
+    company_id: str
+    status: str
+    fields: dict[str, Any]
+    skipped: dict[str, str]
+    company_fields: dict[str, Any] | None = None
+    company_skipped: dict[str, str] | None = None
+    contacts_added: list[str] | None = None
+    contacts_skipped: dict[str, str] | None = None
+    contact_communications: dict[str, dict[str, Any]] | None = None
+    error: str = ""
+
+
+@dataclass
+class CompanySyncOutcome:
+    company_id: str
+    status: str
+    fields: dict[str, Any]
+    skipped: dict[str, str]
+    error: str = ""
+
+
+@dataclass
+class SiteVerification:
+    site: str
+    working: bool
+    identity_verified: bool
+    evidence: list[str]
+
+
+DEAL_SELECT = [
+    "ID",
+    "TITLE",
+    "COMPANY_ID",
+    "CATEGORY_ID",
+    "STAGE_ID",
+    "CLOSED",
+    "ASSIGNED_BY_ID",
+    DEAL_UF_SITE_PRIMARY,
+    DEAL_UF_SITE_MULTI,
+    DEAL_UF_BRAND_PROJECT,
+    DEAL_UF_CITY,
+    DEAL_UF_INN,
+    DEAL_UF_REVENUE_TEXT,
+    DEAL_UF_REVENUE_MONEY,
+    DEAL_UF_REVENUE_NUMBER,
+    DEAL_UF_INDUSTRY,
+    DEAL_UF_RUSPROFILE_URL,
+]
+
+
+def run_company(
+    bx: BitrixClient,
+    *,
+    company_id: str,
+    inn: str = "",
+    site: str = "",
+    dry_run: bool = True,
+    overwrite: bool = False,
+) -> dict:
+    if not company_id:
+        raise ValueError("Нужен company_id")
+
+    company = bx.get_company(str(company_id))
+    if not company:
+        outcome = CompanySyncOutcome(str(company_id), "COMPANY_NOT_FOUND", {}, {}, "company not found")
+        return {
+            "dry_run": dry_run,
+            "overwrite": overwrite,
+            "examined": 1,
+            "updated": 0,
+            "dry_run_updates": 0,
+            "noop": 0,
+            "failed": 1,
+            "outcomes": [outcome.__dict__],
+        }
+
+    effective_inn = _clean(inn) or _clean(company.get("UF_CRM_1735331882180"))
+    enriched_company = dict(company)
+    if effective_inn:
+        enriched_company["UF_CRM_1735331882180"] = effective_inn
+
+    organization_status = _organization_status_from_inn(effective_inn) if effective_inn else ""
+    industry_override = _industry_from_inn(effective_inn) if effective_inn else ""
+    desired = build_company_fields_from_company(
+        enriched_company,
+        organization_status=organization_status,
+        industry_override=industry_override,
+    )
+    if effective_inn:
+        desired["UF_CRM_1735331882180"] = effective_inn
+
+    site_verification = _verified_site(site, enriched_company, effective_inn)
+    if not site_verification.identity_verified:
+        site_verification = _verified_site_from_company(enriched_company, effective_inn)
+    if site_verification.identity_verified:
+        desired["UF_CRM_5DEF838D882A2"] = site_verification.site
+
+    existing_industry = _clean(company.get("INDUSTRY"))
+    if industry_override == "Медицина" or existing_industry == COMPANY_INDUSTRY_STATUS["Медицина"]:
+        brand = UF_BRAND_BELBERRY
+    else:
+        brand = _deal_brand_from_company(enriched_company)
+    if brand:
+        desired[UF_BRAND_FIELD] = brand
+
+    fields, skipped = _filter_existing_fields(company, desired, overwrite=overwrite)
+    _allow_dead_site_replacement(
+        fields,
+        skipped,
+        company,
+        desired,
+        site_field="UF_CRM_5DEF838D882A2",
+    )
+    if not fields:
+        outcome = CompanySyncOutcome(str(company_id), "NOOP", {}, skipped)
+        return {
+            "dry_run": dry_run,
+            "overwrite": overwrite,
+            "examined": 1,
+            "updated": 0,
+            "dry_run_updates": 0,
+            "noop": 1,
+            "failed": 0,
+            "outcomes": [outcome.__dict__],
+        }
+
+    if dry_run:
+        outcome = CompanySyncOutcome(str(company_id), "DRY_RUN", fields, skipped)
+        return {
+            "dry_run": dry_run,
+            "overwrite": overwrite,
+            "examined": 1,
+            "updated": 0,
+            "dry_run_updates": 1,
+            "noop": 0,
+            "failed": 0,
+            "outcomes": [outcome.__dict__],
+        }
+
+    try:
+        bx.update_company(str(company_id), fields)
+    except Exception as exc:  # noqa: BLE001
+        outcome = CompanySyncOutcome(str(company_id), "FAILED", fields, skipped, str(exc)[:300])
+        return {
+            "dry_run": dry_run,
+            "overwrite": overwrite,
+            "examined": 1,
+            "updated": 0,
+            "dry_run_updates": 0,
+            "noop": 0,
+            "failed": 1,
+            "outcomes": [outcome.__dict__],
+        }
+
+    outcome = CompanySyncOutcome(str(company_id), "UPDATED", fields, skipped)
+    return {
+        "dry_run": dry_run,
+        "overwrite": overwrite,
+        "examined": 1,
+        "updated": 1,
+        "dry_run_updates": 0,
+        "noop": 0,
+        "failed": 0,
+        "outcomes": [outcome.__dict__],
+    }
+
+
+def run(
+    bx: BitrixClient,
+    *,
+    company_id: str | None = None,
+    deal_id: str | None = None,
+    dry_run: bool = True,
+    overwrite: bool = False,
+    active_only: bool = True,
+    limit: int | None = None,
+    telemarketing_workflow: bool = False,
+    rotation_index: int = 0,
+) -> dict:
+    if not company_id and not deal_id:
+        raise ValueError("Нужен company_id или deal_id")
+
+    deals = _resolve_deals(bx, company_id=company_id, deal_id=deal_id, active_only=active_only)
+    if limit:
+        deals = deals[:limit]
+
+    outcomes: list[SyncOutcome] = []
+    updated = 0
+    dry = 0
+    noop = 0
+    failed = 0
+    missing_company = 0
+    company_updated = 0
+    company_dry = 0
+    contacts_added = 0
+    contacts_dry = 0
+    contact_communications_updated = 0
+    contact_communications_dry = 0
+
+    for deal in deals:
+        did = str(deal.get("ID") or "")
+        cid = str(deal.get("COMPANY_ID") or company_id or "")
+        if not did or not cid:
+            outcomes.append(SyncOutcome(did, cid, "FAILED", {}, {}, error="deal has no ID/COMPANY_ID"))
+            failed += 1
+            continue
+
+        company = bx.get_company(cid)
+        if not company:
+            outcomes.append(SyncOutcome(did, cid, "COMPANY_NOT_FOUND", {}, {}, error="company not found"))
+            missing_company += 1
+            continue
+
+        inn = _clean(company.get("UF_CRM_1735331882180"))
+        organization_status = _organization_status_from_inn(inn) if inn else ""
+        industry_override = _industry_from_inn(inn) if inn else ""
+        company_fields, company_skipped = _company_fields(
+            company,
+            organization_status=organization_status,
+            industry_override=industry_override,
+        )
+        desired = build_deal_fields_from_company(company, industry_override=industry_override)
+        fields, skipped = _filter_existing_fields(deal, desired, overwrite=overwrite)
+        if telemarketing_workflow:
+            tm_fields, tm_skipped = build_telemarketing_existing_deal_fields(
+                deal,
+                rotation_index=rotation_index,
+            )
+            fields.update(tm_fields)
+            skipped.update(tm_skipped)
+        _allow_dead_site_replacement(
+            fields,
+            skipped,
+            deal,
+            desired,
+            site_field=DEAL_UF_SITE_PRIMARY,
+        )
+        contacts_to_add, contacts_skipped = _missing_deal_contacts(bx, cid, did)
+        contact_ids = _deal_company_contact_ids(
+            bx,
+            company_id=cid,
+            deal_id=did,
+            contacts_to_add=contacts_to_add,
+        )
+        contact_communications = _contact_communication_updates(bx, company, contact_ids)
+
+        if not fields and not company_fields and not contacts_to_add and not contact_communications:
+            outcomes.append(SyncOutcome(did, cid, "NOOP", {}, skipped, {}, company_skipped, [], contacts_skipped, {}))
+            noop += 1
+            continue
+
+        if dry_run:
+            outcomes.append(SyncOutcome(did, cid, "DRY_RUN", fields, skipped, company_fields, company_skipped, contacts_to_add, contacts_skipped, contact_communications))
+            if fields:
+                dry += 1
+            if company_fields:
+                company_dry += 1
+            contacts_dry += len(contacts_to_add)
+            contact_communications_dry += len(contact_communications)
+            continue
+
+        try:
+            if company_fields:
+                bx.update_company(cid, company_fields)
+                company_updated += 1
+            if fields:
+                bx.update_deal(did, fields)
+            added_now = []
+            for contact_id in contacts_to_add:
+                if bx.add_deal_contact(did, contact_id):
+                    added_now.append(contact_id)
+            updated_contact_communications = {}
+            for contact_id, contact_fields in contact_communications.items():
+                if bx.update_contact(contact_id, contact_fields):
+                    updated_contact_communications[contact_id] = contact_fields
+        except Exception as exc:  # noqa: BLE001
+            outcomes.append(SyncOutcome(did, cid, "FAILED", fields, skipped, company_fields, company_skipped, contacts_to_add, contacts_skipped, contact_communications, str(exc)[:300]))
+            failed += 1
+            continue
+
+        contacts_added += len(added_now)
+        contact_communications_updated += len(updated_contact_communications)
+        outcomes.append(SyncOutcome(did, cid, "UPDATED", fields, skipped, company_fields, company_skipped, added_now, contacts_skipped, updated_contact_communications))
+        if fields:
+            updated += 1
+
+    return {
+        "dry_run": dry_run,
+        "overwrite": overwrite,
+        "active_only": active_only,
+        "telemarketing_workflow": telemarketing_workflow,
+        "examined": len(deals),
+        "updated": updated,
+        "dry_run_updates": dry,
+        "noop": noop,
+        "missing_company": missing_company,
+        "company_updated": company_updated,
+        "company_dry_run_updates": company_dry,
+        "contacts_added": contacts_added,
+        "contacts_dry_run_adds": contacts_dry,
+        "contact_communications_updated": contact_communications_updated,
+        "contact_communications_dry_run_updates": contact_communications_dry,
+        "failed": failed,
+        "outcomes": [o.__dict__ for o in outcomes],
+    }
+
+
+def telemarketing_assignee_for_new_deal(*, rotation_index: int = 0) -> str:
+    """Ответственный для новой сделки: простая ротация по пулу телемаркетинга."""
+    return _assignee_by_rotation(rotation_index)
+
+
+def build_telemarketing_existing_deal_fields(
+    deal: dict[str, Any],
+    *,
+    rotation_index: int = 0,
+) -> tuple[dict[str, Any], dict[str, str]]:
+    """Поля возврата существующей сделки в телемаркетинг.
+
+    Правило:
+    - отказная сделка на Дарье возвращается Аркадию;
+    - отказная сделка на Аркадии возвращается Дарье;
+    - отказная сделка на другом ответственном возвращается по ротации;
+    - неотказная сделка не переназначается, но фиксируются воронка/источник.
+    """
+    fields: dict[str, Any] = {
+        "CATEGORY_ID": TELEMARKETING_CATEGORY_ID,
+        "STAGE_ID": TELEMARKETING_NEW_STAGE_ID,
+        "SOURCE_ID": TELEMARKETING_SOURCE_ID,
+        "CLOSED": "N",
+    }
+    skipped: dict[str, str] = {}
+
+    current_stage = _clean(deal.get("STAGE_ID"))
+    current_assignee = _clean(deal.get("ASSIGNED_BY_ID"))
+    if _is_refusal_deal(deal):
+        fields["ASSIGNED_BY_ID"] = telemarketing_assignee_for_refusal(
+            current_assignee,
+            rotation_index=rotation_index,
+        )
+    else:
+        skipped["ASSIGNED_BY_ID"] = "not_refusal_deal"
+        if current_stage == TELEMARKETING_NEW_STAGE_ID:
+            skipped["STAGE_ID"] = "already_in_work"
+    return fields, skipped
+
+
+def telemarketing_assignee_for_refusal(
+    current_assignee_id: str,
+    *,
+    rotation_index: int = 0,
+) -> str:
+    """Ответственный при возврате отказной сделки в работу."""
+    current = _clean(current_assignee_id)
+    assignee_ids = [str(item[0]) for item in TELEMARKETING_ASSIGNEES]
+    if current in assignee_ids:
+        for assignee_id in assignee_ids:
+            if assignee_id != current:
+                return assignee_id
+    return _assignee_by_rotation(rotation_index)
+
+
+def _assignee_by_rotation(rotation_index: int) -> str:
+    assignee_ids = [str(item[0]) for item in TELEMARKETING_ASSIGNEES]
+    if not assignee_ids:
+        raise ValueError("TELEMARKETING_ASSIGNEES is empty")
+    return assignee_ids[int(rotation_index) % len(assignee_ids)]
+
+
+def _is_refusal_deal(deal: dict[str, Any]) -> bool:
+    stage = _clean(deal.get("STAGE_ID"))
+    return stage in TELEMARKETING_REFUSAL_STAGE_IDS
+
+
+def _missing_deal_contacts(bx: BitrixClient, company_id: str, deal_id: str) -> tuple[list[str], dict[str, str]]:
+    """Контакты компании, которых ещё нет в сделке.
+
+    Bitrix не подтягивает связи контактов автоматически при создании сделки по
+    COMPANY_ID, поэтому переносим только уже существующие связи company→contact.
+    Новые контакты здесь не создаются.
+    """
+    company_contacts = [str(cid) for cid in bx.get_company_contacts(company_id) if str(cid).strip()]
+    if not company_contacts:
+        return [], {}
+
+    existing_raw = bx.list_deal_contacts(deal_id)
+    existing = {
+        str(item.get("CONTACT_ID") or item.get("ID") or "")
+        for item in existing_raw
+        if isinstance(item, dict)
+    }
+    missing: list[str] = []
+    skipped: dict[str, str] = {}
+    seen: set[str] = set()
+    for contact_id in company_contacts:
+        if contact_id in seen:
+            skipped[contact_id] = "duplicate_company_contact"
+            continue
+        seen.add(contact_id)
+        if contact_id in existing:
+            skipped[contact_id] = "already_linked"
+            continue
+        missing.append(contact_id)
+    return missing, skipped
+
+
+def _deal_company_contact_ids(
+    bx: BitrixClient,
+    *,
+    company_id: str,
+    deal_id: str,
+    contacts_to_add: list[str],
+) -> list[str]:
+    company_contacts = [str(cid) for cid in bx.get_company_contacts(company_id) if str(cid).strip()]
+    if not company_contacts:
+        return []
+
+    linked_raw = bx.list_deal_contacts(deal_id)
+    linked = {
+        str(item.get("CONTACT_ID") or item.get("ID") or "")
+        for item in linked_raw
+        if isinstance(item, dict)
+    }
+    linked.update(str(cid) for cid in contacts_to_add)
+
+    result: list[str] = []
+    seen: set[str] = set()
+    for contact_id in company_contacts:
+        if contact_id in seen or contact_id not in linked:
+            continue
+        seen.add(contact_id)
+        result.append(contact_id)
+    return result
+
+
+def _contact_communication_updates(
+    bx: BitrixClient,
+    company: dict[str, Any],
+    contact_ids: list[str],
+) -> dict[str, dict[str, Any]]:
+    company_phone = _multi_values(company.get("PHONE"))
+    company_email = _multi_values(company.get("EMAIL"))
+    if not company_phone and not company_email:
+        return {}
+
+    updates: dict[str, dict[str, Any]] = {}
+    for contact_id in contact_ids:
+        contact = bx.get_contact(contact_id)
+        if not contact:
+            continue
+        fields: dict[str, Any] = {}
+        if company_phone and not _multi_values(contact.get("PHONE")):
+            fields["PHONE"] = company_phone
+        if company_email and not _multi_values(contact.get("EMAIL")):
+            fields["EMAIL"] = company_email
+        if fields:
+            updates[str(contact_id)] = fields
+    return updates
+
+
+def _multi_values(value: Any) -> list[dict[str, str]]:
+    if not isinstance(value, list):
+        return []
+    out: list[dict[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+    for item in value:
+        raw = item.get("VALUE") if isinstance(item, dict) else item
+        cleaned = _clean(raw)
+        if not cleaned:
+            continue
+        value_type = _clean(item.get("VALUE_TYPE") if isinstance(item, dict) else "") or "WORK"
+        type_id = _clean(item.get("TYPE_ID") if isinstance(item, dict) else "")
+        key = (type_id, cleaned)
+        if key in seen:
+            continue
+        seen.add(key)
+        normalized = {"VALUE": cleaned, "VALUE_TYPE": value_type}
+        if type_id:
+            normalized["TYPE_ID"] = type_id
+        out.append(normalized)
+    return out
+
+
+def build_deal_fields_from_company(
+    company: dict[str, Any],
+    *,
+    industry_override: str = "",
+) -> dict[str, Any]:
+    site_primary = _verified_site_from_company(company, _clean(company.get("UF_CRM_1735331882180"))).site
+    sites = _site_values(company, site_primary)
+    inn = _clean(company.get("UF_CRM_1735331882180"))
+    city = _clean(company.get("UF_CRM_1584876724") or company.get("ADDRESS_CITY") or company.get("REG_ADDRESS_CITY"))
+    revenue = _clean(
+        company.get("UF_CRM_1737098549301")
+        or company.get("UF_CRM_1584876707")
+        or company.get("REVENUE")
+    )
+
+    out: dict[str, Any] = {}
+    if site_primary:
+        out[DEAL_UF_SITE_PRIMARY] = site_primary
+    if sites:
+        out[DEAL_UF_SITE_MULTI] = sites
+    if inn:
+        out[DEAL_UF_INN] = inn
+        out[DEAL_UF_RUSPROFILE_URL] = _rusprofile_url(inn)
+    if city:
+        out[DEAL_UF_CITY] = city
+    if revenue and revenue != "0":
+        out[DEAL_UF_REVENUE_TEXT] = revenue
+        out[DEAL_UF_REVENUE_NUMBER] = _number_or_string(revenue)
+        out[DEAL_UF_REVENUE_MONEY] = f"{revenue}|RUB"
+
+    brand = _deal_brand_from_company(company)
+    brand_id = DEAL_BRAND_ENUM.get(brand)
+    if brand_id:
+        out[DEAL_UF_BRAND_PROJECT] = brand_id
+
+    industry = industry_override or _industry_from_company(company)
+    industry_id = DEAL_INDUSTRY_ENUM.get(industry, "")
+    if industry_id:
+        out[DEAL_UF_INDUSTRY] = industry_id
+
+    return out
+
+
+def build_company_fields_from_company(
+    company: dict[str, Any],
+    *,
+    organization_status: str = "",
+    industry_override: str = "",
+) -> dict[str, Any]:
+    out: dict[str, Any] = {}
+    industry = industry_override or _industry_from_company(company)
+    industry_id = COMPANY_INDUSTRY_STATUS.get(industry, "")
+    if industry_id:
+        out["INDUSTRY"] = industry_id
+
+    inn = _clean(company.get("UF_CRM_1735331882180"))
+    if inn:
+        out[COMPANY_UF_RUSPROFILE_CHECKO_URL] = _rusprofile_url(inn)
+    organization_status_id = COMPANY_ORGANIZATION_STATUS_ENUM.get(organization_status, "")
+    if organization_status_id:
+        out[COMPANY_UF_ORGANIZATION_STATUS] = organization_status_id
+    return out
+
+
+def _deal_brand_from_company(company: dict[str, Any]) -> str:
+    existing = _clean(company.get(UF_BRAND_FIELD))
+    if existing in DEAL_BRAND_ENUM:
+        return existing
+
+    is_med = is_medical_company(
+        bitrix_title=_clean(company.get("TITLE")),
+        discovered_name=_clean(company.get("UF_CRM_1737098414068")),
+        web=_first_non_empty(
+            company.get("UF_CRM_5DEF838D882A2"),
+            _first_multifield(company.get("WEB")),
+            company.get("UF_CRM_1737098525088"),
+        ),
+        domain=_clean(company.get("UF_CRM_1737098525088")),
+    )
+    return UF_BRAND_BELBERRY if is_med else UF_BRAND_ACOOLA
+
+
+def _resolve_deals(
+    bx: BitrixClient,
+    *,
+    company_id: str | None,
+    deal_id: str | None,
+    active_only: bool,
+) -> list[dict]:
+    if deal_id:
+        deal = bx.get_deal(str(deal_id))
+        if not deal:
+            return []
+        # get_deal не всегда возвращает UF, поэтому добираем через list по ID.
+        body = bx.call(
+            "crm.deal.list",
+            {"filter": {"ID": str(deal_id)}, "select": DEAL_SELECT, "start": -1},
+        )
+        rows = body.get("result")
+        deals = rows if isinstance(rows, list) else [deal]
+    else:
+        deals = bx.list_company_deals(str(company_id), select=DEAL_SELECT)
+
+    if active_only:
+        deals = [d for d in deals if str(d.get("CLOSED") or "N") != "Y"]
+    return deals
+
+
+def _filter_existing_fields(
+    deal: dict[str, Any],
+    desired: dict[str, Any],
+    *,
+    overwrite: bool,
+) -> tuple[dict[str, Any], dict[str, str]]:
+    fields: dict[str, Any] = {}
+    skipped: dict[str, str] = {}
+    for key, value in desired.items():
+        if _is_empty(value):
+            continue
+        current = deal.get(key)
+        if not overwrite and not _is_empty(current):
+            skipped[key] = "already_filled"
+            continue
+        if _same_value(current, value):
+            skipped[key] = "same_value"
+            continue
+        fields[key] = value
+    return fields, skipped
+
+
+def _allow_dead_site_replacement(
+    fields: dict[str, Any],
+    skipped: dict[str, str],
+    current_row: dict[str, Any],
+    desired: dict[str, Any],
+    *,
+    site_field: str,
+) -> None:
+    desired_site = _clean(desired.get(site_field))
+    current_site = _clean(current_row.get(site_field))
+    if not desired_site or not current_site:
+        return
+    if site_field not in skipped:
+        return
+    if _verified_site(current_site, current_row, _clean(current_row.get("UF_CRM_1735331882180"))).identity_verified:
+        return
+    fields[site_field] = desired_site
+    skipped.pop(site_field, None)
+
+
+def _company_fields(
+    company: dict[str, Any],
+    *,
+    organization_status: str = "",
+    industry_override: str = "",
+) -> tuple[dict[str, Any], dict[str, str]]:
+    desired = build_company_fields_from_company(
+        company,
+        organization_status=organization_status,
+        industry_override=industry_override,
+    )
+    if not desired:
+        return {}, {"company": "no_fields"}
+    return _filter_existing_fields(company, desired, overwrite=True)
+
+
+def _industry_from_company(company: dict[str, Any]) -> str:
+    text = " ".join(
+        _clean(company.get(k))
+        for k in (
+            "UF_CRM_1737100327954",
+            "INDUSTRY",
+            "TITLE",
+            "UF_CRM_1737098414068",
+            "UF_CRM_1737098422264",
+        )
+    )
+    return _industry_from_text(text)
+
+
+def _industry_from_text(text: str, *, fallback_other: bool = False) -> str:
+    text = _clean(text).lower()
+    if any(s in text for s in ("47.", "рознич", "магазин", "интернет-магаз", "e-commerce", "маркетплейс")):
+        return "E-commerce"
+    if any(s in text for s in ("86.", "клиник", "медицин", "стомат", "дент")):
+        return "Медицина"
+    if any(s in text for s in ("туризм", "турист", "турагент", "туроператор", "путешеств", "отдых")):
+        return "Туризм, отдых, путешествия"
+    if any(s in text for s in ("оптов", "50.30", "автомобильными детал", "автодетал")):
+        return "Другое"
+    if fallback_other and text:
+        return "Другое"
+    return ""
+
+
+def _site_values(company: dict[str, Any], primary: str) -> list[str]:
+    values: list[str] = []
+    seen: set[str] = set()
+    if primary:
+        values.append(primary)
+        seen.add(_site_key(primary))
+    for item in company.get("WEB") or []:
+        if isinstance(item, dict):
+            v = _clean(item.get("VALUE"))
+            key = _site_key(v)
+            if v and key not in seen and _verified_site(v, company, _clean(company.get("UF_CRM_1735331882180"))).identity_verified:
+                values.append(v)
+                seen.add(key)
+    multi = _clean(company.get("UF_CRM_1737098525088"))
+    for raw in multi.replace(";", "\n").splitlines():
+        v = _clean(raw)
+        if v and "." in v and not v.startswith("http"):
+            v = "https://" + v
+        key = _site_key(v)
+        if v and key not in seen and _verified_site(v, company, _clean(company.get("UF_CRM_1735331882180"))).identity_verified:
+            values.append(v)
+            seen.add(key)
+    return values
+
+
+def _verified_site_from_company(company: dict[str, Any], inn: str = "") -> SiteVerification:
+    for candidate in _site_candidates(company):
+        verification = _verified_site(candidate, company, inn)
+        if verification.identity_verified:
+            return verification
+    return SiteVerification("", False, False, [])
+
+
+def _working_site(value: str) -> str:
+    cleaned = _clean(value)
+    return cleaned if cleaned and _is_working_site(cleaned) else ""
+
+
+def _verified_site(value: str, company: dict[str, Any], inn: str = "") -> SiteVerification:
+    site = _clean(value)
+    if not site:
+        return SiteVerification("", False, False, [])
+    if not _is_working_site(site):
+        return SiteVerification(site, False, False, [])
+
+    evidence = _site_identity_evidence(site, company, inn)
+    return SiteVerification(site, True, bool(evidence), evidence)
+
+
+def _site_identity_evidence(site: str, company: dict[str, Any], inn: str = "") -> list[str]:
+    text = _site_identity_text(site)
+    if not text:
+        return []
+
+    lowered = text.lower()
+    compact_digits = re.sub(r"\D+", "", text)
+    evidence: list[str] = []
+
+    normalized_inn = normalize_inn(inn) or normalize_inn(_clean(company.get("UF_CRM_1735331882180"))) or ""
+    if normalized_inn and normalized_inn in compact_digits:
+        evidence.append(f"site_contains_inn:{normalized_inn}")
+
+    for req in company.get("REQUISITES") or []:
+        ogrn = re.sub(r"\D+", "", _clean(req.get("RQ_OGRN") or req.get("RQ_OGRNIP")))
+        if ogrn and ogrn in compact_digits:
+            evidence.append(f"site_contains_ogrn:{ogrn}")
+
+    title = _clean(company.get("TITLE"))
+    title_tokens = [t for t in re.split(r"[\s\"'«».,()]+", title.lower()) if len(t) >= 4]
+    if title_tokens and any(token in lowered for token in title_tokens):
+        evidence.append("site_contains_company_title")
+
+    for field in ("PHONE", "EMAIL"):
+        for item in company.get(field) or []:
+            value = _clean(item.get("VALUE") if isinstance(item, dict) else item)
+            if not value:
+                continue
+            if field == "PHONE":
+                phone_digits = re.sub(r"\D+", "", value)
+                if phone_digits and phone_digits[-10:] in compact_digits:
+                    evidence.append("site_contains_phone")
+            elif value.lower() in lowered:
+                evidence.append("site_contains_email")
+    return evidence
+
+
+def _site_identity_text(site: str) -> str:
+    texts: list[str] = []
+    urls = _site_identity_urls(site)
+    for url in urls:
+        text = _fetch_site_text(url)
+        if text:
+            texts.append(text)
+    return "\n".join(texts)
+
+
+def _site_identity_urls(site: str) -> list[str]:
+    base_urls = _site_probe_urls(site)
+    if not base_urls:
+        return []
+    root = base_urls[0]
+    parsed = urllib.parse.urlsplit(root)
+    base = urllib.parse.urlunsplit((parsed.scheme, parsed.netloc, "", "", ""))
+    paths = (
+        "/",
+        "/contacts/",
+        "/kontakty/",
+        "/about/",
+        "/o-kompanii/",
+        "/rekvizity/",
+        "/requisites/",
+        "/upload/docs/15_rekvizity.pdf",
+        "/upload/Anti-Corruption_Policy.pdf",
+    )
+    urls = [urllib.parse.urljoin(base, path) for path in paths]
+    root_text = _fetch_site_text(root)
+    for href in re.findall(r"href=[\"']([^\"']+)[\"']", root_text, flags=re.IGNORECASE):
+        lowered = href.lower()
+        if not any(marker in lowered for marker in ("rekviz", "requisit", "реквиз", "pdf", "policy", "docs")):
+            continue
+        absolute = urllib.parse.urljoin(base, href)
+        parsed_href = urllib.parse.urlsplit(absolute)
+        if parsed_href.netloc == parsed.netloc and absolute not in urls:
+            urls.append(absolute)
+        if len(urls) >= 12:
+            break
+    return urls[:12]
+
+
+def _fetch_site_text(url: str) -> str:
+    req = urllib.request.Request(
+        url,
+        headers={"User-Agent": "Mozilla/5.0 Cloudbot identity-check"},
+        method="GET",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:  # noqa: S310
+            status = getattr(resp, "status", 0)
+            if status and status >= 400 and status not in {401, 403}:
+                return ""
+            content_type = str(resp.headers.get("Content-Type") or "").lower()
+            data = resp.read(2_000_000)
+    except Exception:  # noqa: BLE001
+        return ""
+    if "pdf" in content_type or url.lower().split("?", 1)[0].endswith(".pdf"):
+        return _extract_pdf_text(data)
+    return data.decode("utf-8", errors="ignore")
+
+
+def _extract_pdf_text(data: bytes) -> str:
+    try:
+        from pypdf import PdfReader  # type: ignore
+
+        with contextlib.redirect_stderr(io.StringIO()):
+            reader = PdfReader(io.BytesIO(data))
+            return "\n".join(page.extract_text() or "" for page in reader.pages[:5])
+    except Exception:  # noqa: BLE001
+        return data.decode("utf-8", errors="ignore")
+
+
+def _site_candidates(company: dict[str, Any]) -> list[str]:
+    candidates: list[str] = []
+    seen: set[str] = set()
+    for value in (
+        company.get("UF_CRM_5DEF838D882A2"),
+        _first_multifield(company.get("WEB")),
+        company.get("UF_CRM_1737098525088"),
+    ):
+        for candidate in _split_site_values(value):
+            key = _site_key(candidate)
+            if candidate and key and key not in seen:
+                candidates.append(candidate)
+                seen.add(key)
+    return candidates
+
+
+def _split_site_values(value: Any) -> list[str]:
+    raw = _clean(value)
+    if not raw:
+        return []
+    return [part.strip() for part in re.split(r"[;,\n]+", raw) if part.strip()]
+
+
+def _is_working_site(value: str) -> bool:
+    for url in _site_probe_urls(value):
+        req = urllib.request.Request(
+            url,
+            headers={"User-Agent": "Mozilla/5.0 Cloudbot site-check"},
+            method="GET",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=8) as resp:  # noqa: S310
+                status = getattr(resp, "status", 0)
+                if 200 <= status < 400 or status in {401, 403}:
+                    return True
+        except Exception:  # noqa: BLE001
+            continue
+    return False
+
+
+def _site_probe_urls(value: str) -> list[str]:
+    cleaned = _clean(value).strip().strip("/")
+    if not cleaned:
+        return []
+    if not re.match(r"^https?://", cleaned, flags=re.IGNORECASE):
+        cleaned = f"https://{cleaned}"
+    parsed = urllib.parse.urlsplit(cleaned)
+    host = parsed.hostname or ""
+    if not host:
+        return []
+    try:
+        ascii_host = host.encode("idna").decode("ascii")
+    except UnicodeError:
+        return []
+    netloc = ascii_host
+    if parsed.port:
+        netloc = f"{netloc}:{parsed.port}"
+    path = parsed.path or "/"
+    https_url = urllib.parse.urlunsplit(("https", netloc, path, parsed.query, ""))
+    http_url = urllib.parse.urlunsplit(("http", netloc, path, parsed.query, ""))
+    return [https_url, http_url] if https_url != http_url else [https_url]
+
+
+def _rusprofile_url(inn: str) -> str:
+    return f"https://www.rusprofile.ru/search?query={inn}"
+
+
+def _organization_status_from_inn(inn: str) -> str:
+    html = _fetch_rusprofile_html(inn)
+    if not html:
+        return ""
+    return _parse_organization_status(html)
+
+
+def _industry_from_inn(inn: str) -> str:
+    html = _fetch_rusprofile_html(inn)
+    if not html:
+        return ""
+    activity = _parse_main_activity(html)
+    return _industry_from_text(activity, fallback_other=True)
+
+
+def _parse_main_activity(html: str) -> str:
+    text = re.sub(r"<[^>]+>", " ", html)
+    text = re.sub(r"\s+", " ", text)
+    patterns = (
+        r"Основной вид деятельности.+?[-—:]\s*(.+?)(?:\s+и\s+\d+\s+дополнительн|\. Состоит|$)",
+        r"Основной вид деятельности\s*[:\-—]\s*(.+?)(?:\s+Дополнительные|$)",
+    )
+    for pattern in patterns:
+        match = re.search(pattern, text, flags=re.IGNORECASE)
+        if match:
+            return match.group(1).strip(" .;")
+    return ""
+
+
+def _parse_organization_status(html: str) -> str:
+    text = re.sub(r"\s+", " ", html.lower())
+    if any(marker in text for marker in (
+        "действующая организация",
+        "действующее юридическое лицо",
+    )):
+        return "Действующая"
+    if any(marker in text for marker in (
+        "ликвидированная организация",
+        "организация ликвидирована",
+        "ликвидировано",
+        "прекратила деятельность",
+        "прекращение деятельности",
+    )):
+        return "Ликвидирована"
+    return ""
+
+
+def _fetch_rusprofile_html(inn: str) -> str:
+    req = urllib.request.Request(
+        _rusprofile_url(inn),
+        headers={"User-Agent": "Mozilla/5.0 Cloudbot enrichment"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=12) as resp:  # noqa: S310
+            status = getattr(resp, "status", 0)
+            if status and status >= 400:
+                return ""
+            return resp.read().decode("utf-8", errors="ignore")
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+def _site_key(value: str) -> str:
+    return _clean(value).rstrip("/").lower()
+
+
+def _first_multifield(values: Any) -> str:
+    if not isinstance(values, list):
+        return ""
+    for item in values:
+        if isinstance(item, dict):
+            value = _clean(item.get("VALUE"))
+            if value:
+                return value
+    return ""
+
+
+def _first_non_empty(*values: Any) -> str:
+    for value in values:
+        cleaned = _clean(value)
+        if cleaned:
+            return cleaned
+    return ""
+
+
+def _clean(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, (list, dict)):
+        return ""
+    return str(value).strip()
+
+
+def _is_empty(value: Any) -> bool:
+    if value is None:
+        return True
+    if value is False:
+        return True
+    if isinstance(value, str):
+        return value.strip() in {"", "0"}
+    if isinstance(value, list):
+        return len(value) == 0
+    return False
+
+
+def _same_value(current: Any, desired: Any) -> bool:
+    if isinstance(current, list) or isinstance(desired, list):
+        return current == desired
+    return _clean(current) == _clean(desired)
+
+
+def _number_or_string(value: str) -> int | str:
+    digits = "".join(ch for ch in value if ch.isdigit())
+    if digits and digits == value:
+        return int(digits)
+    return value
