@@ -386,6 +386,18 @@ def cmd_contact_personal_inn_field(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_enrich_director_inn(args: argparse.Namespace) -> int:
+    from .stages import enrich_director_inn
+    bx, _ = _make_clients()
+    summary = enrich_director_inn.run_company(
+        bx,
+        company_id=args.company_id,
+        dry_run=not args.live,
+    )
+    print(json.dumps(summary, indent=2, ensure_ascii=False))
+    return 1 if summary.get("failed") else 0
+
+
 def cmd_empty_discover(args: argparse.Namespace) -> int:
     from .stages import enrich_empty_companies
     summary = enrich_empty_companies.run_discover(limit=args.limit)
@@ -742,6 +754,17 @@ def main() -> None:
     sp.add_argument("--apply", action="store_true", help="Реально создать или обновить поле в Bitrix24")
     sp.add_argument("--skip-verify", action="store_true", help="Не читать поле повторно после --apply")
     sp.set_defaults(func=cmd_contact_personal_inn_field)
+
+    sp = sub.add_parser(
+        "enrich-director-inn",
+        help=(
+            "WRITE: записать ИНН физлица директора в Bitrix-контакт по "
+            "данным rusprofile (только ЮЛ; ИП пропускаются). По умолчанию dry-run."
+        ),
+    )
+    sp.add_argument("--company-id", required=True)
+    sp.add_argument("--live", action="store_true")
+    sp.set_defaults(func=cmd_enrich_director_inn)
 
     sp = sub.add_parser(
         "empty-discover",
