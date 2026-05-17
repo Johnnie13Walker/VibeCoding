@@ -29,6 +29,8 @@ from .sync_deals import _missing_deal_contacts
 MOSCOW_TZ = ZoneInfo("Europe/Moscow")
 _default_workspace = Path(__file__).resolve().parents[5] if (Path(__file__).resolve().parents[5] / "belberry/bitrix24").exists() else Path("/Users/pro2kuror/Desktop/VibeCoding")
 BACKUP_DIR = Path(os.environ.get("CCE_CONTACT_DEDUPE_BACKUP_DIR", str(_default_workspace / "belberry/bitrix24/backups")))
+AUDIT_CSV_PATH = LOG_DIR / "dedupe_contacts.csv"
+DEAL_OWNER_TYPE_ID = 2
 
 UNRESOLVED_HEADERS = [
     "timestamp",
@@ -54,8 +56,14 @@ class ContactDedupeOutcome:
     fail_reason: str = ""
 
 
-def run_company(bx: BitrixClient, *, company_id: str, dry_run: bool = True) -> dict:
-    """Scoped dedupe контактов одной компании + re-attach в открытые сделки C50."""
+def run_company(
+    bx: BitrixClient,
+    *,
+    company_id: str,
+    dry_run: bool = True,
+    attach_unrelated_company_contacts: bool = False,
+) -> dict:
+    """Scoped dedupe контактов одной компании."""
     company_id = str(company_id)
     contacts = bx.list_company_contacts_full(company_id)
     outcomes: list[ContactDedupeOutcome] = []
@@ -67,7 +75,11 @@ def run_company(bx: BitrixClient, *, company_id: str, dry_run: bool = True) -> d
             outcomes.append(outcome)
             _record_unresolved_if_needed(outcome, cluster=cluster, dry_run=dry_run)
 
-    deal_updates = _attach_missing_contacts_to_open_deals(bx, company_id, dry_run=dry_run)
+    deal_updates = (
+        _attach_missing_contacts_to_open_deals(bx, company_id, dry_run=dry_run)
+        if attach_unrelated_company_contacts
+        else {}
+    )
     if not outcomes:
         status = "NO_DUPLICATES"
         if len(contacts) < 2:
@@ -85,6 +97,8 @@ def run_company(bx: BitrixClient, *, company_id: str, dry_run: bool = True) -> d
         for outcome in outcomes:
             outcome.deals_with_added_contacts.update(deal_updates)
             outcome.deals_updated = sorted(set(outcome.deals_updated) | set(deal_updates))
+    for outcome in outcomes:
+        _append_audit_csv(outcome, dry_run=dry_run)
 
     return _summary(company_id, outcomes, dry_run=dry_run)
 
@@ -112,11 +126,27 @@ def _process_cluster(
             fail_reason=unresolved_reason,
         )
 
+    loser_plans = [
+        _merge_contact_into_winner(
+            bx,
+            winner=winner,
+            loser=loser,
+            company_id=company_id,
+            loser_deals=contact_deals.get(str(loser.get("ID") or ""), []),
+            dry_run=True,
+        )
+        for loser in losers
+    ]
+    deals_with_added_contacts = _collect_deal_contact_additions(loser_plans)
+    deals_updated = sorted(deals_with_added_contacts)
+
     if dry_run:
         return ContactDedupeOutcome(
             company_id=company_id,
             winner_contact_id=winner_id,
             closed_contact_ids=[str(c.get("ID") or "") for c in losers],
+            deals_updated=deals_updated,
+            deals_with_added_contacts=deals_with_added_contacts,
             match_reasons=match_reasons,
             status="DRY_RUN",
         )
@@ -130,7 +160,7 @@ def _process_cluster(
     try:
         for loser in losers:
             loser_id = str(loser.get("ID") or "")
-            _merge_contact_into_winner(
+            plan = _merge_contact_into_winner(
                 bx,
                 winner=winner,
                 loser=loser,
@@ -139,12 +169,11 @@ def _process_cluster(
                 dry_run=False,
             )
             outcome.closed_contact_ids.append(loser_id)
-        outcome.deals_updated = sorted({
-            str(deal.get("ID") or "")
-            for loser_id in outcome.closed_contact_ids
-            for deal in contact_deals.get(loser_id, [])
-            if deal.get("ID")
-        })
+            for deal_id, contact_ids in plan.get("deals_with_added_contacts", {}).items():
+                outcome.deals_with_added_contacts.setdefault(deal_id, [])
+                outcome.deals_with_added_contacts[deal_id].extend(contact_ids)
+        outcome.deals_updated = sorted(outcome.deals_with_added_contacts)
+        _add_timeline_comments_for_merge(bx, outcome)
     except Exception as exc:  # noqa: BLE001
         outcome.status = "FAILED"
         outcome.fail_reason = str(exc)[:300]
@@ -168,13 +197,13 @@ def _merge_contact_into_winner(
         "loser_contact_id": loser_id,
         "fields": fields,
         "deal_ids": [str(deal.get("ID")) for deal in loser_deals if deal.get("ID")],
+        "deals_with_added_contacts": {},
         "company_id": company_id,
     }
-    if dry_run:
-        return plan
 
-    _backup_contact(loser, plan=plan)
-    if fields:
+    if not dry_run:
+        _backup_contact(loser, plan=plan)
+    if fields and not dry_run:
         bx.update_contact(winner_id, fields)
     for deal in loser_deals:
         deal_id = str(deal.get("ID") or "")
@@ -186,10 +215,14 @@ def _merge_contact_into_winner(
             if isinstance(item, dict)
         }
         if winner_id not in linked:
-            bx.add_deal_contact(deal_id, winner_id)
-        bx.remove_deal_contact_relation(deal_id, loser_id)
-    bx.remove_contact_company_relation(loser_id, company_id)
-    bx.delete_contact(loser_id)
+            plan["deals_with_added_contacts"].setdefault(deal_id, []).append(winner_id)
+            if not dry_run:
+                bx.add_deal_contact(deal_id, winner_id)
+        if not dry_run:
+            bx.remove_deal_contact_relation(deal_id, loser_id)
+    if not dry_run:
+        bx.remove_contact_company_relation(loser_id, company_id)
+        bx.delete_contact(loser_id)
     return plan
 
 
@@ -218,6 +251,18 @@ def _attach_missing_contacts_to_open_deals(
             continue
         for contact_id in contacts_to_add:
             bx.add_deal_contact(deal_id, contact_id)
+    return updates
+
+
+def _collect_deal_contact_additions(plans: list[dict[str, Any]]) -> dict[str, list[str]]:
+    updates: dict[str, list[str]] = {}
+    for plan in plans:
+        for deal_id, contact_ids in (plan.get("deals_with_added_contacts") or {}).items():
+            bucket = updates.setdefault(str(deal_id), [])
+            for contact_id in contact_ids:
+                cid = str(contact_id)
+                if cid not in bucket:
+                    bucket.append(cid)
     return updates
 
 
@@ -422,6 +467,75 @@ def _backup_contact(contact: dict, *, plan: dict[str, Any]) -> str:
     }
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
     return str(path)
+
+
+def _append_audit_csv(outcome: ContactDedupeOutcome, *, dry_run: bool) -> None:
+    if outcome.status == "NO_DUPLICATES":
+        return
+
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    write_header = not AUDIT_CSV_PATH.exists()
+    with AUDIT_CSV_PATH.open("a", encoding="utf-8", newline="") as fh:
+        writer = csv.DictWriter(
+            fh,
+            fieldnames=[
+                "timestamp_msk",
+                "company_id",
+                "winner_contact_id",
+                "loser_contact_ids",
+                "match_reasons",
+                "deals_updated",
+                "deals_with_added_contacts",
+                "status",
+                "fail_reason",
+                "dry_run",
+                "source",
+            ],
+        )
+        if write_header:
+            writer.writeheader()
+        writer.writerow(
+            {
+                "timestamp_msk": datetime.now(MOSCOW_TZ).isoformat(timespec="seconds"),
+                "company_id": outcome.company_id,
+                "winner_contact_id": outcome.winner_contact_id,
+                "loser_contact_ids": json.dumps(outcome.closed_contact_ids, ensure_ascii=False),
+                "match_reasons": json.dumps(outcome.match_reasons, ensure_ascii=False),
+                "deals_updated": json.dumps(outcome.deals_updated, ensure_ascii=False),
+                "deals_with_added_contacts": json.dumps(outcome.deals_with_added_contacts, ensure_ascii=False),
+                "status": _audit_status(outcome),
+                "fail_reason": outcome.fail_reason,
+                "dry_run": json.dumps(bool(dry_run)),
+                "source": _audit_source(outcome.match_reasons),
+            }
+        )
+
+
+def _audit_status(outcome: ContactDedupeOutcome) -> str:
+    if outcome.status == "MERGED":
+        return "SUCCESS"
+    return outcome.status
+
+
+def _audit_source(match_reasons: list[str]) -> str:
+    if "placeholder_dedup" in match_reasons:
+        return "placeholder_dedup"
+    return "regular_dedup"
+
+
+def _add_timeline_comments_for_merge(bx: BitrixClient, outcome: ContactDedupeOutcome) -> None:
+    if outcome.status != "MERGED" or not outcome.deals_with_added_contacts:
+        return
+
+    loser_ids = ", ".join(outcome.closed_contact_ids)
+    reasons = ", ".join(outcome.match_reasons)
+    source = _audit_source(outcome.match_reasons)
+    text = (
+        f"[dedupe] Слит placeholder-контакт {loser_ids} в {outcome.winner_contact_id} "
+        f"(reason: {reasons}). Source: {source}."
+    )
+    for deal_id in sorted(outcome.deals_with_added_contacts):
+        bx.add_timeline_comment(owner_type_id=DEAL_OWNER_TYPE_ID, owner_id=deal_id, text=text)
 
 
 def _record_unresolved_if_needed(outcome: ContactDedupeOutcome, *, cluster: list[dict], dry_run: bool) -> None:

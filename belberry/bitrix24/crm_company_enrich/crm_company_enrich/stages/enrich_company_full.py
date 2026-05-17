@@ -475,7 +475,12 @@ def _step_revive_deal(bx: BitrixClient, outcome: FullEnrichmentOutcome, context:
 def _step_dedupe_contacts(bx: BitrixClient, outcome: FullEnrichmentOutcome, context: dict[str, Any], flags: dict[str, Any]) -> StepOutcome:
     if flags["skip_dedupe_contacts"]:
         return StepOutcome("DEDUPE_CONTACTS", "SKIPPED", {"reason": "skip_dedupe_contacts"})
-    summary = dedupe_contacts.run_company(bx, company_id=outcome.company_id, dry_run=flags["dry_run"])
+    summary = dedupe_contacts.run_company(
+        bx,
+        company_id=outcome.company_id,
+        dry_run=flags["dry_run"],
+        attach_unrelated_company_contacts=False,
+    )
     return StepOutcome("DEDUPE_CONTACTS", "DONE" if not summary.get("failed") else "FAILED", {"summary": summary})
 
 
