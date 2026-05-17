@@ -110,6 +110,23 @@ def test_enrich_one_falls_back_to_web():
     assert any("/requisites/" in u for u in fetched)
 
 
+def test_enrich_one_checks_politika_page_for_requisites():
+    row = QueueRow(company_id="2", web="stail-s.ru", uf_inn_candidate=None)
+
+    def fetcher(url):
+        if url.endswith("/politika/"):
+            return FetchResult(
+                url=url,
+                status=200,
+                text="ООО «Стайл-С», ИНН&nbsp;7715424113, ОГРН&nbsp;1157746179381, КПП&nbsp;771501001",
+            )
+        return FetchResult(url=url, status=404, text="")
+
+    inn, source, _ = _enrich_one(row, fetcher, sleep_s=0)
+    assert inn == "7715424113"
+    assert source == "web"
+
+
 def test_enrich_one_returns_none_when_all_sources_fail():
     row = QueueRow(company_id="3", web="example.ru")
 

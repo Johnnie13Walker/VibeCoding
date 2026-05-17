@@ -36,7 +36,18 @@ from ..state import Status, is_at_least
 
 MOSCOW_TZ = ZoneInfo("Europe/Moscow")
 
-WEB_PATHS = ("/", "/requisites/", "/реквизиты/", "/about/", "/policy/", "/о-клинике/", "/contacts/", "/контакты/")
+WEB_PATHS = (
+    "/",
+    "/requisites/",
+    "/реквизиты/",
+    "/about/",
+    "/policy/",
+    "/politika/",
+    "/soglashenie/",
+    "/о-клинике/",
+    "/contacts/",
+    "/контакты/",
+)
 
 # Bitrix-плейсхолдеры и явный мусор в TITLE — не пытаемся использовать как домен.
 TITLE_BLACKLIST = re.compile(
