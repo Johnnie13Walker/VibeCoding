@@ -200,6 +200,19 @@ def cmd_sync_company(args: argparse.Namespace) -> int:
     return 1 if summary.get("failed") else 0
 
 
+def cmd_auto_reject_telemarketing(args: argparse.Namespace) -> int:
+    from .stages import auto_reject_telemarketing
+    bx, _ = _make_clients()
+    summary = auto_reject_telemarketing.run(
+        bx,
+        dry_run=not args.live,
+        limit=args.limit,
+        stages=args.stage,
+    )
+    print(json.dumps(summary, indent=2, ensure_ascii=False))
+    return 0 if not summary.get("failed") else 1
+
+
 def cmd_empty_discover(args: argparse.Namespace) -> int:
     from .stages import enrich_empty_companies
     summary = enrich_empty_companies.run_discover(limit=args.limit)
@@ -405,6 +418,22 @@ def main() -> None:
     sp.add_argument("--live", action="store_true", help="Реально записать поля компании")
     sp.add_argument("--overwrite", action="store_true", help="Перезаписывать уже заполненные поля")
     sp.set_defaults(func=cmd_sync_company)
+
+    sp = sub.add_parser(
+        "auto-reject-telemarketing",
+        help=(
+            "WRITE: автоматически закрыть сделки в C50:UC_1S1KIU/NEW по причинам "
+            "Ликвидирована (8538) или Выручка <30M (8542). По умолчанию dry-run."
+        ),
+    )
+    sp.add_argument("--live", action="store_true")
+    sp.add_argument("--limit", type=int, help="Ограничить число обработанных сделок")
+    sp.add_argument(
+        "--stage",
+        action="append",
+        help="Конкретные стадии для скана (по умолчанию UC_1S1KIU,NEW)",
+    )
+    sp.set_defaults(func=cmd_auto_reject_telemarketing)
 
     sp = sub.add_parser(
         "empty-discover",

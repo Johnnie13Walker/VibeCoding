@@ -429,7 +429,7 @@ def test_organization_status_parses_rusprofile_html(monkeypatch):
     assert sync_deals._parse_organization_status("<span>Организация ликвидирована</span>") == "Ликвидирована"
 
 
-def test_brand_is_classified_as_acoola_when_company_brand_is_empty():
+def test_brand_defaults_to_belberry_when_company_brand_is_empty():
     bx = FakeBitrix(
         companies={"100": _company(UF_CRM_1737098476975="")},
         deals_by_company={"100": [_deal()]},
@@ -439,7 +439,7 @@ def test_brand_is_classified_as_acoola_when_company_brand_is_empty():
 
     assert summary["updated"] == 1
     _, fields = bx.update_deal_calls[0]
-    assert fields[DEAL_UF_BRAND_PROJECT] == "1820"
+    assert fields[DEAL_UF_BRAND_PROJECT] == "1000"
 
 
 def test_medical_company_gets_belberry_brand_when_company_brand_is_empty():
@@ -462,7 +462,7 @@ def test_medical_company_gets_belberry_brand_when_company_brand_is_empty():
     assert fields[DEAL_UF_BRAND_PROJECT] == "1000"
 
 
-def test_unknown_company_gets_acoola_brand_by_default():
+def test_unknown_company_gets_belberry_brand_by_default():
     bx = FakeBitrix(
         companies={
             "100": _company(
@@ -482,7 +482,7 @@ def test_unknown_company_gets_acoola_brand_by_default():
 
     assert summary["updated"] == 1
     _, fields = bx.update_deal_calls[0]
-    assert fields[DEAL_UF_BRAND_PROJECT] == "1820"
+    assert fields[DEAL_UF_BRAND_PROJECT] == "1000"
 
 
 def test_baggage_store_is_ecommerce_not_tourism():

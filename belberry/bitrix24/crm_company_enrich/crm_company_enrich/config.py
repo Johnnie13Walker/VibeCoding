@@ -65,9 +65,27 @@ TELEMARKETING_CATEGORY_ID = "50"
 TELEMARKETING_NEW_STAGE_ID = "C50:NEW"
 TELEMARKETING_SOURCE_ID = "12"
 TELEMARKETING_REFUSAL_STAGE_IDS = frozenset({"C50:APOLOGY", "C50:LOSE", "C50:UC_1S1KIU"})
+TELEMARKETING_AUTO_REJECT_SCAN_STAGES = ("C50:UC_1S1KIU", "C50:NEW")
 TELEMARKETING_ASSIGNEES = (
     ("2772", "Дарья Исаева"),
     ("2832", "Аркадий Вострецов"),
+)
+
+# ID ХОЛОД-причин отказа (enum UF_CRM_1771324790).
+HOLD_REASON_BUSINESS_CLOSED = "8538"   # Бизнес закрылся
+HOLD_REASON_LOW_REVENUE = "8542"       # Выручка менее 30 млн/год
+HOLD_REASON_FIELD = "UF_CRM_1771324790"
+HOLD_REASON_COMMENT_FIELD = "UF_CRM_635011179F7DD"
+HOLD_MARKER_FLAG_FIELD = "UF_CRM_1733394127643"
+HOLD_MARKER_DESC_FIELD = "UF_CRM_1733394206255"
+
+# Статус «Ликвидирована» в company.UF_CRM_ORG_STATUS.
+ORG_STATUS_LIQUIDATED = "8852"
+
+# Порог выручки для auto-reject (рубли в год). Если revenue < threshold
+# → reason 8542. Если revenue не определён (None/0/пусто) → не reject.
+HOLD_REVENUE_THRESHOLD_RUB = int(
+    os.environ.get("CCE_HOLD_REVENUE_THRESHOLD_RUB", "30000000")
 )
 
 # Web fetch behaviour

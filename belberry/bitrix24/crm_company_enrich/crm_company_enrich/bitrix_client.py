@@ -191,12 +191,62 @@ class BitrixClient:
             )
         )
 
+    def list_deals_by_stages(
+        self,
+        *,
+        category_id: int,
+        stage_ids: list[str],
+        closed: str = "N",
+        select: list[str] | None = None,
+    ) -> list[dict]:
+        """Все открытые сделки в указанных стадиях категории."""
+        return list(
+            self.paginate(
+                "crm.deal.list",
+                {
+                    "filter": {
+                        "CATEGORY_ID": category_id,
+                        "STAGE_ID": stage_ids,
+                        "CLOSED": closed,
+                    },
+                    "select": select or [
+                        "ID",
+                        "TITLE",
+                        "STAGE_ID",
+                        "COMPANY_ID",
+                        "ASSIGNED_BY_ID",
+                        "CLOSED",
+                        "CATEGORY_ID",
+                        "UF_CRM_1771324790",
+                        "UF_CRM_1733394127643",
+                    ],
+                },
+            )
+        )
+
     def get_deal(self, deal_id: str) -> dict | None:
         return self._get_or_none("crm.deal.get", {"id": deal_id})
 
-    def update_deal(self, deal_id: str, fields: dict) -> bool:
-        body = self.call("crm.deal.update", {"id": deal_id, "fields": fields})
+    def update_deal(self, deal_id: str, fields: dict, *, params: dict | None = None) -> bool:
+        payload = {"id": deal_id, "fields": fields}
+        if params:
+            payload["params"] = params
+        body = self.call("crm.deal.update", payload)
         return bool(body.get("result"))
+
+    def add_timeline_comment(self, *, owner_type_id: int, owner_id: str, text: str) -> str:
+        """Добавить комментарий в timeline сделки. owner_type_id=2 — CRM_DEAL."""
+        body = self.call(
+            "crm.timeline.comment.add",
+            {
+                "fields": {
+                    "ENTITY_TYPE_ID": owner_type_id,
+                    "ENTITY_ID": int(owner_id),
+                    "COMMENT": text,
+                },
+            },
+        )
+        return str(body.get("result") or "")
 
     def get_company_contacts(self, company_id: str) -> list[str]:
         """Список contact_id, привязанных к компании."""
