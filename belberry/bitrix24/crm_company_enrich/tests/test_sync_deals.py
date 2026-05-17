@@ -71,6 +71,12 @@ class FakeBitrix:
 
     def update_deal(self, deal_id: str, fields: dict, *, params: dict | None = None) -> bool:
         self.update_deal_calls.append((str(deal_id), dict(fields)))
+        if str(deal_id) in self.deals_by_id:
+            self.deals_by_id[str(deal_id)].update(fields)
+        for deals in self.deals_by_company.values():
+            for deal in deals:
+                if str(deal.get("ID")) == str(deal_id):
+                    deal.update(fields)
         return True
 
     def update_company(self, company_id: str, fields: dict) -> bool:
@@ -1092,3 +1098,89 @@ def test_sync_deals_dedupe_dry_run_does_not_write():
 
     assert not any(fields.get("STAGE_ID") == "C50:APOLOGY" for _, fields in bx.update_deal_calls)
     assert summary["telemarketing_dedupe"]["dry_run_merged"] == 1
+
+
+def test_sync_deals_can_run_scoped_auto_reject_after_company_sync():
+    deal = _tm_deal("20872", company_id="12282", stage_id="C50:NEW")
+    bx = FakeBitrix(
+        companies={"12282": _company(ID="12282", UF_CRM_1737098549301="6672000")},
+        deals_by_company={"12282": [deal]},
+        deals_by_id={"20872": deal},
+    )
+
+    summary = sync_deals.run(
+        bx,
+        company_id="12282",
+        dry_run=False,
+        auto_reject_telemarketing=True,
+    )
+
+    close_calls = [
+        fields for deal_id, fields in bx.update_deal_calls
+        if deal_id == "20872" and fields.get("STAGE_ID") == "C50:APOLOGY"
+    ]
+    assert close_calls
+    assert close_calls[0][HOLD_REASON_FIELD] == "8542"
+    assert summary["auto_reject_telemarketing"]["rejected_8542"] == 1
+
+
+def test_sync_deals_auto_reject_not_called_without_flag():
+    deal = _tm_deal("20872", company_id="12282", stage_id="C50:NEW")
+    bx = FakeBitrix(
+        companies={"12282": _company(ID="12282", UF_CRM_1737098549301="6672000")},
+        deals_by_company={"12282": [deal]},
+        deals_by_id={"20872": deal},
+    )
+
+    summary = sync_deals.run(bx, company_id="12282", dry_run=False)
+
+    assert "auto_reject_telemarketing" not in summary
+    assert not any(fields.get("STAGE_ID") == "C50:APOLOGY" for _, fields in bx.update_deal_calls)
+
+
+def test_sync_deals_auto_reject_dry_run_does_not_write():
+    deal = _tm_deal("20872", company_id="12282", stage_id="C50:NEW")
+    bx = FakeBitrix(
+        companies={"12282": _company(ID="12282", UF_CRM_1737098549301="6672000")},
+        deals_by_company={"12282": [deal]},
+        deals_by_id={"20872": deal},
+    )
+
+    summary = sync_deals.run(
+        bx,
+        company_id="12282",
+        dry_run=True,
+        auto_reject_telemarketing=True,
+    )
+
+    assert not any(fields.get("STAGE_ID") == "C50:APOLOGY" for _, fields in bx.update_deal_calls)
+    assert summary["auto_reject_telemarketing"]["dry_run_8542"] == 1
+
+
+def test_sync_deals_combines_dedupe_and_auto_reject():
+    winner = _tm_deal("20872", company_id="12282", stage_id="C50:NEW")
+    loser = _tm_deal("21588", company_id="12282", stage_id="C50:UC_1S1KIU")
+    bx = FakeBitrix(
+        companies={"12282": _company(ID="12282", UF_CRM_1737098549301="6672000")},
+        deals_by_company={"12282": [winner, loser]},
+        deals_by_id={"20872": winner, "21588": loser},
+    )
+
+    summary = sync_deals.run(
+        bx,
+        company_id="12282",
+        dry_run=False,
+        dedupe_telemarketing=True,
+        auto_reject_telemarketing=True,
+    )
+
+    assert summary["telemarketing_dedupe"]["merged"] == 1
+    assert summary["auto_reject_telemarketing"]["rejected_8542"] >= 1
+    assert any(
+        deal_id == "21588" and fields.get(HOLD_REASON_FIELD) == "8544"
+        for deal_id, fields in bx.update_deal_calls
+    )
+    assert any(
+        deal_id == "20872" and fields.get(HOLD_REASON_FIELD) == "8542"
+        for deal_id, fields in bx.update_deal_calls
+    )

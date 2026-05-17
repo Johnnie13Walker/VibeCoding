@@ -121,6 +121,7 @@ def run_company(
     dry_run: bool = True,
     overwrite: bool = False,
     dedupe_telemarketing: bool = False,
+    auto_reject_telemarketing: bool = False,
 ) -> dict:
     if not company_id:
         raise ValueError("Нужен company_id")
@@ -196,6 +197,14 @@ def run_company(
             dry_run=dry_run,
             dedupe_telemarketing=dedupe_telemarketing,
         )
+        _attach_scoped_auto_reject_summary(
+            bx,
+            summary,
+            company_ids=[company_id],
+            deal_ids=[],
+            dry_run=dry_run,
+            auto_reject_telemarketing=auto_reject_telemarketing,
+        )
         return summary
 
     if dry_run:
@@ -216,6 +225,14 @@ def run_company(
             company_ids=[company_id],
             dry_run=dry_run,
             dedupe_telemarketing=dedupe_telemarketing,
+        )
+        _attach_scoped_auto_reject_summary(
+            bx,
+            summary,
+            company_ids=[company_id],
+            deal_ids=[],
+            dry_run=dry_run,
+            auto_reject_telemarketing=auto_reject_telemarketing,
         )
         return summary
 
@@ -252,6 +269,14 @@ def run_company(
         dry_run=dry_run,
         dedupe_telemarketing=dedupe_telemarketing,
     )
+    _attach_scoped_auto_reject_summary(
+        bx,
+        summary,
+        company_ids=[company_id],
+        deal_ids=[],
+        dry_run=dry_run,
+        auto_reject_telemarketing=auto_reject_telemarketing,
+    )
     return summary
 
 
@@ -267,6 +292,7 @@ def run(
     telemarketing_workflow: bool = False,
     rotation_index: int = 0,
     dedupe_telemarketing: bool = False,
+    auto_reject_telemarketing: bool = False,
 ) -> dict:
     if not company_id and not deal_id:
         raise ValueError("Нужен company_id или deal_id")
@@ -288,6 +314,7 @@ def run(
     contact_communications_updated = 0
     contact_communications_dry = 0
     processed_company_ids: set[str] = set()
+    processed_deal_ids: set[str] = set()
 
     for deal in deals:
         did = str(deal.get("ID") or "")
@@ -296,6 +323,7 @@ def run(
             outcomes.append(SyncOutcome(did, cid, "FAILED", {}, {}, error="deal has no ID/COMPANY_ID"))
             failed += 1
             continue
+        processed_deal_ids.add(did)
         processed_company_ids.add(cid)
 
         company = bx.get_company(cid)
@@ -403,6 +431,14 @@ def run(
         dry_run=dry_run,
         dedupe_telemarketing=dedupe_telemarketing,
     )
+    _attach_scoped_auto_reject_summary(
+        bx,
+        summary,
+        company_ids=[] if deal_id else sorted(processed_company_ids, key=lambda x: int(x) if x.isdigit() else x),
+        deal_ids=sorted(processed_deal_ids, key=lambda x: int(x) if x.isdigit() else x) if deal_id else [],
+        dry_run=dry_run,
+        auto_reject_telemarketing=auto_reject_telemarketing,
+    )
     return summary
 
 
@@ -431,6 +467,48 @@ def _attach_scoped_dedupe_summary(
         summary["telemarketing_dedupe"] = next(iter(dedupe_by_company.values()))
     else:
         summary["telemarketing_dedupe"] = dedupe_by_company
+
+
+def _attach_scoped_auto_reject_summary(
+    bx: BitrixClient,
+    summary: dict,
+    *,
+    company_ids: list[str],
+    deal_ids: list[str],
+    dry_run: bool,
+    auto_reject_telemarketing: bool,
+) -> None:
+    if not auto_reject_telemarketing or (not company_ids and not deal_ids):
+        return
+    from .auto_reject_telemarketing import run_company as auto_reject_run_company
+    from .auto_reject_telemarketing import run_deal as auto_reject_run_deal
+
+    if deal_ids and not company_ids:
+        if len(deal_ids) == 1:
+            summary["auto_reject_telemarketing"] = auto_reject_run_deal(
+                bx,
+                deal_id=deal_ids[0],
+                dry_run=dry_run,
+            )
+        else:
+            summary["auto_reject_telemarketing"] = {
+                deal_id: auto_reject_run_deal(bx, deal_id=deal_id, dry_run=dry_run)
+                for deal_id in deal_ids
+            }
+        return
+
+    auto_reject_by_company = {
+        company_id: auto_reject_run_company(
+            bx,
+            company_id=company_id,
+            dry_run=dry_run,
+        )
+        for company_id in company_ids
+    }
+    if len(auto_reject_by_company) == 1:
+        summary["auto_reject_telemarketing"] = next(iter(auto_reject_by_company.values()))
+    else:
+        summary["auto_reject_telemarketing"] = auto_reject_by_company
 
 
 def telemarketing_assignee_for_new_deal(*, rotation_index: int = 0) -> str:

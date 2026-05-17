@@ -29,6 +29,15 @@ class FakeBitrix:
     def get_company(self, company_id):
         return self.companies.get(str(company_id))
 
+    def get_deal(self, deal_id):
+        for deal in self.deals:
+            if str(deal.get("ID")) == str(deal_id):
+                return dict(deal)
+        return None
+
+    def list_company_deals(self, company_id: str, select=None):
+        return [dict(deal) for deal in self.deals if str(deal.get("COMPANY_ID") or "") == str(company_id)]
+
     def update_deal(self, deal_id, fields, *, params=None):
         self.update_deal_calls.append((str(deal_id), dict(fields), dict(params or {})))
         return True
@@ -330,3 +339,94 @@ def test_default_scan_stages_are_base_and_new():
     summary = stage.run(bx)
 
     assert tuple(summary["scan_stages"]) == TELEMARKETING_AUTO_REJECT_SCAN_STAGES
+
+
+def test_run_deal_revenue_below_threshold_marks_for_rejection():
+    bx = FakeBitrix(
+        deals=[_deal(deal_id="20872", company_id="12282")],
+        companies={"12282": {"UF_CRM_ORG_STATUS": "8850", "UF_CRM_1737098549301": "6672000"}},
+    )
+
+    summary = stage.run_deal(bx, deal_id="20872", dry_run=True)
+
+    assert summary["dry_run_8542"] == 1
+    assert summary["outcomes"][0]["reason_id"] == "8542"
+    assert bx.update_deal_calls == []
+
+
+def test_run_deal_live_writes_apology(monkeypatch, tmp_path):
+    monkeypatch.setattr(stage, "LOG_DIR", tmp_path)
+    bx = FakeBitrix(
+        deals=[_deal(deal_id="20872", company_id="12282")],
+        companies={"12282": {"UF_CRM_ORG_STATUS": "8850", "UF_CRM_1737098549301": "6672000"}},
+    )
+
+    summary = stage.run_deal(bx, deal_id="20872", dry_run=False)
+
+    assert summary["rejected_8542"] == 1
+    assert bx.update_deal_calls[0][1]["STAGE_ID"] == "C50:APOLOGY"
+    assert bx.update_deal_calls[0][1][HOLD_REASON_FIELD] == "8542"
+    assert len(bx.timeline_calls) == 1
+
+
+def test_run_deal_preparation_stage_not_scanned():
+    bx = FakeBitrix(
+        deals=[_deal(deal_id="20872", company_id="12282", stage_id="C50:PREPARATION")],
+        companies={"12282": {"UF_CRM_ORG_STATUS": "8852"}},
+    )
+
+    summary = stage.run_deal(bx, deal_id="20872")
+
+    assert summary["reason"] == "stage_not_scannable"
+    assert summary["outcomes"][0]["skipped_reason"] == "stage_not_scannable"
+    assert bx.update_deal_calls == []
+
+
+def test_run_deal_apology_stage_not_scanned():
+    bx = FakeBitrix(
+        deals=[_deal(deal_id="20872", company_id="12282", stage_id="C50:APOLOGY", CLOSED="Y")],
+        companies={"12282": {"UF_CRM_ORG_STATUS": "8852"}},
+    )
+
+    summary = stage.run_deal(bx, deal_id="20872")
+
+    assert summary["reason"] == "stage_not_scannable"
+    assert bx.update_deal_calls == []
+
+
+def test_run_deal_marker_already_set_skipped():
+    bx = FakeBitrix(
+        deals=[_deal(deal_id="20872", company_id="12282", **{HOLD_MARKER_FLAG_FIELD: "1"})],
+        companies={"12282": {"UF_CRM_ORG_STATUS": "8852"}},
+    )
+
+    summary = stage.run_deal(bx, deal_id="20872")
+
+    assert summary["reason"] == "marker_already_set"
+    assert summary["outcomes"][0]["skipped_reason"] == "marker_already_set"
+    assert bx.update_deal_calls == []
+
+
+def test_run_deal_missing_returns_deal_not_found():
+    bx = FakeBitrix(deals=[], companies={})
+
+    summary = stage.run_deal(bx, deal_id="404")
+
+    assert summary["reason"] == "deal_not_found"
+    assert summary["examined"] == 0
+
+
+def test_run_company_processes_all_scannable_deals():
+    bx = FakeBitrix(
+        deals=[
+            _deal(deal_id="1", company_id="12282", stage_id="C50:NEW"),
+            _deal(deal_id="2", company_id="12282", stage_id="C50:PREPARATION"),
+        ],
+        companies={"12282": {"UF_CRM_ORG_STATUS": "8850", "UF_CRM_1737098549301": "5000000"}},
+    )
+
+    summary = stage.run_company(bx, company_id="12282", dry_run=True)
+
+    assert summary["examined"] == 1
+    assert summary["dry_run_8542"] == 1
+    assert summary["outcomes"][0]["deal_id"] == "1"

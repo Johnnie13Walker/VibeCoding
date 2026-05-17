@@ -181,6 +181,7 @@ def cmd_sync_deals(args: argparse.Namespace) -> int:
         telemarketing_workflow=args.telemarketing_workflow,
         rotation_index=args.rotation_index,
         dedupe_telemarketing=args.dedupe_telemarketing,
+        auto_reject_telemarketing=args.auto_reject_telemarketing,
     )
     print(json.dumps(summary, indent=2, ensure_ascii=False))
     return 1 if summary.get("failed") else 0
@@ -197,6 +198,7 @@ def cmd_sync_company(args: argparse.Namespace) -> int:
         dry_run=not args.live,
         overwrite=args.overwrite,
         dedupe_telemarketing=args.dedupe_telemarketing,
+        auto_reject_telemarketing=args.auto_reject_telemarketing,
     )
     print(json.dumps(summary, indent=2, ensure_ascii=False))
     return 1 if summary.get("failed") else 0
@@ -205,12 +207,25 @@ def cmd_sync_company(args: argparse.Namespace) -> int:
 def cmd_auto_reject_telemarketing(args: argparse.Namespace) -> int:
     from .stages import auto_reject_telemarketing
     bx, _ = _make_clients()
-    summary = auto_reject_telemarketing.run(
-        bx,
-        dry_run=not args.live,
-        limit=args.limit,
-        stages=args.stage,
-    )
+    if args.deal_id:
+        summary = auto_reject_telemarketing.run_deal(
+            bx,
+            deal_id=args.deal_id,
+            dry_run=not args.live,
+        )
+    elif args.company_id:
+        summary = auto_reject_telemarketing.run_company(
+            bx,
+            company_id=args.company_id,
+            dry_run=not args.live,
+        )
+    else:
+        summary = auto_reject_telemarketing.run(
+            bx,
+            dry_run=not args.live,
+            limit=args.limit,
+            stages=args.stage,
+        )
     print(json.dumps(summary, indent=2, ensure_ascii=False))
     return 0 if not summary.get("failed") else 1
 
@@ -463,6 +478,11 @@ def main() -> None:
         action="store_true",
         help="После sync-deals запустить scoped dedupe для этой компании",
     )
+    sp.add_argument(
+        "--auto-reject-telemarketing",
+        action="store_true",
+        help="После sync-deals запустить scoped auto-reject для этой компании/сделки",
+    )
     sp.set_defaults(func=cmd_sync_deals)
 
     sp = sub.add_parser(
@@ -482,6 +502,11 @@ def main() -> None:
         action="store_true",
         help="После sync-company запустить scoped dedupe для этой компании",
     )
+    sp.add_argument(
+        "--auto-reject-telemarketing",
+        action="store_true",
+        help="После sync-company запустить scoped auto-reject для этой компании",
+    )
     sp.set_defaults(func=cmd_sync_company)
 
     sp = sub.add_parser(
@@ -493,6 +518,9 @@ def main() -> None:
     )
     sp.add_argument("--live", action="store_true")
     sp.add_argument("--limit", type=int, help="Ограничить число обработанных сделок")
+    ar_group = sp.add_mutually_exclusive_group()
+    ar_group.add_argument("--deal-id", help="Точечный auto-reject одной сделки")
+    ar_group.add_argument("--company-id", help="Auto-reject сканируемых сделок одной компании")
     sp.add_argument(
         "--stage",
         action="append",
