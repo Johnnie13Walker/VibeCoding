@@ -287,6 +287,31 @@ def cmd_enrich_from_sheet(args: argparse.Namespace) -> int:
     return 0 if not summary.get("failed") else 1
 
 
+def cmd_enrich_from_sheet_inplace(args: argparse.Namespace) -> int:
+    from .stages import enrich_from_sheet_inplace
+
+    if args.skip_bp and args.full_bp:
+        print("--skip-bp и --full-bp нельзя указывать одновременно", file=sys.stderr)
+        return 2
+
+    bx, sheets = _make_clients()
+    summary = enrich_from_sheet_inplace.run_in_place(
+        bx,
+        sheets.service,
+        sheet_id=args.sheet_id,
+        tab_title=args.tab,
+        dry_run=not args.live,
+        skip_bp=True if args.skip_bp else None,
+        full_bp=args.full_bp,
+        max_duration_min=args.max_duration_min,
+        limit=args.limit,
+        cron_mode=args.cron,
+        skip_already_processed=not args.no_skip_processed,
+    )
+    print(json.dumps(summary, indent=2, ensure_ascii=False))
+    return 0 if not summary.get("failed") else 1
+
+
 def cmd_telemarketing_dedupe(args: argparse.Namespace) -> int:
     from .stages import telemarketing_dedupe
     bx, _ = _make_clients()
@@ -670,6 +695,26 @@ def main() -> None:
     sp.add_argument("--max-duration-min", type=int, default=480)
     sp.add_argument("--limit", type=int)
     sp.set_defaults(func=cmd_enrich_from_sheet)
+
+    sp = sub.add_parser(
+        "enrich-from-sheet-inplace",
+        help=(
+            "WRITE: batch-обогащение по списку сделок в табе Google Sheets, "
+            "запись результатов и раскраска в исходный таб (cols I-U). "
+            "Resume-safe (пропускает строки с заполненным status). По умолчанию dry-run."
+        ),
+    )
+    sp.add_argument("--sheet-id", required=True, help="ID Google Sheets с табом-источником")
+    sp.add_argument("--tab", required=True, help="Название таба (например 'Телемаркетинг без реквизитов')")
+    sp.add_argument("--live", action="store_true", help="Реально писать в Bitrix")
+    sp.add_argument("--skip-bp", action="store_true", help="Принудительно пропустить BP")
+    sp.add_argument("--full-bp", action="store_true", help="Принудительно запускать BP")
+    sp.add_argument("--cron", action="store_true", help="cron-режим с проверкой окна 00:00-08:00 МСК")
+    sp.add_argument("--max-duration-min", type=int, default=480)
+    sp.add_argument("--limit", type=int, help="Обработать не более N строк")
+    sp.add_argument("--no-skip-processed", action="store_true",
+                    help="Не пропускать строки с уже заполненным status (col K)")
+    sp.set_defaults(func=cmd_enrich_from_sheet_inplace)
 
     sp = sub.add_parser(
         "telemarketing-dedupe",
