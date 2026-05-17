@@ -55,10 +55,13 @@ def run(
     text = _format_html(sections, since)
     section_payload = [asdict(section) for section in sections]
     if dry_run:
+        telegram_result = {"skipped": True, "reason": "dry_run"}
         return {
             "dry_run": True,
             "since": since,
             "preview": text,
+            "telegram": telegram_result,
+            "telegram_skipped": True,
             "sections": section_payload,
         }
 
@@ -68,6 +71,7 @@ def run(
         "dry_run": False,
         "since": since,
         "telegram": result,
+        "telegram_skipped": bool(result.get("skipped")),
         "sections": section_payload,
     }
 

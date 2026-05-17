@@ -228,6 +228,12 @@ def cmd_telemarketing_digest(args: argparse.Namespace) -> int:
     )
     print(json.dumps(summary, indent=2, ensure_ascii=False))
     telegram_result = summary.get("telegram") or {}
+    if telegram_result.get("skipped"):
+        print(
+            f"WARN: telegram message skipped: {telegram_result.get('reason')}. "
+            "Set LARISA_BOT_TOKEN and LARISA_CHAT_ID_LARISA env to enable.",
+            file=sys.stderr,
+        )
     return 1 if telegram_result.get("ok") is False else 0
 
 

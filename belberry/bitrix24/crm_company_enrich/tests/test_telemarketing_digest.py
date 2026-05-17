@@ -1,3 +1,6 @@
+import argparse
+
+from crm_company_enrich import cli
 from crm_company_enrich.stages import telemarketing_digest as stage
 from crm_company_enrich.stages.telemarketing_stuck_alerts import StuckDeal
 from crm_company_enrich.telegram_client import TelegramClient
@@ -32,6 +35,8 @@ def test_dry_run_returns_preview_no_send():
 
     assert summary["dry_run"] is True
     assert "Телемаркетинг" in summary["preview"]
+    assert summary["telegram"] == {"skipped": True, "reason": "dry_run"}
+    assert summary["telegram_skipped"] is True
     assert tg.sent == []
 
 
@@ -42,6 +47,25 @@ def test_send_skipped_when_no_token(monkeypatch):
     result = TelegramClient().send_message("test")
 
     assert result == {"skipped": True, "reason": "no_config"}
+
+
+def test_cli_warns_when_telegram_skipped(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "_make_clients", lambda: (object(), None))
+    monkeypatch.setattr(
+        stage,
+        "run",
+        lambda bx, dry_run, since: {
+            "dry_run": False,
+            "telegram": {"skipped": True, "reason": "no_config"},
+            "telegram_skipped": True,
+        },
+    )
+
+    code = cli.cmd_telemarketing_digest(argparse.Namespace(live=True, since="2026-05-17"))
+
+    captured = capsys.readouterr()
+    assert code == 0
+    assert "WARN: telegram message skipped: no_config" in captured.err
 
 
 def test_format_html_includes_section_titles():
