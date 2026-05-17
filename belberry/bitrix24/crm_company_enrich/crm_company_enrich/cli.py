@@ -338,6 +338,21 @@ def cmd_deal_revive_count_field(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_deal_reactivation_count_field(args: argparse.Namespace) -> int:
+    from .stages import deal_reactivation_count_field
+    bx, _ = _make_clients()
+    summary = deal_reactivation_count_field.run(
+        bx,
+        apply=args.apply,
+        verify=not args.skip_verify,
+    )
+    print(json.dumps(summary, indent=2, ensure_ascii=False))
+    verification = summary.get("verification")
+    if verification and not verification.get("ok"):
+        return 1
+    return 0
+
+
 def cmd_migrate_region_enum_ids(args: argparse.Namespace) -> int:
     from .stages import migrate_region_enum_ids
     bx, _ = _make_clients()
@@ -712,6 +727,17 @@ def main() -> None:
     sp.add_argument("--apply", action="store_true", help="Реально создать или обновить поле в Bitrix24")
     sp.add_argument("--skip-verify", action="store_true", help="Не читать поле повторно после --apply")
     sp.set_defaults(func=cmd_deal_revive_count_field)
+
+    sp = sub.add_parser(
+        "deal-reactivation-count-field",
+        help=(
+            "WRITE: idempotent create/sync UF_CRM_REACTIVATION_COUNT. "
+            "По умолчанию dry-run; запись только с --apply."
+        ),
+    )
+    sp.add_argument("--apply", action="store_true", help="Реально создать или обновить поле в Bitrix24")
+    sp.add_argument("--skip-verify", action="store_true", help="Не читать поле повторно после --apply")
+    sp.set_defaults(func=cmd_deal_reactivation_count_field)
 
     sp = sub.add_parser(
         "migrate-region-enum-ids",
