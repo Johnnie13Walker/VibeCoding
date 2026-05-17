@@ -164,23 +164,23 @@ def _section_manager_conversions(bx: Any, since: str) -> DigestSection:
 
 
 def _section_stuck_alerts(bx: Any) -> DigestSection:
-    prep = _list_stage_deals(
-        bx,
-        ["C50:PREPARATION"],
-        closed="N",
-        select=["ID", "TITLE", "STAGE_ID", "ASSIGNED_BY_ID", "DATE_MODIFY"],
-    )
-    wz4 = _list_stage_deals(
-        bx,
-        ["C50:UC_WZ4KQE"],
-        closed="N",
-        select=["ID", "TITLE", "STAGE_ID", "ASSIGNED_BY_ID", "DATE_MODIFY"],
-    )
+    from .telemarketing_stuck_alerts import find_stuck_preparation, find_stuck_wz4kqe
+
+    prep = find_stuck_preparation(bx)
+    wz4 = find_stuck_wz4kqe(bx)
     lines = []
     if prep:
-        lines.append(f"- PREPARATION открытых: {len(prep)}")
+        lines.append(f"<b>PREPARATION без касания &gt;21д:</b> {len(prep)}")
+        lines.extend(_format_stuck_deal_lines(prep[:5]))
+        if len(prep) > 5:
+            lines.append(f"  + ещё {len(prep) - 5}")
     if wz4:
-        lines.append(f"- WZ4KQE открытых: {len(wz4)}")
+        if lines:
+            lines.append("")
+        lines.append(f"<b>WZ4KQE с прошедшей встречей &gt;14д:</b> {len(wz4)}")
+        lines.extend(_format_stuck_deal_lines(wz4[:5]))
+        if len(wz4) > 5:
+            lines.append(f"  + ещё {len(wz4) - 5}")
     return DigestSection("Застрявшие сделки", lines)
 
 
@@ -233,3 +233,14 @@ def _list_stage_deals(
 
 def _parse_date(value: str) -> date:
     return datetime.fromisoformat(str(value)[:10]).date()
+
+
+def _format_stuck_deal_lines(deals: list[Any]) -> list[str]:
+    lines = []
+    for deal in deals:
+        title = escape(str(getattr(deal, "title", "") or ""))
+        assignee = escape(str(getattr(deal, "assignee", "") or ""))
+        days = escape(str(getattr(deal, "days_stuck", "") or ""))
+        link = _deal_link(getattr(deal, "deal_id", ""), f"#{getattr(deal, 'deal_id', '')} {title}".strip())
+        lines.append(f"  • {link} ({days}д, {assignee})")
+    return lines

@@ -1,4 +1,5 @@
 from crm_company_enrich.stages import telemarketing_digest as stage
+from crm_company_enrich.stages.telemarketing_stuck_alerts import StuckDeal
 from crm_company_enrich.telegram_client import TelegramClient
 
 
@@ -141,18 +142,14 @@ def test_manager_conversions_aggregates_7_days():
 
 
 def test_stuck_alerts_aggregates_open_deals():
-    bx = FakeBitrix(
-        [
-            {"ID": "1", "STAGE_ID": "C50:PREPARATION", "CLOSED": "N"},
-            {"ID": "2", "STAGE_ID": "C50:UC_WZ4KQE", "CLOSED": "N"},
-            {"ID": "3", "STAGE_ID": "C50:UC_WZ4KQE", "CLOSED": "Y"},
-        ]
-    )
+    bx = FakeBitrix([
+        {"ID": "1", "TITLE": "prep", "STAGE_ID": "C50:PREPARATION", "CLOSED": "N", "DATE_MODIFY": "2999-04-01"},
+        {"ID": "2", "TITLE": "meet", "STAGE_ID": "C50:UC_WZ4KQE", "CLOSED": "N", "CLOSEDATE": "2999-04-01"},
+    ])
 
     section = stage._section_stuck_alerts(bx)
 
-    assert "- PREPARATION открытых: 1" in section.lines
-    assert "- WZ4KQE открытых: 1" in section.lines
+    assert section.lines == []
 
 
 def test_section_returns_empty_when_no_data():
@@ -160,3 +157,55 @@ def test_section_returns_empty_when_no_data():
 
     assert stage._section_manager_conversions(bx, "2026-05-17").lines == []
     assert stage._section_stuck_alerts(bx).lines == []
+
+
+def test_stuck_alerts_section_includes_preparation_links(monkeypatch):
+    monkeypatch.setattr(
+        "crm_company_enrich.stages.telemarketing_stuck_alerts.find_stuck_preparation",
+        lambda bx: [StuckDeal("11", "Сделка", "2772", "C50:PREPARATION", 22, "no_communication_21d")],
+    )
+    monkeypatch.setattr(
+        "crm_company_enrich.stages.telemarketing_stuck_alerts.find_stuck_wz4kqe",
+        lambda bx: [],
+    )
+
+    section = stage._section_stuck_alerts(object())
+
+    assert "PREPARATION" in section.lines[0]
+    assert 'href="https://belberrycrm.bitrix24.ru/crm/deal/details/11/"' in section.lines[1]
+
+
+def test_stuck_alerts_section_includes_wz4kqe_links(monkeypatch):
+    monkeypatch.setattr(
+        "crm_company_enrich.stages.telemarketing_stuck_alerts.find_stuck_preparation",
+        lambda bx: [],
+    )
+    monkeypatch.setattr(
+        "crm_company_enrich.stages.telemarketing_stuck_alerts.find_stuck_wz4kqe",
+        lambda bx: [StuckDeal("12", "Встреча", "2832", "C50:UC_WZ4KQE", 15, "meeting_overdue_14d")],
+    )
+
+    section = stage._section_stuck_alerts(object())
+
+    assert "WZ4KQE" in section.lines[0]
+    assert 'href="https://belberrycrm.bitrix24.ru/crm/deal/details/12/"' in section.lines[1]
+
+
+def test_stuck_alerts_section_caps_at_5_per_category(monkeypatch):
+    deals = [
+        StuckDeal(str(i), f"Сделка {i}", "2772", "C50:PREPARATION", 30, "no_communication_21d")
+        for i in range(1, 7)
+    ]
+    monkeypatch.setattr(
+        "crm_company_enrich.stages.telemarketing_stuck_alerts.find_stuck_preparation",
+        lambda bx: deals,
+    )
+    monkeypatch.setattr(
+        "crm_company_enrich.stages.telemarketing_stuck_alerts.find_stuck_wz4kqe",
+        lambda bx: [],
+    )
+
+    section = stage._section_stuck_alerts(object())
+
+    assert sum("crm/deal/details" in line for line in section.lines) == 5
+    assert section.lines[-1] == "  + ещё 1"

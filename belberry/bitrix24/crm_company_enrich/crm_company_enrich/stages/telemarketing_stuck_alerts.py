@@ -76,6 +76,8 @@ def run(bx: Any, *, dry_run: bool = True, today: date | None = None) -> dict[str
 
 
 def _list_open_stage(bx: Any, stage_id: str) -> list[dict[str, Any]]:
+    if not hasattr(bx, "list_deals_by_stages"):
+        return []
     return list(
         bx.list_deals_by_stages(
             category_id=int(TELEMARKETING_CATEGORY_ID),
