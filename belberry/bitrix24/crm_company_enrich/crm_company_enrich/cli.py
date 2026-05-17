@@ -218,6 +218,18 @@ def cmd_dedupe_contacts(args: argparse.Namespace) -> int:
     return 1 if summary.get("failed") else 0
 
 
+def cmd_enrich_director_inn(args: argparse.Namespace) -> int:
+    from .stages import enrich_director_inn
+    bx, _ = _make_clients()
+    summary = enrich_director_inn.run_company(
+        bx,
+        company_id=args.company_id,
+        dry_run=not args.live,
+    )
+    print(json.dumps(summary, indent=2, ensure_ascii=False))
+    return 1 if summary.get("failed") else 0
+
+
 def cmd_telemarketing_digest(args: argparse.Namespace) -> int:
     from .stages import telemarketing_digest
     bx, _ = _make_clients()
@@ -662,6 +674,17 @@ def main() -> None:
     sp.add_argument("--company-id", required=True)
     sp.add_argument("--live", action="store_true")
     sp.set_defaults(func=cmd_dedupe_contacts)
+
+    sp = sub.add_parser(
+        "enrich-director-inn",
+        help=(
+            "WRITE: записать ИНН физлица директора в Bitrix-контакт по "
+            "данным rusprofile (только ЮЛ; ИП пропускаются). По умолчанию dry-run."
+        ),
+    )
+    sp.add_argument("--company-id", required=True)
+    sp.add_argument("--live", action="store_true")
+    sp.set_defaults(func=cmd_enrich_director_inn)
 
     sp = sub.add_parser(
         "telemarketing-digest",

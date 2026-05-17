@@ -194,22 +194,33 @@ def _is_director_post(contact: dict[str, Any]) -> bool:
 
 
 def _fuzzy_match_name(contact: dict[str, Any], director_full_name: str) -> bool:
+    """Сопоставление ФИО Bitrix-контакта с ФИО директора из rusprofile.
+
+    Покрывает два паттерна контактов в Bitrix:
+    1. Структурированный: LAST_NAME=Фамилия, NAME=Имя, SECOND_NAME=Отчество.
+    2. Placeholder от BP 8618: LAST_NAME="!" (или "! Фамилия"), все ФИО в NAME.
+
+    Собираем все ненулевые токены из LAST_NAME/NAME/SECOND_NAME (после
+    placeholder cleanup в _normalize_full_name) → сравниваем как set'ы.
+    Требуется: фамилия директора есть в токенах И хотя бы одно из
+    имени/отчества тоже есть.
+    """
     director_parts = _normalize_full_name(director_full_name).lower().split()
     if not director_parts:
         return False
     director_surname = director_parts[0]
-    director_first = director_parts[1] if len(director_parts) > 1 else ""
-    director_middle = director_parts[2] if len(director_parts) > 2 else ""
+    director_others = set(director_parts[1:])
 
-    contact_last = _normalize_full_name(contact.get("LAST_NAME") or "").lower()
-    contact_first = _normalize_full_name(contact.get("NAME") or "").lower()
-    contact_middle = _normalize_full_name(contact.get("SECOND_NAME") or "").lower()
-    if contact_last != director_surname:
+    contact_tokens: set[str] = set()
+    for key in ("LAST_NAME", "NAME", "SECOND_NAME"):
+        normalized = _normalize_full_name(contact.get(key) or "").lower()
+        contact_tokens.update(normalized.split())
+
+    if director_surname not in contact_tokens:
         return False
-    return bool(
-        (contact_first and director_first and contact_first == director_first)
-        or (contact_middle and director_middle and contact_middle == director_middle)
-    )
+    if not director_others:
+        return True
+    return bool(director_others & contact_tokens)
 
 
 def _outcome(

@@ -39,6 +39,10 @@ def _extract_inn_from_person_url(url: str) -> str:
 def _normalize_full_name(raw: str) -> str:
     value = _strip_tags(raw)
     value = value.replace("-", " ")
+    # Убираем placeholder-маркер «!» (BP 8618 создавал контакты с
+    # LAST_NAME="! Фамилия" — типичный мусор, который остаётся в Bitrix).
+    value = re.sub(r"^\s*!+\s*", "", value)
+    value = re.sub(r"\s+!+\s+", " ", value)
     return re.sub(r"\s+", " ", value).strip()
 
 
