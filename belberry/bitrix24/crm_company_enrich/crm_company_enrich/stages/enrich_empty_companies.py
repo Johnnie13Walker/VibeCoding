@@ -138,6 +138,7 @@ class PlanRow:
     duplicate_active_deals: list[dict[str, str]] = field(default_factory=list)
     duplicate_requisite_ids: list[str] = field(default_factory=list)
     duplicate_reason: str = ""
+    duplicate_check_failed: bool = False
 
     def to_sheet_row(self) -> list[str]:
         return [
@@ -564,7 +565,12 @@ def run_apply(*, dry_run: bool = True, limit: int | None = None, throttle_s: flo
             verify_failed += 1
             continue
 
-        all_same_inn_requisites = _list_requisites_by_inn(bx, inn)
+        try:
+            all_same_inn_requisites = _list_requisites_by_inn(bx, inn)
+        except Exception as exc:  # noqa: BLE001
+            print(f"[empty-apply] company {row.company_id}: duplicate_check_failed: {exc}")
+            all_same_inn_requisites = []
+            row.duplicate_check_failed = True
         duplicate_info = _duplicate_info_from_requisites(bx, all_same_inn_requisites, row.company_id)
         duplicate_info_for_backup = duplicate_info if _has_duplicate_info(duplicate_info) else None
         _attach_duplicate_info(row, duplicate_info_for_backup)

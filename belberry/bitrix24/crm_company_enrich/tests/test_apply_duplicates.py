@@ -15,6 +15,7 @@ class FakeDuplicateBitrix:
         duplicate_requisites: list[dict] | None = None,
         duplicate_deals: dict[str, list[dict]] | None = None,
         verified_after_bp: bool = True,
+        raise_on_duplicate_check: Exception | None = None,
     ):
         self.current_company_id = current_company_id
         self.inn = inn
@@ -22,6 +23,7 @@ class FakeDuplicateBitrix:
         self.duplicate_requisites = list(duplicate_requisites or [])
         self.duplicate_deals = duplicate_deals or {}
         self.verified_after_bp = verified_after_bp
+        self.raise_on_duplicate_check = raise_on_duplicate_check
         self.added_requisites: list[dict] = []
         self.workflow_calls: list[tuple[int, list]] = []
         self.updated_companies: list[tuple[str, dict]] = []
@@ -38,6 +40,8 @@ class FakeDuplicateBitrix:
         }
 
     def list_requisites_by_inn(self, inn):
+        if self.raise_on_duplicate_check is not None:
+            raise self.raise_on_duplicate_check
         return [
             *self.current_requisites,
             *self.duplicate_requisites,
@@ -201,6 +205,21 @@ def test_current_company_existing_valid_requisite_still_skips_requisite_creation
     assert fake_bx.added_requisites == []
     assert result["apply_status"] == "APPLIED"
     assert fake_bx.workflow_calls == []
+
+
+def test_duplicate_check_api_failure_does_not_break_batch(monkeypatch):
+    fake_bx = FakeDuplicateBitrix(raise_on_duplicate_check=RuntimeError("Bitrix timeout"))
+    state = _state()
+    written, _backups = _patch_apply(monkeypatch, fake_bx, state)
+
+    summary = stage.run_apply(dry_run=False)
+    result = written["data"]["results"][0]
+
+    assert summary["applied"] == 1
+    assert result["apply_status"] == "APPLIED"
+    assert result["apply_status"] != "SKIPPED_ALREADY_HAS_INN"
+    assert result["duplicate_check_failed"] is True
+    assert fake_bx.added_requisites
 
 
 def test_duplicate_evidence_is_written_to_backup(tmp_path, monkeypatch):
