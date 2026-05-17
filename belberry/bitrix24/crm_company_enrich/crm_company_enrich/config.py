@@ -59,6 +59,11 @@ DEAL_MERGE_ACTIVE_STATUSES = frozenset({"APPROVED", "TRANSFERRED", "MERGED", "MA
 
 # Portal
 PORTAL_DOMAIN = "belberrycrm.bitrix24.ru"
+DIGEST_BITRIX_PORTAL = PORTAL_DOMAIN
+
+# Telegram-дайджесты Ларисы. Значения env не храним в коде.
+LARISA_BOT_TOKEN_ENV = "LARISA_BOT_TOKEN"
+LARISA_CHAT_ID_LARISA_ENV = "LARISA_CHAT_ID_LARISA"
 
 # Телемаркетинг: целевая воронка и ротация ответственных.
 TELEMARKETING_CATEGORY_ID = "50"
@@ -359,6 +364,7 @@ DEAL_UF_REVENUE_MONEY = "UF_CRM_67B35193BAFB4"     # Оборот компани
 DEAL_UF_REVENUE_NUMBER = "UF_CRM_1774971054"       # Оборот компании (число)
 DEAL_UF_INDUSTRY = "UF_CRM_6179712C57A4D"          # Сфера деятельности (enum)
 DEAL_UF_RUSPROFILE_URL = "UF_CRM_1772384612740"    # Ссылка на руспрофиль
+DEAL_MEETING_DATE_FIELD = "UF_CRM_63282B49DC758"   # Дата и время встречи
 DEAL_REGION_ENUM_MAP: dict[str, str] = {}
 MANDATORY_DEAL_SYNC_FIELDS = tuple(
     field for field in (DEAL_UF_CITY, DEAL_UF_REGION) if field
