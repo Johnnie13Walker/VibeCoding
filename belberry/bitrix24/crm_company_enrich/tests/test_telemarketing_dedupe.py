@@ -243,6 +243,43 @@ def test_merge_failure_appends_row_to_sheets(monkeypatch, tmp_path):
     assert fake_sheets.append_calls
 
 
+def test_sheets_append_failure_falls_back_to_csv(monkeypatch, tmp_path):
+    monkeypatch.setattr(stage, "LOG_DIR", tmp_path)
+    monkeypatch.setattr(stage, "_append_unresolved", lambda outcome, *, company: (_ for _ in ()).throw(RuntimeError("sheets down")))
+    bx = FakeBitrix(deals=[_deal("1"), _deal("2")], raise_on_update_deal={"1"})
+
+    summary = stage.run(bx, dry_run=False)
+
+    path = tmp_path / "telemarketing_dedupe_failed.csv"
+    assert summary["unresolved"] == 1
+    assert path.exists()
+    text = path.read_text(encoding="utf-8")
+    assert "10" in text
+    assert "update failed for 1" in text
+    assert "sheets down" in text
+    assert "sheets_append_failed" in summary["outcomes"][0]["fail_reason"]
+
+
+def test_sheets_append_failure_does_not_block_other_groups(monkeypatch, tmp_path):
+    monkeypatch.setattr(stage, "LOG_DIR", tmp_path)
+    monkeypatch.setattr(stage, "_append_unresolved", lambda outcome, *, company: (_ for _ in ()).throw(RuntimeError("sheets down")))
+    bx = FakeBitrix(
+        deals=[
+            _deal("1", company_id="10"),
+            _deal("2", company_id="10"),
+            _deal("3", company_id="20"),
+            _deal("4", company_id="20"),
+        ],
+        raise_on_update_deal={"1"},
+    )
+
+    summary = stage.run(bx, dry_run=False)
+
+    assert summary["merged"] >= 1
+    assert summary["unresolved"] == 1
+    assert (tmp_path / "telemarketing_dedupe_failed.csv").exists()
+
+
 def test_already_dedupe_marker_skipped():
     bx = FakeBitrix(
         deals=[

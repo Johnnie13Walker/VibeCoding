@@ -114,7 +114,15 @@ def run(
         )
         outcomes.append(outcome)
         if outcome.status == "UNRESOLVED" and not dry_run:
-            sheet_tab = _append_unresolved(outcome, company=companies_by_id.get(company_id))
+            try:
+                sheet_tab = _append_unresolved(outcome, company=companies_by_id.get(company_id))
+            except Exception as exc:  # noqa: BLE001
+                print(f"[telemarketing-dedupe] sheets_append_failed for company {outcome.company_id}: {exc}")
+                _append_unresolved_csv_fallback(outcome, exc)
+                outcome.fail_reason = (
+                    (outcome.fail_reason or "merge_failed")
+                    + f"; sheets_append_failed: {str(exc)[:120]}"
+                )
 
     summary = _summary(outcomes, dry_run=dry_run)
     summary["sheet_tab"] = sheet_tab
@@ -359,6 +367,32 @@ def _append_unresolved(outcome: DedupeOutcome, *, company: dict | None) -> str:
         value_input_option="USER_ENTERED",
     )
     return tab
+
+
+def _append_unresolved_csv_fallback(outcome: DedupeOutcome, exc: Exception) -> None:
+    """Локальный CSV-fallback, когда Sheets недоступен."""
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    path = LOG_DIR / "telemarketing_dedupe_failed.csv"
+    write_header = not path.exists()
+    with path.open("a", encoding="utf-8", newline="") as fh:
+        writer = csv.writer(fh)
+        if write_header:
+            writer.writerow([
+                "timestamp",
+                "company_id",
+                "winner_deal_id",
+                "closed_deal_ids",
+                "fail_reason",
+                "sheets_error",
+            ])
+        writer.writerow([
+            datetime.now(MOSCOW_TZ).isoformat(),
+            outcome.company_id,
+            outcome.winner_deal_id,
+            ",".join(outcome.closed_deal_ids),
+            outcome.fail_reason,
+            str(exc)[:200],
+        ])
 
 
 def _dedupe_sheet_title(sheets: SheetsClient) -> str:
