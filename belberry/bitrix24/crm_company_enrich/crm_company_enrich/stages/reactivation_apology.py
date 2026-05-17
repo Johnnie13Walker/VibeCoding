@@ -1,6 +1,7 @@
 """Реактивация старых APOLOGY-сделок по cooldown matrix."""
 from __future__ import annotations
 
+import csv
 from dataclasses import asdict, dataclass
 from datetime import date, datetime
 from typing import Any
@@ -9,17 +10,33 @@ from zoneinfo import ZoneInfo
 from ..config import (
     HOLD_REASON_FIELD,
     LAST_AUTO_ACTION_DESC_FIELD,
+    LOG_DIR,
+    PORTAL_DOMAIN,
     REACTIVATION_COUNT_FIELD,
+    SERVICE_ACCOUNT_JSON,
+    SHEET_ID,
     TELEMARKETING_CATEGORY_ID,
     TELEMARKETING_NEW_STAGE_ID,
     TELEMARKETING_REVIVE_SOURCE_ID,
 )
+from ..sheets_client import SheetsClient
 from .auto_revive_lose import _resolve_revive_assignee
 from .telemarketing_dedupe import _active_user_ids
 
 APOLOGY_STAGE_ID = "C50:APOLOGY"
 DEAL_OWNER_TYPE_ID = 2
 MOSCOW_TZ = ZoneInfo("Europe/Moscow")
+UNRESOLVED_SHEET_TAB = "reactivation_unresolved"
+CSV_HEADERS = [
+    "timestamp",
+    "deal_id",
+    "company_id",
+    "reason_id",
+    "cooldown_months",
+    "reactivation_count_after",
+    "new_assignee",
+    "status",
+]
 
 COOLDOWN_BY_REASON_MONTHS: dict[str, int | None] = {
     "8538": None,
@@ -79,6 +96,8 @@ def run(
         if used:
             used_rotation += 1
         outcomes.append(outcome)
+        if not dry_run and outcome.status == "SKIPPED" and outcome.skipped_reason == "no_trigger_yet":
+            _append_no_trigger_unresolved(outcome)
     return _summary(outcomes, dry_run=dry_run)
 
 
@@ -132,6 +151,10 @@ def _process_deal(
             owner_type_id=DEAL_OWNER_TYPE_ID,
             owner_id=deal_id,
             text=f"[reactivation] возврат из APOLOGY (reason {reason_id})",
+        )
+        _append_audit_row(
+            ReactivationOutcome(deal_id, company_id, reason_id, count_before, new_assignee, "REACTIVATED"),
+            count_after,
         )
     except Exception as exc:  # noqa: BLE001
         return (
@@ -236,3 +259,67 @@ def _summary(outcomes: list[ReactivationOutcome], *, dry_run: bool) -> dict[str,
         "failed": sum(1 for outcome in outcomes if outcome.status == "FAILED"),
         "outcomes": [asdict(outcome) for outcome in outcomes],
     }
+
+
+def _append_audit_row(outcome: ReactivationOutcome, count_after: int) -> None:
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    path = LOG_DIR / "reactivation_apology.csv"
+    write_header = not path.exists()
+    cooldown = COOLDOWN_BY_REASON_MONTHS.get(outcome.reason_id)
+    with path.open("a", encoding="utf-8", newline="") as fh:
+        writer = csv.writer(fh)
+        if write_header:
+            writer.writerow(CSV_HEADERS)
+        writer.writerow(
+            [
+                datetime.now(MOSCOW_TZ).isoformat(timespec="seconds"),
+                outcome.deal_id,
+                outcome.company_id,
+                outcome.reason_id,
+                "" if cooldown is None else cooldown,
+                count_after,
+                outcome.new_assignee,
+                outcome.status,
+            ]
+        )
+
+
+def _append_no_trigger_unresolved(outcome: ReactivationOutcome) -> None:
+    try:
+        sheets = _sheets()
+        sheets.ensure_sheet(UNRESOLVED_SHEET_TAB)
+        if not sheets.read(UNRESOLVED_SHEET_TAB, "A1:H1"):
+            sheets.update(
+                UNRESOLVED_SHEET_TAB,
+                "A1:H1",
+                [[
+                    "timestamp",
+                    "deal_id",
+                    "company_id",
+                    "reason_id",
+                    "skipped_reason",
+                    "reactivation_count_before",
+                    "new_assignee",
+                    "bitrix_link",
+                ]],
+            )
+        sheets.append(
+            UNRESOLVED_SHEET_TAB,
+            [[
+                datetime.now(MOSCOW_TZ).isoformat(timespec="seconds"),
+                outcome.deal_id,
+                outcome.company_id,
+                outcome.reason_id,
+                outcome.skipped_reason,
+                outcome.reactivation_count_before,
+                outcome.new_assignee,
+                f'=HYPERLINK("https://{PORTAL_DOMAIN}/crm/deal/details/{outcome.deal_id}/";"deal #{outcome.deal_id}")',
+            ]],
+            value_input_option="USER_ENTERED",
+        )
+    except Exception as exc:  # noqa: BLE001
+        print(f"[reactivation] sheets_append_failed for deal {outcome.deal_id}: {exc}")
+
+
+def _sheets() -> SheetsClient:
+    return SheetsClient(sheet_id=SHEET_ID, service_account_path=SERVICE_ACCOUNT_JSON)

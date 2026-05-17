@@ -125,3 +125,44 @@ def test_unknown_reason_never_reactivated():
     summary = stage.run(bx, today=date(2026, 5, 17))
 
     assert summary["outcomes"][0]["skipped_reason"] == "unknown_reason"
+
+
+def test_csv_audit_written_for_reactivated(tmp_path, monkeypatch):
+    monkeypatch.setattr(stage, "LOG_DIR", tmp_path)
+    bx = FakeBitrix([apology_deal("8540")])
+
+    stage.run(bx, dry_run=False, today=date(2026, 5, 17))
+
+    path = tmp_path / "reactivation_apology.csv"
+    assert path.exists()
+    content = path.read_text(encoding="utf-8")
+    assert "deal_id,company_id,reason_id" in content
+    assert "100,200,8540" in content
+
+
+def test_no_trigger_skipped_appended_to_sheets(monkeypatch):
+    class FakeSheets:
+        def __init__(self):
+            self.rows = []
+
+        def ensure_sheet(self, tab):
+            self.tab = tab
+
+        def read(self, tab, range_):
+            return []
+
+        def update(self, tab, range_, rows):
+            self.header = rows
+
+        def append(self, tab, rows, value_input_option="RAW"):
+            self.rows.extend(rows)
+
+    sheets = FakeSheets()
+    monkeypatch.setattr(stage, "_sheets", lambda: sheets)
+    bx = FakeBitrix([apology_deal("8840")], company={})
+
+    summary = stage.run(bx, dry_run=False, today=date(2026, 5, 17))
+
+    assert summary["outcomes"][0]["skipped_reason"] == "no_trigger_yet"
+    assert sheets.rows
+    assert sheets.rows[0][1] == "100"
