@@ -143,6 +143,22 @@ def _env_optional_positive_int(name: str, default: int) -> int | None:
 #   - Сейчас: два BP, см. CCE_BIZPROC_FIRST_ENTRY_ID и
 #     CCE_BIZPROC_UPDATE_ID ниже.
 #
+# AUTO_EXECUTE семантика Bitrix:
+#   0 = manual only (запускается только через API)
+#   1 = on add (запускается автоматически при создании сущности)
+#   2 = on update (запускается автоматически при обновлении сущности)
+#
+# Подтверждено через bizproc.workflow.template.list 2026-05-17:
+#   ID=5938 AUTO=2 «Изменение компании и заполнение данных»  → FIRST_ENTRY
+#   ID=8612 AUTO=0 «Обновление компании и заполнение данных» → UPDATE
+#   (ID=5614 AUTO=1 «Автозаполнение…» — старый default, не используется)
+#   (ID=8618 AUTO=0 — отвергнут: создавал placeholder-контакты, см. a20a753)
+#
+# Нюанс: BP 5938 имеет AUTO=2 — сработает на любой crm.company.update.
+# Поэтому CCE_COMPANY_TOUCH=False (default off): фейковый touch не нужен,
+# потому что наш explicit start_workflow(5938) и так гарантирует запуск,
+# а лишний crm.company.update создавал бы placeholder-контакты (см. 8618).
+#
 # Первичный BP, запускается только при первом внесении реквизитов.
 # «Изменение компании и заполнение данных» — мгновенный.
 CCE_BIZPROC_FIRST_ENTRY_ID = _env_optional_positive_int("CCE_BIZPROC_FIRST_ENTRY_ID", 5938)
