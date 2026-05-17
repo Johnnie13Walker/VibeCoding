@@ -325,18 +325,19 @@ def test_dedupe_contacts_called_after_bp(monkeypatch):
     assert _step_index(out, "RUN_BP") < _step_index(out, "DEDUPE_CONTACTS")
 
 
-def test_director_inn_soft_import_when_module_missing(monkeypatch):
-    monkeypatch.delitem(sys.modules, "crm_company_enrich.stages.enrich_director_inn", raising=False)
+def test_director_inn_skipped_when_flag_set():
     bx = FakeBitrix(companies={"10": company()}, requisites={"10": [req()]})
-    out = stage.run(bx, company_id="10")
-    assert "director_inn_unavailable" in out.flags
+    out = stage.run(bx, company_id="10", skip_director_inn=True)
+    step = _step(out, "ENRICH_DIRECTOR_INN")
+    assert step.status == "SKIPPED"
+    assert step.details["reason"] == "skip_director_inn"
 
 
 def test_telemarketing_dedupe_called_for_multiple_open_deals(monkeypatch):
     called = {}
     monkeypatch.setattr(stage.telemarketing_dedupe, "run_company", lambda *a, **k: called.setdefault("yes", True) or {"failed": 0, "unresolved": 0})
     bx = FakeBitrix(companies={"10": company()}, deals={"100": deal("100"), "101": deal("101")}, requisites={"10": [req()]})
-    stage.run(bx, company_id="10")
+    stage.run(bx, company_id="10", skip_director_inn=True)
     assert called["yes"] is True
 
 
@@ -353,7 +354,7 @@ def test_dry_run_does_not_call_any_write():
 
 def test_full_pipeline_returns_outcome_with_all_steps_recorded():
     bx = FakeBitrix(companies={"10": company()}, deals={"100": deal()}, requisites={"10": [req()]})
-    out = stage.run(bx, company_id="10")
+    out = stage.run(bx, company_id="10", skip_director_inn=True)
     assert len(out.steps) >= 19
     assert out.final_status == "ENRICHED"
 

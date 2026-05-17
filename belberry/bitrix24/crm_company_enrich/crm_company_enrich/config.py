@@ -365,6 +365,11 @@ DEAL_UF_REVENUE_NUMBER = "UF_CRM_1774971054"       # Оборот компани
 DEAL_UF_INDUSTRY = "UF_CRM_6179712C57A4D"          # Сфера деятельности (enum)
 DEAL_UF_RUSPROFILE_URL = "UF_CRM_1772384612740"    # Ссылка на руспрофиль
 DEAL_MEETING_DATE_FIELD = "UF_CRM_63282B49DC758"   # Дата и время встречи
+
+# UF контакта (для enrich-director-inn): ИНН физлица руководителя.
+# crm.contact.fields нашёл существующее string-поле title="инн".
+CONTACT_PERSONAL_INN_FIELD = "UF_CRM_67BC250A96BEB"
+
 DEAL_REGION_ENUM_MAP: dict[str, str] = {}
 MANDATORY_DEAL_SYNC_FIELDS = tuple(
     field for field in (DEAL_UF_CITY, DEAL_UF_REGION) if field
