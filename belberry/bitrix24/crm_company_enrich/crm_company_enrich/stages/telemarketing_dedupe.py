@@ -195,9 +195,17 @@ def _process_group(
         return outcome
 
     try:
-        _merge_group_live(bx, winner=winner, losers=[d for d in deals if str(d.get("ID") or "") in loser_ids], winner_assignee=winner_assignee)
-        outcome.status = "MERGED"
-        _append_audit_row(outcome)
+        status, fail_reason, closed_deal_ids = _merge_group_live(
+            bx,
+            winner=winner,
+            losers=[d for d in deals if str(d.get("ID") or "") in loser_ids],
+            winner_assignee=winner_assignee,
+        )
+        outcome.status = status
+        outcome.fail_reason = fail_reason
+        outcome.closed_deal_ids = closed_deal_ids
+        if outcome.status in {"MERGED", "PARTIAL"}:
+            _append_audit_row(outcome)
     except Exception as exc:  # noqa: BLE001
         outcome.status = "UNRESOLVED"
         outcome.fail_reason = str(exc)[:500]
@@ -247,16 +255,31 @@ def _merge_group_live(
     winner: dict,
     losers: list[dict],
     winner_assignee: str,
-) -> None:
+) -> tuple[str, str, list[str]]:
     winner_id = str(winner.get("ID") or "")
     company_id = str(winner.get("COMPANY_ID") or "")
     current_assignee = str(winner.get("ASSIGNED_BY_ID") or "").strip()
     if current_assignee != winner_assignee:
         bx.update_deal(winner_id, {"ASSIGNED_BY_ID": winner_assignee})
 
-    _transfer_unique_contacts(bx, winner_id, [str(loser.get("ID") or "") for loser in losers])
-    loser_ids: list[str] = []
+    partial_failures: list[str] = []
+    closable_losers: list[dict] = []
     for loser in losers:
+        loser_id = str(loser.get("ID") or "")
+        fresh = bx.get_deal(loser_id)
+        if not fresh:
+            partial_failures.append(f"deal_{loser_id}_disappeared")
+            continue
+        fresh_stage = str(fresh.get("STAGE_ID") or "")
+        fresh_closed = str(fresh.get("CLOSED") or "")
+        if fresh_stage not in TELEMARKETING_OPEN_STAGES or fresh_closed == "Y":
+            partial_failures.append(f"deal_{loser_id}_stage_changed_to_{fresh_stage}")
+            continue
+        closable_losers.append(loser)
+
+    _transfer_unique_contacts(bx, winner_id, [str(loser.get("ID") or "") for loser in closable_losers])
+    loser_ids: list[str] = []
+    for loser in closable_losers:
         loser_id = str(loser.get("ID") or "")
         loser_ids.append(loser_id)
         bx.update_deal(
@@ -276,11 +299,18 @@ def _merge_group_live(
             owner_id=loser_id,
             text=f"[dedupe] объединено с deal #{winner_id} (winner)",
         )
-    bx.add_timeline_comment(
-        owner_type_id=DEAL_OWNER_TYPE_ID,
-        owner_id=winner_id,
-        text=f"[dedupe] поглощены дубли: {','.join(loser_ids)}",
-    )
+    if loser_ids:
+        bx.add_timeline_comment(
+            owner_type_id=DEAL_OWNER_TYPE_ID,
+            owner_id=winner_id,
+            text=f"[dedupe] поглощены дубли: {','.join(loser_ids)}",
+        )
+    if partial_failures:
+        fail_reason = "; ".join(partial_failures)
+        if not loser_ids:
+            return "UNRESOLVED", fail_reason, []
+        return "PARTIAL", fail_reason, loser_ids
+    return "MERGED", "", loser_ids
 
 
 def _transfer_unique_contacts(bx: BitrixClient, winner_id: str, loser_ids: list[str]) -> None:
@@ -431,16 +461,18 @@ def _append_audit_row(outcome: DedupeOutcome) -> None:
 
 
 def _summary(outcomes: list[DedupeOutcome], *, dry_run: bool) -> dict[str, Any]:
-    merged = sum(1 for outcome in outcomes if outcome.status == "MERGED")
+    merged = sum(1 for outcome in outcomes if outcome.status in {"MERGED", "PARTIAL"})
+    partial = sum(1 for outcome in outcomes if outcome.status == "PARTIAL")
     dry_run_count = sum(1 for outcome in outcomes if outcome.status == "DRY_RUN")
     unresolved = sum(1 for outcome in outcomes if outcome.status == "UNRESOLVED")
     no_duplicates = sum(1 for outcome in outcomes if outcome.status == "NO_DUPLICATES")
-    loser_count = sum(len(outcome.closed_deal_ids) for outcome in outcomes if outcome.status in {"MERGED", "DRY_RUN"})
+    loser_count = sum(len(outcome.closed_deal_ids) for outcome in outcomes if outcome.status in {"MERGED", "PARTIAL", "DRY_RUN"})
     reassignments = sum(1 for outcome in outcomes if outcome.reassigned_winner_to)
     return {
         "dry_run": dry_run,
         "duplicate_companies": len(outcomes),
         "merged": merged,
+        "partial": partial,
         "dry_run_merged": dry_run_count,
         "loser_count": loser_count,
         "reassignments": reassignments,

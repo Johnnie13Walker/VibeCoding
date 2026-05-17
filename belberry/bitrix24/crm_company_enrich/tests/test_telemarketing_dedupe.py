@@ -14,6 +14,7 @@ class FakeBitrix:
         active_users: set[str] | None = None,
         companies: dict[str, dict] | None = None,
         raise_on_update_deal: set[str] | None = None,
+        fresh_deals: dict[str, dict | None] | None = None,
     ):
         self.deals = deals
         self.activities = activities or {}
@@ -21,6 +22,7 @@ class FakeBitrix:
         self.active_users = active_users if active_users is not None else {"2772", "2832"}
         self.companies = companies or {}
         self.raise_on_update_deal = raise_on_update_deal or set()
+        self.fresh_deals = fresh_deals or {}
         self.update_deal_calls: list[tuple[str, dict, dict]] = []
         self.timeline_calls: list[dict] = []
         self.add_deal_contact_calls: list[tuple[str, str]] = []
@@ -41,6 +43,14 @@ class FakeBitrix:
 
     def list_deal_contacts(self, deal_id):
         return [{"CONTACT_ID": contact_id} for contact_id in self.contacts.get(str(deal_id), [])]
+
+    def get_deal(self, deal_id):
+        if str(deal_id) in self.fresh_deals:
+            return self.fresh_deals[str(deal_id)]
+        for deal in self.deals:
+            if str(deal.get("ID") or "") == str(deal_id):
+                return dict(deal)
+        return None
 
     def add_deal_contact(self, deal_id, contact_id):
         self.add_deal_contact_calls.append((str(deal_id), str(contact_id)))
@@ -332,3 +342,54 @@ def test_three_duplicates_one_winner_two_losers():
 
     assert summary["outcomes"][0]["winner_deal_id"] == "2"
     assert set(summary["outcomes"][0]["closed_deal_ids"]) == {"1", "3"}
+
+
+def test_double_check_skips_loser_whose_stage_changed(monkeypatch, tmp_path):
+    monkeypatch.setattr(stage, "LOG_DIR", tmp_path)
+    monkeypatch.setattr(stage, "_sheets", lambda: FakeSheets())
+    bx = FakeBitrix(
+        deals=[_deal("1"), _deal("2")],
+        fresh_deals={"1": _deal("1", stage_id="C50:WON")},
+    )
+
+    summary = stage.run(bx, dry_run=False)
+
+    assert summary["outcomes"][0]["status"] == "UNRESOLVED"
+    assert "stage_changed" in summary["outcomes"][0]["fail_reason"]
+    assert [call for call in bx.update_deal_calls if call[0] == "1"] == []
+    assert [call for call in bx.timeline_calls if call["owner_id"] == "2"] == []
+
+
+def test_double_check_skips_loser_who_disappeared(monkeypatch, tmp_path):
+    monkeypatch.setattr(stage, "LOG_DIR", tmp_path)
+    monkeypatch.setattr(stage, "_sheets", lambda: FakeSheets())
+    bx = FakeBitrix(
+        deals=[_deal("1"), _deal("2")],
+        fresh_deals={"1": None},
+    )
+
+    summary = stage.run(bx, dry_run=False)
+
+    assert summary["outcomes"][0]["status"] == "UNRESOLVED"
+    assert "disappeared" in summary["outcomes"][0]["fail_reason"]
+    assert [call for call in bx.update_deal_calls if call[0] == "1"] == []
+
+
+def test_double_check_does_not_block_unchanged_losers(monkeypatch, tmp_path):
+    monkeypatch.setattr(stage, "LOG_DIR", tmp_path)
+    bx = FakeBitrix(
+        deals=[_deal("1"), _deal("2", stage_id="C50:PREPARATION"), _deal("3")],
+        activities={"1": _activities(1), "2": _activities(5), "3": _activities(2)},
+        fresh_deals={
+            "1": _deal("1", stage_id="C50:WON"),
+            "3": _deal("3"),
+        },
+    )
+
+    summary = stage.run(bx, dry_run=False)
+
+    assert summary["outcomes"][0]["status"] == "PARTIAL"
+    assert "deal_1_stage_changed_to_C50:WON" in summary["outcomes"][0]["fail_reason"]
+    assert summary["outcomes"][0]["closed_deal_ids"] == ["3"]
+    assert [call for call in bx.update_deal_calls if call[0] == "1"] == []
+    assert [call for call in bx.update_deal_calls if call[0] == "3"]
