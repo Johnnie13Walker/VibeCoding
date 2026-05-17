@@ -20,6 +20,7 @@ from crm_company_enrich.config import (
     DEAL_UF_RUSPROFILE_URL,
     DEAL_UF_SITE_MULTI,
     DEAL_UF_SITE_PRIMARY,
+    HOLD_REASON_FIELD,
 )
 from crm_company_enrich.stages import sync_deals
 
@@ -68,7 +69,7 @@ class FakeBitrix:
     def get_deal(self, deal_id: str) -> dict | None:
         return self.deals_by_id.get(str(deal_id))
 
-    def update_deal(self, deal_id: str, fields: dict) -> bool:
+    def update_deal(self, deal_id: str, fields: dict, *, params: dict | None = None) -> bool:
         self.update_deal_calls.append((str(deal_id), dict(fields)))
         return True
 
@@ -84,10 +85,19 @@ class FakeBitrix:
     def list_deal_contacts(self, deal_id: str) -> list[dict]:
         return list(self.deal_contacts.get(str(deal_id), []))
 
+    def list_deal_activities(self, deal_id: str) -> list[dict]:
+        return []
+
+    def list_active_users(self) -> set[str]:
+        return {"2772", "2832"}
+
     def add_deal_contact(self, deal_id: str, contact_id: str) -> bool:
         self.add_deal_contact_calls.append((str(deal_id), str(contact_id)))
         self.deal_contacts.setdefault(str(deal_id), []).append({"CONTACT_ID": str(contact_id)})
         return True
+
+    def add_timeline_comment(self, *, owner_type_id: int, owner_id: str, text: str) -> str:
+        return "timeline-1"
 
     def get_contact(self, contact_id: str) -> dict | None:
         return self.contacts.get(str(contact_id))
@@ -969,3 +979,82 @@ def test_run_telemarketing_workflow_returns_refusal_deal_to_other_assignee():
     assert fields["SOURCE_ID"] == "12"
     assert fields["CLOSED"] == "N"
     assert fields["ASSIGNED_BY_ID"] == "2832"
+
+
+def _tm_deal(deal_id: str, *, company_id: str = "20606", stage_id: str = "C50:NEW") -> dict:
+    return _deal(
+        ID=deal_id,
+        COMPANY_ID=company_id,
+        CATEGORY_ID="50",
+        STAGE_ID=stage_id,
+        CLOSED="N",
+        ASSIGNED_BY_ID="2772",
+        DATE_MODIFY="2026-05-17T10:00:00+03:00",
+    )
+
+
+def test_sync_deals_can_run_scoped_telemarketing_dedupe_after_company_sync():
+    deals = [
+        _tm_deal("17904", stage_id="C50:NEW"),
+        _tm_deal("21588", stage_id="C50:UC_1S1KIU"),
+    ]
+    bx = FakeBitrix(
+        companies={"20606": _company(ID="20606")},
+        deals_by_company={"20606": deals},
+        deals_by_id={deal["ID"]: deal for deal in deals},
+    )
+
+    summary = sync_deals.run(
+        bx,
+        company_id="20606",
+        dry_run=False,
+        dedupe_telemarketing=True,
+    )
+
+    close_calls = [
+        fields for deal_id, fields in bx.update_deal_calls
+        if deal_id == "21588" and fields.get("STAGE_ID") == "C50:APOLOGY"
+    ]
+    assert close_calls
+    assert close_calls[0]["CLOSED"] == "Y"
+    assert close_calls[0][HOLD_REASON_FIELD] == "8544"
+    assert summary["telemarketing_dedupe"]["merged"] == 1
+
+
+def test_sync_deals_dedupe_not_called_without_flag():
+    deals = [
+        _tm_deal("17904", stage_id="C50:NEW"),
+        _tm_deal("21588", stage_id="C50:UC_1S1KIU"),
+    ]
+    bx = FakeBitrix(
+        companies={"20606": _company(ID="20606")},
+        deals_by_company={"20606": deals},
+        deals_by_id={deal["ID"]: deal for deal in deals},
+    )
+
+    summary = sync_deals.run(bx, company_id="20606", dry_run=False)
+
+    assert "telemarketing_dedupe" not in summary
+    assert not any(fields.get("STAGE_ID") == "C50:APOLOGY" for _, fields in bx.update_deal_calls)
+
+
+def test_sync_deals_dedupe_dry_run_does_not_write():
+    deals = [
+        _tm_deal("17904", stage_id="C50:NEW"),
+        _tm_deal("21588", stage_id="C50:UC_1S1KIU"),
+    ]
+    bx = FakeBitrix(
+        companies={"20606": _company(ID="20606")},
+        deals_by_company={"20606": deals},
+        deals_by_id={deal["ID"]: deal for deal in deals},
+    )
+
+    summary = sync_deals.run(
+        bx,
+        company_id="20606",
+        dry_run=True,
+        dedupe_telemarketing=True,
+    )
+
+    assert not any(fields.get("STAGE_ID") == "C50:APOLOGY" for _, fields in bx.update_deal_calls)
+    assert summary["telemarketing_dedupe"]["dry_run_merged"] == 1

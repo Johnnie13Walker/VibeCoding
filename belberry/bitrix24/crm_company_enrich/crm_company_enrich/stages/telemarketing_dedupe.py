@@ -113,20 +113,78 @@ def run(
             company=companies_by_id.get(company_id),
         )
         outcomes.append(outcome)
-        if outcome.status == "UNRESOLVED" and not dry_run:
-            try:
-                sheet_tab = _append_unresolved(outcome, company=companies_by_id.get(company_id))
-            except Exception as exc:  # noqa: BLE001
-                print(f"[telemarketing-dedupe] sheets_append_failed for company {outcome.company_id}: {exc}")
-                _append_unresolved_csv_fallback(outcome, exc)
-                outcome.fail_reason = (
-                    (outcome.fail_reason or "merge_failed")
-                    + f"; sheets_append_failed: {str(exc)[:120]}"
-                )
+        sheet_tab = _record_unresolved_if_needed(
+            outcome,
+            company=companies_by_id.get(company_id),
+            dry_run=dry_run,
+            current_sheet_tab=sheet_tab,
+        )
 
     summary = _summary(outcomes, dry_run=dry_run)
     summary["sheet_tab"] = sheet_tab
     summary["outcomes"] = [outcome.__dict__ for outcome in outcomes]
+    return summary
+
+
+def run_company(
+    bx: BitrixClient,
+    *,
+    company_id: str,
+    dry_run: bool = True,
+    rotation_index: int = 0,
+) -> dict:
+    """Scoped dedupe для одной компании после точечного sync-deals."""
+    cid = str(company_id or "").strip()
+    if not cid:
+        raise ValueError("Нужен company_id")
+
+    deals = bx.list_company_deals(
+        cid,
+        select=[
+            "ID",
+            "TITLE",
+            "COMPANY_ID",
+            "CATEGORY_ID",
+            "STAGE_ID",
+            "CLOSED",
+            "ASSIGNED_BY_ID",
+            "DATE_MODIFY",
+            HOLD_REASON_FIELD,
+            HOLD_MARKER_FLAG_FIELD,
+        ],
+    )
+    open_deals = [
+        deal for deal in deals
+        if str(deal.get("STAGE_ID") or "") in TELEMARKETING_OPEN_STAGES
+        and str(deal.get("CLOSED") or "") != "Y"
+        and not _marker_already_set(deal.get(HOLD_MARKER_FLAG_FIELD))
+    ]
+    if len(open_deals) < 2:
+        outcome = DedupeOutcome(cid, status="NO_DUPLICATES")
+        summary = _summary([outcome], dry_run=dry_run)
+        summary["sheet_tab"] = ""
+        summary["outcomes"] = [outcome.__dict__]
+        return summary
+
+    company = bx.get_company(cid)
+    outcome = _process_group(
+        bx,
+        company_id=cid,
+        deals=open_deals,
+        active_user_ids=_active_user_ids(bx),
+        rotation_index=rotation_index,
+        dry_run=dry_run,
+        company=company,
+    )
+    sheet_tab = _record_unresolved_if_needed(
+        outcome,
+        company=company,
+        dry_run=dry_run,
+        current_sheet_tab="",
+    )
+    summary = _summary([outcome], dry_run=dry_run)
+    summary["sheet_tab"] = sheet_tab
+    summary["outcomes"] = [outcome.__dict__]
     return summary
 
 
@@ -146,6 +204,27 @@ def _duplicate_groups(deals: list[dict[str, Any]]) -> list[tuple[str, list[dict[
         for company_id, items in sorted(grouped.items(), key=lambda item: int(item[0]) if item[0].isdigit() else item[0])
         if len(items) >= 2
     ]
+
+
+def _record_unresolved_if_needed(
+    outcome: DedupeOutcome,
+    *,
+    company: dict | None,
+    dry_run: bool,
+    current_sheet_tab: str,
+) -> str:
+    if outcome.status != "UNRESOLVED" or dry_run:
+        return current_sheet_tab
+    try:
+        return _append_unresolved(outcome, company=company)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[telemarketing-dedupe] sheets_append_failed for company {outcome.company_id}: {exc}")
+        _append_unresolved_csv_fallback(outcome, exc)
+        outcome.fail_reason = (
+            (outcome.fail_reason or "merge_failed")
+            + f"; sheets_append_failed: {str(exc)[:120]}"
+        )
+        return current_sheet_tab
 
 
 def _process_group(

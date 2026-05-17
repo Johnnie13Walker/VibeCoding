@@ -180,6 +180,7 @@ def cmd_sync_deals(args: argparse.Namespace) -> int:
         limit=args.limit,
         telemarketing_workflow=args.telemarketing_workflow,
         rotation_index=args.rotation_index,
+        dedupe_telemarketing=args.dedupe_telemarketing,
     )
     print(json.dumps(summary, indent=2, ensure_ascii=False))
     return 1 if summary.get("failed") else 0
@@ -195,6 +196,7 @@ def cmd_sync_company(args: argparse.Namespace) -> int:
         site=args.site or "",
         dry_run=not args.live,
         overwrite=args.overwrite,
+        dedupe_telemarketing=args.dedupe_telemarketing,
     )
     print(json.dumps(summary, indent=2, ensure_ascii=False))
     return 1 if summary.get("failed") else 0
@@ -431,6 +433,11 @@ def main() -> None:
         help="Индекс ротации для новых/чужих отказных сделок: 0=Дарья, 1=Аркадий",
     )
     sp.add_argument("--limit", type=int)
+    sp.add_argument(
+        "--dedupe-telemarketing",
+        action="store_true",
+        help="После sync-deals запустить scoped dedupe для этой компании",
+    )
     sp.set_defaults(func=cmd_sync_deals)
 
     sp = sub.add_parser(
@@ -445,6 +452,11 @@ def main() -> None:
     sp.add_argument("--site", help="Рабочий сайт, если текущий сайт компании пустой или не отвечает")
     sp.add_argument("--live", action="store_true", help="Реально записать поля компании")
     sp.add_argument("--overwrite", action="store_true", help="Перезаписывать уже заполненные поля")
+    sp.add_argument(
+        "--dedupe-telemarketing",
+        action="store_true",
+        help="После sync-company запустить scoped dedupe для этой компании",
+    )
     sp.set_defaults(func=cmd_sync_company)
 
     sp = sub.add_parser(

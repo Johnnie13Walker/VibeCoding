@@ -50,12 +50,18 @@ python3 -m crm_company_enrich.cli mark-approved --company-id 42 --action MERGE_I
 python3 -m crm_company_enrich.cli sync-deals --company-id 42
 python3 -m crm_company_enrich.cli sync-deals --company-id 42 --live
 python3 -m crm_company_enrich.cli sync-deals --deal-id 100 --include-closed --telemarketing-workflow --live
+# После точечного sync-deals можно сразу объединить дубли сделок только
+# этой компании в воронке телемаркетинга:
+python3 -m crm_company_enrich.cli sync-deals --company-id 20606 --live --dedupe-telemarketing
 ```
 
 `sync-deals` по умолчанию работает в dry-run и требует явный `--company-id`
 или `--deal-id`. Без `--overwrite` стадия заполняет только пустые поля сделки:
 «Сайт клиента», «Город», «ИНН», «Оборот», «Сфера деятельности» и
 «Бренд проекта» — только если соответствующее значение уже есть на компании.
+Флаг `--dedupe-telemarketing` после синхронизации запускает scoped dedupe
+только для этой компании: если у неё несколько открытых сделок в C50, loser-ы
+закрываются как дубли, без глобального прохода по порталу.
 
 ## Apply: реквизиты и BP
 

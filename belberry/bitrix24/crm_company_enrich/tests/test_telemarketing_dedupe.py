@@ -35,6 +35,12 @@ class FakeBitrix:
             and str(deal.get("CLOSED") or "N") == closed
         ]
 
+    def list_company_deals(self, company_id, select=None):
+        return [
+            deal for deal in self.deals
+            if str(deal.get("COMPANY_ID") or "") == str(company_id)
+        ]
+
     def list_active_users(self):
         return set(self.active_users)
 
@@ -393,3 +399,68 @@ def test_double_check_does_not_block_unchanged_losers(monkeypatch, tmp_path):
     assert summary["outcomes"][0]["closed_deal_ids"] == ["3"]
     assert [call for call in bx.update_deal_calls if call[0] == "1"] == []
     assert [call for call in bx.update_deal_calls if call[0] == "3"]
+
+
+def test_run_company_no_duplicates():
+    bx = FakeBitrix(deals=[_deal("1", company_id="20606")])
+
+    summary = stage.run_company(bx, company_id="20606")
+
+    assert summary["no_duplicates"] == 1
+    assert summary["outcomes"][0]["status"] == "NO_DUPLICATES"
+    assert bx.update_deal_calls == []
+
+
+def test_run_company_scopes_to_single_company(monkeypatch, tmp_path):
+    monkeypatch.setattr(stage, "LOG_DIR", tmp_path)
+    bx = FakeBitrix(
+        deals=[
+            _deal("17904", company_id="20606", stage_id="C50:NEW"),
+            _deal("21588", company_id="20606", stage_id="C50:UC_1S1KIU"),
+            _deal("30001", company_id="300"),
+            _deal("30002", company_id="300"),
+        ]
+    )
+
+    summary = stage.run_company(bx, company_id="20606", dry_run=False)
+
+    assert summary["merged"] == 1
+    assert {call[0] for call in bx.update_deal_calls} <= {"21588"}
+    assert "30001" not in {call[0] for call in bx.update_deal_calls}
+    assert "30002" not in {call[0] for call in bx.update_deal_calls}
+
+
+def test_run_company_respects_marker_idempotence():
+    bx = FakeBitrix(
+        deals=[
+            _deal("17904", company_id="20606", stage_id="C50:NEW"),
+            _deal("21588", company_id="20606", stage_id="C50:UC_1S1KIU", **{HOLD_MARKER_FLAG_FIELD: "1"}),
+        ]
+    )
+
+    summary = stage.run_company(bx, company_id="20606")
+
+    assert summary["no_duplicates"] == 1
+    assert bx.update_deal_calls == []
+
+
+def test_run_company_unresolved_returned_in_summary(monkeypatch, tmp_path):
+    monkeypatch.setattr(stage, "LOG_DIR", tmp_path)
+    monkeypatch.setattr(
+        stage,
+        "_append_unresolved",
+        lambda outcome, *, company: (_ for _ in ()).throw(RuntimeError("sheets down")),
+    )
+    bx = FakeBitrix(
+        deals=[
+            _deal("17904", company_id="20606", stage_id="C50:NEW"),
+            _deal("21588", company_id="20606", stage_id="C50:UC_1S1KIU"),
+        ],
+        raise_on_update_deal={"21588"},
+    )
+
+    summary = stage.run_company(bx, company_id="20606", dry_run=False)
+
+    assert summary["unresolved"] == 1
+    assert summary["outcomes"][0]["status"] == "UNRESOLVED"
+    assert "sheets_append_failed" in summary["outcomes"][0]["fail_reason"]

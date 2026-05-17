@@ -119,10 +119,12 @@ def run_company(
     site: str = "",
     dry_run: bool = True,
     overwrite: bool = False,
+    dedupe_telemarketing: bool = False,
 ) -> dict:
     if not company_id:
         raise ValueError("Нужен company_id")
 
+    company_id = str(company_id)
     company = bx.get_company(str(company_id))
     if not company:
         outcome = CompanySyncOutcome(str(company_id), "COMPANY_NOT_FOUND", {}, {}, "company not found")
@@ -176,7 +178,7 @@ def run_company(
     )
     if not fields:
         outcome = CompanySyncOutcome(str(company_id), "NOOP", {}, skipped)
-        return {
+        summary = {
             "dry_run": dry_run,
             "overwrite": overwrite,
             "examined": 1,
@@ -186,10 +188,18 @@ def run_company(
             "failed": 0,
             "outcomes": [outcome.__dict__],
         }
+        _attach_scoped_dedupe_summary(
+            bx,
+            summary,
+            company_ids=[company_id],
+            dry_run=dry_run,
+            dedupe_telemarketing=dedupe_telemarketing,
+        )
+        return summary
 
     if dry_run:
         outcome = CompanySyncOutcome(str(company_id), "DRY_RUN", fields, skipped)
-        return {
+        summary = {
             "dry_run": dry_run,
             "overwrite": overwrite,
             "examined": 1,
@@ -199,6 +209,14 @@ def run_company(
             "failed": 0,
             "outcomes": [outcome.__dict__],
         }
+        _attach_scoped_dedupe_summary(
+            bx,
+            summary,
+            company_ids=[company_id],
+            dry_run=dry_run,
+            dedupe_telemarketing=dedupe_telemarketing,
+        )
+        return summary
 
     try:
         bx.update_company(str(company_id), fields)
@@ -216,7 +234,7 @@ def run_company(
         }
 
     outcome = CompanySyncOutcome(str(company_id), "UPDATED", fields, skipped)
-    return {
+    summary = {
         "dry_run": dry_run,
         "overwrite": overwrite,
         "examined": 1,
@@ -226,6 +244,14 @@ def run_company(
         "failed": 0,
         "outcomes": [outcome.__dict__],
     }
+    _attach_scoped_dedupe_summary(
+        bx,
+        summary,
+        company_ids=[company_id],
+        dry_run=dry_run,
+        dedupe_telemarketing=dedupe_telemarketing,
+    )
+    return summary
 
 
 def run(
@@ -239,6 +265,7 @@ def run(
     limit: int | None = None,
     telemarketing_workflow: bool = False,
     rotation_index: int = 0,
+    dedupe_telemarketing: bool = False,
 ) -> dict:
     if not company_id and not deal_id:
         raise ValueError("Нужен company_id или deal_id")
@@ -259,6 +286,7 @@ def run(
     contacts_dry = 0
     contact_communications_updated = 0
     contact_communications_dry = 0
+    processed_company_ids: set[str] = set()
 
     for deal in deals:
         did = str(deal.get("ID") or "")
@@ -267,6 +295,7 @@ def run(
             outcomes.append(SyncOutcome(did, cid, "FAILED", {}, {}, error="deal has no ID/COMPANY_ID"))
             failed += 1
             continue
+        processed_company_ids.add(cid)
 
         company = bx.get_company(cid)
         if not company:
@@ -347,7 +376,7 @@ def run(
         if fields:
             updated += 1
 
-    return {
+    summary = {
         "dry_run": dry_run,
         "overwrite": overwrite,
         "active_only": active_only,
@@ -366,6 +395,41 @@ def run(
         "failed": failed,
         "outcomes": [o.__dict__ for o in outcomes],
     }
+    _attach_scoped_dedupe_summary(
+        bx,
+        summary,
+        company_ids=sorted(processed_company_ids, key=lambda x: int(x) if x.isdigit() else x),
+        dry_run=dry_run,
+        dedupe_telemarketing=dedupe_telemarketing,
+    )
+    return summary
+
+
+def _attach_scoped_dedupe_summary(
+    bx: BitrixClient,
+    summary: dict,
+    *,
+    company_ids: list[str],
+    dry_run: bool,
+    dedupe_telemarketing: bool,
+) -> None:
+    if not dedupe_telemarketing:
+        return
+    from .telemarketing_dedupe import run_company as dedupe_run_company
+
+    dedupe_by_company = {
+        company_id: dedupe_run_company(
+            bx,
+            company_id=company_id,
+            dry_run=dry_run,
+            rotation_index=0,
+        )
+        for company_id in company_ids
+    }
+    if len(dedupe_by_company) == 1:
+        summary["telemarketing_dedupe"] = next(iter(dedupe_by_company.values()))
+    else:
+        summary["telemarketing_dedupe"] = dedupe_by_company
 
 
 def telemarketing_assignee_for_new_deal(*, rotation_index: int = 0) -> str:
