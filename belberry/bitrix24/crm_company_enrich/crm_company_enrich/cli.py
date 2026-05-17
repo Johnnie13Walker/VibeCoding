@@ -182,6 +182,7 @@ def cmd_sync_deals(args: argparse.Namespace) -> int:
         rotation_index=args.rotation_index,
         dedupe_telemarketing=args.dedupe_telemarketing,
         auto_reject_telemarketing=args.auto_reject_telemarketing,
+        dedupe_contacts=args.dedupe_contacts,
     )
     print(json.dumps(summary, indent=2, ensure_ascii=False))
     return 1 if summary.get("failed") else 0
@@ -199,6 +200,19 @@ def cmd_sync_company(args: argparse.Namespace) -> int:
         overwrite=args.overwrite,
         dedupe_telemarketing=args.dedupe_telemarketing,
         auto_reject_telemarketing=args.auto_reject_telemarketing,
+        dedupe_contacts=args.dedupe_contacts,
+    )
+    print(json.dumps(summary, indent=2, ensure_ascii=False))
+    return 1 if summary.get("failed") else 0
+
+
+def cmd_dedupe_contacts(args: argparse.Namespace) -> int:
+    from .stages import dedupe_contacts
+    bx, _ = _make_clients()
+    summary = dedupe_contacts.run_company(
+        bx,
+        company_id=args.company_id,
+        dry_run=not args.live,
     )
     print(json.dumps(summary, indent=2, ensure_ascii=False))
     return 1 if summary.get("failed") else 0
@@ -510,6 +524,11 @@ def main() -> None:
         action="store_true",
         help="После sync-deals запустить scoped auto-reject для этой компании/сделки",
     )
+    sp.add_argument(
+        "--dedupe-contacts",
+        action="store_true",
+        help="После sync-deals запустить scoped dedupe контактов компании",
+    )
     sp.set_defaults(func=cmd_sync_deals)
 
     sp = sub.add_parser(
@@ -534,7 +553,23 @@ def main() -> None:
         action="store_true",
         help="После sync-company запустить scoped auto-reject для этой компании",
     )
+    sp.add_argument(
+        "--dedupe-contacts",
+        action="store_true",
+        help="После sync-company запустить scoped dedupe контактов компании",
+    )
     sp.set_defaults(func=cmd_sync_company)
+
+    sp = sub.add_parser(
+        "dedupe-contacts",
+        help=(
+            "WRITE: scoped dedupe контактов компании + re-attach в сделки. "
+            "По умолчанию dry-run."
+        ),
+    )
+    sp.add_argument("--company-id", required=True)
+    sp.add_argument("--live", action="store_true")
+    sp.set_defaults(func=cmd_dedupe_contacts)
 
     sp = sub.add_parser(
         "auto-reject-telemarketing",

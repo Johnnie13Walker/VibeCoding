@@ -122,6 +122,7 @@ def run_company(
     overwrite: bool = False,
     dedupe_telemarketing: bool = False,
     auto_reject_telemarketing: bool = False,
+    dedupe_contacts: bool = False,
 ) -> dict:
     if not company_id:
         raise ValueError("Нужен company_id")
@@ -205,6 +206,13 @@ def run_company(
             dry_run=dry_run,
             auto_reject_telemarketing=auto_reject_telemarketing,
         )
+        _attach_scoped_contact_dedupe_summary(
+            bx,
+            summary,
+            company_ids=[company_id],
+            dry_run=dry_run,
+            dedupe_contacts=dedupe_contacts,
+        )
         return summary
 
     if dry_run:
@@ -233,6 +241,13 @@ def run_company(
             deal_ids=[],
             dry_run=dry_run,
             auto_reject_telemarketing=auto_reject_telemarketing,
+        )
+        _attach_scoped_contact_dedupe_summary(
+            bx,
+            summary,
+            company_ids=[company_id],
+            dry_run=dry_run,
+            dedupe_contacts=dedupe_contacts,
         )
         return summary
 
@@ -277,6 +292,13 @@ def run_company(
         dry_run=dry_run,
         auto_reject_telemarketing=auto_reject_telemarketing,
     )
+    _attach_scoped_contact_dedupe_summary(
+        bx,
+        summary,
+        company_ids=[company_id],
+        dry_run=dry_run,
+        dedupe_contacts=dedupe_contacts,
+    )
     return summary
 
 
@@ -293,6 +315,7 @@ def run(
     rotation_index: int = 0,
     dedupe_telemarketing: bool = False,
     auto_reject_telemarketing: bool = False,
+    dedupe_contacts: bool = False,
 ) -> dict:
     if not company_id and not deal_id:
         raise ValueError("Нужен company_id или deal_id")
@@ -439,6 +462,13 @@ def run(
         dry_run=dry_run,
         auto_reject_telemarketing=auto_reject_telemarketing,
     )
+    _attach_scoped_contact_dedupe_summary(
+        bx,
+        summary,
+        company_ids=sorted(processed_company_ids, key=lambda x: int(x) if x.isdigit() else x),
+        dry_run=dry_run,
+        dedupe_contacts=dedupe_contacts,
+    )
     return summary
 
 
@@ -509,6 +539,32 @@ def _attach_scoped_auto_reject_summary(
         summary["auto_reject_telemarketing"] = next(iter(auto_reject_by_company.values()))
     else:
         summary["auto_reject_telemarketing"] = auto_reject_by_company
+
+
+def _attach_scoped_contact_dedupe_summary(
+    bx: BitrixClient,
+    summary: dict,
+    *,
+    company_ids: list[str],
+    dry_run: bool,
+    dedupe_contacts: bool,
+) -> None:
+    if not dedupe_contacts or not company_ids:
+        return
+    from .dedupe_contacts import run_company as dedupe_contacts_run_company
+
+    dedupe_by_company = {
+        company_id: dedupe_contacts_run_company(
+            bx,
+            company_id=company_id,
+            dry_run=dry_run,
+        )
+        for company_id in company_ids
+    }
+    if len(dedupe_by_company) == 1:
+        summary["contact_dedupe"] = next(iter(dedupe_by_company.values()))
+    else:
+        summary["contact_dedupe"] = dedupe_by_company
 
 
 def telemarketing_assignee_for_new_deal(*, rotation_index: int = 0) -> str:
