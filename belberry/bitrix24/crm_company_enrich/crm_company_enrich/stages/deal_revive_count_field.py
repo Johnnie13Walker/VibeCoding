@@ -71,14 +71,15 @@ def build_plan(existing: dict | None) -> ReviveCountFieldPlan:
 def verify_field(field: dict | None) -> dict[str, Any]:
     if not field:
         return {"ok": False, "reason": "field_not_found"}
-    ok = (
-        str(field.get("FIELD_NAME") or "") == REVIVE_COUNT_FIELD_NAME
-        and str(field.get("USER_TYPE_ID") or "") == "integer"
-        and _labels_are_current(field)
-        and _settings_are_current(field)
-        and _visibility_flags_are_current(field)
-    )
-    return {
+    checks = {
+        "field_name_matches": str(field.get("FIELD_NAME") or "") == REVIVE_COUNT_FIELD_NAME,
+        "user_type_is_integer": str(field.get("USER_TYPE_ID") or "") == "integer",
+        "labels_ok": _labels_are_current(field),
+        "settings_ok": _settings_are_current(field),
+        "visibility_ok": _visibility_flags_are_current(field),
+    }
+    ok = all(checks.values())
+    result = {
         "ok": ok,
         "field_id": str(field.get("ID") or ""),
         "field_name": str(field.get("FIELD_NAME") or ""),
@@ -88,6 +89,9 @@ def verify_field(field: dict | None) -> dict[str, Any]:
         "editable_in_list": str(field.get("EDIT_IN_LIST") or "").upper() == "N",
         "available_in_api": bool(field.get("FIELD_NAME")),
     }
+    if not ok:
+        result["checks"] = checks
+    return result
 
 
 def _find_field(fields: list[dict]) -> dict | None:
@@ -118,17 +122,18 @@ def _field_payload() -> dict[str, Any]:
         "HELP_MESSAGE": "",
         "SETTINGS": {
             "DEFAULT_VALUE": "0",
-            "SIZE": 5,
             "MIN_VALUE": 0,
-            "MAX_VALUE": 999,
         },
     }
 
 
 def _labels_are_current(field: dict) -> bool:
+    label_keys = ("EDIT_FORM_LABEL", "LIST_COLUMN_LABEL", "LIST_FILTER_LABEL")
+    if not any(key in field for key in label_keys):
+        return True
     return all(
         str(field.get(key) or "") == REVIVE_COUNT_FIELD_LABEL
-        for key in ("EDIT_FORM_LABEL", "LIST_COLUMN_LABEL", "LIST_FILTER_LABEL")
+        for key in label_keys
     )
 
 
@@ -136,9 +141,7 @@ def _settings_are_current(field: dict) -> bool:
     settings = field.get("SETTINGS") or {}
     return (
         str(settings.get("DEFAULT_VALUE", "")) == "0"
-        and str(settings.get("SIZE", "")) == "5"
         and str(settings.get("MIN_VALUE", "")) == "0"
-        and str(settings.get("MAX_VALUE", "")) == "999"
     )
 
 

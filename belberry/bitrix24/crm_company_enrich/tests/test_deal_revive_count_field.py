@@ -27,6 +27,26 @@ class FakeBitrix:
         return True
 
 
+def _bitrix_integer_field(**overrides):
+    field = {
+        "ID": "77",
+        "FIELD_NAME": "UF_CRM_REVIVE_COUNT",
+        "USER_TYPE_ID": "integer",
+        "XML_ID": "UF_CRM_REVIVE_COUNT",
+        "SHOW_FILTER": "E",
+        "SHOW_IN_LIST": "N",
+        "EDIT_IN_LIST": "N",
+        "SETTINGS": {
+            "DEFAULT_VALUE": 0,
+            "MIN_VALUE": 0,
+            "MAX_VALUE": 0,
+            "SIZE": 20,
+        },
+    }
+    field.update(overrides)
+    return field
+
+
 def test_dry_run_creates_integer_payload():
     summary = stage.run(FakeBitrix())
 
@@ -48,7 +68,7 @@ def test_apply_creates_field_and_verifies():
 
 
 def test_existing_correct_field_is_noop():
-    bx = FakeBitrix([stage._field_payload() | {"ID": "77"}])
+    bx = FakeBitrix([_bitrix_integer_field()])
 
     summary = stage.run(bx)
 
@@ -65,3 +85,60 @@ def test_existing_wrong_type_string_triggers_update():
     assert summary["updated"] is True
     assert bx.update_calls[0][0] == "77"
     assert bx.update_calls[0][1]["USER_TYPE_ID"] == "integer"
+
+
+def test_verify_accepts_response_without_labels():
+    result = stage.verify_field(_bitrix_integer_field())
+
+    assert result["ok"] is True
+
+
+def test_verify_accepts_bitrix_default_size_and_max_value():
+    result = stage.verify_field(
+        _bitrix_integer_field(
+            SETTINGS={
+                "DEFAULT_VALUE": 0,
+                "MIN_VALUE": 0,
+                "SIZE": 20,
+                "MAX_VALUE": 0,
+            }
+        )
+    )
+
+    assert result["ok"] is True
+
+
+def test_verify_rejects_when_labels_present_and_wrong():
+    result = stage.verify_field(_bitrix_integer_field(EDIT_FORM_LABEL="Другое название"))
+
+    assert result["ok"] is False
+    assert result["checks"]["labels_ok"] is False
+
+
+def test_verify_includes_checks_breakdown_when_failing():
+    result = stage.verify_field(_bitrix_integer_field(USER_TYPE_ID="string"))
+
+    assert result["ok"] is False
+    assert result["checks"] == {
+        "field_name_matches": True,
+        "user_type_is_integer": False,
+        "labels_ok": True,
+        "settings_ok": True,
+        "visibility_ok": True,
+    }
+
+
+def test_verify_rejects_wrong_default_value():
+    result = stage.verify_field(
+        _bitrix_integer_field(
+            SETTINGS={
+                "DEFAULT_VALUE": 5,
+                "MIN_VALUE": 0,
+                "SIZE": 20,
+                "MAX_VALUE": 0,
+            }
+        )
+    )
+
+    assert result["ok"] is False
+    assert result["checks"]["settings_ok"] is False
