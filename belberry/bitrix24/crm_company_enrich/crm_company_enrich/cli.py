@@ -244,6 +244,18 @@ def cmd_auto_promote_base(args: argparse.Namespace) -> int:
     return 1 if summary.get("failed") else 0
 
 
+def cmd_telemarketing_stuck_alerts(args: argparse.Namespace) -> int:
+    from datetime import datetime
+
+    from .stages import telemarketing_stuck_alerts
+
+    bx, _ = _make_clients()
+    today = datetime.fromisoformat(args.today).date() if args.today else None
+    summary = telemarketing_stuck_alerts.run(bx, today=today)
+    print(json.dumps(summary, indent=2, ensure_ascii=False))
+    return 0
+
+
 def cmd_auto_reject_telemarketing(args: argparse.Namespace) -> int:
     from .stages import auto_reject_telemarketing
     bx, _ = _make_clients()
@@ -619,6 +631,13 @@ def main() -> None:
     sp.add_argument("--limit", type=int)
     sp.add_argument("--rotation-index", type=int, default=0)
     sp.set_defaults(func=cmd_auto_promote_base)
+
+    sp = sub.add_parser(
+        "telemarketing-stuck-alerts",
+        help="READ: найти застрявшие C50:PREPARATION и C50:UC_WZ4KQE сделки",
+    )
+    sp.add_argument("--today", help="ISO date YYYY-MM-DD для тестового расчёта")
+    sp.set_defaults(func=cmd_telemarketing_stuck_alerts)
 
     sp = sub.add_parser(
         "auto-reject-telemarketing",
