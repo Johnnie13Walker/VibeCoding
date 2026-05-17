@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import csv
-import re
 from collections import Counter
 from dataclasses import dataclass
 from datetime import date, datetime
@@ -13,8 +12,9 @@ from ..bitrix_client import BitrixClient
 from ..config import (
     HOLD_MARKER_FLAG_FIELD,
     HOLD_REASON_COMMENT_FIELD,
+    LAST_AUTO_ACTION_DESC_FIELD,
     LOG_DIR,
-    REVIVE_AUDIT_FIELD,
+    REVIVE_COUNT_FIELD,
     REVIVE_NEXT_COMMUNICATION_FIELD,
     TELEMARKETING_ASSIGNEES,
     TELEMARKETING_REVIVE_MAX_PER_DEAL,
@@ -179,7 +179,8 @@ def _apply_revive(
         "CLOSED": "N",
         "SOURCE_ID": TELEMARKETING_REVIVE_SOURCE_ID,
         "ASSIGNED_BY_ID": new_assignee,
-        REVIVE_AUDIT_FIELD: _build_audit_text(deal, today_iso=today_iso, next_count=revive_count_after),
+        REVIVE_COUNT_FIELD: revive_count_after,
+        LAST_AUTO_ACTION_DESC_FIELD: _build_revive_desc(today_iso or _today_iso(), revive_count_after),
     }
     bx.update_deal(str(deal.get("ID") or ""), fields, params={"REGISTER_SONET_EVENT": "Y"})
     timeline_failed = ""
@@ -219,20 +220,19 @@ def _is_auto_rejected(deal: dict[str, Any]) -> bool:
 
 
 def _revive_count(deal: dict[str, Any]) -> int:
-    desc = str(deal.get(REVIVE_AUDIT_FIELD) or "")
-    matches = re.findall(r"auto-revive\s+\S+\s+#(\d+)", desc)
-    return int(matches[-1]) if matches else 0
+    """Числовой счётчик из UF_CRM_REVIVE_COUNT."""
+    raw = deal.get(REVIVE_COUNT_FIELD)
+    if raw in (None, "", 0, "0"):
+        return 0
+    try:
+        return int(raw)
+    except (ValueError, TypeError):
+        return 0
 
 
-def _build_audit_text(
-    deal: dict[str, Any],
-    *,
-    today_iso: str | None = None,
-    next_count: int | None = None,
-) -> str:
-    prev = str(deal.get(REVIVE_AUDIT_FIELD) or "").strip()
-    new_line = f"auto-revive {today_iso or _today_iso()} #{next_count or _revive_count(deal) + 1}"
-    return f"{prev}; {new_line}" if prev else new_line
+def _build_revive_desc(today_iso: str, count: int) -> str:
+    """Описание последнего revive для LAST_AUTO_ACTION_DESC_FIELD."""
+    return f"auto-revive {today_iso} #{count}"
 
 
 def _is_due(raw_due: Any, due_before: str) -> bool:

@@ -5,8 +5,9 @@ import pytest
 from crm_company_enrich.config import (
     HOLD_MARKER_FLAG_FIELD,
     HOLD_REASON_COMMENT_FIELD,
+    LAST_AUTO_ACTION_DESC_FIELD,
     LOG_DIR as PRODUCTION_LOG_DIR,
-    REVIVE_AUDIT_FIELD,
+    REVIVE_COUNT_FIELD,
     REVIVE_NEXT_COMMUNICATION_FIELD,
 )
 from crm_company_enrich.stages import auto_revive_lose as stage
@@ -83,7 +84,8 @@ def _deal(**overrides) -> dict:
         REVIVE_NEXT_COMMUNICATION_FIELD: "2026-05-10",
         HOLD_REASON_COMMENT_FIELD: "вернуться через 3 месяца",
         HOLD_MARKER_FLAG_FIELD: "0",
-        REVIVE_AUDIT_FIELD: "",
+        LAST_AUTO_ACTION_DESC_FIELD: "",
+        REVIVE_COUNT_FIELD: 0,
     }
     data.update(overrides)
     return data
@@ -146,46 +148,47 @@ def test_auto_rejected_lose_is_skipped():
     assert bx.update_deal_calls == []
 
 
-def test_revive_count_increments_in_audit_field(monkeypatch):
-    monkeypatch.setattr(stage, "_today_iso", lambda: "2026-05-17")
-    deal = _deal()
-
-    first = stage._build_audit_text(deal)
-    deal[REVIVE_AUDIT_FIELD] = first
-    second = stage._build_audit_text(deal)
-
-    assert first == "auto-revive 2026-05-17 #1"
-    assert second == "auto-revive 2026-05-17 #1; auto-revive 2026-05-17 #2"
-
-
-def test_revive_count_ignores_alien_markers_from_auto_reject():
-    deal = _deal(**{REVIVE_AUDIT_FIELD: "auto-reject 8538 @ 2026-05-17"})
-
-    assert stage._revive_count(deal) == 0
-
-
-def test_revive_count_ignores_free_text_hashes():
-    deal = _deal(**{REVIVE_AUDIT_FIELD: "вернёмся через #3 месяца"})
-
-    assert stage._revive_count(deal) == 0
-
-
-def test_revive_count_picks_last_own_marker():
-    deal = _deal(
-        **{
-            REVIVE_AUDIT_FIELD: (
-                "auto-reject 8538 @ 2026-04-01; "
-                "auto-revive 2026-05-01 #1; "
-                "auto-revive 2026-05-10 #2"
-            )
-        }
-    )
+def test_revive_count_reads_from_int_field():
+    deal = _deal(**{REVIVE_COUNT_FIELD: 2})
 
     assert stage._revive_count(deal) == 2
 
 
-def test_ping_pong_limit_3_reached_marks_limit():
-    bx = FakeBitrix([_deal(**{REVIVE_AUDIT_FIELD: "auto-revive 2026-05-17 #3"})])
+def test_revive_count_ignores_string_desc_field():
+    deal = _deal(
+        **{
+            REVIVE_COUNT_FIELD: 0,
+            LAST_AUTO_ACTION_DESC_FIELD: "auto-revive 2026-05-17 #5",
+        }
+    )
+
+    assert stage._revive_count(deal) == 0
+
+
+def test_revive_increments_int_field(monkeypatch):
+    monkeypatch.setattr(stage, "_today_iso", lambda: "2026-05-17")
+    bx = FakeBitrix([_deal(**{REVIVE_COUNT_FIELD: 1})])
+
+    stage.run(bx, dry_run=False, due_before="2026-05-17")
+
+    _, fields, _ = bx.update_deal_calls[0]
+    assert fields[REVIVE_COUNT_FIELD] == 2
+
+
+def test_last_auto_action_desc_is_overwritten_not_appended(monkeypatch):
+    monkeypatch.setattr(stage, "_today_iso", lambda: "2026-05-17")
+    bx = FakeBitrix(
+        [_deal(**{LAST_AUTO_ACTION_DESC_FIELD: "auto-reject 8538 @ 2026-04-01"})]
+    )
+
+    stage.run(bx, dry_run=False, due_before="2026-05-17")
+
+    _, fields, _ = bx.update_deal_calls[0]
+    assert fields[LAST_AUTO_ACTION_DESC_FIELD] == "auto-revive 2026-05-17 #1"
+
+
+def test_limit_reached_uses_int_not_string_parse():
+    bx = FakeBitrix([_deal(**{REVIVE_COUNT_FIELD: 3, LAST_AUTO_ACTION_DESC_FIELD: "любой текст"})])
 
     summary = stage.run(bx, dry_run=False, due_before="2026-05-17")
 

@@ -10,13 +10,13 @@ from zoneinfo import ZoneInfo
 
 from ..bitrix_client import BitrixClient
 from ..config import (
-    HOLD_MARKER_DESC_FIELD,
     HOLD_MARKER_FLAG_FIELD,
     HOLD_REASON_BUSINESS_CLOSED,
     HOLD_REASON_COMMENT_FIELD,
     HOLD_REASON_FIELD,
     HOLD_REASON_LOW_REVENUE,
     HOLD_REVENUE_THRESHOLD_RUB,
+    LAST_AUTO_ACTION_DESC_FIELD,
     LOG_DIR,
     ORG_STATUS_LIQUIDATED,
     TELEMARKETING_AUTO_REJECT_SCAN_STAGES,
@@ -283,7 +283,7 @@ def _reject_fields(reason_id: str, reason_desc: str) -> dict[str, str]:
         HOLD_REASON_FIELD: reason_id,
         HOLD_REASON_COMMENT_FIELD: reason_desc,
         HOLD_MARKER_FLAG_FIELD: "1",
-        HOLD_MARKER_DESC_FIELD: f"auto-reject {reason_id} @ {date.today().isoformat()}",
+        LAST_AUTO_ACTION_DESC_FIELD: f"auto-reject {reason_id} @ {date.today().isoformat()}",
     }
 
 
