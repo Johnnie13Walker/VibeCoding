@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import pytest
-
 from crm_company_enrich.config import (
     HOLD_MARKER_FLAG_FIELD,
     HOLD_REASON_COMMENT_FIELD,
@@ -11,13 +9,6 @@ from crm_company_enrich.config import (
     REVIVE_NEXT_COMMUNICATION_FIELD,
 )
 from crm_company_enrich.stages import auto_revive_lose as stage
-
-
-@pytest.fixture(autouse=True)
-def _isolate_log_dir(monkeypatch, tmp_path):
-    """Все тесты пишут CSV-аудит в tmp_path, не в production LOG_DIR."""
-    monkeypatch.setattr(stage, "LOG_DIR", tmp_path)
-    yield
 
 
 class FakeBitrix:
@@ -230,7 +221,7 @@ def test_csv_audit_written_for_revived(tmp_path):
 
     stage.run(bx, dry_run=False, due_before="2026-05-17")
 
-    path = tmp_path / "auto_revive_lose.csv"
+    path = tmp_path / "logs" / "auto_revive_lose.csv"
     text = path.read_text(encoding="utf-8")
     assert "deal_id,company_id,old_assignee,new_assignee,due_date,revive_count,status" in text
     assert "100,200,2772,2832,2026-05-10,1,REVIVED" in text
@@ -243,7 +234,7 @@ def test_csv_audit_uses_tmp_path_not_production(tmp_path):
 
     stage.run(bx, dry_run=False, due_before="2026-05-17")
 
-    assert (tmp_path / "auto_revive_lose.csv").exists()
+    assert (tmp_path / "logs" / "auto_revive_lose.csv").exists()
     size_after = production_path.stat().st_size if production_path.exists() else 0
     assert size_after == size_before
 
@@ -279,7 +270,7 @@ def test_timeline_failure_does_not_fail_revive(tmp_path):
     assert summary["outcomes"][0]["status"] == "REVIVED"
     assert "timeline_failed:" in summary["outcomes"][0]["error"]
     assert len(bx.update_deal_calls) == 1
-    text = (tmp_path / "auto_revive_lose.csv").read_text(encoding="utf-8")
+    text = (tmp_path / "logs" / "auto_revive_lose.csv").read_text(encoding="utf-8")
     assert "100,200,2772,2832,2026-05-10,1,REVIVED,timeline_failed:timeline failed" in text
 
 
