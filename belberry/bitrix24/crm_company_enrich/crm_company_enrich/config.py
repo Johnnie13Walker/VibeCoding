@@ -129,6 +129,29 @@ TELEMARKETING_DEDUPE_SHEET_ID = os.environ.get(
 )
 TELEMARKETING_DEDUPE_TAB_GID = 927080468
 
+# Google Sheet менеджера со сделками телемаркетинга без реквизитов.
+TM_NO_REQUISITES_SHEET_ID = os.environ.get(
+    "CCE_TM_NO_REQ_SHEET_ID",
+    "13L0gqwkNzrWacYeI5TzkOxZuRuXn5bBCtfxx-uzHH_4",
+)
+TM_NO_REQUISITES_TAB_GID = 1318170868
+TM_SHEET_COL_DEAL_ID = "A"
+TM_SHEET_RESULT_HEADERS = (
+    "deal_id",
+    "enriched_at",
+    "status",
+    "updated_fields",
+    "company_id",
+    "company_title",
+    "company_inn",
+    "company_revenue",
+    "deal_stage",
+    "deal_assignee",
+    "director_inn",
+    "rejected_reason",
+    "error",
+)
+
 # Кластеризация дублей контактов: минимум 2 совпадения по сильным сигналам
 # (ФИО + phone, ФИО + email, phone + email), иначе кластер уходит в UNRESOLVED.
 CONTACT_DEDUPE_MIN_SIGNALS = int(os.environ.get("CCE_CONTACT_DEDUPE_MIN_SIGNALS", "2"))

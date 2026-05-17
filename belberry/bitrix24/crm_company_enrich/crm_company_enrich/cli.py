@@ -306,6 +306,41 @@ def cmd_auto_reject_telemarketing(args: argparse.Namespace) -> int:
     return 0 if not summary.get("failed") else 1
 
 
+def cmd_enrich_from_sheet(args: argparse.Namespace) -> int:
+    from .bitrix_client import BitrixClient
+    from .config import (
+        LOG_PATH,
+        SERVICE_ACCOUNT_JSON,
+        STATE_PATH,
+        TM_NO_REQUISITES_SHEET_ID,
+        TM_NO_REQUISITES_TAB_GID,
+    )
+    from .sheets_client import SheetsClient
+    from .stages import enrich_from_sheet
+
+    bx = BitrixClient(state_path=STATE_PATH, log_path=LOG_PATH)
+    sheets = SheetsClient(
+        sheet_id=args.sheet_id or TM_NO_REQUISITES_SHEET_ID,
+        service_account_path=SERVICE_ACCOUNT_JSON,
+    )
+    summary = enrich_from_sheet.run(
+        bx,
+        sheets,
+        sheet_id=args.sheet_id,
+        tab_gid=args.tab_gid or TM_NO_REQUISITES_TAB_GID,
+        dry_run=not args.live,
+        limit=args.limit,
+        skip_already_enriched=not args.no_skip_already_enriched,
+        enable_auto_reject=not args.no_auto_reject,
+        enable_dedupe_contacts=not args.no_dedupe_contacts,
+        enable_enrich_director_inn=not args.no_enrich_director_inn,
+        trigger_bp=not args.no_trigger_bp,
+        resume=args.resume,
+    )
+    print(json.dumps(summary, indent=2, ensure_ascii=False))
+    return 1 if summary.get("failed") else 0
+
+
 def cmd_auto_revive_lose(args: argparse.Namespace) -> int:
     from .stages import auto_revive_lose
     bx, _ = _make_clients()
@@ -706,6 +741,25 @@ def main() -> None:
         help="Конкретные стадии для скана (по умолчанию UC_1S1KIU,NEW)",
     )
     sp.set_defaults(func=cmd_auto_reject_telemarketing)
+
+    sp = sub.add_parser(
+        "enrich-from-sheet",
+        help=(
+            "WRITE: обогатить сделки из Google Sheets и обновить лист. "
+            "По умолчанию dry-run."
+        ),
+    )
+    sp.add_argument("--sheet-id", default=None, help="Override sheet_id, по умолчанию TM_NO_REQUISITES_SHEET_ID")
+    sp.add_argument("--tab-gid", type=int, default=None, help="Override tab gid, по умолчанию TM_NO_REQUISITES_TAB_GID")
+    sp.add_argument("--live", action="store_true", help="Реально обогащать и писать в лист")
+    sp.add_argument("--limit", type=int, help="Ограничить число сделок")
+    sp.add_argument("--no-skip-already-enriched", action="store_true", help="Не пропускать недавно обогащённые")
+    sp.add_argument("--no-auto-reject", action="store_true")
+    sp.add_argument("--no-dedupe-contacts", action="store_true")
+    sp.add_argument("--no-enrich-director-inn", action="store_true")
+    sp.add_argument("--no-trigger-bp", action="store_true")
+    sp.add_argument("--resume", action="store_true", help="Продолжить с checkpoint enrich_from_sheet_progress.json")
+    sp.set_defaults(func=cmd_enrich_from_sheet)
 
     sp = sub.add_parser(
         "auto-revive-lose",

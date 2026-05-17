@@ -46,6 +46,29 @@ class SheetsClient:
         body = self._execute_with_retry(request)
         return body.get("values", [])
 
+    def read_cell_hyperlinks(self, sheet: str, range_: str) -> list[list[str]]:
+        """Прочитать гиперссылки ячеек для диапазона.
+
+        values.get возвращает только отображаемый текст, а deal_id в рабочих
+        листах часто живёт в hyperlink первой колонки.
+        """
+        request = self.service.spreadsheets().get(
+            spreadsheetId=self.sheet_id,
+            ranges=[_range(sheet, range_)],
+            includeGridData=True,
+            fields="sheets(data(rowData(values(hyperlink,userEnteredValue))))",
+        )
+        body = self._execute_with_retry(request)
+        row_data = (
+            ((body.get("sheets") or [{}])[0].get("data") or [{}])[0]
+            .get("rowData", [])
+        )
+        rows: list[list[str]] = []
+        for row in row_data:
+            values = row.get("values") or []
+            rows.append([_cell_hyperlink(cell) for cell in values])
+        return rows
+
     def append(
         self,
         sheet: str,
@@ -182,6 +205,17 @@ def _find_sheet_id(sheets: list[dict[str, Any]], title: str) -> int | None:
         if properties.get("title") == title:
             return int(properties["sheetId"])
     return None
+
+
+def _cell_hyperlink(cell: dict[str, Any]) -> str:
+    direct = str(cell.get("hyperlink") or "").strip()
+    if direct:
+        return direct
+    formula = (
+        (cell.get("userEnteredValue") or {})
+        .get("formulaValue", "")
+    )
+    return str(formula or "").strip()
 
 
 def _retry_delays(status: int) -> tuple[int, ...]:
