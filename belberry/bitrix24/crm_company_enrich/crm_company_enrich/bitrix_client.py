@@ -252,6 +252,47 @@ class BitrixClient:
             )
         )
 
+    def list_revive_candidates(self, *, due_before: str) -> list[dict]:
+        """LOSE-сделки с датой возврата до конца due_before."""
+        select = [
+            "ID",
+            "TITLE",
+            "STAGE_ID",
+            "COMPANY_ID",
+            "ASSIGNED_BY_ID",
+            "CLOSED",
+            "UF_CRM_1770901971",
+            "UF_CRM_635011179F7DD",
+            "UF_CRM_1733394127643",
+            "UF_CRM_1733394206255",
+        ]
+        params = {
+            "filter": {
+                "CATEGORY_ID": 50,
+                "STAGE_ID": "C50:LOSE",
+                "CLOSED": "Y",
+                "<=UF_CRM_1770901971": f"{due_before}T23:59:59",
+            },
+            "select": select,
+        }
+        try:
+            return list(self.paginate("crm.deal.list", params))
+        except Exception:
+            fallback = list(
+                self.paginate(
+                    "crm.deal.list",
+                    {
+                        "filter": {"CATEGORY_ID": 50, "STAGE_ID": "C50:LOSE", "CLOSED": "Y"},
+                        "select": select,
+                    },
+                )
+            )
+            return [
+                deal for deal in fallback
+                if str(deal.get("UF_CRM_1770901971") or "")[:10] <= due_before
+                and str(deal.get("UF_CRM_1770901971") or "").strip()
+            ]
+
     def get_deal(self, deal_id: str) -> dict | None:
         return self._get_or_none("crm.deal.get", {"id": deal_id})
 

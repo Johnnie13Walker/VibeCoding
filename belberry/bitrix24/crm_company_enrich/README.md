@@ -53,6 +53,8 @@ python3 -m crm_company_enrich.cli sync-deals --deal-id 100 --include-closed --te
 # После точечного sync-deals можно сразу объединить дубли сделок только
 # этой компании в воронке телемаркетинга:
 python3 -m crm_company_enrich.cli sync-deals --company-id 20606 --live --dedupe-telemarketing
+# И сразу закрыть заведомо непригодные сделки этой компании/сделки:
+python3 -m crm_company_enrich.cli sync-deals --company-id 12282 --live --auto-reject-telemarketing
 ```
 
 `sync-deals` по умолчанию работает в dry-run и требует явный `--company-id`
@@ -62,6 +64,10 @@ python3 -m crm_company_enrich.cli sync-deals --company-id 20606 --live --dedupe-
 Флаг `--dedupe-telemarketing` после синхронизации запускает scoped dedupe
 только для этой компании: если у неё несколько открытых сделок в C50, loser-ы
 закрываются как дубли, без глобального прохода по порталу.
+Флаг `--auto-reject-telemarketing` после синхронизации запускает scoped
+auto-reject только для указанной компании или сделки: ликвидированные компании
+закрываются в `C50:APOLOGY` с причиной `8538`, компании с выручкой меньше
+30 млн рублей — с причиной `8542`.
 
 ## Apply: реквизиты и BP
 

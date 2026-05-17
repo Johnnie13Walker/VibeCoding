@@ -1,7 +1,16 @@
 from __future__ import annotations
 
+import pytest
+
 from crm_company_enrich.config import COMPANY_UF_REGION
 from crm_company_enrich.stages import migrate_region_enum_ids as stage
+
+
+@pytest.fixture(autouse=True)
+def _isolate_log_dir(monkeypatch, tmp_path):
+    """Все тесты пишут CSV-аудит в tmp_path, не в production LOG_DIR."""
+    monkeypatch.setattr(stage, "LOG_DIR", tmp_path)
+    yield
 
 
 class FakeBitrix:
@@ -94,8 +103,7 @@ def test_actual_enum_id_not_touched():
     assert bx.update_company_calls == []
 
 
-def test_audit_csv_written_for_migrated(monkeypatch, tmp_path):
-    monkeypatch.setattr(stage, "LOG_DIR", tmp_path)
+def test_audit_csv_written_for_migrated(tmp_path):
     bx = FakeBitrix([{"ID": "1", "TITLE": "Москва old", COMPANY_UF_REGION: "9008"}])
 
     stage.run(bx, dry_run=False)
@@ -121,4 +129,3 @@ def test_failure_during_update_does_not_block_others():
     assert summary["migrated"] == 1
     assert [outcome["status"] for outcome in summary["outcomes"]] == ["FAILED", "MIGRATED"]
     assert bx.update_company_calls == [("2", {COMPANY_UF_REGION: "9172"})]
-
