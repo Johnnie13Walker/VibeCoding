@@ -967,7 +967,24 @@ def _company_fields(
     )
     if not desired:
         return {}, {"company": "no_fields"}
-    return _filter_existing_fields(company, desired, overwrite=True)
+    fields, skipped = _filter_existing_fields(company, desired, overwrite=True)
+    current_industry = _clean(company.get("INDUSTRY"))
+    desired_industry = _clean(desired.get("INDUSTRY"))
+    if (
+        fields.get("INDUSTRY") == COMPANY_INDUSTRY_STATUS["Другое"]
+        and current_industry
+        and current_industry != COMPANY_INDUSTRY_STATUS["Другое"]
+    ):
+        fields.pop("INDUSTRY", None)
+        skipped["INDUSTRY"] = "keep_specific_industry"
+    elif (
+        desired_industry
+        and current_industry == COMPANY_INDUSTRY_STATUS["Другое"]
+        and desired_industry != COMPANY_INDUSTRY_STATUS["Другое"]
+    ):
+        fields["INDUSTRY"] = desired_industry
+        skipped.pop("INDUSTRY", None)
+    return fields, skipped
 
 
 def _industry_from_company(company: dict[str, Any]) -> str:

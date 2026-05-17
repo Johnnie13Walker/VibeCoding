@@ -991,6 +991,20 @@ def test_deal_industry_uses_company_industry_enum():
     assert fields[DEAL_UF_INDUSTRY] == DEAL_INDUSTRY_ENUM["E-commerce"]
 
 
+def test_company_industry_does_not_downgrade_specific_to_other():
+    fields, skipped = sync_deals._company_fields(
+        _company(
+            TITLE='ООО "СМАРТДОРС"',
+            INDUSTRY=COMPANY_INDUSTRY_STATUS["E-commerce"],
+            UF_CRM_1737100327954="",
+        ),
+        industry_override="Другое",
+    )
+
+    assert "INDUSTRY" not in fields
+    assert skipped["INDUSTRY"] == "keep_specific_industry"
+
+
 def test_run_company_replaces_dead_site_with_explicit_working_site(monkeypatch):
     monkeypatch.setattr(sync_deals, "_organization_status_from_inn", lambda inn: "")
     monkeypatch.setattr(sync_deals, "_industry_from_inn", lambda inn: "")
