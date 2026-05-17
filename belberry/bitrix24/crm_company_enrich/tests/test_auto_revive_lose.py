@@ -129,6 +129,32 @@ def test_revive_count_increments_in_audit_field(monkeypatch):
     assert second == "auto-revive 2026-05-17 #1; auto-revive 2026-05-17 #2"
 
 
+def test_revive_count_ignores_alien_markers_from_auto_reject():
+    deal = _deal(**{REVIVE_AUDIT_FIELD: "auto-reject 8538 @ 2026-05-17"})
+
+    assert stage._revive_count(deal) == 0
+
+
+def test_revive_count_ignores_free_text_hashes():
+    deal = _deal(**{REVIVE_AUDIT_FIELD: "вернёмся через #3 месяца"})
+
+    assert stage._revive_count(deal) == 0
+
+
+def test_revive_count_picks_last_own_marker():
+    deal = _deal(
+        **{
+            REVIVE_AUDIT_FIELD: (
+                "auto-reject 8538 @ 2026-04-01; "
+                "auto-revive 2026-05-01 #1; "
+                "auto-revive 2026-05-10 #2"
+            )
+        }
+    )
+
+    assert stage._revive_count(deal) == 2
+
+
 def test_ping_pong_limit_3_reached_marks_limit():
     bx = FakeBitrix([_deal(**{REVIVE_AUDIT_FIELD: "auto-revive 2026-05-17 #3"})])
 
@@ -177,4 +203,3 @@ def test_csv_audit_written_for_revived(monkeypatch, tmp_path):
     text = path.read_text(encoding="utf-8")
     assert "deal_id,company_id,old_assignee,new_assignee,due_date,revive_count,status" in text
     assert "100,200,2772,2832,2026-05-10,1,REVIVED" in text
-

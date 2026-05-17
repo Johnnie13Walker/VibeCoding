@@ -178,7 +178,7 @@ def _is_auto_rejected(deal: dict[str, Any]) -> bool:
 
 def _revive_count(deal: dict[str, Any]) -> int:
     desc = str(deal.get(REVIVE_AUDIT_FIELD) or "")
-    matches = re.findall(r"#(\d+)", desc)
+    matches = re.findall(r"auto-revive\s+\S+\s+#(\d+)", desc)
     return int(matches[-1]) if matches else 0
 
 
@@ -246,4 +246,3 @@ def _append_audit_row(outcome: ReviveOutcome, *, revive_count: int) -> None:
                 "error": outcome.error,
             }
         )
-
