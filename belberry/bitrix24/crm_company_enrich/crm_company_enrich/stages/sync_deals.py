@@ -463,7 +463,9 @@ def build_telemarketing_existing_deal_fields(
     - отказная сделка на Дарье возвращается Аркадию;
     - отказная сделка на Аркадии возвращается Дарье;
     - отказная сделка на другом ответственном возвращается по ротации;
-    - неотказная сделка не переназначается, но фиксируются воронка/источник.
+    - неотказная сделка не переназначается;
+    - SOURCE_ID существующей сделки не меняется. Телемаркетинг ставится только
+      при создании новой сделки.
     """
     if _is_auto_rejected_deal(deal):
         return {}, {
@@ -475,7 +477,6 @@ def build_telemarketing_existing_deal_fields(
     fields: dict[str, Any] = {
         "CATEGORY_ID": TELEMARKETING_CATEGORY_ID,
         "STAGE_ID": TELEMARKETING_NEW_STAGE_ID,
-        "SOURCE_ID": TELEMARKETING_SOURCE_ID,
         "CLOSED": "N",
     }
     skipped: dict[str, str] = {}

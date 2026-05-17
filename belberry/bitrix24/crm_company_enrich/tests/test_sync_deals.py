@@ -1114,7 +1114,7 @@ def test_refusal_deal_on_daria_returns_to_arkady():
 
     assert fields["CATEGORY_ID"] == "50"
     assert fields["STAGE_ID"] == "C50:NEW"
-    assert fields["SOURCE_ID"] == "12"
+    assert "SOURCE_ID" not in fields
     assert fields["CLOSED"] == "N"
     assert fields["ASSIGNED_BY_ID"] == "2832"
     assert "ASSIGNED_BY_ID" not in skipped
@@ -1154,11 +1154,12 @@ def test_refusal_deal_on_other_assignee_uses_rotation():
 
 def test_non_refusal_existing_deal_is_not_reassigned_by_telemarketing_workflow():
     fields, skipped = sync_deals.build_telemarketing_existing_deal_fields(
-        _deal(STAGE_ID="C50:NEW", ASSIGNED_BY_ID="2772", CLOSED="N"),
+        _deal(STAGE_ID="C50:NEW", ASSIGNED_BY_ID="2772", CLOSED="N", SOURCE_ID="UC_4E1HRV"),
         rotation_index=1,
     )
 
     assert "ASSIGNED_BY_ID" not in fields
+    assert "SOURCE_ID" not in fields
     assert skipped["ASSIGNED_BY_ID"] == "not_refusal_deal"
 
 
@@ -1223,7 +1224,7 @@ def test_run_telemarketing_workflow_returns_refusal_deal_to_other_assignee():
     assert summary["updated"] == 1
     _, fields = bx.update_deal_calls[0]
     assert fields["STAGE_ID"] == "C50:NEW"
-    assert fields["SOURCE_ID"] == "12"
+    assert "SOURCE_ID" not in fields
     assert fields["CLOSED"] == "N"
     assert fields["ASSIGNED_BY_ID"] == "2832"
 
