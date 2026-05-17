@@ -226,6 +226,21 @@ def cmd_telemarketing_dedupe(args: argparse.Namespace) -> int:
     return 0 if not summary.get("unresolved") else 1
 
 
+def cmd_company_region_field(args: argparse.Namespace) -> int:
+    from .stages import company_region_field
+    bx, _ = _make_clients()
+    summary = company_region_field.run(
+        bx,
+        apply=args.apply,
+        verify=not args.skip_verify,
+    )
+    print(json.dumps(summary, indent=2, ensure_ascii=False))
+    verification = summary.get("verification")
+    if verification and not verification.get("ok"):
+        return 1
+    return 0
+
+
 def cmd_empty_discover(args: argparse.Namespace) -> int:
     from .stages import enrich_empty_companies
     summary = enrich_empty_companies.run_discover(limit=args.limit)
@@ -468,6 +483,17 @@ def main() -> None:
         help="Стартовый индекс ротации для переназначения winner с уволенного",
     )
     sp.set_defaults(func=cmd_telemarketing_dedupe)
+
+    sp = sub.add_parser(
+        "company-region-field",
+        help=(
+            "WRITE: создать/синхронизировать enum-поле компании «Область». "
+            "По умолчанию dry-run; запись только с --apply."
+        ),
+    )
+    sp.add_argument("--apply", action="store_true", help="Реально создать или обновить поле в Bitrix24")
+    sp.add_argument("--skip-verify", action="store_true", help="Не читать поле повторно после --apply")
+    sp.set_defaults(func=cmd_company_region_field)
 
     sp = sub.add_parser(
         "empty-discover",

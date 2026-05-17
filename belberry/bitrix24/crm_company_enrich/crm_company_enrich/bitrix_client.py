@@ -174,6 +174,16 @@ class BitrixClient:
         result = body.get("result")
         return result if isinstance(result, list) else []
 
+    def add_company_user_field(self, fields: dict) -> str:
+        """Создать пользовательское поле компании."""
+        body = self.call("crm.company.userfield.add", {"fields": fields})
+        return str(body.get("result") or "")
+
+    def update_company_user_field(self, field_id: str, fields: dict) -> bool:
+        """Обновить пользовательское поле компании."""
+        body = self.call("crm.company.userfield.update", {"id": field_id, "fields": fields})
+        return bool(body.get("result"))
+
     def get_company_deals_count(self, company_id: str) -> int:
         """Количество сделок у компании. Минимальный select для скорости."""
         body = self.call(
