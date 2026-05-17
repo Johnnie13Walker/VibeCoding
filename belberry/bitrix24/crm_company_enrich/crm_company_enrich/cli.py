@@ -231,6 +231,19 @@ def cmd_telemarketing_digest(args: argparse.Namespace) -> int:
     return 1 if telegram_result.get("ok") is False else 0
 
 
+def cmd_auto_promote_base(args: argparse.Namespace) -> int:
+    from .stages import auto_promote_base
+    bx, _ = _make_clients()
+    summary = auto_promote_base.run(
+        bx,
+        dry_run=not args.live,
+        limit=args.limit,
+        rotation_index=args.rotation_index,
+    )
+    print(json.dumps(summary, indent=2, ensure_ascii=False))
+    return 1 if summary.get("failed") else 0
+
+
 def cmd_auto_reject_telemarketing(args: argparse.Namespace) -> int:
     from .stages import auto_reject_telemarketing
     bx, _ = _make_clients()
@@ -594,6 +607,18 @@ def main() -> None:
     sp.add_argument("--live", action="store_true")
     sp.add_argument("--since", help="ISO date YYYY-MM-DD, по умолчанию вчера по МСК")
     sp.set_defaults(func=cmd_telemarketing_digest)
+
+    sp = sub.add_parser(
+        "auto-promote-base",
+        help=(
+            "WRITE: перевести готовые сделки из C50:UC_1S1KIU в C50:NEW. "
+            "По умолчанию dry-run."
+        ),
+    )
+    sp.add_argument("--live", action="store_true")
+    sp.add_argument("--limit", type=int)
+    sp.add_argument("--rotation-index", type=int, default=0)
+    sp.set_defaults(func=cmd_auto_promote_base)
 
     sp = sub.add_parser(
         "auto-reject-telemarketing",
