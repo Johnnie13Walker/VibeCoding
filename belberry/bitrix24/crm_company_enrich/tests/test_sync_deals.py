@@ -546,6 +546,18 @@ def test_site_key_normalizes_http_https_www_trailing_slash():
     assert sync_deals._site_key("https://kadis.org") == expected
 
 
+def test_site_key_collapses_subpages_of_same_host():
+    expected = sync_deals._site_key("https://kadis.org/")
+
+    assert sync_deals._site_key("https://kadis.org/contacts") == expected
+    assert sync_deals._site_key("https://www.kadis.org/requisites/") == expected
+
+
+def test_site_key_rejects_mailto_and_tel():
+    assert sync_deals._site_key("mailto:info@example.com") == ""
+    assert sync_deals._site_key("tel:+74951234567") == ""
+
+
 def test_site_values_dedups_company_with_http_and_bare_host(monkeypatch):
     monkeypatch.setattr(sync_deals, "_verified_site", ORIG_VERIFIED_SITE)
     monkeypatch.setattr(sync_deals, "_is_working_site", lambda site: True)

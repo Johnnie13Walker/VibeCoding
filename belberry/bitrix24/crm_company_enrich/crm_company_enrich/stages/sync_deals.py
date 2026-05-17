@@ -1039,18 +1039,18 @@ def _fetch_rusprofile_html(inn: str) -> str:
 
 
 def _site_key(value: str) -> str:
-    cleaned = _clean(value).strip().strip("/").lower()
+    cleaned = _clean(value).strip().rstrip("/").lower()
     if not cleaned:
+        return ""
+    if cleaned.startswith(("mailto:", "tel:", "javascript:")):
         return ""
     if not re.match(r"^https?://", cleaned):
         cleaned = "https://" + cleaned
     try:
-        parsed = urllib.parse.urlsplit(cleaned)
-        host = parsed.hostname or ""
+        host = urllib.parse.urlsplit(cleaned).hostname or ""
         if host.startswith("www."):
             host = host[4:]
-        path = (parsed.path or "").rstrip("/")
-        return f"{host}{path}"
+        return host
     except ValueError:
         return cleaned
 
