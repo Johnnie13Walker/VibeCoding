@@ -318,8 +318,18 @@ def _normalize_name(c: dict) -> str:
 
 def _is_placeholder_contact(contact: dict) -> bool:
     """Контакт-заглушка от BP 5614: LAST_NAME содержит только "!"."""
+    if _is_director_contact(contact):
+        return False
     last_name = str(contact.get("LAST_NAME") or "").strip()
     return last_name == "!" or last_name.startswith("! ")
+
+
+def _is_director_contact(contact: dict) -> bool:
+    post = f"{contact.get('POST') or ''} {contact.get('TITLE') or ''}".lower()
+    return any(
+        keyword in post
+        for keyword in ("директор", "руководитель", "гендиректор", "управляющий", "ceo", "general", "founder")
+    )
 
 
 def _normalize_phones(c: dict) -> set[str]:
@@ -392,6 +402,8 @@ def _filled_score(contact: dict) -> int:
 
 def _unresolved_reason(bx: BitrixClient, cluster: list[dict]) -> str:
     match_reasons = set(_cluster_match_reasons(cluster))
+    if any(_is_director_contact(c) for c in cluster):
+        return "director_contact_protected"
     placeholder_cluster = "placeholder_dedup" in match_reasons
     if not placeholder_cluster and _max_match_score(cluster) < CONTACT_DEDUPE_MIN_SIGNALS:
         return "weak_match"

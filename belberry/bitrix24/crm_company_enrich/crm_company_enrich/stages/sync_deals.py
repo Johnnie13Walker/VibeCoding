@@ -586,8 +586,18 @@ def _contact_attach_fio(contact: dict) -> str:
 
 
 def _is_placeholder_contact_for_attach(contact: dict) -> bool:
+    if _is_director_contact_for_attach(contact):
+        return False
     last_name = str(contact.get("LAST_NAME") or "").strip()
     return last_name == "!" or last_name.startswith("! ")
+
+
+def _is_director_contact_for_attach(contact: dict) -> bool:
+    post = f"{contact.get('POST') or ''} {contact.get('TITLE') or ''}".lower()
+    return any(
+        keyword in post
+        for keyword in ("директор", "руководитель", "гендиректор", "управляющий", "ceo", "general", "founder")
+    )
 
 
 def _deal_company_contact_ids(
@@ -1197,16 +1207,22 @@ def _parse_main_activity(html: str) -> str:
 
 
 def _parse_organization_status(html: str) -> str:
-    text = re.sub(r"\s+", " ", html.lower())
+    text = re.sub(r"<[^>]+>", " ", html)
+    text = re.sub(r"\s+", " ", text).lower()
     if any(marker in text for marker in (
         "действующая организация",
         "действующее юридическое лицо",
+        "статус действующее",
+        "статус: действующее",
+        "имеет статус действующее",
+        "действует с",
     )):
         return "Действующая"
     if any(marker in text for marker in (
         "ликвидированная организация",
         "организация ликвидирована",
-        "ликвидировано",
+        "статус ликвидировано",
+        "статус: ликвидировано",
         "прекратила деятельность",
         "прекращение деятельности",
     )):

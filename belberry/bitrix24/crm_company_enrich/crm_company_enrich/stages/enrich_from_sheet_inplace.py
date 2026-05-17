@@ -1,12 +1,19 @@
 """In-place batch enrichment of Telemarketing-без-реквизитов style sheets.
 
 Read source rows with hyperlinks (deal Bitrix URL in col A), run orchestrator
-enrich_company_full per row, write results back to columns I-U of the SAME tab,
-colorize each row green/red/yellow by final_status.
+enrich_company_full per row, write source/result fields back to columns E-H and
+technical results back to columns I-U of the SAME tab, colorize each row
+green/red/yellow by final_status.
 
 Resume-safe: rows with col K (status) already filled are skipped.
 Kill-switch: stops at end of 00-08 MSK window if cron_mode=True, or after
 max_duration_min.
+
+Source/result writeback layout:
+  E  Компания в сделке
+  F  ИНН
+  G  Оборот компании
+  H  Причина / результат
 
 Output column layout (col I=index 8, U=index 20):
   I  deal_id
@@ -50,7 +57,9 @@ DOMAIN_RE = re.compile(
     re.IGNORECASE,
 )
 
-# Колонки col A=0 ... col U=20. Output блок I-U.
+# Колонки col A=0 ... col U=20. Source writeback E-H, output блок I-U.
+SOURCE_COL_START = 4   # E
+SOURCE_COL_END = 7     # H inclusive
 OUTPUT_COL_START = 8   # I
 OUTPUT_COL_END = 20    # U inclusive
 STATUS_COL_INDEX = 10  # K
@@ -225,6 +234,39 @@ def outcome_to_cells(
     ]
 
 
+def source_cells_from_outcome(
+    outcome: enrich_company_full.FullEnrichmentOutcome | None,
+    *,
+    bx: Any | None,
+    error_summary: str = "",
+) -> list[Any]:
+    """Build 4 visible sheet values for columns E..H from CRM/enrichment result."""
+    if outcome is None:
+        return ["", "", "", _visible_result("EXCEPTION", "", error_summary)]
+
+    company_extra = _company_extras(outcome, bx)
+    return [
+        company_extra.get("title", ""),
+        company_extra.get("inn", ""),
+        company_extra.get("revenue", ""),
+        _visible_result(outcome.final_status or "UNKNOWN", outcome.rejected_reason or "", _step_errors(outcome)),
+    ]
+
+
+def row_writeback_cells(
+    outcome: enrich_company_full.FullEnrichmentOutcome | None,
+    *,
+    bx: Any | None,
+    error_summary: str = "",
+) -> list[Any]:
+    """Build full row writeback values for columns E..U."""
+    return source_cells_from_outcome(outcome, bx=bx, error_summary=error_summary) + outcome_to_cells(
+        outcome,
+        bx=bx,
+        error_summary=error_summary,
+    )
+
+
 def color_for_status(status: str) -> dict[str, float]:
     """Map orchestrator final_status to RGB row color."""
     upper = (status or "").upper()
@@ -269,7 +311,7 @@ def sheet_gid_from_grid(grid_data: dict[str, Any]) -> int | None:
     return sheets[0].get("properties", {}).get("sheetId")
 
 
-def write_output_and_color(
+def write_row_updates_and_color(
     service,
     sheet_id: str,
     tab_title: str,
@@ -278,9 +320,8 @@ def write_output_and_color(
     cells: list[Any],
     color: dict[str, float],
 ) -> None:
-    """Write cells to I..U of given row + apply background color in one API call."""
-    # values.update for I..U
-    output_range = f"'{tab_title}'!I{row_number}:U{row_number}"
+    """Write cells to E..U of given row + apply background color in one API call."""
+    output_range = f"'{tab_title}'!E{row_number}:U{row_number}"
     service.spreadsheets().values().update(
         spreadsheetId=sheet_id,
         range=output_range,
@@ -386,10 +427,10 @@ def run_in_place(
         # outcome'ы), который ловится потом filter_unprocessed и блокирует
         # повторные прогоны.
         if not dry_run:
-            cells = outcome_to_cells(outcome, bx=bx, error_summary=error_summary)
+            cells = row_writeback_cells(outcome, bx=bx, error_summary=error_summary)
             color = color_for_status(status)
             try:
-                write_output_and_color(service, sheet_id, tab_title, sheet_gid, row.row_number, cells, color)
+                write_row_updates_and_color(service, sheet_id, tab_title, sheet_gid, row.row_number, cells, color)
             except Exception as exc:  # noqa: BLE001
                 # Sheet write failed — record but continue. Row may need manual fix.
                 summary.setdefault("sheet_write_errors", []).append({
@@ -411,7 +452,7 @@ def _updated_fields(outcome: enrich_company_full.FullEnrichmentOutcome) -> str:
         if step.status != "DONE":
             continue
         details = step.details if isinstance(step.details, dict) else {}
-        if step.step in {"APPLY_INN", "FIND_SITE", "ADDRESS_SYNC", "SYNC_DEAL"} and details:
+        if step.step in {"APPLY_INN", "FIND_SITE", "SYNC_COMPANY", "ADDRESS_SYNC", "SYNC_DEAL"} and details:
             parts.append(step.step)
     return ",".join(parts)
 
@@ -468,6 +509,26 @@ def _director_inn(outcome: enrich_company_full.FullEnrichmentOutcome) -> str:
 def _step_errors(outcome: enrich_company_full.FullEnrichmentOutcome) -> str:
     errors = [step.error for step in outcome.steps if step.error]
     return "; ".join(errors)
+
+
+def _visible_result(status: str, rejected_reason: str, error_summary: str) -> str:
+    upper = (status or "UNKNOWN").upper()
+    if upper in {"ENRICHED", "PARTIAL"}:
+        return "OK: компания и сделка обогащены"
+    if upper == "SKIPPED":
+        reason = rejected_reason or error_summary
+        if "no_inn_no_company" in reason:
+            return "SKIPPED: ИНН не найден, компания не создана"
+        return f"SKIPPED: {reason}" if reason else "SKIPPED"
+    if upper == "REJECTED":
+        return f"REJECTED: {rejected_reason}" if rejected_reason else "REJECTED"
+    if upper == "FAILED":
+        detail = rejected_reason or error_summary
+        return f"FAILED: {detail}" if detail else "FAILED"
+    if upper == "EXCEPTION":
+        return f"EXCEPTION: {error_summary}" if error_summary else "EXCEPTION"
+    detail = rejected_reason or error_summary
+    return f"{upper}: {detail}" if detail else upper
 
 
 def _write_state(summary: dict[str, Any], *, next_index: int) -> None:

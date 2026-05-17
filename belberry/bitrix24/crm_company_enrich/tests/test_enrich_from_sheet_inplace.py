@@ -229,6 +229,29 @@ def test_outcome_to_cells_uses_bx_for_company_extras_when_available():
     assert cells[9] == "2772"            # R deal_assignee
 
 
+def test_source_cells_from_outcome_updates_visible_company_columns():
+    class FakeBxForSourceCells:
+        def get_company(self, cid):
+            return {"TITLE": "Test Co", "UF_CRM_1737098549301": "100000000"}
+
+        def list_company_requisites(self, cid):
+            return [{"RQ_INN": "7720238793"}]
+
+    cells = stage.source_cells_from_outcome(_outcome(), bx=FakeBxForSourceCells())
+    assert cells == [
+        "Test Co",
+        "7720238793",
+        "100000000",
+        "OK: компания и сделка обогащены",
+    ]
+
+
+def test_source_cells_from_outcome_explains_no_inn_skip():
+    outcome = _outcome(final_status="SKIPPED", company_id="", rejected_reason="no_inn_no_company")
+    cells = stage.source_cells_from_outcome(outcome, bx=None)
+    assert cells == ["", "", "", "SKIPPED: ИНН не найден, компания не создана"]
+
+
 # ---------- run_in_place: integration with fakes ----------
 
 class FakeSheetsService:
@@ -310,8 +333,16 @@ def test_run_in_place_processes_unprocessed_rows(monkeypatch):
     assert captured[1]["url"] == "https://b.ru"
     # both row writes
     assert len(svc.values_updates) == 2
-    assert svc.values_updates[0][0] == "'TestTab'!I2:U2"
-    assert svc.values_updates[1][0] == "'TestTab'!I3:U3"
+    assert svc.values_updates[0][0] == "'TestTab'!E2:U2"
+    assert svc.values_updates[1][0] == "'TestTab'!E3:U3"
+    assert svc.values_updates[0][1][0:4] == [
+        "Test Co",
+        "7720238793",
+        "100000000",
+        "OK: компания и сделка обогащены",
+    ]
+    assert svc.values_updates[0][1][4] == "100"  # I deal_id
+    assert svc.values_updates[0][1][6] == "ENRICHED"  # K status
     # both color requests
     assert len(svc.batch_updates) == 2
     assert all(
@@ -380,8 +411,9 @@ def test_run_in_place_records_exception_and_paints_red(monkeypatch):
     assert summary["status_counts"] == {"EXCEPTION": 2}
     for b in svc.batch_updates:
         assert b["requests"][0]["repeatCell"]["cell"]["userEnteredFormat"]["backgroundColor"] == stage.COLOR_FAILURE
-    # error placed in col U (last cell of I-U slice)
+    # visible reason placed in H, technical error placed in U.
     for _range, values in svc.values_updates:
+        assert values[3] == "EXCEPTION: network down"
         assert "network down" in values[-1]
 
 
