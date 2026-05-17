@@ -519,6 +519,27 @@ def test_organization_status_parses_rusprofile_html(monkeypatch):
     assert sync_deals._parse_organization_status("<h1>Организация в процессе банкротства</h1>") == "Ликвидирована"
 
 
+@pytest.mark.parametrize(
+    ("html", "expected"),
+    [
+        ("<h1>Организация в процессе банкротства</h1>", "Ликвидирована"),
+        ("<p>В процессе банкротства с 2024 года</p>", "Ликвидирована"),
+        ("<div>Признано несостоятельным</div>", "Ликвидирована"),
+        ("<div>ООО ПРИЗНАНА НЕСОСТОЯТЕЛЬНОЙ</div>", "Ликвидирована"),
+        ("<span>Конкурсное производство</span>", "Ликвидирована"),
+        ("<span>Организация ликвидирована</span>", "Ликвидирована"),
+        ("<p>Прекратила деятельность 2023-05-01</p>", "Ликвидирована"),
+        ("<span>Действующая организация</span>", "Действующая"),
+        ("<div>Действующее юридическое лицо</div>", "Действующая"),
+        ("<p>Компания стабильно растёт, расширяется</p>", ""),
+        ("", ""),
+        ("<html><body><h1>ООО Тест</h1></body></html>", ""),
+    ],
+)
+def test_parse_organization_status_handles_all_markers(html, expected):
+    assert sync_deals._parse_organization_status(html) == expected
+
+
 def test_brand_defaults_to_belberry_when_company_brand_is_empty():
     bx = FakeBitrix(
         companies={"100": _company(UF_CRM_1737098476975="")},
