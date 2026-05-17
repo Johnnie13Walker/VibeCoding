@@ -25,9 +25,15 @@ class FakeBitrix:
         deals: list[dict],
         *,
         active_users: set[str] | None = None,
+        fresh_deals: dict[str, dict | None] | None = None,
+        fail_update: bool = False,
+        fail_timeline: bool = False,
     ):
         self.deals = deals
         self.active_users = active_users if active_users is not None else {"2772", "2832"}
+        self.fresh_deals = fresh_deals or {}
+        self.fail_update = fail_update
+        self.fail_timeline = fail_timeline
         self.update_deal_calls: list[tuple[str, dict, dict]] = []
         self.timeline_calls: list[dict] = []
 
@@ -41,7 +47,18 @@ class FakeBitrix:
     def list_active_users(self):
         return set(self.active_users)
 
+    def get_deal(self, deal_id: str):
+        if str(deal_id) in self.fresh_deals:
+            fresh = self.fresh_deals[str(deal_id)]
+            return dict(fresh) if fresh else None
+        for deal in self.deals:
+            if str(deal.get("ID")) == str(deal_id):
+                return dict(deal)
+        return None
+
     def update_deal(self, deal_id: str, fields: dict, *, params: dict | None = None):
+        if self.fail_update:
+            raise RuntimeError("update failed")
         self.update_deal_calls.append((str(deal_id), dict(fields), dict(params or {})))
         for deal in self.deals:
             if str(deal.get("ID")) == str(deal_id):
@@ -49,6 +66,8 @@ class FakeBitrix:
         return True
 
     def add_timeline_comment(self, *, owner_type_id: int, owner_id: str, text: str):
+        if self.fail_timeline:
+            raise RuntimeError("timeline failed")
         self.timeline_calls.append({"owner_type_id": owner_type_id, "owner_id": str(owner_id), "text": text})
         return "timeline-1"
 
@@ -224,3 +243,49 @@ def test_csv_audit_uses_tmp_path_not_production(tmp_path):
     assert (tmp_path / "auto_revive_lose.csv").exists()
     size_after = production_path.stat().st_size if production_path.exists() else 0
     assert size_after == size_before
+
+
+def test_stage_changed_between_list_and_update_skips():
+    bx = FakeBitrix([_deal()], fresh_deals={"100": {"ID": "100", "STAGE_ID": "C50:NEW", "CLOSED": "N"}})
+
+    summary = stage.run(bx, dry_run=False, due_before="2026-05-17")
+
+    assert summary["skipped"] == 1
+    assert summary["outcomes"][0]["status"] == "SKIPPED"
+    assert "stage_changed" in summary["outcomes"][0]["skipped_reason"]
+    assert bx.update_deal_calls == []
+
+
+def test_already_open_between_list_and_update_skips():
+    bx = FakeBitrix([_deal()], fresh_deals={"100": {"ID": "100", "STAGE_ID": "C50:LOSE", "CLOSED": "N"}})
+
+    summary = stage.run(bx, dry_run=False, due_before="2026-05-17")
+
+    assert summary["skipped"] == 1
+    assert summary["outcomes"][0]["skipped_reason"] == "already_open"
+    assert bx.update_deal_calls == []
+
+
+def test_timeline_failure_does_not_fail_revive(tmp_path):
+    bx = FakeBitrix([_deal()], fail_timeline=True)
+
+    summary = stage.run(bx, dry_run=False, due_before="2026-05-17")
+
+    assert summary["revived"] == 1
+    assert summary["failed"] == 0
+    assert summary["outcomes"][0]["status"] == "REVIVED"
+    assert "timeline_failed:" in summary["outcomes"][0]["error"]
+    assert len(bx.update_deal_calls) == 1
+    text = (tmp_path / "auto_revive_lose.csv").read_text(encoding="utf-8")
+    assert "100,200,2772,2832,2026-05-10,1,REVIVED,timeline_failed:timeline failed" in text
+
+
+def test_update_deal_failure_returns_failed_status():
+    bx = FakeBitrix([_deal()], fail_update=True)
+
+    summary = stage.run(bx, dry_run=False, due_before="2026-05-17")
+
+    assert summary["failed"] == 1
+    assert summary["outcomes"][0]["status"] == "FAILED"
+    assert "update failed" in summary["outcomes"][0]["error"]
+    assert bx.timeline_calls == []

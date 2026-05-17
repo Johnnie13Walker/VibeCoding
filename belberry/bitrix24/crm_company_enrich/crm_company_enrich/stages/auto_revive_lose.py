@@ -128,31 +128,73 @@ def _process_deal(
     if dry_run:
         return ReviveOutcome(deal_id, company_id, old_assignee, new_assignee, due_date, "DRY_RUN"), used_rotation
 
+    fresh = bx.get_deal(deal_id) or {}
+    fresh_stage = str(fresh.get("STAGE_ID") or "")
+    if fresh_stage != TELEMARKETING_REVIVED_FROM_LOSE_STAGE:
+        return (
+            ReviveOutcome(
+                deal_id,
+                company_id,
+                old_assignee,
+                "",
+                due_date,
+                "SKIPPED",
+                f"stage_changed_to_{fresh_stage}",
+            ),
+            False,
+        )
+    if str(fresh.get("CLOSED") or "") != "Y":
+        return (
+            ReviveOutcome(deal_id, company_id, old_assignee, "", due_date, "SKIPPED", "already_open"),
+            False,
+        )
+
+    today_iso = _today_iso()
     try:
-        _apply_revive(bx, deal, new_assignee)
-        outcome = ReviveOutcome(deal_id, company_id, old_assignee, new_assignee, due_date, "REVIVED")
-        _append_audit_row(outcome, revive_count=_revive_count(deal) + 1)
+        revive_count_after, timeline_err = _apply_revive(bx, deal, new_assignee, today_iso)
+        outcome = ReviveOutcome(
+            deal_id,
+            company_id,
+            old_assignee,
+            new_assignee,
+            due_date,
+            "REVIVED",
+            error=f"timeline_failed:{timeline_err}" if timeline_err else "",
+        )
+        _append_audit_row(outcome, revive_count=revive_count_after)
         return outcome, used_rotation
     except Exception as exc:  # noqa: BLE001
         return ReviveOutcome(deal_id, company_id, old_assignee, new_assignee, due_date, "FAILED", error=str(exc)[:200]), used_rotation
 
 
-def _apply_revive(bx: BitrixClient, deal: dict[str, Any], new_assignee: str) -> None:
+def _apply_revive(
+    bx: BitrixClient,
+    deal: dict[str, Any],
+    new_assignee: str,
+    today_iso: str | None = None,
+) -> tuple[int, str]:
+    revive_count_after = _revive_count(deal) + 1
     fields = {
         "STAGE_ID": TELEMARKETING_REVIVE_TARGET_STAGE,
         "CLOSED": "N",
         "SOURCE_ID": TELEMARKETING_REVIVE_SOURCE_ID,
         "ASSIGNED_BY_ID": new_assignee,
-        REVIVE_AUDIT_FIELD: _build_audit_text(deal),
+        REVIVE_AUDIT_FIELD: _build_audit_text(deal, today_iso=today_iso, next_count=revive_count_after),
     }
     bx.update_deal(str(deal.get("ID") or ""), fields, params={"REGISTER_SONET_EVENT": "Y"})
-    reason = str(deal.get(HOLD_REASON_COMMENT_FIELD) or "").strip()[:200]
-    due = str(deal.get(REVIVE_NEXT_COMMUNICATION_FIELD) or "").strip()
-    bx.add_timeline_comment(
-        owner_type_id=DEAL_OWNER_TYPE_ID,
-        owner_id=str(deal.get("ID") or ""),
-        text=f"[auto-revive] возврат из ОТЛОЖЕНО (дата касания {due}). Причина: {reason or '—'}",
-    )
+    timeline_failed = ""
+    try:
+        reason = str(deal.get(HOLD_REASON_COMMENT_FIELD) or "").strip()[:200]
+        due = str(deal.get(REVIVE_NEXT_COMMUNICATION_FIELD) or "").strip()
+        bx.add_timeline_comment(
+            owner_type_id=DEAL_OWNER_TYPE_ID,
+            owner_id=str(deal.get("ID") or ""),
+            text=f"[auto-revive] возврат из ОТЛОЖЕНО (дата касания {due}). Причина: {reason or '—'}",
+        )
+    except Exception as exc:  # noqa: BLE001
+        timeline_failed = str(exc)[:120]
+        print(f"[auto-revive] deal {deal.get('ID')}: timeline_failed: {exc}")
+    return revive_count_after, timeline_failed
 
 
 def _resolve_revive_assignee(old_assignee: str, active_user_ids: set[str], rotation_index: int) -> tuple[str, bool]:
@@ -182,9 +224,14 @@ def _revive_count(deal: dict[str, Any]) -> int:
     return int(matches[-1]) if matches else 0
 
 
-def _build_audit_text(deal: dict[str, Any]) -> str:
+def _build_audit_text(
+    deal: dict[str, Any],
+    *,
+    today_iso: str | None = None,
+    next_count: int | None = None,
+) -> str:
     prev = str(deal.get(REVIVE_AUDIT_FIELD) or "").strip()
-    new_line = f"auto-revive {_today_iso()} #{_revive_count(deal) + 1}"
+    new_line = f"auto-revive {today_iso or _today_iso()} #{next_count or _revive_count(deal) + 1}"
     return f"{prev}; {new_line}" if prev else new_line
 
 
