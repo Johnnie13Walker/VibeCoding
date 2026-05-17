@@ -558,6 +558,12 @@ def test_site_key_rejects_mailto_and_tel():
     assert sync_deals._site_key("tel:+74951234567") == ""
 
 
+def test_normalize_site_url_forces_https():
+    assert sync_deals._normalize_site_url("http://kadis.org/") == "https://kadis.org"
+    assert sync_deals._normalize_site_url("https://kadis.org/") == "https://kadis.org"
+    assert sync_deals._normalize_site_url("kadis.org/") == "https://kadis.org"
+
+
 def test_site_values_dedups_company_with_http_and_bare_host(monkeypatch):
     monkeypatch.setattr(sync_deals, "_verified_site", ORIG_VERIFIED_SITE)
     monkeypatch.setattr(sync_deals, "_is_working_site", lambda site: True)

@@ -1056,12 +1056,11 @@ def _site_key(value: str) -> str:
 
 
 def _normalize_site_url(value: str) -> str:
-    cleaned = _clean(value).strip().strip("/")
+    cleaned = _clean(value).strip().rstrip("/")
     if not cleaned:
         return ""
-    if not re.match(r"^https?://", cleaned, flags=re.IGNORECASE):
-        cleaned = "https://" + cleaned
-    return cleaned
+    cleaned = re.sub(r"^https?://", "", cleaned, flags=re.IGNORECASE)
+    return "https://" + cleaned
 
 
 def _first_multifield(values: Any) -> str:
