@@ -265,6 +265,26 @@ class BitrixClient:
     def list_company_requisites(self, company_id: str) -> list[dict]:
         return self.list_requisites(filter_={"ENTITY_ID": company_id})
 
+    def list_requisites_by_inn(self, inn: str) -> list[dict]:
+        """Найти все реквизиты компаний с данным RQ_INN."""
+        inn = str(inn or "").strip()
+        if not inn:
+            return []
+        return self.list_requisites(
+            filter_={"RQ_INN": inn},
+            select=[
+                "ID",
+                "ENTITY_ID",
+                "RQ_INN",
+                "RQ_KPP",
+                "RQ_OGRN",
+                "RQ_OGRNIP",
+                "NAME",
+                "RQ_COMPANY_NAME",
+                "RQ_COMPANY_FULL_NAME",
+            ],
+        )
+
     def search_requisite_by_inn(self, inn: str) -> list[dict]:
         """Найти все реквизиты компаний с данным RQ_INN.
 

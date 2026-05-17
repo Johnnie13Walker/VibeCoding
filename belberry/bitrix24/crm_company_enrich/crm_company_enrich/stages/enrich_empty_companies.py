@@ -33,6 +33,7 @@ from ..config import (
     LOG_PATH,
     SERVICE_ACCOUNT_JSON,
     STATE_PATH,
+    TELEMARKETING_REFUSAL_STAGE_IDS,
     UF_BRAND_FIELD,
 )
 from ..hyperlinks import company_link
@@ -133,6 +134,10 @@ class PlanRow:
     classification: str = "NO_INN_FOUND"
     evidence: dict[str, Any] = field(default_factory=dict)
     apply_status: str = ""
+    duplicate_company_ids: list[str] = field(default_factory=list)
+    duplicate_active_deals: list[dict[str, str]] = field(default_factory=list)
+    duplicate_requisite_ids: list[str] = field(default_factory=list)
+    duplicate_reason: str = ""
 
     def to_sheet_row(self) -> list[str]:
         return [
@@ -528,7 +533,7 @@ def run_apply(*, dry_run: bool = True, limit: int | None = None, throttle_s: flo
     targets = [
         r for r in rows
         if r.classification == "READY_TO_APPLY"
-        and r.apply_status not in {"APPLIED", "APPLIED_LIQUIDATED", "SKIPPED_ALREADY_HAS_INN", "COMPANY_DELETED", "BP_FAILED", "VERIFY_FAILED"}
+        and r.apply_status not in {"APPLIED", "APPLIED_LIQUIDATED", "COMPANY_DELETED", "BP_FAILED", "VERIFY_FAILED"}
     ]
     targets.sort(key=lambda r: int(r.company_id))
     if limit:
@@ -559,19 +564,48 @@ def run_apply(*, dry_run: bool = True, limit: int | None = None, throttle_s: flo
             verify_failed += 1
             continue
 
+        all_same_inn_requisites = _list_requisites_by_inn(bx, inn)
+        duplicate_info = _duplicate_info_from_requisites(bx, all_same_inn_requisites, row.company_id)
+        duplicate_info_for_backup = duplicate_info if _has_duplicate_info(duplicate_info) else None
+        _attach_duplicate_info(row, duplicate_info_for_backup)
+        if duplicate_info.get("duplicate_active_deals"):
+            first_deal = duplicate_info["duplicate_active_deals"][0]
+            print(
+                f"[empty-apply] company {row.company_id}: duplicate_active_deal: "
+                f"{first_deal.get('deal_id')}@{first_deal.get('company_id')}"
+            )
+
         company_before = bx.get_company(row.company_id)
         existing = bx.list_company_requisites(row.company_id)
         if not company_before:
-            backup_path = _backup_before_apply_snapshot(bx, row, company_before, existing)
+            backup_path = _backup_before_apply_snapshot(
+                bx,
+                row,
+                company_before,
+                existing,
+                duplicate_info=duplicate_info_for_backup,
+            )
             print(f"[empty-apply] backup company {row.company_id}: {backup_path}")
             row.apply_status = "COMPANY_DELETED"
             company_deleted += 1
             continue
 
+        this_company_requisites = [
+            req for req in all_same_inn_requisites
+            if str(req.get("ENTITY_ID") or "").strip() == str(row.company_id)
+        ]
+        if not this_company_requisites:
+            this_company_requisites = [
+                req for req in existing
+                if normalize_inn(req.get("RQ_INN")) == inn
+            ]
+
         matching_existing_inn = [
             req for req in existing
             if str(req.get("RQ_INN") or "").strip() == inn
         ]
+        if not matching_existing_inn:
+            matching_existing_inn = list(this_company_requisites)
         if matching_existing_inn:
             verified_req = _find_verified_requisite(matching_existing_inn)
             if verified_req:
@@ -587,7 +621,13 @@ def run_apply(*, dry_run: bool = True, limit: int | None = None, throttle_s: flo
                 )
                 row.apply_status = "DRY_RUN"
                 continue
-            backup_path = _backup_before_apply_snapshot(bx, row, company_before, existing)
+            backup_path = _backup_before_apply_snapshot(
+                bx,
+                row,
+                company_before,
+                existing,
+                duplicate_info=duplicate_info_for_backup,
+            )
             print(f"[empty-apply] backup company {row.company_id}: {backup_path}")
             if CCE_COMPANY_TOUCH:
                 _touch_company(bx, row.company_id)
@@ -620,10 +660,7 @@ def run_apply(*, dry_run: bool = True, limit: int | None = None, throttle_s: flo
                 bp_failed += 1
             continue
 
-        existing_same_inn = [
-            req for req in existing
-            if normalize_inn(req.get("RQ_INN")) == inn
-        ]
+        existing_same_inn = list(this_company_requisites)
         verified_existing = _find_verified_requisite(existing_same_inn)
         if verified_existing:
             bx.update_company(row.company_id, {UF_BRAND_FIELD: row.brand_predicted})
@@ -641,11 +678,6 @@ def run_apply(*, dry_run: bool = True, limit: int | None = None, throttle_s: flo
                         "cleanup_deleted": str(cleanup_deleted),
                     }
                 )
-            continue
-
-        if not existing_same_inn and any(is_valid_inn_format(req.get("RQ_INN")) for req in existing):
-            row.apply_status = "SKIPPED_ALREADY_HAS_INN"
-            skipped += 1
             continue
 
         preset_id = CCE_PRESET_ID
@@ -667,7 +699,13 @@ def run_apply(*, dry_run: bool = True, limit: int | None = None, throttle_s: flo
 
         req_id = ""
         try:
-            backup_path = _backup_before_apply_snapshot(bx, row, company_before, existing)
+            backup_path = _backup_before_apply_snapshot(
+                bx,
+                row,
+                company_before,
+                existing,
+                duplicate_info=duplicate_info_for_backup,
+            )
             print(f"[empty-apply] backup company {row.company_id}: {backup_path}")
             had_requisites_before = bool(existing)
             if not existing_same_inn:
@@ -1475,11 +1513,103 @@ def _find_verified_requisite(requisites: list[dict]) -> dict | None:
     return None
 
 
+def _list_requisites_by_inn(bx: BitrixClient, inn: str) -> list[dict]:
+    if hasattr(bx, "list_requisites_by_inn"):
+        return bx.list_requisites_by_inn(inn)
+    if hasattr(bx, "search_requisite_by_inn"):
+        return bx.search_requisite_by_inn(inn)
+    return []
+
+
+def _duplicate_info_from_requisites(
+    bx: BitrixClient,
+    requisites: list[dict],
+    current_company_id: str,
+) -> dict[str, Any]:
+    current_company_id = str(current_company_id)
+    duplicate_requisites = [
+        req for req in requisites or []
+        if str(req.get("ENTITY_ID") or "").strip() and str(req.get("ENTITY_ID") or "").strip() != current_company_id
+    ]
+    duplicate_company_ids = sorted({str(req.get("ENTITY_ID")) for req in duplicate_requisites}, key=lambda x: int(x) if x.isdigit() else x)
+    duplicate_requisite_ids = sorted(str(req.get("ID")) for req in duplicate_requisites if str(req.get("ID") or "").strip())
+    duplicate_active_deals: list[dict[str, str]] = []
+    for company_id in duplicate_company_ids:
+        for deal in _list_active_deals_for_duplicate_company(bx, company_id):
+            duplicate_active_deals.append(deal)
+
+    reason = ""
+    if duplicate_active_deals:
+        first = duplicate_active_deals[0]
+        reason = f"enrich-only: active deal {first.get('deal_id')} on company {first.get('company_id')}"
+    elif duplicate_company_ids:
+        reason = "enrich duplicate: same inn requisites on companies " + ", ".join(duplicate_company_ids)
+
+    return {
+        "duplicate_company_ids": duplicate_company_ids,
+        "duplicate_active_deals": duplicate_active_deals,
+        "duplicate_requisite_ids": duplicate_requisite_ids,
+        "duplicate_reason": reason,
+    }
+
+
+def _has_duplicate_info(duplicate_info: dict[str, Any]) -> bool:
+    return bool(
+        duplicate_info.get("duplicate_company_ids")
+        or duplicate_info.get("duplicate_active_deals")
+        or duplicate_info.get("duplicate_requisite_ids")
+        or duplicate_info.get("duplicate_reason")
+    )
+
+
+def _list_active_deals_for_duplicate_company(bx: BitrixClient, company_id: str) -> list[dict[str, str]]:
+    if not hasattr(bx, "list_company_deals"):
+        return []
+    deals = bx.list_company_deals(
+        str(company_id),
+        select=["ID", "COMPANY_ID", "STAGE_ID", "CATEGORY_ID", "CLOSED"],
+    )
+    out: list[dict[str, str]] = []
+    for deal in deals or []:
+        if str(deal.get("CLOSED") or "N") == "Y":
+            continue
+        if str(deal.get("STAGE_ID") or "") in TELEMARKETING_REFUSAL_STAGE_IDS:
+            continue
+        out.append(
+            {
+                "company_id": str(deal.get("COMPANY_ID") or company_id),
+                "deal_id": str(deal.get("ID") or ""),
+                "stage_id": str(deal.get("STAGE_ID") or ""),
+                "category_id": str(deal.get("CATEGORY_ID") or ""),
+            }
+        )
+    return out
+
+
+def _attach_duplicate_info(row: PlanRow, duplicate_info: dict[str, Any] | None) -> None:
+    row.duplicate_company_ids = [str(x) for x in (duplicate_info or {}).get("duplicate_company_ids", [])]
+    row.duplicate_active_deals = list((duplicate_info or {}).get("duplicate_active_deals", []))
+    row.duplicate_requisite_ids = [str(x) for x in (duplicate_info or {}).get("duplicate_requisite_ids", [])]
+    row.duplicate_reason = str((duplicate_info or {}).get("duplicate_reason") or "")
+    evidence = dict(row.evidence or {})
+    if duplicate_info is None:
+        evidence.pop("duplicate_info", None)
+    else:
+        evidence["duplicate_info"] = {
+            "duplicate_company_ids": row.duplicate_company_ids,
+            "duplicate_active_deals": row.duplicate_active_deals,
+            "duplicate_requisite_ids": row.duplicate_requisite_ids,
+            "duplicate_reason": row.duplicate_reason,
+        }
+    row.evidence = evidence
+
+
 def _backup_before_apply_snapshot(
     bx: BitrixClient,
     row: PlanRow,
     company_before: dict | None,
     requisites_before: list[dict],
+    duplicate_info: dict | None = None,
 ) -> str:
     ts = datetime.now(MOSCOW_TZ).strftime("%Y%m%d_%H%M%S")
     path = WORKSPACE_ROOT / f"belberry/bitrix24/backups/enrich_apply_{row.company_id}_{ts}.json"
@@ -1490,6 +1620,8 @@ def _backup_before_apply_snapshot(
         "company_before": company_before,
         "requisites_before": requisites_before,
     }
+    if duplicate_info is not None:
+        payload["duplicate_info"] = duplicate_info
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
     return str(path)
