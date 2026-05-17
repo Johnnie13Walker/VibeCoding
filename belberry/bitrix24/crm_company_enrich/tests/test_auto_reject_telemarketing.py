@@ -38,6 +38,23 @@ class FakeBitrix:
         return "timeline-1"
 
 
+class BatchFakeBitrix(FakeBitrix):
+    def __init__(self, *, deals: list[dict], companies: dict[str, dict | None], batch_result: dict, raise_get_company: set[str] | None = None):
+        super().__init__(deals=deals, companies=companies)
+        self.batch_result = batch_result
+        self.raise_get_company = raise_get_company or set()
+        self.get_company_calls: list[str] = []
+
+    def batch(self, commands):
+        return dict(self.batch_result)
+
+    def get_company(self, company_id):
+        self.get_company_calls.append(str(company_id))
+        if str(company_id) in self.raise_get_company:
+            raise RuntimeError(f"get failed for {company_id}")
+        return super().get_company(company_id)
+
+
 def _deal(deal_id="100", company_id="10", stage_id="C50:NEW", **extra):
     return {
         "ID": deal_id,
@@ -279,6 +296,32 @@ def test_classify_priority_liquidated_first():
 def test_marker_already_set_recognises_Y_and_true_and_True():
     for value in ("Y", "true", True, "1"):
         assert stage._marker_already_set(value) is True
+
+
+def test_prefetch_batch_partial_failure_falls_back_to_single_get():
+    bx = BatchFakeBitrix(
+        deals=[_deal(company_id="10"), _deal(company_id="20")],
+        companies={"10": {"ID": "10"}, "20": {"ID": "20", "UF_CRM_ORG_STATUS": "8852"}},
+        batch_result={"co_10": {"ID": "10"}, "co_20": None},
+    )
+
+    companies = stage._prefetch_companies(bx, bx.deals)
+
+    assert companies["20"] == {"ID": "20", "UF_CRM_ORG_STATUS": "8852"}
+    assert bx.get_company_calls == ["20"]
+
+
+def test_prefetch_batch_partial_failure_single_get_also_fails():
+    bx = BatchFakeBitrix(
+        deals=[_deal(company_id="10")],
+        companies={"10": {"ID": "10"}},
+        batch_result={"co_10": None},
+        raise_get_company={"10"},
+    )
+
+    companies = stage._prefetch_companies(bx, bx.deals)
+
+    assert companies["10"] is None
 
 
 def test_default_scan_stages_are_base_and_new():

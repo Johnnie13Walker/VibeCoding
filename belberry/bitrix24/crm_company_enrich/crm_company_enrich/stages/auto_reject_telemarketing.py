@@ -212,7 +212,14 @@ def _prefetch_companies(bx: BitrixClient, deals: list[dict[str, Any]]) -> dict[s
             continue
         for company_id in chunk:
             company = result.get(f"co_{company_id}")
-            out[company_id] = company if isinstance(company, dict) else None
+            if isinstance(company, dict):
+                out[company_id] = company
+            else:
+                try:
+                    out[company_id] = bx.get_company(company_id)
+                except Exception as exc:  # noqa: BLE001
+                    print(f"[auto-reject] company {company_id}: prefetch_fallback_failed: {exc}")
+                    out[company_id] = None
     return out
 
 
