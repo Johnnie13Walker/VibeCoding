@@ -1,12 +1,22 @@
 from __future__ import annotations
 
+import pytest
+
 from crm_company_enrich.config import (
     HOLD_MARKER_FLAG_FIELD,
     HOLD_REASON_COMMENT_FIELD,
+    LOG_DIR as PRODUCTION_LOG_DIR,
     REVIVE_AUDIT_FIELD,
     REVIVE_NEXT_COMMUNICATION_FIELD,
 )
 from crm_company_enrich.stages import auto_revive_lose as stage
+
+
+@pytest.fixture(autouse=True)
+def _isolate_log_dir(monkeypatch, tmp_path):
+    """Все тесты пишут CSV-аудит в tmp_path, не в production LOG_DIR."""
+    monkeypatch.setattr(stage, "LOG_DIR", tmp_path)
+    yield
 
 
 class FakeBitrix:
@@ -193,8 +203,7 @@ def test_register_sonet_event_param_passed():
     assert bx.update_deal_calls[0][2] == {"REGISTER_SONET_EVENT": "Y"}
 
 
-def test_csv_audit_written_for_revived(monkeypatch, tmp_path):
-    monkeypatch.setattr(stage, "LOG_DIR", tmp_path)
+def test_csv_audit_written_for_revived(tmp_path):
     bx = FakeBitrix([_deal()])
 
     stage.run(bx, dry_run=False, due_before="2026-05-17")
@@ -203,3 +212,15 @@ def test_csv_audit_written_for_revived(monkeypatch, tmp_path):
     text = path.read_text(encoding="utf-8")
     assert "deal_id,company_id,old_assignee,new_assignee,due_date,revive_count,status" in text
     assert "100,200,2772,2832,2026-05-10,1,REVIVED" in text
+
+
+def test_csv_audit_uses_tmp_path_not_production(tmp_path):
+    production_path = PRODUCTION_LOG_DIR / "auto_revive_lose.csv"
+    size_before = production_path.stat().st_size if production_path.exists() else 0
+    bx = FakeBitrix([_deal()])
+
+    stage.run(bx, dry_run=False, due_before="2026-05-17")
+
+    assert (tmp_path / "auto_revive_lose.csv").exists()
+    size_after = production_path.stat().st_size if production_path.exists() else 0
+    assert size_after == size_before
