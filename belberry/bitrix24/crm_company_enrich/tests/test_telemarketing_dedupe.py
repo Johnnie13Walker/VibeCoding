@@ -247,7 +247,7 @@ def test_already_dedupe_marker_skipped():
     bx = FakeBitrix(
         deals=[
             _deal("1"),
-            _deal("2", stage_id="C50:APOLOGY", CLOSED="Y", **{HOLD_MARKER_FLAG_FIELD: "1", HOLD_REASON_FIELD: "8544"}),
+            _deal("2", **{HOLD_MARKER_FLAG_FIELD: "1", HOLD_REASON_FIELD: "8544"}),
         ]
     )
 
@@ -255,6 +255,20 @@ def test_already_dedupe_marker_skipped():
 
     assert summary["duplicate_companies"] == 0
     assert bx.update_deal_calls == []
+
+
+def test_dedupe_marker_skips_only_marked_deal_in_group():
+    deals = [
+        _deal("1", **{HOLD_MARKER_FLAG_FIELD: "1"}),
+        _deal("2"),
+        _deal("3"),
+    ]
+
+    groups = stage._duplicate_groups(deals)
+
+    assert len(groups) == 1
+    assert groups[0][0] == "10"
+    assert [deal["ID"] for deal in groups[0][1]] == ["2", "3"]
 
 
 def test_no_active_users_fallback_to_unresolved(monkeypatch):

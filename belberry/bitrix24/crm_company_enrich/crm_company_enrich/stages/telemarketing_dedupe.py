@@ -127,6 +127,8 @@ def _duplicate_groups(deals: list[dict[str, Any]]) -> list[tuple[str, list[dict[
     for deal in deals:
         if str(deal.get("STAGE_ID") or "") not in TELEMARKETING_OPEN_STAGES:
             continue
+        if _marker_already_set(deal.get(HOLD_MARKER_FLAG_FIELD)):
+            continue
         company_id = str(deal.get("COMPANY_ID") or "")
         if not company_id or company_id == "0":
             continue
@@ -205,6 +207,12 @@ def _pick_winner(deals: list[dict], activity_counts: dict[str, int]) -> dict:
         )
 
     return max(deals, key=key)
+
+
+def _marker_already_set(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    return str(value or "").strip().upper() in {"1", "Y", "TRUE"}
 
 
 def _resolve_winner_assignee(winner: dict, active_user_ids: set[str], rotation_index: int) -> str:
