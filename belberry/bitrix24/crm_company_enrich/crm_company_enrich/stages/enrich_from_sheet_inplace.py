@@ -360,15 +360,21 @@ def run_in_place(
         if status in {"FAILED", "EXCEPTION"}:
             summary["failed"] += 1
 
-        cells = outcome_to_cells(outcome, bx=bx, error_summary=error_summary)
-        color = color_for_status(status)
-        try:
-            write_output_and_color(service, sheet_id, tab_title, sheet_gid, row.row_number, cells, color)
-        except Exception as exc:  # noqa: BLE001
-            # Sheet write failed — record but continue. Row may need manual fix.
-            summary.setdefault("sheet_write_errors", []).append({
-                "row": row.row_number, "error": str(exc)[:300]
-            })
+        # CRITICAL: writeback в Sheet делаем ТОЛЬКО при --live. dry-run должен
+        # быть полностью read-only (как orchestrator). Иначе dry-run "проверка"
+        # засирает таб мусором (DRY_RUN_COMPANY marker, недо-резолвленные
+        # outcome'ы), который ловится потом filter_unprocessed и блокирует
+        # повторные прогоны.
+        if not dry_run:
+            cells = outcome_to_cells(outcome, bx=bx, error_summary=error_summary)
+            color = color_for_status(status)
+            try:
+                write_output_and_color(service, sheet_id, tab_title, sheet_gid, row.row_number, cells, color)
+            except Exception as exc:  # noqa: BLE001
+                # Sheet write failed — record but continue. Row may need manual fix.
+                summary.setdefault("sheet_write_errors", []).append({
+                    "row": row.row_number, "error": str(exc)[:300]
+                })
 
         summary["processed"] += 1
         _write_state(summary, next_index=idx + 1)
