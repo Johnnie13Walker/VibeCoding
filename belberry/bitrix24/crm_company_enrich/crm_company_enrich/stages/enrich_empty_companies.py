@@ -26,6 +26,7 @@ from ..config import (
     CCE_APPLY_SLEEP_S,
     CCE_BIZPROC_TEMPLATE_ID,
     CCE_BIZPROC_WAIT_S,
+    CCE_COMPANY_TOUCH,
     CCE_PRESET_ID,
     ENTITY_TYPE_COMPANY,
     LOG_PATH,
@@ -586,7 +587,8 @@ def run_apply(*, dry_run: bool = True, limit: int | None = None, throttle_s: flo
                 continue
             backup_path = _backup_before_apply_snapshot(bx, row, company_before, existing)
             print(f"[empty-apply] backup company {row.company_id}: {backup_path}")
-            _touch_company(bx, row.company_id)
+            if CCE_COMPANY_TOUCH:
+                _touch_company(bx, row.company_id)
             wf = _start_bp(bx, row.company_id)
             if wf.startswith("failed:"):
                 row.apply_status = "BP_FAILED"
@@ -665,7 +667,8 @@ def run_apply(*, dry_run: bool = True, limit: int | None = None, throttle_s: flo
             print(f"[empty-apply] backup company {row.company_id}: {backup_path}")
             if not existing_same_inn:
                 req_id = bx.add_requisite(payload)
-            _touch_company(bx, row.company_id)
+            if CCE_COMPANY_TOUCH:
+                _touch_company(bx, row.company_id)
             wf = _start_bp(bx, row.company_id)
             if wf.startswith("failed:"):
                 row.apply_status = "BP_FAILED"
@@ -1424,7 +1427,8 @@ def _verify_with_retries(bx: BitrixClient, company_id: str) -> tuple[bool, dict 
         if verified_req:
             return True, verified_req
         if attempt < 2:
-            _touch_company(bx, company_id)
+            if CCE_COMPANY_TOUCH:
+                _touch_company(bx, company_id)
             _start_bp(bx, company_id)
     return False, None
 
