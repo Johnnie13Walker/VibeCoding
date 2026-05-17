@@ -1,16 +1,7 @@
 from __future__ import annotations
 
-import pytest
-
 from crm_company_enrich.config import COMPANY_UF_REGION
 from crm_company_enrich.stages import migrate_region_enum_ids as stage
-
-
-@pytest.fixture(autouse=True)
-def _isolate_log_dir(monkeypatch, tmp_path):
-    """Все тесты пишут CSV-аудит в tmp_path, не в production LOG_DIR."""
-    monkeypatch.setattr(stage, "LOG_DIR", tmp_path)
-    yield
 
 
 class FakeBitrix:
@@ -108,7 +99,7 @@ def test_audit_csv_written_for_migrated(tmp_path):
 
     stage.run(bx, dry_run=False)
 
-    path = tmp_path / "migrate_region_enum_ids.csv"
+    path = tmp_path / "logs" / "migrate_region_enum_ids.csv"
     text = path.read_text(encoding="utf-8")
     assert "company_id,title,old_id,new_id,status" in text
     assert "1,Москва old,9008,9234,MIGRATED" in text

@@ -184,6 +184,22 @@ class BitrixClient:
         body = self.call("crm.company.userfield.update", {"id": field_id, "fields": fields})
         return bool(body.get("result"))
 
+    def get_deal_user_fields(self) -> list[dict]:
+        """Список UF_* полей сделки."""
+        body = self.call("crm.deal.userfield.list", {"order": {"ID": "ASC"}})
+        result = body.get("result")
+        return result if isinstance(result, list) else []
+
+    def add_deal_user_field(self, fields: dict) -> str:
+        """Создать пользовательское поле сделки."""
+        body = self.call("crm.deal.userfield.add", {"fields": fields})
+        return str(body.get("result") or "")
+
+    def update_deal_user_field(self, field_id: str, fields: dict) -> bool:
+        """Обновить пользовательское поле сделки."""
+        body = self.call("crm.deal.userfield.update", {"id": field_id, "fields": fields})
+        return bool(body.get("result"))
+
     def get_company_deals_count(self, company_id: str) -> int:
         """Количество сделок у компании. Минимальный select для скорости."""
         body = self.call(
@@ -265,6 +281,7 @@ class BitrixClient:
             "UF_CRM_635011179F7DD",
             "UF_CRM_1733394127643",
             "UF_CRM_1733394206255",
+            "UF_CRM_REVIVE_COUNT",
         ]
         params = {
             "filter": {

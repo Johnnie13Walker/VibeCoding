@@ -11,11 +11,11 @@ from zoneinfo import ZoneInfo
 
 from ..bitrix_client import BitrixClient
 from ..config import (
-    HOLD_MARKER_DESC_FIELD,
     HOLD_MARKER_FLAG_FIELD,
     HOLD_REASON_COMMENT_FIELD,
     HOLD_REASON_DUPLICATE,
     HOLD_REASON_FIELD,
+    LAST_AUTO_ACTION_DESC_FIELD,
     LOG_DIR,
     PORTAL_DOMAIN,
     SERVICE_ACCOUNT_JSON,
@@ -369,7 +369,7 @@ def _merge_group_live(
                 HOLD_REASON_FIELD: HOLD_REASON_DUPLICATE,
                 HOLD_REASON_COMMENT_FIELD: f"auto-dedupe: дубль сделки {winner_id} по компании {company_id}",
                 HOLD_MARKER_FLAG_FIELD: "1",
-                HOLD_MARKER_DESC_FIELD: f"telemarketing-dedupe @ {datetime.now(MOSCOW_TZ).date().isoformat()}",
+                LAST_AUTO_ACTION_DESC_FIELD: f"telemarketing-dedupe @ {datetime.now(MOSCOW_TZ).date().isoformat()}",
             },
             params={"REGISTER_SONET_EVENT": "Y"},
         )
