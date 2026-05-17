@@ -48,6 +48,7 @@ class ContactDedupeOutcome:
     closed_contact_ids: list[str] = field(default_factory=list)
     deals_updated: list[str] = field(default_factory=list)
     deals_with_added_contacts: dict[str, list[str]] = field(default_factory=dict)
+    match_reasons: list[str] = field(default_factory=list)
     status: str = ""
     skipped_reason: str = ""
     fail_reason: str = ""
@@ -99,11 +100,13 @@ def _process_cluster(
     winner = _pick_winner(cluster, contact_deals)
     winner_id = str(winner.get("ID") or "")
     losers = [c for c in cluster if str(c.get("ID") or "") != winner_id]
+    match_reasons = _cluster_match_reasons(cluster)
     unresolved_reason = _unresolved_reason(bx, cluster)
     if unresolved_reason:
         return ContactDedupeOutcome(
             company_id=company_id,
             winner_contact_id=winner_id,
+            match_reasons=match_reasons,
             status="UNRESOLVED",
             skipped_reason=unresolved_reason,
             fail_reason=unresolved_reason,
@@ -114,10 +117,16 @@ def _process_cluster(
             company_id=company_id,
             winner_contact_id=winner_id,
             closed_contact_ids=[str(c.get("ID") or "") for c in losers],
+            match_reasons=match_reasons,
             status="DRY_RUN",
         )
 
-    outcome = ContactDedupeOutcome(company_id=company_id, winner_contact_id=winner_id, status="MERGED")
+    outcome = ContactDedupeOutcome(
+        company_id=company_id,
+        winner_contact_id=winner_id,
+        match_reasons=match_reasons,
+        status="MERGED",
+    )
     try:
         for loser in losers:
             loser_id = str(loser.get("ID") or "")
@@ -228,13 +237,24 @@ def _cluster_duplicates(contacts: list[dict]) -> list[list[dict]]:
             parent[rb] = ra
 
     ids = list(parent)
+    by_id = {str(c.get("ID") or ""): c for c in contacts if c.get("ID")}
     for i, a_id in enumerate(ids):
         for b_id in ids[i + 1:]:
+            a_raw = by_id[a_id]
+            b_raw = by_id[b_id]
+            a = signals[a_id]
+            b = signals[b_id]
+            if (
+                _is_placeholder_contact(a_raw) != _is_placeholder_contact(b_raw)
+                and a["name"]
+                and a["name"] == b["name"]
+            ):
+                union(a_id, b_id)
+                continue
             score, reasons = _match_score(signals[a_id], signals[b_id])
             if score >= CONTACT_DEDUPE_MIN_SIGNALS or (score == 1 and set(reasons) & {"phone", "email"}):
                 union(a_id, b_id)
 
-    by_id = {str(c.get("ID") or ""): c for c in contacts if c.get("ID")}
     grouped: dict[str, list[dict]] = {}
     for contact_id in ids:
         grouped.setdefault(find(contact_id), []).append(by_id[contact_id])
@@ -244,7 +264,17 @@ def _cluster_duplicates(contacts: list[dict]) -> list[list[dict]]:
 def _normalize_name(c: dict) -> str:
     parts = [_clean(c.get(k)) for k in ("LAST_NAME", "NAME", "SECOND_NAME")]
     joined = " ".join(p for p in parts if p).lower().strip()
-    return re.sub(r"\s+", " ", joined).replace("-", "")
+    joined = re.sub(r"\s+", " ", joined).replace("-", "")
+    joined = re.sub(r"^!\s*", "", joined)
+    joined = re.sub(r"\s!\s", " ", joined)
+    joined = re.sub(r"\s+!$", "", joined)
+    return joined.strip()
+
+
+def _is_placeholder_contact(contact: dict) -> bool:
+    """Контакт-заглушка от BP 5614: LAST_NAME содержит только "!"."""
+    last_name = str(contact.get("LAST_NAME") or "").strip()
+    return last_name == "!" or last_name.startswith("! ")
 
 
 def _normalize_phones(c: dict) -> set[str]:
@@ -290,6 +320,9 @@ def _match_score(a: dict, b: dict) -> tuple[int, list[str]]:
 
 
 def _pick_winner(cluster: list[dict], contact_deals: dict[str, list[dict]]) -> dict:
+    non_placeholders = [c for c in cluster if not _is_placeholder_contact(c)]
+    candidates = non_placeholders or cluster
+
     def key(contact: dict) -> tuple[int, int, float, int]:
         contact_id = str(contact.get("ID") or "")
         return (
@@ -298,7 +331,7 @@ def _pick_winner(cluster: list[dict], contact_deals: dict[str, list[dict]]) -> d
             -_to_timestamp(contact.get("DATE_CREATE")),
             -int(contact_id) if contact_id.isdigit() else 0,
         )
-    return max(cluster, key=key)
+    return max(candidates, key=key)
 
 
 def _filled_score(contact: dict) -> int:
@@ -313,7 +346,9 @@ def _filled_score(contact: dict) -> int:
 
 
 def _unresolved_reason(bx: BitrixClient, cluster: list[dict]) -> str:
-    if _max_match_score(cluster) < CONTACT_DEDUPE_MIN_SIGNALS:
+    match_reasons = set(_cluster_match_reasons(cluster))
+    placeholder_cluster = "placeholder_dedup" in match_reasons
+    if not placeholder_cluster and _max_match_score(cluster) < CONTACT_DEDUPE_MIN_SIGNALS:
         return "weak_match"
     if CONTACT_DEDUPE_SKIP_MULTI_COMPANY:
         for contact in cluster:
@@ -322,7 +357,7 @@ def _unresolved_reason(bx: BitrixClient, cluster: list[dict]) -> str:
             if len(companies) > 1:
                 return f"multi_company_contact:{contact_id}"
     titles = {_clean(c.get("POST") or c.get("TITLE")) for c in cluster if _clean(c.get("POST") or c.get("TITLE"))}
-    if len(titles) > 1:
+    if not placeholder_cluster and len(titles) > 1:
         return "conflicting_title"
     return ""
 
@@ -338,6 +373,9 @@ def _max_match_score(cluster: list[dict]) -> int:
 
 
 def _merged_contact_fields(winner: dict, loser: dict) -> dict[str, Any]:
+    if _is_placeholder_contact(loser):
+        return {}
+
     fields: dict[str, Any] = {}
     phones = _merge_multifield(winner.get("PHONE"), loser.get("PHONE"), normalizer=_phone_key)
     emails = _merge_multifield(winner.get("EMAIL"), loser.get("EMAIL"), normalizer=_email_key)
@@ -456,9 +494,15 @@ def _append_unresolved_csv_fallback(
 
 def _cluster_match_reasons(cluster: list[dict]) -> list[str]:
     reasons: set[str] = set()
-    signals = [_strong_signals(c) for c in cluster]
-    for i, a in enumerate(signals):
-        for b in signals[i + 1:]:
+    pairs = [(c, _strong_signals(c)) for c in cluster]
+    for i, (a_contact, a) in enumerate(pairs):
+        for b_contact, b in pairs[i + 1:]:
+            if (
+                _is_placeholder_contact(a_contact) != _is_placeholder_contact(b_contact)
+                and a["name"]
+                and a["name"] == b["name"]
+            ):
+                reasons.add("placeholder_dedup")
             _, pair_reasons = _match_score(a, b)
             reasons.update(pair_reasons)
     return sorted(reasons)

@@ -357,9 +357,49 @@ class BitrixClient:
                 contacts.append(contact)
         return contacts
 
-    def update_contact(self, contact_id: str, fields: dict) -> bool:
-        body = self.call("crm.contact.update", {"id": contact_id, "fields": fields})
+    def list_contact_companies(self, contact_id: str) -> list[str]:
+        """Список company_id, к которым привязан контакт."""
+        body = self.call("crm.contact.company.items.get", {"id": contact_id})
+        result = body.get("result") or []
+        return [
+            str(item.get("COMPANY_ID"))
+            for item in result
+            if isinstance(item, dict) and item.get("COMPANY_ID")
+        ]
+
+    def list_contact_deals(self, contact_id: str) -> list[dict]:
+        """Все сделки, где привязан контакт."""
+        return list(
+            self.paginate(
+                "crm.deal.list",
+                {
+                    "filter": {"CONTACT_ID": int(contact_id)},
+                    "select": ["ID", "TITLE", "STAGE_ID", "CATEGORY_ID", "CLOSED", "COMPANY_ID"],
+                },
+            )
+        )
+
+    def update_contact(self, contact_id: str, fields: dict, params: dict | None = None) -> bool:
+        payload = {"id": contact_id, "fields": fields}
+        if params:
+            payload["params"] = params
+        body = self.call("crm.contact.update", payload)
         return bool(body.get("result"))
+
+    def delete_contact(self, contact_id: str) -> bool:
+        """Удалить контакт. Использовать только после backup."""
+        body = self.call("crm.contact.delete", {"id": contact_id})
+        return bool(body.get("result"))
+
+    def remove_contact_company_relation(self, contact_id: str, company_id: str) -> bool:
+        """Отвязать компанию от контакта."""
+        return self._bool_result(
+            "crm.contact.company.delete",
+            {
+                "id": contact_id,
+                "fields": {"COMPANY_ID": int(company_id)},
+            },
+        )
 
     # ------------------------------ requisites ------------------------------
 

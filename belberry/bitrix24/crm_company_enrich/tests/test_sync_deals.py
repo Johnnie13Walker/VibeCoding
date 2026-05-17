@@ -82,6 +82,12 @@ class FakeBitrix:
     def get_company_contacts(self, company_id: str) -> list[str]:
         return list(self.company_contacts.get(str(company_id), []))
 
+    def list_company_contacts_full(self, company_id: str) -> list[dict]:
+        return [
+            self.contacts.get(str(contact_id), {"ID": str(contact_id)})
+            for contact_id in self.company_contacts.get(str(company_id), [])
+        ]
+
     def list_deal_contacts(self, deal_id: str) -> list[dict]:
         return list(self.deal_contacts.get(str(deal_id), []))
 
@@ -357,6 +363,51 @@ def test_dry_run_reports_missing_company_contacts_without_writing():
     assert bx.add_deal_contact_calls == []
     assert summary["outcomes"][0]["status"] == "DRY_RUN"
     assert summary["outcomes"][0]["contacts_added"] == ["10"]
+
+
+def test_missing_deal_contacts_skips_placeholder_when_real_exists():
+    bx = FakeBitrix(
+        companies={"100": _company()},
+        company_contacts={"100": ["1", "2"]},
+        contacts={
+            "1": {"ID": "1", "LAST_NAME": "!", "NAME": "Решетников А.С."},
+            "2": {"ID": "2", "LAST_NAME": "Решетников", "NAME": "А.", "SECOND_NAME": "С."},
+        },
+    )
+
+    missing, skipped = sync_deals._missing_deal_contacts(bx, "100", "200")
+
+    assert missing == ["2"]
+    assert skipped == {"1": "placeholder_has_real_contact"}
+
+
+def test_missing_deal_contacts_keeps_placeholder_when_no_real_alternative():
+    bx = FakeBitrix(
+        companies={"100": _company()},
+        company_contacts={"100": ["1"]},
+        contacts={"1": {"ID": "1", "LAST_NAME": "!", "NAME": "Решетников А.С."}},
+    )
+
+    missing, skipped = sync_deals._missing_deal_contacts(bx, "100", "200")
+
+    assert missing == ["1"]
+    assert skipped == {}
+
+
+def test_missing_deal_contacts_keeps_two_homonyms_when_both_real():
+    bx = FakeBitrix(
+        companies={"100": _company()},
+        company_contacts={"100": ["1", "2"]},
+        contacts={
+            "1": {"ID": "1", "LAST_NAME": "Иванов", "NAME": "Иван"},
+            "2": {"ID": "2", "LAST_NAME": "Иванов", "NAME": "Иван"},
+        },
+    )
+
+    missing, skipped = sync_deals._missing_deal_contacts(bx, "100", "200")
+
+    assert missing == ["1", "2"]
+    assert skipped == {}
 
 
 def test_live_fills_empty_contact_communications_from_company():
