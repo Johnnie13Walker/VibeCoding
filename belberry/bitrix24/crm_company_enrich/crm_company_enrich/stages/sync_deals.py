@@ -514,7 +514,8 @@ def _missing_deal_contacts(bx: BitrixClient, company_id: str, deal_id: str) -> t
     COMPANY_ID, поэтому переносим только уже существующие связи company→contact.
     Новые контакты здесь не создаются.
     """
-    company_contacts = [str(cid) for cid in bx.get_company_contacts(company_id) if str(cid).strip()]
+    company_contacts_full = _company_contacts_full_for_attach(bx, company_id)
+    company_contacts = [str(c.get("ID") or "") for c in company_contacts_full if str(c.get("ID") or "").strip()]
     if not company_contacts:
         return [], {}
 
@@ -527,7 +528,14 @@ def _missing_deal_contacts(bx: BitrixClient, company_id: str, deal_id: str) -> t
     missing: list[str] = []
     skipped: dict[str, str] = {}
     seen: set[str] = set()
-    for contact_id in company_contacts:
+    by_fio: dict[str, list[dict]] = {}
+    for contact in company_contacts_full:
+        by_fio.setdefault(_contact_attach_fio(contact), []).append(contact)
+
+    for contact in company_contacts_full:
+        contact_id = str(contact.get("ID") or "")
+        if not contact_id:
+            continue
         if contact_id in seen:
             skipped[contact_id] = "duplicate_company_contact"
             continue
@@ -535,8 +543,51 @@ def _missing_deal_contacts(bx: BitrixClient, company_id: str, deal_id: str) -> t
         if contact_id in existing:
             skipped[contact_id] = "already_linked"
             continue
+        if _is_placeholder_contact_for_attach(contact):
+            fio = _contact_attach_fio(contact)
+            has_real_alternative = any(
+                not _is_placeholder_contact_for_attach(other)
+                and str(other.get("ID") or "") != contact_id
+                for other in by_fio.get(fio, [])
+            )
+            if has_real_alternative:
+                skipped[contact_id] = "placeholder_has_real_contact"
+                continue
         missing.append(contact_id)
     return missing, skipped
+
+
+def _company_contacts_full_for_attach(bx: BitrixClient, company_id: str) -> list[dict]:
+    if hasattr(bx, "list_company_contacts_full"):
+        contacts = bx.list_company_contacts_full(company_id)
+        if contacts:
+            return [c for c in contacts if isinstance(c, dict)]
+
+    out: list[dict] = []
+    for contact_id in bx.get_company_contacts(company_id):
+        cid = str(contact_id or "")
+        if not cid:
+            continue
+        contact = bx.get_contact(cid) if hasattr(bx, "get_contact") else None
+        if isinstance(contact, dict) and contact:
+            out.append(contact)
+        else:
+            out.append({"ID": cid})
+    return out
+
+
+def _contact_attach_fio(contact: dict) -> str:
+    parts = [str(contact.get(k) or "").strip() for k in ("LAST_NAME", "NAME", "SECOND_NAME")]
+    joined = " ".join(p for p in parts if p).lower()
+    joined = re.sub(r"^!\s*", "", joined)
+    joined = joined.replace(".", " ")
+    joined = re.sub(r"\s+", " ", joined).strip()
+    return joined
+
+
+def _is_placeholder_contact_for_attach(contact: dict) -> bool:
+    last_name = str(contact.get("LAST_NAME") or "").strip()
+    return last_name == "!" or last_name.startswith("! ")
 
 
 def _deal_company_contact_ids(
