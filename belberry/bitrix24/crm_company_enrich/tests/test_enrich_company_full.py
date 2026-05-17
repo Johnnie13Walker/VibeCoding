@@ -179,6 +179,57 @@ def test_create_if_missing_creates_minimum_company():
     assert bx.added_companies
 
 
+def test_deal_without_company_uses_supplemental_url_and_attaches_created_company():
+    bx = FakeBitrix(deals={"100": deal(company_id="")})
+
+    out = stage.run(
+        bx,
+        deal_id="100",
+        url="https://kankadze.school",
+        create_if_missing=True,
+        dry_run=False,
+        skip_bp=True,
+        skip_dedupe_contacts=True,
+        skip_director_inn=True,
+        skip_telemarketing_dedupe=True,
+        bizproc_wait_s=0,
+    )
+
+    assert out.company_id in bx.companies
+    assert bx.added_companies[0][0]["TITLE"] == "kankadze.school"
+    assert bx.added_companies[0][0]["WEB"] == [{"VALUE": "https://kankadze.school", "VALUE_TYPE": "WORK"}]
+    assert bx.updated_deals[0][0] == "100"
+    assert bx.updated_deals[0][1] == {"COMPANY_ID": out.company_id}
+    assert bx.added_deals == []
+    assert _step(out, "RESOLVE_DEAL").details["attached_input_deal"] is True
+
+
+def test_dry_run_created_company_reuses_context_without_bitrix_get():
+    class StrictBitrix(FakeBitrix):
+        def get_company(self, company_id):
+            if str(company_id) == "DRY_RUN_COMPANY":
+                raise AssertionError("dry-run must not fetch fake company from Bitrix")
+            return super().get_company(company_id)
+
+    bx = StrictBitrix(deals={"100": deal(company_id="")})
+    out = stage.run(
+        bx,
+        deal_id="100",
+        url="https://kankadze.school",
+        create_if_missing=True,
+        dry_run=True,
+        skip_bp=True,
+        skip_dedupe_contacts=True,
+        skip_director_inn=True,
+        skip_telemarketing_dedupe=True,
+        skip_auto_reject=True,
+        bizproc_wait_s=0,
+    )
+
+    assert out.company_id == "DRY_RUN_COMPANY"
+    assert out.final_status in {"PARTIAL", "SKIPPED", "ENRICHED"}
+
+
 def test_find_site_writes_web_if_empty():
     bx = FakeBitrix(companies={"10": company(WEB=[])}, requisites={"10": [req()]})
     out = stage.run(bx, company_id="10", url="", dry_run=False, skip_bp=True, bizproc_wait_s=0)

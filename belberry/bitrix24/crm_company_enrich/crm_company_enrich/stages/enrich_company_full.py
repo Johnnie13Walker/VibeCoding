@@ -189,6 +189,7 @@ def _run_step(
 
 def _step_resolve(bx: BitrixClient, outcome: FullEnrichmentOutcome, context: dict[str, Any], flags: dict[str, Any]) -> StepOutcome:
     company: dict | None = None
+    deal_had_company = False
     if outcome.input_kind == "company_id":
         company = bx.get_company(context["company_id"])
     elif outcome.input_kind == "deal_id":
@@ -197,6 +198,7 @@ def _step_resolve(bx: BitrixClient, outcome: FullEnrichmentOutcome, context: dic
             context["deal_id"] = str(deal.get("ID") or context["deal_id"])
             context["company_id"] = str(deal.get("COMPANY_ID") or "")
             outcome.deal_id = context["deal_id"]
+            deal_had_company = bool(context["company_id"])
             company = bx.get_company(context["company_id"]) if context["company_id"] else None
     elif outcome.input_kind == "inn":
         reqs = bx.search_requisite_by_inn(context["inn"])
@@ -214,12 +216,17 @@ def _step_resolve(bx: BitrixClient, outcome: FullEnrichmentOutcome, context: dic
             context["company_id"] = "DRY_RUN_COMPANY"
             outcome.company_id = context["company_id"]
             context["company"] = {"ID": context["company_id"], "TITLE": _title_from_url(context["url"]) or context["inn"], "WEB": _web_values(context["url"])}
+            if outcome.input_kind == "deal_id" and context.get("deal_id") and not deal_had_company:
+                context["attached_input_deal"] = True
             outcome.flags.append("would_create_company")
             return StepOutcome("RESOLVE", "DONE", {"created": "dry_run", "company_id": context["company_id"]})
         fields = _minimum_company_fields(context)
         context["company_id"] = _add_company(bx, fields)
         context["created_company"] = True
         company = bx.get_company(context["company_id"]) or {"ID": context["company_id"], **fields}
+        if outcome.input_kind == "deal_id" and context.get("deal_id") and not deal_had_company:
+            bx.update_deal(context["deal_id"], {"COMPANY_ID": context["company_id"]})
+            context["attached_input_deal"] = True
 
     if not company:
         outcome.final_status = "FAILED"
@@ -396,6 +403,13 @@ def _step_rank_deal_viability(bx: BitrixClient, outcome: FullEnrichmentOutcome, 
 def _step_resolve_deal(bx: BitrixClient, outcome: FullEnrichmentOutcome, context: dict[str, Any], flags: dict[str, Any]) -> StepOutcome:
     if outcome.final_status in {"REJECTED", "SKIPPED"}:
         return StepOutcome("RESOLVE_DEAL", "SKIPPED", {"reason": "final_status_already_set"})
+    if context.get("attached_input_deal") and outcome.deal_id:
+        context["deal_action"] = "sync"
+        return StepOutcome("RESOLVE_DEAL", "DONE", {
+            "action": "sync",
+            "deal_id": outcome.deal_id,
+            "attached_input_deal": True,
+        })
     deals = bx.list_company_deals(outcome.company_id)
     open_deals = [d for d in deals if _is_open_c50(d)]
     lose_deals = [d for d in deals if str(d.get("STAGE_ID") or "") == TELEMARKETING_REVIVED_FROM_LOSE_STAGE and str(d.get("CLOSED") or "") == "Y"]
@@ -421,7 +435,7 @@ def _step_resolve_deal(bx: BitrixClient, outcome: FullEnrichmentOutcome, context
 def _step_create_deal(bx: BitrixClient, outcome: FullEnrichmentOutcome, context: dict[str, Any], flags: dict[str, Any]) -> StepOutcome:
     if context.get("deal_action") != "create":
         return StepOutcome("CREATE_DEAL", "SKIPPED", {"reason": "not_needed"})
-    company = context.get("company") or bx.get_company(outcome.company_id) or {}
+    company = _company(bx, context)
     site = _primary_site(company)
     if not site:
         outcome.flags.append("no_site_skipped")
@@ -535,6 +549,8 @@ def _step_return_outcome(bx: BitrixClient, outcome: FullEnrichmentOutcome, conte
 
 def _detect_input_kind(company_id: str, deal_id: str, inn: str, url: str) -> str:
     present = [(name, value) for name, value in (("company_id", company_id), ("deal_id", deal_id), ("inn", inn), ("url", url)) if str(value or "").strip()]
+    if len(present) == 2 and present[0][0] == "deal_id" and present[1][0] == "url":
+        return "deal_id"
     if len(present) != 1:
         raise ValueError("Нужен ровно один вход: company_id, deal_id, inn или url")
     return present[0][0]
@@ -576,6 +592,8 @@ def _add_deal(bx: BitrixClient, fields: dict[str, Any]) -> str:
 
 
 def _company(bx: BitrixClient, context: dict[str, Any]) -> dict:
+    if context.get("company_id") == "DRY_RUN_COMPANY" and isinstance(context.get("company"), dict):
+        return context["company"]
     company = bx.get_company(context["company_id"]) or context.get("company") or {}
     context["company"] = company
     return company
