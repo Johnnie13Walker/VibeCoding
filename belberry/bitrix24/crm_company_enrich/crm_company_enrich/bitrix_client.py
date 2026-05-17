@@ -173,24 +173,23 @@ class BitrixClient:
 
     def list_company_deals(self, company_id: str, select: list[str] | None = None) -> list[dict]:
         """Список сделок компании. Используется post-enrich синхронизацией полей."""
-        body = self.call(
-            "crm.deal.list",
-            {
-                "filter": {"COMPANY_ID": company_id},
-                "select": select or [
-                    "ID",
-                    "TITLE",
-                    "COMPANY_ID",
-                    "CATEGORY_ID",
-                    "STAGE_ID",
-                    "CLOSED",
-                    "ASSIGNED_BY_ID",
-                ],
-                "start": -1,
-            },
+        return list(
+            self.paginate(
+                "crm.deal.list",
+                {
+                    "filter": {"COMPANY_ID": company_id},
+                    "select": select or [
+                        "ID",
+                        "TITLE",
+                        "COMPANY_ID",
+                        "CATEGORY_ID",
+                        "STAGE_ID",
+                        "CLOSED",
+                        "ASSIGNED_BY_ID",
+                    ],
+                },
+            )
         )
-        result = body.get("result")
-        return result if isinstance(result, list) else []
 
     def get_deal(self, deal_id: str) -> dict | None:
         return self._get_or_none("crm.deal.get", {"id": deal_id})
