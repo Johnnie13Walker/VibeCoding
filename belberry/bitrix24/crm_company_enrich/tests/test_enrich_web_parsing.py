@@ -31,6 +31,17 @@ def test_extract_inn_labeled_html_nbsp_entity():
     assert extract_inn_from_text(html) == "2614018356"
 
 
+def test_extract_inn_labeled_tilda_split_html():
+    html = """
+    <div class='tn-atom' field='tn_text_1'>ИНН</div>
+    <div class='tn-elem' data-field-left-value="717" data-field-top-value="155">
+      <div class='tn-atom' field='tn_text_2'>7714891820</div>
+    </div>
+    """
+
+    assert extract_inn_from_text(html) == "7714891820"
+
+
 def test_extract_inn_12_digit():
     html = "<div>ИНН 770708389300</div>"
     assert extract_inn_from_text(html) == "770708389300"
