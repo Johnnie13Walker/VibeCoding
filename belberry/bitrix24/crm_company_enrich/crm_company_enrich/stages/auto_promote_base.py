@@ -1,13 +1,17 @@
 """Автоперевод готовых сделок из «База» в «К обзвону»."""
 from __future__ import annotations
 
+import csv
 from dataclasses import asdict, dataclass, field
+from datetime import datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from ..config import (
     COMPANY_UF_CITY,
     COMPANY_UF_ORGANIZATION_STATUS,
     COMPANY_UF_REGION,
+    LOG_DIR,
     TELEMARKETING_ASSIGNEES,
     TELEMARKETING_CATEGORY_ID,
     TELEMARKETING_NEW_STAGE_ID,
@@ -16,6 +20,7 @@ from ..config import (
 
 BASE_STAGE_ID = "C50:UC_1S1KIU"
 ACTIVE_ORG_STATUS = "8850"
+MOSCOW_TZ = ZoneInfo("Europe/Moscow")
 
 REQUIRED_COMPANY_FIELDS = (
     "PHONE_PRESENT",
@@ -99,6 +104,8 @@ def _process_deal(
     requisites = list(bx.list_company_requisites(company_id))
     ready, missing = _evaluate_readiness(company, contacts, requisites)
     if not ready:
+        if not dry_run:
+            _mark_for_re_enrichment(company_id, deal_id, missing)
         return (
             PromoteOutcome(
                 deal_id,
@@ -171,6 +178,24 @@ def _has_multifield(entity: dict[str, Any], field: str) -> bool:
 
 def _telemarketing_assignee_by_rotation(rotation_index: int) -> str:
     return TELEMARKETING_ASSIGNEES[rotation_index % len(TELEMARKETING_ASSIGNEES)][0]
+
+
+def _mark_for_re_enrichment(company_id: str, deal_id: str, missing_fields: list[str]) -> None:
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    path = LOG_DIR / "auto_promote_skipped.csv"
+    write_header = not path.exists()
+    with path.open("a", encoding="utf-8", newline="") as fh:
+        writer = csv.writer(fh)
+        if write_header:
+            writer.writerow(["timestamp", "company_id", "deal_id", "missing_fields"])
+        writer.writerow(
+            [
+                datetime.now(MOSCOW_TZ).isoformat(timespec="seconds"),
+                company_id,
+                deal_id,
+                ",".join(missing_fields),
+            ]
+        )
 
 
 def _clean(value: Any) -> str:

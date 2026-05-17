@@ -8,6 +8,7 @@ import pytest
 _MODULES_WITH_LOG_DIR = (
     "crm_company_enrich.stages.auto_revive_lose",
     "crm_company_enrich.stages.auto_reject_telemarketing",
+    "crm_company_enrich.stages.auto_promote_base",
     "crm_company_enrich.stages.dedupe_contacts",
     "crm_company_enrich.stages.telemarketing_digest",
     "crm_company_enrich.stages.telemarketing_dedupe",

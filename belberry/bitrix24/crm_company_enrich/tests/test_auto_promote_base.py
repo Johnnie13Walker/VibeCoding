@@ -133,3 +133,31 @@ def test_missing_company_id_zero_skipped_without_get_company():
 
     assert summary["skipped"] == 1
     assert summary["outcomes"][0]["skipped_reason"] == "missing_company_id"
+
+
+def test_skipped_company_appended_to_rescan_csv(tmp_path, monkeypatch):
+    monkeypatch.setattr(stage, "LOG_DIR", tmp_path)
+    company = ready_company()
+    company["PHONE"] = []
+    bx = FakeBitrix(company=company, contacts=[{"ID": "5"}], requisites=[{"RQ_INN": "7700000000"}])
+
+    summary = stage.run(bx, dry_run=False)
+
+    assert summary["skipped"] == 1
+    csv_path = tmp_path / "auto_promote_skipped.csv"
+    assert csv_path.exists()
+    content = csv_path.read_text(encoding="utf-8")
+    assert "company_id,deal_id,missing_fields" in content
+    assert "PHONE_PRESENT" in content
+
+
+def test_rescan_csv_appended_only_in_live(tmp_path, monkeypatch):
+    monkeypatch.setattr(stage, "LOG_DIR", tmp_path)
+    company = ready_company()
+    company["EMAIL"] = []
+    bx = FakeBitrix(company=company, contacts=[{"ID": "5"}], requisites=[{"RQ_INN": "7700000000"}])
+
+    summary = stage.run(bx, dry_run=True)
+
+    assert summary["skipped"] == 1
+    assert not (tmp_path / "auto_promote_skipped.csv").exists()
