@@ -202,6 +202,14 @@ def test_deal_region_overwritten_when_differs_from_company():
     assert DEAL_UF_REGION not in skipped
 
 
+def test_deal_region_string_gets_label_from_company_region_enum_id():
+    fields = sync_deals.build_deal_fields_from_company(
+        _company(**{COMPANY_UF_REGION: "9008"})
+    )
+
+    assert fields[DEAL_UF_REGION] == "Москва"
+
+
 def test_deal_city_unchanged_when_matches_company():
     desired = sync_deals.build_deal_fields_from_company(_company(**{COMPANY_UF_CITY: "Москва"}))
     fields, skipped = sync_deals._filter_existing_fields(

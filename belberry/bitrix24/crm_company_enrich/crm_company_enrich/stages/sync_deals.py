@@ -21,6 +21,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from ..bitrix_client import BitrixClient
+from ..region_rf_config import REGION_RF_VALUES
 from ..config import (
     COMPANY_REGION_ENUM_MAP,
     COMPANY_UF_RUSPROFILE_CHECKO_URL,
@@ -613,6 +614,8 @@ def build_company_fields_from_company(
 def _company_region_for_deal(company: dict[str, Any]) -> str:
     company_region = _clean(company.get(COMPANY_UF_REGION))
     if company_region:
+        if not DEAL_REGION_ENUM_MAP and DEAL_UF_REGION != COMPANY_UF_REGION:
+            return _region_label_from_company_enum(company_region) or company_region
         return company_region
     raw_region = _clean(company.get("REG_ADDRESS_REGION") or company.get("ADDRESS_REGION"))
     if not raw_region:
@@ -622,6 +625,15 @@ def _company_region_for_deal(company: dict[str, Any]) -> str:
     if COMPANY_REGION_ENUM_MAP and DEAL_UF_REGION == COMPANY_UF_REGION:
         return _resolve_region_enum(raw_region, COMPANY_REGION_ENUM_MAP)
     return raw_region
+
+
+def _region_label_from_company_enum(enum_id: str) -> str:
+    reverse: dict[str, str] = {}
+    for value in REGION_RF_VALUES:
+        enum_value = COMPANY_REGION_ENUM_MAP.get(_normalize_region_key(value))
+        if enum_value:
+            reverse[enum_value] = value
+    return reverse.get(_clean(enum_id), "")
 
 
 def _resolve_region_enum(raw_region: str, mapping: dict[str, str]) -> str:
