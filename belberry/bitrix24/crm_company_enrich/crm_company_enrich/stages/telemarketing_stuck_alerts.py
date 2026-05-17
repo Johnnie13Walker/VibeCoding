@@ -6,7 +6,7 @@ from datetime import date, datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from ..config import TELEMARKETING_CATEGORY_ID
+from ..config import DEAL_MEETING_DATE_FIELD, TELEMARKETING_CATEGORY_ID
 
 PREPARATION_ALERT_DAYS = 21
 WZ4KQE_ALERT_DAYS_AFTER_MEETING = 14
@@ -50,11 +50,17 @@ def find_stuck_wz4kqe(
     threshold_days: int = WZ4KQE_ALERT_DAYS_AFTER_MEETING,
     today: date | None = None,
 ) -> list[StuckDeal]:
+    """Сделки C50:UC_WZ4KQE с просроченной датой встречи.
+
+    Основной источник — UF_CRM_63282B49DC758 «Дата и время встречи»
+    (подтверждено discovery 2026-05-17). Если UF пуст, используем CLOSEDATE
+    как явный proxy deadline-а, чтобы не потерять старые карточки.
+    """
     today = today or datetime.now(MOSCOW_TZ).date()
     deals = _list_open_stage(bx, WZ4KQE_STAGE_ID)
     out = []
     for deal in deals:
-        meeting_date = _parse_date(deal.get("MEETING_DATE")) or _parse_date(deal.get("CLOSEDATE"))
+        meeting_date = _parse_date(deal.get(DEAL_MEETING_DATE_FIELD)) or _parse_date(deal.get("CLOSEDATE"))
         if not meeting_date:
             continue
         days = (today - meeting_date).days
@@ -91,7 +97,7 @@ def _list_open_stage(bx: Any, stage_id: str) -> list[dict[str, Any]]:
                 "DATE_MODIFY",
                 "LAST_COMMUNICATION_TIME",
                 "CLOSEDATE",
-                "MEETING_DATE",
+                DEAL_MEETING_DATE_FIELD,
             ],
         )
     )

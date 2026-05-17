@@ -88,6 +88,9 @@ REVIVE_NEXT_COMMUNICATION_FIELD = "UF_CRM_1770901971"
 REVIVE_COUNT_FIELD = "UF_CRM_REVIVE_COUNT"
 REACTIVATION_COUNT_FIELD = "UF_CRM_REACTIVATION_COUNT"
 LAST_AUTO_ACTION_DESC_FIELD = "UF_CRM_1733394206255"
+# Дата встречи в сделке. Discovery 2026-05-17 через crm.deal.fields:
+# UF_CRM_63282B49DC758, type=datetime, title="Дата и время встречи".
+DEAL_MEETING_DATE_FIELD = "UF_CRM_63282B49DC758"
 # Описание последнего auto-action (auto-reject / dedupe / revive).
 # История действий хранится в timeline сделки; это поле перезаписывается.
 REVIVE_AUDIT_FIELD = LAST_AUTO_ACTION_DESC_FIELD
