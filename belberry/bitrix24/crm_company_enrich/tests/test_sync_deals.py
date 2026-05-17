@@ -516,6 +516,8 @@ def test_organization_status_parses_rusprofile_html(monkeypatch):
 
     assert sync_deals._parse_organization_status("<span>Организация ликвидирована</span>") == "Ликвидирована"
 
+    assert sync_deals._parse_organization_status("<h1>Организация в процессе банкротства</h1>") == "Ликвидирована"
+
 
 def test_brand_defaults_to_belberry_when_company_brand_is_empty():
     bx = FakeBitrix(
