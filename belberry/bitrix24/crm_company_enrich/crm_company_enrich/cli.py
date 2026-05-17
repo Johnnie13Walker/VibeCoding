@@ -218,6 +218,68 @@ def cmd_dedupe_contacts(args: argparse.Namespace) -> int:
     return 1 if summary.get("failed") else 0
 
 
+def cmd_telemarketing_digest(args: argparse.Namespace) -> int:
+    from .stages import telemarketing_digest
+    bx, _ = _make_clients()
+    summary = telemarketing_digest.run(
+        bx,
+        dry_run=not args.live,
+        since=args.since,
+    )
+    print(json.dumps(summary, indent=2, ensure_ascii=False))
+    telegram_result = summary.get("telegram") or {}
+    if telegram_result.get("skipped"):
+        print(
+            f"WARN: telegram message skipped: {telegram_result.get('reason')}. "
+            "Set LARISA_BOT_TOKEN and LARISA_CHAT_ID_LARISA env to enable.",
+            file=sys.stderr,
+        )
+    return 1 if telegram_result.get("ok") is False else 0
+
+
+def cmd_auto_promote_base(args: argparse.Namespace) -> int:
+    from .stages import auto_promote_base
+    bx, _ = _make_clients()
+    summary = auto_promote_base.run(
+        bx,
+        dry_run=not args.live,
+        limit=args.limit,
+        rotation_index=args.rotation_index,
+    )
+    print(json.dumps(summary, indent=2, ensure_ascii=False))
+    return 1 if summary.get("failed") else 0
+
+
+def cmd_telemarketing_stuck_alerts(args: argparse.Namespace) -> int:
+    from datetime import datetime
+
+    from .stages import telemarketing_stuck_alerts
+
+    bx, _ = _make_clients()
+    today = datetime.fromisoformat(args.today).date() if args.today else None
+    summary = telemarketing_stuck_alerts.run(bx, today=today)
+    print(json.dumps(summary, indent=2, ensure_ascii=False))
+    return 0
+
+
+def cmd_reactivation_apology(args: argparse.Namespace) -> int:
+    from datetime import datetime
+
+    from .stages import reactivation_apology
+
+    bx, _ = _make_clients()
+    today = datetime.fromisoformat(args.today).date() if args.today else None
+    summary = reactivation_apology.run(
+        bx,
+        dry_run=not args.live,
+        limit=args.limit,
+        today=today,
+        rotation_index=args.rotation_index,
+    )
+    print(json.dumps(summary, indent=2, ensure_ascii=False))
+    return 1 if summary.get("failed") else 0
+
+
 def cmd_auto_reject_telemarketing(args: argparse.Namespace) -> int:
     from .stages import auto_reject_telemarketing
     bx, _ = _make_clients()
@@ -289,6 +351,21 @@ def cmd_deal_revive_count_field(args: argparse.Namespace) -> int:
     from .stages import deal_revive_count_field
     bx, _ = _make_clients()
     summary = deal_revive_count_field.run(
+        bx,
+        apply=args.apply,
+        verify=not args.skip_verify,
+    )
+    print(json.dumps(summary, indent=2, ensure_ascii=False))
+    verification = summary.get("verification")
+    if verification and not verification.get("ok"):
+        return 1
+    return 0
+
+
+def cmd_deal_reactivation_count_field(args: argparse.Namespace) -> int:
+    from .stages import deal_reactivation_count_field
+    bx, _ = _make_clients()
+    summary = deal_reactivation_count_field.run(
         bx,
         apply=args.apply,
         verify=not args.skip_verify,
@@ -572,6 +649,46 @@ def main() -> None:
     sp.set_defaults(func=cmd_dedupe_contacts)
 
     sp = sub.add_parser(
+        "telemarketing-digest",
+        help=(
+            "TG: собрать дневной дайджест Ларисы. По умолчанию dry-run; "
+            "отправка только с --live."
+        ),
+    )
+    sp.add_argument("--live", action="store_true")
+    sp.add_argument("--since", help="ISO date YYYY-MM-DD, по умолчанию вчера по МСК")
+    sp.set_defaults(func=cmd_telemarketing_digest)
+
+    sp = sub.add_parser(
+        "auto-promote-base",
+        help=(
+            "WRITE: перевести готовые сделки из C50:UC_1S1KIU в C50:NEW. "
+            "По умолчанию dry-run."
+        ),
+    )
+    sp.add_argument("--live", action="store_true")
+    sp.add_argument("--limit", type=int)
+    sp.add_argument("--rotation-index", type=int, default=0)
+    sp.set_defaults(func=cmd_auto_promote_base)
+
+    sp = sub.add_parser(
+        "telemarketing-stuck-alerts",
+        help="READ: найти застрявшие C50:PREPARATION и C50:UC_WZ4KQE сделки",
+    )
+    sp.add_argument("--today", help="ISO date YYYY-MM-DD для тестового расчёта")
+    sp.set_defaults(func=cmd_telemarketing_stuck_alerts)
+
+    sp = sub.add_parser(
+        "reactivation-apology",
+        help="WRITE: re-open C50:APOLOGY по cooldown matrix. По умолчанию dry-run.",
+    )
+    sp.add_argument("--live", action="store_true")
+    sp.add_argument("--limit", type=int)
+    sp.add_argument("--today", help="ISO date YYYY-MM-DD для тестового расчёта")
+    sp.add_argument("--rotation-index", type=int, default=0)
+    sp.set_defaults(func=cmd_reactivation_apology)
+
+    sp = sub.add_parser(
         "auto-reject-telemarketing",
         help=(
             "WRITE: автоматически закрыть сделки в C50:UC_1S1KIU/NEW по причинам "
@@ -644,6 +761,17 @@ def main() -> None:
     sp.add_argument("--apply", action="store_true", help="Реально создать или обновить поле в Bitrix24")
     sp.add_argument("--skip-verify", action="store_true", help="Не читать поле повторно после --apply")
     sp.set_defaults(func=cmd_deal_revive_count_field)
+
+    sp = sub.add_parser(
+        "deal-reactivation-count-field",
+        help=(
+            "WRITE: idempotent create/sync UF_CRM_REACTIVATION_COUNT. "
+            "По умолчанию dry-run; запись только с --apply."
+        ),
+    )
+    sp.add_argument("--apply", action="store_true", help="Реально создать или обновить поле в Bitrix24")
+    sp.add_argument("--skip-verify", action="store_true", help="Не читать поле повторно после --apply")
+    sp.set_defaults(func=cmd_deal_reactivation_count_field)
 
     sp = sub.add_parser(
         "migrate-region-enum-ids",

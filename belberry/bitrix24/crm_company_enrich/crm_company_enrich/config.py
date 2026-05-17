@@ -60,6 +60,12 @@ DEAL_MERGE_ACTIVE_STATUSES = frozenset({"APPROVED", "TRANSFERRED", "MERGED", "MA
 # Portal
 PORTAL_DOMAIN = "belberrycrm.bitrix24.ru"
 
+# TG-дайджест Ларисы Ивановны. Токен/chat_id живут в ENV на VPS; локально
+# отсутствие ENV не ошибка — отправка молча пропускается для CI/dev.
+LARISA_BOT_TOKEN_ENV = "LARISA_BOT_TOKEN"
+LARISA_CHAT_ID_LARISA_ENV = "LARISA_CHAT_ID_LARISA"
+DIGEST_BITRIX_PORTAL = "belberrycrm.bitrix24.ru"
+
 # Телемаркетинг: целевая воронка и ротация ответственных.
 TELEMARKETING_CATEGORY_ID = "50"
 TELEMARKETING_NEW_STAGE_ID = "C50:NEW"
@@ -80,7 +86,11 @@ TELEMARKETING_REVIVE_SOURCE_ID = "12"
 TELEMARKETING_REVIVE_MAX_PER_DEAL = 3
 REVIVE_NEXT_COMMUNICATION_FIELD = "UF_CRM_1770901971"
 REVIVE_COUNT_FIELD = "UF_CRM_REVIVE_COUNT"
+REACTIVATION_COUNT_FIELD = "UF_CRM_REACTIVATION_COUNT"
 LAST_AUTO_ACTION_DESC_FIELD = "UF_CRM_1733394206255"
+# Дата встречи в сделке. Discovery 2026-05-17 через crm.deal.fields:
+# UF_CRM_63282B49DC758, type=datetime, title="Дата и время встречи".
+DEAL_MEETING_DATE_FIELD = "UF_CRM_63282B49DC758"
 # Описание последнего auto-action (auto-reject / dedupe / revive).
 # История действий хранится в timeline сделки; это поле перезаписывается.
 REVIVE_AUDIT_FIELD = LAST_AUTO_ACTION_DESC_FIELD
