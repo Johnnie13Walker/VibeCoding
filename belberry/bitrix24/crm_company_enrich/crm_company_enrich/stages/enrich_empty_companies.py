@@ -1494,10 +1494,20 @@ def _start_bp_first_entry(bx: BitrixClient, company_id: str) -> str:
     return _start_bp_template(bx, company_id, CCE_BIZPROC_FIRST_ENTRY_ID)
 
 
+def start_bp_first_entry(bx: BitrixClient, company_id: str) -> str:
+    """Публичная обёртка запуска первого BP-обогащения компании."""
+    return _start_bp_first_entry(bx, company_id)
+
+
 def _start_bp_update(bx: BitrixClient, company_id: str) -> str:
     if not CCE_BIZPROC_UPDATE_ID:
         return "skipped:update_bp_disabled"
     return _start_bp_template(bx, company_id, CCE_BIZPROC_UPDATE_ID)
+
+
+def start_bp_update(bx: BitrixClient, company_id: str) -> str:
+    """Публичная обёртка запуска основного BP-обновления компании."""
+    return _start_bp_update(bx, company_id)
 
 
 def _start_bp_template(bx: BitrixClient, company_id: str, template_id: int) -> str:
@@ -1529,6 +1539,11 @@ def _verify_with_retries(bx: BitrixClient, company_id: str) -> tuple[bool, dict 
     return False, None, "BP_FAILED"
 
 
+def verify_with_retries(bx: BitrixClient, company_id: str) -> tuple[bool, dict | None, str]:
+    """Публичная обёртка проверки результата BP-обогащения."""
+    return _verify_with_retries(bx, company_id)
+
+
 def _fill_company_address_fields(bx: BitrixClient, company_id: str, company: dict) -> dict[str, Any]:
     """Заполнить город/область компании из юридического адреса, не затирая ручной ввод."""
     reg_city = _clean(company.get("REG_ADDRESS_CITY") or company.get("ADDRESS_CITY"))
@@ -1547,6 +1562,11 @@ def _fill_company_address_fields(bx: BitrixClient, company_id: str, company: dic
     if updates:
         bx.update_company(company_id, updates)
     return updates
+
+
+def fill_company_address_fields(bx: BitrixClient, company_id: str, company: dict) -> dict[str, Any]:
+    """Публичная обёртка заполнения города/области компании из адреса."""
+    return _fill_company_address_fields(bx, company_id, company)
 
 
 def _resolve_region_enum(raw_region: str, mapping: dict[str, str]) -> str:
@@ -1626,6 +1646,15 @@ def _duplicate_info_from_requisites(
         "duplicate_requisite_ids": duplicate_requisite_ids,
         "duplicate_reason": reason,
     }
+
+
+def duplicate_info_from_requisites(
+    bx: BitrixClient,
+    requisites: list[dict],
+    current_company_id: str,
+) -> dict[str, Any]:
+    """Публичная обёртка анализа дублей по реквизитам с тем же ИНН."""
+    return _duplicate_info_from_requisites(bx, requisites, current_company_id)
 
 
 def _has_duplicate_info(duplicate_info: dict[str, Any]) -> bool:

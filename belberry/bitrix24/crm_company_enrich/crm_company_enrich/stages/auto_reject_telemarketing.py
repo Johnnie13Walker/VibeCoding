@@ -101,37 +101,90 @@ def run(
         deals = deals[:limit]
     companies_by_id = _prefetch_companies(bx, deals)
 
-    outcomes: list[AutoRejectOutcome] = []
-    counters = {
-        "examined": len(deals),
-        "rejected": 0,
-        "dry_run_updates": 0,
-        "skipped": 0,
-        "no_company": 0,
-        "failed": 0,
-        "rejected_8538": 0,
-        "rejected_8542": 0,
-        "dry_run_8538": 0,
-        "dry_run_8542": 0,
-    }
-
-    for deal in deals:
-        outcome = _process_deal(
+    outcomes = [
+        _process_deal(
             bx,
             deal,
             dry_run=dry_run,
             allowed_stages=allowed_stages,
             companies_by_id=companies_by_id,
         )
-        outcomes.append(outcome)
-        _update_counters(counters, outcome, dry_run=dry_run)
+        for deal in deals
+    ]
+    return _summary_from_outcomes(outcomes, dry_run=dry_run, scan_stages=scan_stages)
 
-    return {
-        "dry_run": dry_run,
-        "scan_stages": scan_stages,
-        **counters,
-        "outcomes": [outcome.__dict__ for outcome in outcomes],
-    }
+
+def run_deal(bx: BitrixClient, *, deal_id: str, dry_run: bool = True) -> dict:
+    """Scoped auto-reject для одной сделки после точечного sync-deals."""
+    deal = bx.get_deal(str(deal_id))
+    allowed_stages = set(TELEMARKETING_AUTO_REJECT_SCAN_STAGES)
+    if not deal:
+        return _empty_summary(dry_run=dry_run, reason="deal_not_found", deal_id=str(deal_id))
+
+    stage_id = str(deal.get("STAGE_ID") or "")
+    if stage_id not in allowed_stages:
+        outcome = AutoRejectOutcome(str(deal.get("ID") or deal_id), str(deal.get("COMPANY_ID") or ""), "SKIPPED", skipped_reason="stage_not_scannable")
+        summary = _summary_from_outcomes([outcome], dry_run=dry_run, scan_stages=list(TELEMARKETING_AUTO_REJECT_SCAN_STAGES))
+        summary["reason"] = "stage_not_scannable"
+        summary["deal_id"] = str(deal_id)
+        summary["stage_id"] = stage_id
+        return summary
+    if _marker_already_set(deal.get(HOLD_MARKER_FLAG_FIELD)):
+        outcome = AutoRejectOutcome(str(deal.get("ID") or deal_id), str(deal.get("COMPANY_ID") or ""), "SKIPPED", skipped_reason="marker_already_set")
+        summary = _summary_from_outcomes([outcome], dry_run=dry_run, scan_stages=list(TELEMARKETING_AUTO_REJECT_SCAN_STAGES))
+        summary["reason"] = "marker_already_set"
+        summary["deal_id"] = str(deal_id)
+        return summary
+
+    companies_by_id = _prefetch_companies(bx, [deal])
+    outcome = _process_deal(
+        bx,
+        deal,
+        dry_run=dry_run,
+        allowed_stages=allowed_stages,
+        companies_by_id=companies_by_id,
+    )
+    return _summary_from_outcomes([outcome], dry_run=dry_run, scan_stages=list(TELEMARKETING_AUTO_REJECT_SCAN_STAGES))
+
+
+def run_company(bx: BitrixClient, *, company_id: str, dry_run: bool = True) -> dict:
+    """Scoped auto-reject для активных сканируемых сделок одной компании."""
+    deals = bx.list_company_deals(
+        str(company_id),
+        select=[
+            "ID",
+            "TITLE",
+            "STAGE_ID",
+            "COMPANY_ID",
+            "ASSIGNED_BY_ID",
+            "CLOSED",
+            HOLD_MARKER_FLAG_FIELD,
+        ],
+    )
+    scan_deals = [
+        deal for deal in deals
+        if str(deal.get("STAGE_ID") or "") in set(TELEMARKETING_AUTO_REJECT_SCAN_STAGES)
+        and str(deal.get("CLOSED") or "") != "Y"
+        and not _marker_already_set(deal.get(HOLD_MARKER_FLAG_FIELD))
+    ]
+    if not scan_deals:
+        return _empty_summary(dry_run=dry_run, reason="no_scannable_deals", company_id=str(company_id))
+
+    companies_by_id = _prefetch_companies(bx, scan_deals)
+    allowed_stages = set(TELEMARKETING_AUTO_REJECT_SCAN_STAGES)
+    outcomes = [
+        _process_deal(
+            bx,
+            deal,
+            dry_run=dry_run,
+            allowed_stages=allowed_stages,
+            companies_by_id=companies_by_id,
+        )
+        for deal in scan_deals
+    ]
+    summary = _summary_from_outcomes(outcomes, dry_run=dry_run, scan_stages=list(TELEMARKETING_AUTO_REJECT_SCAN_STAGES))
+    summary["company_id"] = str(company_id)
+    return summary
 
 
 def _process_deal(
@@ -238,6 +291,57 @@ def _marker_already_set(value: Any) -> bool:
     if isinstance(value, bool):
         return value
     return str(value or "").strip().upper() in {"1", "Y", "TRUE"}
+
+
+def _empty_summary(
+    *,
+    dry_run: bool,
+    reason: str,
+    deal_id: str = "",
+    company_id: str = "",
+    stage_id: str = "",
+) -> dict[str, Any]:
+    summary = _summary_from_outcomes(
+        [],
+        dry_run=dry_run,
+        scan_stages=list(TELEMARKETING_AUTO_REJECT_SCAN_STAGES),
+    )
+    summary["reason"] = reason
+    if deal_id:
+        summary["deal_id"] = deal_id
+    if company_id:
+        summary["company_id"] = company_id
+    if stage_id:
+        summary["stage_id"] = stage_id
+    return summary
+
+
+def _summary_from_outcomes(
+    outcomes: list[AutoRejectOutcome],
+    *,
+    dry_run: bool,
+    scan_stages: list[str],
+) -> dict[str, Any]:
+    counters = {
+        "examined": len(outcomes),
+        "rejected": 0,
+        "dry_run_updates": 0,
+        "skipped": 0,
+        "no_company": 0,
+        "failed": 0,
+        "rejected_8538": 0,
+        "rejected_8542": 0,
+        "dry_run_8538": 0,
+        "dry_run_8542": 0,
+    }
+    for outcome in outcomes:
+        _update_counters(counters, outcome, dry_run=dry_run)
+    return {
+        "dry_run": dry_run,
+        "scan_stages": scan_stages,
+        **counters,
+        "outcomes": [outcome.__dict__ for outcome in outcomes],
+    }
 
 
 def _update_counters(counters: dict[str, int], outcome: AutoRejectOutcome, *, dry_run: bool) -> None:

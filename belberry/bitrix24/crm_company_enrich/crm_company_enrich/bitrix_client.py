@@ -184,6 +184,22 @@ class BitrixClient:
         body = self.call("crm.company.userfield.update", {"id": field_id, "fields": fields})
         return bool(body.get("result"))
 
+    def get_deal_user_fields(self) -> list[dict]:
+        """Список UF_* полей сделки."""
+        body = self.call("crm.deal.userfield.list", {"order": {"ID": "ASC"}})
+        result = body.get("result")
+        return result if isinstance(result, list) else []
+
+    def add_deal_user_field(self, fields: dict) -> str:
+        """Создать пользовательское поле сделки."""
+        body = self.call("crm.deal.userfield.add", {"fields": fields})
+        return str(body.get("result") or "")
+
+    def update_deal_user_field(self, field_id: str, fields: dict) -> bool:
+        """Обновить пользовательское поле сделки."""
+        body = self.call("crm.deal.userfield.update", {"id": field_id, "fields": fields})
+        return bool(body.get("result"))
+
     def get_company_deals_count(self, company_id: str) -> int:
         """Количество сделок у компании. Минимальный select для скорости."""
         body = self.call(
@@ -319,8 +335,27 @@ class BitrixClient:
             },
         )
 
+    def remove_deal_contact_relation(self, deal_id: str, contact_id: str) -> bool:
+        """Отвязать контакт от сделки."""
+        return self._bool_result(
+            "crm.deal.contact.delete",
+            {
+                "id": deal_id,
+                "fields": {"CONTACT_ID": int(contact_id)},
+            },
+        )
+
     def get_contact(self, contact_id: str) -> dict | None:
         return self._get_or_none("crm.contact.get", {"id": contact_id})
+
+    def list_company_contacts_full(self, company_id: str) -> list[dict]:
+        """Все контакты компании с полной информацией."""
+        contacts: list[dict] = []
+        for contact_id in self.get_company_contacts(company_id):
+            contact = self.get_contact(contact_id)
+            if contact:
+                contacts.append(contact)
+        return contacts
 
     def update_contact(self, contact_id: str, fields: dict) -> bool:
         body = self.call("crm.contact.update", {"id": contact_id, "fields": fields})
@@ -437,6 +472,36 @@ class BitrixClient:
         )
         return bool(body.get("result"))
 
+    def add_company(self, fields: dict, *, params: dict | None = None) -> str:
+        """crm.company.add — создать компанию и вернуть ID."""
+        payload: dict[str, Any] = {"fields": fields}
+        if params:
+            payload["params"] = params
+        body = self.call("crm.company.add", payload)
+        result = body.get("result")
+        if isinstance(result, dict):
+            company_id = result.get("ID") or result.get("id")
+        else:
+            company_id = result
+        if company_id in (None, "", 0, "0"):
+            raise BitrixError(f"crm.company.add returned empty id: {body!r}")
+        return str(company_id)
+
+    def add_deal(self, fields: dict, *, params: dict | None = None) -> str:
+        """crm.deal.add — создать сделку и вернуть ID."""
+        payload: dict[str, Any] = {"fields": fields}
+        if params:
+            payload["params"] = params
+        body = self.call("crm.deal.add", payload)
+        result = body.get("result")
+        if isinstance(result, dict):
+            deal_id = result.get("ID") or result.get("id")
+        else:
+            deal_id = result
+        if deal_id in (None, "", 0, "0"):
+            raise BitrixError(f"crm.deal.add returned empty id: {body!r}")
+        return str(deal_id)
+
     def start_workflow(self, template_id: int, document_type: list) -> dict:
         """bizproc.workflow.start — best-effort, не подавляем сетевые retries,
         но 4xx-ошибки (403/400) пробрасываем как BitrixError для caller-side handle.
@@ -552,7 +617,13 @@ class BitrixClient:
     def _refresh_state(self) -> None:
         if not SYNC_SCRIPT.exists():
             raise BitrixTokenExpired(f"Sync-скрипт не найден: {SYNC_SCRIPT}")
-        subprocess.run([str(SYNC_SCRIPT)], check=True)
+        subprocess.run(
+            [str(SYNC_SCRIPT)],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
         self._state = self._read_state()
         self._last_sync_at_monotonic = time.monotonic()
 
