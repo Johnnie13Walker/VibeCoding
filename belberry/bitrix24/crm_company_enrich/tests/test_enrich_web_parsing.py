@@ -26,6 +26,11 @@ def test_extract_inn_labeled_english():
     assert extract_inn_from_text(html) == "7707083893"
 
 
+def test_extract_inn_labeled_html_nbsp_entity():
+    html = "ООО Фирма «Феррум» ИНН&nbsp;2614018356, ОГРН&nbsp;1032600181569"
+    assert extract_inn_from_text(html) == "2614018356"
+
+
 def test_extract_inn_12_digit():
     html = "<div>ИНН 770708389300</div>"
     assert extract_inn_from_text(html) == "770708389300"

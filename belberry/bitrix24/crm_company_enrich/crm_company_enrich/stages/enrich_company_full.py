@@ -220,11 +220,19 @@ def _step_resolve(bx: BitrixClient, outcome: FullEnrichmentOutcome, context: dic
             context["company_id"] = str(company.get("ID") or "")
 
     if not company and flags["create_if_missing"]:
+        if context.get("inn"):
+            existing_company_id = _find_company_id_by_inn(bx, context["inn"])
+            if existing_company_id:
+                context["company_id"] = existing_company_id
+                company = bx.get_company(existing_company_id) or {"ID": existing_company_id}
+                if outcome.input_kind == "deal_id" and context.get("deal_id") and not deal_had_company:
+                    bx.update_deal(context["deal_id"], {"COMPANY_ID": existing_company_id})
+                    context["attached_input_deal"] = True
         if not context.get("inn"):
             outcome.flags.append("no_inn_no_company")
             outcome.final_status = "SKIPPED"
             return StepOutcome("RESOLVE", "SKIPPED", {"reason": "no_inn_no_company", "url": context.get("url", "")})
-        if flags["dry_run"]:
+        if not company and flags["dry_run"]:
             context["company_id"] = "DRY_RUN_COMPANY"
             outcome.company_id = context["company_id"]
             context["created_company"] = True
@@ -233,13 +241,14 @@ def _step_resolve(bx: BitrixClient, outcome: FullEnrichmentOutcome, context: dic
                 context["attached_input_deal"] = True
             outcome.flags.append("would_create_company")
             return StepOutcome("RESOLVE", "DONE", {"created": "dry_run", "company_id": context["company_id"]})
-        fields = _minimum_company_fields(context)
-        context["company_id"] = _add_company(bx, fields)
-        context["created_company"] = True
-        company = bx.get_company(context["company_id"]) or {"ID": context["company_id"], **fields}
-        if outcome.input_kind == "deal_id" and context.get("deal_id") and not deal_had_company:
-            bx.update_deal(context["deal_id"], {"COMPANY_ID": context["company_id"]})
-            context["attached_input_deal"] = True
+        if not company:
+            fields = _minimum_company_fields(context)
+            context["company_id"] = _add_company(bx, fields)
+            context["created_company"] = True
+            company = bx.get_company(context["company_id"]) or {"ID": context["company_id"], **fields}
+            if outcome.input_kind == "deal_id" and context.get("deal_id") and not deal_had_company:
+                bx.update_deal(context["deal_id"], {"COMPANY_ID": context["company_id"]})
+                context["attached_input_deal"] = True
 
     if not company:
         outcome.final_status = "FAILED"
@@ -249,6 +258,11 @@ def _step_resolve(bx: BitrixClient, outcome: FullEnrichmentOutcome, context: dic
     context["company"] = company
     outcome.company_id = context["company_id"]
     return StepOutcome("RESOLVE", "DONE", {"company_id": outcome.company_id, "title": company.get("TITLE")})
+
+
+def _find_company_id_by_inn(bx: BitrixClient, inn: str) -> str:
+    reqs = bx.search_requisite_by_inn(inn) if inn else []
+    return str((reqs[0] if reqs else {}).get("ENTITY_ID") or "")
 
 
 def _step_find_site(bx: BitrixClient, outcome: FullEnrichmentOutcome, context: dict[str, Any], flags: dict[str, Any]) -> StepOutcome:

@@ -277,6 +277,40 @@ def test_deal_without_company_creates_company_only_after_inn_found(monkeypatch):
     assert sync_deal_calls[-1]["telemarketing_workflow"] is True
 
 
+def test_deal_without_company_reuses_existing_company_by_found_inn(monkeypatch):
+    sync_company_calls = []
+    sync_deal_calls = []
+    stage.sync_deals.run_company = lambda *a, **k: sync_company_calls.append(k) or {"failed": 0, "outcomes": [{"status": "DRY_RUN"}]}
+    stage.sync_deals.run = lambda *a, **k: sync_deal_calls.append(k) or {"failed": 0, "outcomes": [{"status": "DRY_RUN"}]}
+    monkeypatch.setattr(stage.enrich_web, "try_web", lambda *a, **k: ("2614018356", "ООО Фирма Феррум"))
+    bx = FakeBitrix(
+        companies={"24208": company("24208", TITLE='ООО ФИРМА "ФЕРРУМ"')},
+        deals={"10996": deal("10996", company_id="")},
+        requisites={"24208": [req("24208", inn="2614018356")]},
+        search_requisites=[req("24208", inn="2614018356")],
+    )
+
+    out = stage.run(
+        bx,
+        deal_id="10996",
+        url="https://ferrum-sk.ru",
+        create_if_missing=True,
+        dry_run=False,
+        skip_bp=True,
+        skip_dedupe_contacts=True,
+        skip_director_inn=True,
+        skip_telemarketing_dedupe=True,
+        bizproc_wait_s=0,
+    )
+
+    assert out.company_id == "24208"
+    assert bx.added_companies == []
+    assert bx.updated_deals[0][0] == "10996"
+    assert bx.updated_deals[0][1] == {"COMPANY_ID": "24208"}
+    assert sync_company_calls[-1]["company_id"] == "24208"
+    assert sync_deal_calls[-1]["deal_id"] == "10996"
+
+
 def test_dry_run_created_company_reuses_context_without_bitrix_get():
     class StrictBitrix(FakeBitrix):
         def get_company(self, company_id):

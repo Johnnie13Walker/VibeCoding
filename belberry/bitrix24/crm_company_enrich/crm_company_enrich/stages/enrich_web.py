@@ -16,6 +16,7 @@ from __future__ import annotations
 import re
 import time
 import urllib.parse
+from html import unescape
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Callable, Iterable, Optional, Union
@@ -456,6 +457,7 @@ def extract_inn_from_text(text: str, *, source_url: str | None = None) -> str | 
     """
     if not text:
         return None
+    text = unescape(str(text)).replace("\xa0", " ")
 
     # 1. labeled — наиболее надёжно.
     for m in INN_NEAR_LABEL.finditer(text):

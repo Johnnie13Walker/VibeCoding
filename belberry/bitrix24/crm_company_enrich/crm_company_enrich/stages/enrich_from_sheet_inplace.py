@@ -68,6 +68,24 @@ STATUS_COL_INDEX = 10  # K
 COLOR_SUCCESS = {"red": 0.851, "green": 0.918, "blue": 0.827}   # #d9ead3 light green
 COLOR_FAILURE = {"red": 0.957, "green": 0.800, "blue": 0.800}   # #f4cccc light red
 COLOR_NEUTRAL = {"red": 1.000, "green": 0.949, "blue": 0.800}   # #fff2cc light yellow
+SUCCESS_STATUSES = {"ENRICHED", "REJECTED"}
+FAILURE_STATUSES = {"PARTIAL", "FAILED", "SKIPPED", "EXCEPTION"}
+INPLACE_HEADERS_H_U = [
+    "Причина / результат",
+    "deal_id",
+    "enriched_at",
+    "status",
+    "updated_fields",
+    "company_id",
+    "company_title",
+    "company_inn",
+    "company_revenue",
+    "deal_stage",
+    "deal_assignee",
+    "director_inn",
+    "rejected_reason",
+    "error",
+]
 
 STATE_PATH = LOG_DIR / "enrich_from_sheet_inplace_state.json"
 
@@ -270,11 +288,16 @@ def row_writeback_cells(
 def color_for_status(status: str) -> dict[str, float]:
     """Map orchestrator final_status to RGB row color."""
     upper = (status or "").upper()
-    if upper in {"ENRICHED", "PARTIAL"}:
+    if upper in SUCCESS_STATUSES:
         return COLOR_SUCCESS
-    if upper in {"FAILED", "REJECTED", "EXCEPTION"}:
+    if upper in FAILURE_STATUSES:
         return COLOR_FAILURE
     return COLOR_NEUTRAL
+
+
+def is_successful_for_removal(status: str) -> bool:
+    """Whether row can be removed from the source worklist after live writeback."""
+    return (status or "").upper() in SUCCESS_STATUSES
 
 
 def build_color_request(sheet_gid: int, row_number: int, color: dict[str, float]) -> dict[str, Any]:
@@ -335,6 +358,38 @@ def write_row_updates_and_color(
     ).execute()
 
 
+def ensure_inplace_headers(service, sheet_id: str, tab_title: str) -> None:
+    """Keep H..U headers aligned with E..U writeback layout."""
+    service.spreadsheets().values().update(
+        spreadsheetId=sheet_id,
+        range=f"'{tab_title}'!H1:U1",
+        valueInputOption="RAW",
+        body={"values": [INPLACE_HEADERS_H_U]},
+    ).execute()
+
+
+def delete_rows_desc(service, sheet_id: str, sheet_gid: int, row_numbers: list[int]) -> None:
+    """Delete rows by 1-based numbers, descending to keep indexes stable."""
+    requests: list[dict[str, Any]] = []
+    for row_number in sorted(set(row_numbers), reverse=True):
+        requests.append({
+            "deleteDimension": {
+                "range": {
+                    "sheetId": sheet_gid,
+                    "dimension": "ROWS",
+                    "startIndex": row_number - 1,
+                    "endIndex": row_number,
+                }
+            }
+        })
+    if not requests:
+        return
+    service.spreadsheets().batchUpdate(
+        spreadsheetId=sheet_id,
+        body={"requests": requests},
+    ).execute()
+
+
 def run_in_place(
     bx,
     service,
@@ -348,6 +403,7 @@ def run_in_place(
     limit: int | None = None,
     cron_mode: bool = False,
     skip_already_processed: bool = True,
+    delete_successful: bool = False,
 ) -> dict[str, Any]:
     """Main entry. Reads tab, processes unprocessed rows, writes back per-row.
 
@@ -373,11 +429,13 @@ def run_in_place(
         "tab": tab_title,
         "sheet_gid": sheet_gid,
         "dry_run": dry_run,
+        "delete_successful": delete_successful,
         "total_rows_in_tab": len(all_inputs),
         "already_processed_skipped": len(all_inputs) - len(inputs) if skip_already_processed else 0,
         "to_process": len(inputs),
         "processed": 0,
         "failed": 0,
+        "successful_rows_deleted": 0,
         "stopped_by_window": 0,
         "stopped_by_duration": 0,
         "status_counts": {},
@@ -389,7 +447,11 @@ def run_in_place(
         _write_state(summary, next_index=0)
         return summary
 
+    if not dry_run:
+        ensure_inplace_headers(service, sheet_id, tab_title)
+
     status_counts: Counter[str] = Counter()
+    rows_to_delete: list[int] = []
     for idx, row in enumerate(inputs):
         now = datetime.now(MOSCOW_TZ)
         if cron_mode and not is_within_window(now):
@@ -431,6 +493,8 @@ def run_in_place(
             color = color_for_status(status)
             try:
                 write_row_updates_and_color(service, sheet_id, tab_title, sheet_gid, row.row_number, cells, color)
+                if delete_successful and is_successful_for_removal(status):
+                    rows_to_delete.append(row.row_number)
             except Exception as exc:  # noqa: BLE001
                 # Sheet write failed — record but continue. Row may need manual fix.
                 summary.setdefault("sheet_write_errors", []).append({
@@ -441,6 +505,12 @@ def run_in_place(
         _write_state(summary, next_index=idx + 1)
 
     summary["status_counts"] = dict(status_counts)
+    if not dry_run and delete_successful and rows_to_delete:
+        try:
+            delete_rows_desc(service, sheet_id, sheet_gid, rows_to_delete)
+            summary["successful_rows_deleted"] = len(set(rows_to_delete))
+        except Exception as exc:  # noqa: BLE001
+            summary["delete_successful_error"] = str(exc)[:500]
     summary["duration_s"] = round(time_monotonic() - started_monotonic, 3)
     _write_state(summary, next_index=summary["processed"])
     return summary
