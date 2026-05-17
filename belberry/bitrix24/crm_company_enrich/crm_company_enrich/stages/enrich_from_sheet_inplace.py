@@ -118,9 +118,15 @@ def extract_row_inputs(grid_data: dict[str, Any]) -> list[RowInput]:
         raw_text = str(cell_a.get("formattedValue") or "").strip()
         hyperlink = str(cell_a.get("hyperlink") or "").strip()
         deal_id = parse_deal_id_from_url(hyperlink)
-        url = hyperlink if not deal_id else ""
-        if not deal_id and not url:
-            # plain text url like "sladskaz.ru"
+
+        # Если hyperlink ведёт на Bitrix-сделку, всё равно вытаскиваем URL компании
+        # из displayed text col A (например 'plastica-s.ru'). Иначе orchestrator
+        # получит deal_id без URL и для сделок без COMPANY_ID создаст пустую
+        # "Компания без названия" вместо обогащения по домену.
+        url = ""
+        if not deal_id:
+            url = hyperlink
+        if not url:
             normalized = normalize_url_value(raw_text)
             if normalized and "." in normalized:
                 url = "https://" + normalized

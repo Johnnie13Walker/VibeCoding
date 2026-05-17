@@ -65,7 +65,10 @@ def test_normalize_url_value_empty():
 
 # ---------- extract_row_inputs ----------
 
-def test_extract_row_inputs_with_hyperlink_extracts_deal_id():
+def test_extract_row_inputs_with_hyperlink_extracts_deal_id_and_keeps_url():
+    """Regression: даже когда hyperlink ведёт на Bitrix-сделку (deal_id извлечён),
+    URL домена компании из displayed text должен сохраниться для orchestrator,
+    чтобы сделки без COMPANY_ID могли быть resolved по сайту."""
     grid = _grid([
         [_cell("Сделка"), _cell("Воронка"), _cell("Ответственный"), _cell("Стадия"),
          _cell("Компания"), _cell("ИНН"), _cell("Оборот"), _cell("Reason"),
@@ -78,7 +81,7 @@ def test_extract_row_inputs_with_hyperlink_extracts_deal_id():
     inputs = stage.extract_row_inputs(grid)
     assert len(inputs) == 1
     assert inputs[0].deal_id == "55555"
-    assert inputs[0].url == ""
+    assert inputs[0].url == "https://sladskaz.ru"
     assert inputs[0].row_number == 2  # header at row 1, first data at row 2
     assert inputs[0].company_title == "sladskaz.ru"
     assert inputs[0].existing_status == ""
