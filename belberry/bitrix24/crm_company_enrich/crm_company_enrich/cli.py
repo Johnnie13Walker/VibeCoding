@@ -239,6 +239,54 @@ def cmd_enrich_company_full(args: argparse.Namespace) -> int:
     return 1 if outcome.final_status == "FAILED" else 0
 
 
+def cmd_enrich_from_sheet(args: argparse.Namespace) -> int:
+    from .stages import enrich_from_sheet
+
+    if not (args.from_sheet or args.from_bitrix_filter or args.from_file):
+        print("Нужен хотя бы один источник: --from-sheet, --from-bitrix-filter или --from-file", file=sys.stderr)
+        return 2
+    if args.from_sheet and (not args.tab or not args.id_column):
+        print("Для --from-sheet обязательны --tab и --id-column", file=sys.stderr)
+        return 2
+    if args.skip_bp and args.full_bp:
+        print("--skip-bp и --full-bp нельзя указывать одновременно", file=sys.stderr)
+        return 2
+
+    bx, sheets = _make_clients()
+    inputs = []
+    if args.from_sheet:
+        inputs += enrich_from_sheet.load_inputs_from_sheet(
+            sheets,
+            args.from_sheet,
+            args.tab,
+            args.id_column,
+        )
+    if args.from_bitrix_filter:
+        inputs += enrich_from_sheet.load_inputs_from_bitrix_filter(
+            bx,
+            json.loads(args.from_bitrix_filter),
+        )
+    if args.from_file:
+        inputs += enrich_from_sheet.load_inputs_from_file(args.from_file)
+
+    inputs = enrich_from_sheet.deduplicate_inputs(inputs)
+    summary = enrich_from_sheet.run(
+        bx,
+        sheets,
+        inputs=inputs,
+        output_sheet_id=args.output_sheet or "auto",
+        output_tab=args.output_tab or "results",
+        dry_run=not args.live,
+        skip_bp=True if args.skip_bp else None,
+        full_bp=args.full_bp,
+        max_duration_min=args.max_duration_min,
+        limit=args.limit,
+        cron_mode=args.cron,
+    )
+    print(json.dumps(summary, indent=2, ensure_ascii=False))
+    return 0 if not summary.get("failed") else 1
+
+
 def cmd_telemarketing_dedupe(args: argparse.Namespace) -> int:
     from .stages import telemarketing_dedupe
     bx, _ = _make_clients()
@@ -532,6 +580,25 @@ def main() -> None:
     sp.add_argument("--skip-auto-reject", action="store_true")
     sp.add_argument("--bizproc-wait-s", type=int)
     sp.set_defaults(func=cmd_enrich_company_full)
+
+    sp = sub.add_parser(
+        "enrich-from-sheet",
+        help="WRITE: batch-обогащение компаний через enrich-company-full. По умолчанию dry-run.",
+    )
+    sp.add_argument("--from-sheet", help="ID Google Sheet-источника")
+    sp.add_argument("--from-bitrix-filter", help="JSON filter для crm.company.list")
+    sp.add_argument("--from-file", help="Путь к txt-файлу с company_id/inn/url")
+    sp.add_argument("--tab", help="Вкладка source Sheet")
+    sp.add_argument("--id-column", help="Название source-колонки с company_id/inn/url")
+    sp.add_argument("--output-sheet", help="ID или 'auto' для создания нового")
+    sp.add_argument("--output-tab", default="results")
+    sp.add_argument("--live", action="store_true", help="Реально писать в Bitrix")
+    sp.add_argument("--skip-bp", action="store_true", help="Принудительно пропустить BP")
+    sp.add_argument("--full-bp", action="store_true", help="Принудительно запускать BP")
+    sp.add_argument("--cron", action="store_true", help="cron-режим с проверкой окна 00:00-08:00 МСК")
+    sp.add_argument("--max-duration-min", type=int, default=480)
+    sp.add_argument("--limit", type=int)
+    sp.set_defaults(func=cmd_enrich_from_sheet)
 
     sp = sub.add_parser(
         "telemarketing-dedupe",
