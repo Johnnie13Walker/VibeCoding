@@ -106,6 +106,26 @@ def test_auto_reject_section_breakdown_by_reason(tmp_path, monkeypatch):
     assert section.lines[1].startswith("- 8542 «Выручка &lt;30M»: 2 сделок")
 
 
+def test_reactivation_section_breakdown_by_reason(tmp_path, monkeypatch):
+    monkeypatch.setattr(stage, "LOG_DIR", tmp_path)
+    (tmp_path / "reactivation_apology.csv").write_text(
+        "\n".join(
+            [
+                "timestamp,deal_id,company_id,reason_id,cooldown_months,reactivation_count_after,new_assignee,status",
+                "2026-05-17T09:00:00,301,1,8540,12,1,2772,REACTIVATED",
+                "2026-05-17T09:01:00,302,2,8546,6,1,2832,REACTIVATED",
+                "2026-05-17T09:02:00,303,3,8546,6,1,2832,FAILED",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    section = stage._section_reactivations(object(), "2026-05-17")
+
+    assert section.lines[0].startswith("- reason 8540: 1 сделок")
+    assert section.lines[1].startswith("- reason 8546: 1 сделок")
+
+
 def test_empty_csv_returns_empty_section(tmp_path, monkeypatch):
     monkeypatch.setattr(stage, "LOG_DIR", tmp_path)
     (tmp_path / "auto_reject_telemarketing.csv").write_text(

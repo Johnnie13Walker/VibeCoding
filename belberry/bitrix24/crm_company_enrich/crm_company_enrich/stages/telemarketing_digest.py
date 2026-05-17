@@ -48,6 +48,7 @@ def run(
     sections = [
         _section_auto_revive(bx, since),
         _section_auto_reject(bx, since),
+        _section_reactivations(bx, since),
         _section_manager_conversions(bx, since),
         _section_stuck_alerts(bx),
     ]
@@ -130,6 +131,24 @@ def _section_auto_reject(bx: Any, since: str) -> DigestSection:
             suffix += f" + ещё {len(deal_ids) - 8}"
         lines.append(f"- {escape(reason)} «{escape(label)}»: {len(deal_ids)} сделок{suffix}")
     return DigestSection("Авто-отказ", lines)
+
+
+def _section_reactivations(bx: Any, since: str) -> DigestSection:
+    rows = _read_csv_rows(LOG_DIR / "reactivation_apology.csv", since=since)
+    reactivated = [row for row in rows if str(row.get("status") or "") == "REACTIVATED"]
+    by_reason: dict[str, list[str]] = {}
+    for row in reactivated:
+        reason = str(row.get("reason_id") or "").strip() or "unknown"
+        by_reason.setdefault(reason, []).append(str(row.get("deal_id") or "").strip())
+
+    lines = []
+    for reason, deal_ids in sorted(by_reason.items()):
+        links = ", ".join(_deal_link(deal_id) for deal_id in deal_ids[:8] if deal_id)
+        suffix = f" → {links}" if links else ""
+        if len(deal_ids) > 8:
+            suffix += f" + ещё {len(deal_ids) - 8}"
+        lines.append(f"- reason {escape(reason)}: {len(deal_ids)} сделок{suffix}")
+    return DigestSection("Реактивации из ОТВАЛ", lines)
 
 
 def _section_manager_conversions(bx: Any, since: str) -> DigestSection:
