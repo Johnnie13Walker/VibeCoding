@@ -394,6 +394,11 @@ def _try_web(web_or_domain: str, fetch: FetcherFn, *, sleep_s: float) -> tuple[s
     return None, None
 
 
+def try_web(web_or_domain: str, fetch: FetcherFn, *, sleep_s: float = 0.0) -> tuple[str | None, str | None]:
+    """Публичная обёртка поиска ИНН на сайте."""
+    return _try_web(web_or_domain, fetch, sleep_s=sleep_s)
+
+
 def _try_rusprofile(
     company_name: str,
     fetch: FetcherFn,
@@ -414,6 +419,14 @@ def _try_rusprofile(
     name = extract_company_name_from_html(result.text) or company_name
     geo_tokens = extract_rusprofile_geo_tokens(result.text)
     return inn, name, geo_tokens
+
+
+def try_rusprofile(
+    company_name: str,
+    fetch: FetcherFn,
+) -> tuple[str | None, str | None, list[str]]:
+    """Публичная обёртка поиска ИНН через rusprofile."""
+    return _try_rusprofile(company_name, fetch)
 
 
 def _normalize_base_url(web_or_domain: str) -> str | None:

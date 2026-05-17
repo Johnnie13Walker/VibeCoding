@@ -1163,6 +1163,11 @@ def _parse_organization_status(html: str) -> str:
     return ""
 
 
+def parse_organization_status(html: str) -> str:
+    """Публичная обёртка парсинга статуса организации из HTML rusprofile."""
+    return _parse_organization_status(html)
+
+
 def _fetch_rusprofile_html(inn: str) -> str:
     req = urllib.request.Request(
         _rusprofile_url(inn),
@@ -1176,6 +1181,11 @@ def _fetch_rusprofile_html(inn: str) -> str:
             return resp.read().decode("utf-8", errors="ignore")
     except Exception:  # noqa: BLE001
         return ""
+
+
+def fetch_rusprofile_html(inn: str) -> str:
+    """Публичная обёртка загрузки HTML rusprofile по ИНН."""
+    return _fetch_rusprofile_html(inn)
 
 
 def _site_key(value: str) -> str:

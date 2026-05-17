@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from dataclasses import asdict
 
 
 def _make_clients():
@@ -213,6 +214,29 @@ def cmd_auto_reject_telemarketing(args: argparse.Namespace) -> int:
     )
     print(json.dumps(summary, indent=2, ensure_ascii=False))
     return 0 if not summary.get("failed") else 1
+
+
+def cmd_enrich_company_full(args: argparse.Namespace) -> int:
+    from .stages import enrich_company_full
+
+    bx, _ = _make_clients()
+    outcome = enrich_company_full.run(
+        bx,
+        company_id=args.company_id or "",
+        deal_id=args.deal_id or "",
+        inn=args.inn or "",
+        url=args.url or "",
+        create_if_missing=args.create_if_missing,
+        dry_run=not args.live,
+        skip_bp=args.skip_bp,
+        skip_dedupe_contacts=args.skip_dedupe_contacts,
+        skip_director_inn=args.skip_director_inn,
+        skip_telemarketing_dedupe=args.skip_telemarketing_dedupe,
+        skip_auto_reject=args.skip_auto_reject,
+        bizproc_wait_s=args.bizproc_wait_s,
+    )
+    print(json.dumps(asdict(outcome), indent=2, ensure_ascii=False, default=str))
+    return 1 if outcome.final_status == "FAILED" else 0
 
 
 def cmd_telemarketing_dedupe(args: argparse.Namespace) -> int:
@@ -486,6 +510,28 @@ def main() -> None:
         help="Конкретные стадии для скана (по умолчанию UC_1S1KIU,NEW)",
     )
     sp.set_defaults(func=cmd_auto_reject_telemarketing)
+
+    sp = sub.add_parser(
+        "enrich-company-full",
+        help=(
+            "WRITE: главный orchestrator — обогащение одной компании "
+            "end-to-end. По умолчанию dry-run."
+        ),
+    )
+    input_group = sp.add_mutually_exclusive_group(required=True)
+    input_group.add_argument("--company-id")
+    input_group.add_argument("--deal-id")
+    input_group.add_argument("--inn")
+    input_group.add_argument("--url")
+    sp.add_argument("--live", action="store_true", help="Реально писать в Bitrix")
+    sp.add_argument("--create-if-missing", action="store_true", help="Создать компанию в Bitrix, если не найдена")
+    sp.add_argument("--skip-bp", action="store_true", help="Не запускать BP 5938+8612")
+    sp.add_argument("--skip-dedupe-contacts", action="store_true")
+    sp.add_argument("--skip-director-inn", action="store_true")
+    sp.add_argument("--skip-telemarketing-dedupe", action="store_true")
+    sp.add_argument("--skip-auto-reject", action="store_true")
+    sp.add_argument("--bizproc-wait-s", type=int)
+    sp.set_defaults(func=cmd_enrich_company_full)
 
     sp = sub.add_parser(
         "telemarketing-dedupe",
