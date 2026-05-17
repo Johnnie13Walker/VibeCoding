@@ -408,7 +408,7 @@ class BitrixClient:
         return self._get_or_none("crm.contact.get", {"id": contact_id})
 
     def list_company_contacts_full(self, company_id: str) -> list[dict]:
-        """Все контакты компании с полной информацией."""
+        """Все контакты компании с полной карточкой."""
         contacts: list[dict] = []
         for contact_id in self.get_company_contacts(company_id):
             contact = self.get_contact(contact_id)
@@ -438,7 +438,7 @@ class BitrixClient:
             )
         )
 
-    def update_contact(self, contact_id: str, fields: dict, params: dict | None = None) -> bool:
+    def update_contact(self, contact_id: str, fields: dict, *, params: dict | None = None) -> bool:
         payload = {"id": contact_id, "fields": fields}
         if params:
             payload["params"] = params
