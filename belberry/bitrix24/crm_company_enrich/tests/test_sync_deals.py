@@ -106,8 +106,8 @@ def _company(**overrides) -> dict:
     data = {
         "ID": "100",
         "TITLE": "ООО МИЛБЭГ",
-        "UF_CRM_5DEF838D882A2": "https://milbag.ru/",
-        "WEB": [{"VALUE": "https://moskva.milbag.ru/"}],
+        "UF_CRM_5DEF838D882A2": "https://milbag.ru",
+        "WEB": [{"VALUE": "https://moskva.milbag.ru"}],
         "UF_CRM_1584876724": "Новосибирск",
         "UF_CRM_1735331882180": "5406990573",
         "UF_CRM_1737098549301": "139866000",
@@ -145,10 +145,10 @@ def _deal(**overrides) -> dict:
 def test_build_deal_fields_from_company_maps_known_fields():
     fields = sync_deals.build_deal_fields_from_company(_company())
 
-    assert fields[DEAL_UF_SITE_PRIMARY] == "https://milbag.ru/"
+    assert fields[DEAL_UF_SITE_PRIMARY] == "https://milbag.ru"
     assert fields[DEAL_UF_SITE_MULTI] == [
-        "https://milbag.ru/",
-        "https://moskva.milbag.ru/",
+        "https://milbag.ru",
+        "https://moskva.milbag.ru",
     ]
     assert fields[DEAL_UF_CITY] == "Новосибирск"
     assert fields[DEAL_UF_INN] == "5406990573"
@@ -185,7 +185,7 @@ def test_dry_run_does_not_update_deal():
     assert summary["updated"] == 0
     assert bx.update_deal_calls == []
     assert bx.update_company_calls == []
-    assert summary["outcomes"][0]["fields"][DEAL_UF_SITE_PRIMARY] == "https://milbag.ru/"
+    assert summary["outcomes"][0]["fields"][DEAL_UF_SITE_PRIMARY] == "https://milbag.ru"
 
 
 def test_live_updates_only_empty_fields_by_default():
@@ -218,8 +218,8 @@ def test_live_updates_only_empty_fields_by_default():
 def test_live_adds_company_contacts_to_deal_without_field_updates():
     filled_deal = _deal(
         **{
-            DEAL_UF_SITE_PRIMARY: "https://milbag.ru/",
-            DEAL_UF_SITE_MULTI: ["https://milbag.ru/"],
+            DEAL_UF_SITE_PRIMARY: "https://milbag.ru",
+            DEAL_UF_SITE_MULTI: ["https://milbag.ru"],
             DEAL_UF_BRAND_PROJECT: "1820",
             DEAL_UF_CITY: "Новосибирск",
             DEAL_UF_INN: "5406990573",
@@ -251,8 +251,8 @@ def test_live_adds_company_contacts_to_deal_without_field_updates():
 def test_dry_run_reports_missing_company_contacts_without_writing():
     filled_deal = _deal(
         **{
-            DEAL_UF_SITE_PRIMARY: "https://milbag.ru/",
-            DEAL_UF_SITE_MULTI: ["https://milbag.ru/"],
+            DEAL_UF_SITE_PRIMARY: "https://milbag.ru",
+            DEAL_UF_SITE_MULTI: ["https://milbag.ru"],
             DEAL_UF_BRAND_PROJECT: "1820",
             DEAL_UF_CITY: "Новосибирск",
             DEAL_UF_INN: "5406990573",
@@ -280,8 +280,8 @@ def test_dry_run_reports_missing_company_contacts_without_writing():
 def test_live_fills_empty_contact_communications_from_company():
     filled_deal = _deal(
         **{
-            DEAL_UF_SITE_PRIMARY: "https://milbag.ru/",
-            DEAL_UF_SITE_MULTI: ["https://milbag.ru/"],
+            DEAL_UF_SITE_PRIMARY: "https://milbag.ru",
+            DEAL_UF_SITE_MULTI: ["https://milbag.ru"],
             DEAL_UF_BRAND_PROJECT: "1820",
             DEAL_UF_CITY: "Новосибирск",
             DEAL_UF_INN: "5406990573",
@@ -327,8 +327,8 @@ def test_live_fills_empty_contact_communications_from_company():
 def test_does_not_overwrite_existing_contact_communications():
     filled_deal = _deal(
         **{
-            DEAL_UF_SITE_PRIMARY: "https://milbag.ru/",
-            DEAL_UF_SITE_MULTI: ["https://milbag.ru/"],
+            DEAL_UF_SITE_PRIMARY: "https://milbag.ru",
+            DEAL_UF_SITE_MULTI: ["https://milbag.ru"],
             DEAL_UF_BRAND_PROJECT: "1820",
             DEAL_UF_CITY: "Новосибирск",
             DEAL_UF_INN: "5406990573",
@@ -516,14 +516,14 @@ def test_site_primary_is_filled_only_when_site_identity_verified(monkeypatch):
         )
     )
 
-    assert fields[DEAL_UF_SITE_PRIMARY] == "https://good.example/"
+    assert fields[DEAL_UF_SITE_PRIMARY] == "https://good.example"
 
 
-def test_site_primary_is_not_filled_when_identity_not_verified(monkeypatch):
+def test_site_primary_is_not_filled_when_site_not_working(monkeypatch):
     monkeypatch.setattr(
         sync_deals,
         "_verified_site",
-        lambda site, company, inn="": sync_deals.SiteVerification(site, True, False, []),
+        lambda site, company, inn="": sync_deals.SiteVerification(site, False, False, []),
     )
 
     fields = sync_deals.build_deal_fields_from_company(
@@ -535,6 +535,97 @@ def test_site_primary_is_not_filled_when_identity_not_verified(monkeypatch):
     )
 
     assert DEAL_UF_SITE_PRIMARY not in fields
+
+
+def test_site_key_normalizes_http_https_www_trailing_slash():
+    expected = sync_deals._site_key("https://kadis.org/")
+
+    assert sync_deals._site_key("http://kadis.org") == expected
+    assert sync_deals._site_key("kadis.org") == expected
+    assert sync_deals._site_key("https://www.kadis.org/") == expected
+    assert sync_deals._site_key("https://kadis.org") == expected
+
+
+def test_site_values_dedups_company_with_http_and_bare_host(monkeypatch):
+    monkeypatch.setattr(sync_deals, "_verified_site", ORIG_VERIFIED_SITE)
+    monkeypatch.setattr(sync_deals, "_is_working_site", lambda site: True)
+    monkeypatch.setattr(sync_deals, "_site_identity_evidence", lambda site, company, inn="": [])
+
+    fields = sync_deals.build_deal_fields_from_company(
+        _company(
+            UF_CRM_5DEF838D882A2="",
+            WEB=[
+                {"VALUE": "https://kadis.org/", "VALUE_TYPE": "WORK"},
+                {"VALUE": "kadis.org", "VALUE_TYPE": "WORK"},
+                {"VALUE": "https://kadis.ru/", "VALUE_TYPE": "WORK"},
+            ],
+            UF_CRM_1737098525088="",
+        )
+    )
+
+    assert fields[DEAL_UF_SITE_MULTI] == ["https://kadis.org", "https://kadis.ru"]
+
+
+def test_site_values_skips_non_working_site(monkeypatch):
+    monkeypatch.setattr(sync_deals, "_verified_site", ORIG_VERIFIED_SITE)
+    monkeypatch.setattr(
+        sync_deals,
+        "_is_working_site",
+        lambda site: "working.example" in site,
+    )
+    monkeypatch.setattr(sync_deals, "_site_identity_evidence", lambda site, company, inn="": [])
+
+    fields = sync_deals.build_deal_fields_from_company(
+        _company(
+            UF_CRM_5DEF838D882A2="",
+            WEB=[
+                {"VALUE": "https://broken.example/", "VALUE_TYPE": "WORK"},
+                {"VALUE": "https://working.example/", "VALUE_TYPE": "WORK"},
+            ],
+            UF_CRM_1737098525088="",
+        )
+    )
+
+    assert fields[DEAL_UF_SITE_MULTI] == ["https://working.example"]
+
+
+def test_primary_falls_back_to_working_when_no_identity(monkeypatch):
+    monkeypatch.setattr(sync_deals, "_verified_site", ORIG_VERIFIED_SITE)
+    monkeypatch.setattr(sync_deals, "_is_working_site", lambda site: True)
+    monkeypatch.setattr(sync_deals, "_site_identity_evidence", lambda site, company, inn="": [])
+
+    fields = sync_deals.build_deal_fields_from_company(
+        _company(
+            UF_CRM_5DEF838D882A2="example.com",
+            WEB=[],
+            UF_CRM_1737098525088="",
+        )
+    )
+
+    assert fields[DEAL_UF_SITE_PRIMARY] == "https://example.com"
+
+
+def test_primary_prefers_identity_verified_over_working_fallback(monkeypatch):
+    monkeypatch.setattr(
+        sync_deals,
+        "_verified_site",
+        lambda site, company, inn="": sync_deals.SiteVerification(
+            site,
+            True,
+            site == "https://identity.example/",
+            ["test"] if site == "https://identity.example/" else [],
+        ),
+    )
+
+    fields = sync_deals.build_deal_fields_from_company(
+        _company(
+            UF_CRM_5DEF838D882A2="https://working.example/",
+            WEB=[{"VALUE": "https://identity.example/", "VALUE_TYPE": "WORK"}],
+            UF_CRM_1737098525088="",
+        )
+    )
+
+    assert fields[DEAL_UF_SITE_PRIMARY] == "https://identity.example"
 
 
 def test_rusprofile_main_activity_fills_other_industry(monkeypatch):
@@ -678,7 +769,7 @@ def test_deal_replaces_dead_site_primary_with_working_company_site(monkeypatch):
     summary = sync_deals.run(bx, company_id="100", dry_run=False)
 
     assert summary["updated"] == 1
-    assert bx.update_deal_calls[0][1][DEAL_UF_SITE_PRIMARY] == "https://good.example/"
+    assert bx.update_deal_calls[0][1][DEAL_UF_SITE_PRIMARY] == "https://good.example"
 
 
 def test_site_identity_evidence_accepts_inn(monkeypatch):

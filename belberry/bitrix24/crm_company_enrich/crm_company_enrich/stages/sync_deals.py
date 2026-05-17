@@ -735,33 +735,51 @@ def _site_values(company: dict[str, Any], primary: str) -> list[str]:
     values: list[str] = []
     seen: set[str] = set()
     if primary:
-        values.append(primary)
-        seen.add(_site_key(primary))
+        normalized_primary = _normalize_site_url(primary)
+        if normalized_primary:
+            values.append(normalized_primary)
+            seen.add(_site_key(normalized_primary))
+    inn_val = _clean(company.get("UF_CRM_1735331882180"))
     for item in company.get("WEB") or []:
         if isinstance(item, dict):
             v = _clean(item.get("VALUE"))
             key = _site_key(v)
-            if v and key not in seen and _verified_site(v, company, _clean(company.get("UF_CRM_1735331882180"))).identity_verified:
-                values.append(v)
+            verification = _verified_site(v, company, inn_val)
+            normalized = _normalize_site_url(v)
+            if normalized and key not in seen and verification.working:
+                values.append(normalized)
                 seen.add(key)
     multi = _clean(company.get("UF_CRM_1737098525088"))
     for raw in multi.replace(";", "\n").splitlines():
         v = _clean(raw)
-        if v and "." in v and not v.startswith("http"):
-            v = "https://" + v
         key = _site_key(v)
-        if v and key not in seen and _verified_site(v, company, _clean(company.get("UF_CRM_1735331882180"))).identity_verified:
-            values.append(v)
+        verification = _verified_site(v, company, inn_val)
+        normalized = _normalize_site_url(v)
+        if normalized and key not in seen and verification.working:
+            values.append(normalized)
             seen.add(key)
     return values
 
 
 def _verified_site_from_company(company: dict[str, Any], inn: str = "") -> SiteVerification:
+    first_working: SiteVerification | None = None
     for candidate in _site_candidates(company):
         verification = _verified_site(candidate, company, inn)
         if verification.identity_verified:
-            return verification
-    return SiteVerification("", False, False, [])
+            return SiteVerification(
+                _normalize_site_url(verification.site),
+                verification.working,
+                verification.identity_verified,
+                verification.evidence,
+            )
+        if verification.working and first_working is None:
+            first_working = SiteVerification(
+                _normalize_site_url(verification.site),
+                verification.working,
+                verification.identity_verified,
+                verification.evidence,
+            )
+    return first_working or SiteVerification("", False, False, [])
 
 
 def _working_site(value: str) -> str:
@@ -1021,7 +1039,29 @@ def _fetch_rusprofile_html(inn: str) -> str:
 
 
 def _site_key(value: str) -> str:
-    return _clean(value).rstrip("/").lower()
+    cleaned = _clean(value).strip().strip("/").lower()
+    if not cleaned:
+        return ""
+    if not re.match(r"^https?://", cleaned):
+        cleaned = "https://" + cleaned
+    try:
+        parsed = urllib.parse.urlsplit(cleaned)
+        host = parsed.hostname or ""
+        if host.startswith("www."):
+            host = host[4:]
+        path = (parsed.path or "").rstrip("/")
+        return f"{host}{path}"
+    except ValueError:
+        return cleaned
+
+
+def _normalize_site_url(value: str) -> str:
+    cleaned = _clean(value).strip().strip("/")
+    if not cleaned:
+        return ""
+    if not re.match(r"^https?://", cleaned, flags=re.IGNORECASE):
+        cleaned = "https://" + cleaned
+    return cleaned
 
 
 def _first_multifield(values: Any) -> str:
