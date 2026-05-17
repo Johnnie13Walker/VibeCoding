@@ -2,6 +2,54 @@
 
 > **AI agent context anchor.** Прочитай этот файл первым делом в новой сессии — он даёт canonical paths, env, и точки входа, чтобы не терять путь после context compression.
 
+## Git: где код и куда PR
+
+| Что | Где |
+|-----|-----|
+| Origin remote | `https://github.com/Johnnie13Walker/VibeCoding.git` |
+| **Base branch для PR** | **`main`** (default на GitHub) |
+| Worktree local | `~/work-crm-enrich/` (symlink на канонический путь ниже) |
+| Worktree canonical | `/Users/pro2kuror/Desktop/VibeCoding/belberry/bitrix24/.worktrees/Обогащение данных CRM` |
+| Backup-ветки (не трогать) | `feature/telemarketing-automations`, `feature/enrich-from-sheet`, `feature/director-inn-enrichment`, `enrich-company-full-backup-pre-merge`, `enrich-company-full-v2-backup`, `dedupe-placeholder-rule-backup`, `dedupe-attach-guard-and-audit-backup`, `enrich-from-sheet-cli-backup` |
+
+## Workflow для любого изменения
+
+```bash
+# 1. Свежий main
+cd ~/work-crm-enrich
+git checkout main && git pull --ff-only origin main
+
+# 2. Новая ветка с префиксом fix|feat|chore|test|docs
+git checkout -b <type>/<short-kebab-name>
+
+# 3. Правки + тесты
+cd ~/work-crm-enrich/belberry/bitrix24/crm_company_enrich
+.venv/bin/python -m pytest -q     # должно быть зелёное
+
+# 4. Коммит
+git add <files>
+git commit -m "<type>(<scope>): <imperative summary>
+
+<body, why-not-what, refs если есть>
+
+Co-Authored-By: <agent-name> <noreply@anthropic.com>"
+
+# 5. Push + PR + merge
+cd ~/work-crm-enrich
+git push -u origin <branch-name>
+gh pr create --base main --head <branch-name> --title "..." --body "..."
+gh pr merge $(gh pr list --head <branch-name> --json number -q '.[0].number') --squash --delete-branch=false
+
+# 6. Обратно на main
+git checkout main && git pull --ff-only origin main
+```
+
+**ВАЖНО:**
+- **Base всегда `main`**, не `feature/telemarketing-automations` и не другие исторические ветки — они backup, не staging
+- **Squash merge** (1 коммит на PR в main) — по образцу всех последних PR #14-#21
+- **`--delete-branch=false`** — feature-ветка сохраняется как backup точка
+- **Не пушить если pytest red**
+
 ## Canonical paths
 
 | Имя | Путь (canonical short) |
