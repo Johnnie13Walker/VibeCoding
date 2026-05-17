@@ -119,6 +119,16 @@ TELEMARKETING_DEDUPE_SHEET_ID = os.environ.get(
 )
 TELEMARKETING_DEDUPE_TAB_GID = 927080468
 
+# Кластеризация дублей контактов: минимум 2 совпадения по сильным сигналам
+# (ФИО + phone, ФИО + email, phone + email), иначе кластер уходит в UNRESOLVED.
+CONTACT_DEDUPE_MIN_SIGNALS = int(os.environ.get("CCE_CONTACT_DEDUPE_MIN_SIGNALS", "2"))
+
+# Контакты, привязанные к нескольким компаниям, не удаляем автоматически.
+CONTACT_DEDUPE_SKIP_MULTI_COMPANY = os.environ.get("CCE_CONTACT_DEDUPE_SKIP_MULTI_COMPANY", "1").lower() not in {"0", "false", "no"}
+
+# Вкладка для нерешённых дублей контактов.
+CONTACT_DEDUPE_SHEET_TAB = "contact_dup_unresolved"
+
 # Статус «Ликвидирована» в company.UF_CRM_ORG_STATUS.
 ORG_STATUS_LIQUIDATED = "8852"
 
