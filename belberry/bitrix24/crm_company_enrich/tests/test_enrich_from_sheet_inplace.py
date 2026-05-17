@@ -290,7 +290,7 @@ def test_run_in_place_processes_unprocessed_rows(monkeypatch):
 
     monkeypatch.setattr(stage.enrich_company_full, "run", fake_run)
 
-    summary = stage.run_in_place(FakeBx(), svc, sheet_id="SHEET", tab_title="TestTab")
+    summary = stage.run_in_place(FakeBx(), svc, sheet_id="SHEET", tab_title="TestTab", dry_run=False)
 
     assert summary["to_process"] == 2
     assert summary["processed"] == 2
@@ -328,10 +328,30 @@ def test_run_in_place_skips_already_processed_rows(monkeypatch):
 
     monkeypatch.setattr(stage.enrich_company_full, "run", fake_run)
 
-    summary = stage.run_in_place(FakeBx(), svc, sheet_id="S", tab_title="TestTab")
+    summary = stage.run_in_place(FakeBx(), svc, sheet_id="S", tab_title="TestTab", dry_run=False)
     assert summary["already_processed_skipped"] == 1
     assert summary["to_process"] == 1
     assert calls == ["200"]
+
+
+def test_run_in_place_dry_run_does_not_write_to_sheets(monkeypatch):
+    """Регрессия: dry-run должен быть полностью read-only в Sheets, иначе
+    таб засирается DRY_RUN_COMPANY мусором и filter_unprocessed блокирует
+    повторные прогоны."""
+    svc = FakeSheetsService(_grid_two_rows())
+
+    def fake_run(bx, **kwargs):
+        return _outcome(deal_id=str(kwargs.get("deal_id") or ""))
+
+    monkeypatch.setattr(stage.enrich_company_full, "run", fake_run)
+
+    summary = stage.run_in_place(FakeBx(), svc, sheet_id="S", tab_title="TestTab", dry_run=True)
+
+    # Orchestrator всё равно прогнался по строкам — для verify pipeline'а.
+    assert summary["processed"] == 2
+    # Но в Sheets НИЧЕГО не записано.
+    assert svc.values_updates == []
+    assert svc.batch_updates == []
 
 
 def test_run_in_place_records_exception_and_paints_red(monkeypatch):
@@ -342,7 +362,7 @@ def test_run_in_place_records_exception_and_paints_red(monkeypatch):
 
     monkeypatch.setattr(stage.enrich_company_full, "run", fake_run)
 
-    summary = stage.run_in_place(FakeBx(), svc, sheet_id="S", tab_title="TestTab")
+    summary = stage.run_in_place(FakeBx(), svc, sheet_id="S", tab_title="TestTab", dry_run=False)
 
     assert summary["failed"] == 2
     assert summary["status_counts"] == {"EXCEPTION": 2}
@@ -361,7 +381,7 @@ def test_run_in_place_limit_caps_processing(monkeypatch):
 
     monkeypatch.setattr(stage.enrich_company_full, "run", fake_run)
 
-    summary = stage.run_in_place(FakeBx(), svc, sheet_id="S", tab_title="TestTab", limit=1)
+    summary = stage.run_in_place(FakeBx(), svc, sheet_id="S", tab_title="TestTab", limit=1, dry_run=False)
     assert summary["to_process"] == 1
     assert summary["processed"] == 1
     assert len(svc.values_updates) == 1
