@@ -66,6 +66,10 @@ LARISA_BOT_TOKEN_ENV = "LARISA_BOT_TOKEN"
 LARISA_CHAT_ID_LARISA_ENV = "LARISA_CHAT_ID_LARISA"
 DIGEST_BITRIX_PORTAL = "belberrycrm.bitrix24.ru"
 
+# Контакт: ИНН физлица руководителя. Discovery 2026-05-17 через
+# crm.contact.fields нашёл существующее string-поле title="инн".
+CONTACT_PERSONAL_INN_FIELD = "UF_CRM_67BC250A96BEB"
+
 # Телемаркетинг: целевая воронка и ротация ответственных.
 TELEMARKETING_CATEGORY_ID = "50"
 TELEMARKETING_NEW_STAGE_ID = "C50:NEW"

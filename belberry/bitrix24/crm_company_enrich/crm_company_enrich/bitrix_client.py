@@ -200,6 +200,22 @@ class BitrixClient:
         body = self.call("crm.deal.userfield.update", {"id": field_id, "fields": fields})
         return bool(body.get("result"))
 
+    def get_contact_user_fields(self) -> list[dict]:
+        """Список UF_* полей контакта."""
+        body = self.call("crm.contact.userfield.list", {"order": {"ID": "ASC"}})
+        result = body.get("result")
+        return result if isinstance(result, list) else []
+
+    def add_contact_user_field(self, fields: dict) -> str:
+        """Создать пользовательское поле контакта."""
+        body = self.call("crm.contact.userfield.add", {"fields": fields})
+        return str(body.get("result") or "")
+
+    def update_contact_user_field(self, field_id: str, fields: dict) -> bool:
+        """Обновить пользовательское поле контакта."""
+        body = self.call("crm.contact.userfield.update", {"id": field_id, "fields": fields})
+        return bool(body.get("result"))
+
     def get_company_deals_count(self, company_id: str) -> int:
         """Количество сделок у компании. Минимальный select для скорости."""
         body = self.call(
