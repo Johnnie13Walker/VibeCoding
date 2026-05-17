@@ -202,3 +202,24 @@ def test_cooldown_sentinel_trigger_only_csv_empty(tmp_path, monkeypatch):
 
     lines = (tmp_path / "reactivation_apology.csv").read_text(encoding="utf-8").splitlines()
     assert lines[1].split(",")[4] == ""
+
+
+def test_failed_update_does_not_consume_rotation():
+    class FailingFirstUpdateBitrix(FakeBitrix):
+        def update_deal(self, deal_id, fields, *, params=None):
+            if deal_id == "100":
+                raise RuntimeError("bitrix down")
+            return super().update_deal(deal_id, fields, params=params)
+
+    bx = FailingFirstUpdateBitrix(
+        [
+            apology_deal("8540", ID="100", ASSIGNED_BY_ID="999"),
+            apology_deal("8540", ID="101", ASSIGNED_BY_ID="999"),
+        ]
+    )
+
+    summary = stage.run(bx, dry_run=False, today=date(2026, 5, 17), rotation_index=0)
+
+    assert summary["outcomes"][0]["status"] == "FAILED"
+    assert summary["outcomes"][1]["new_assignee"] == "2772"
+    assert bx.updated_deals[0][0] == "101"

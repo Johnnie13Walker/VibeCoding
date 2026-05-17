@@ -161,3 +161,27 @@ def test_rescan_csv_appended_only_in_live(tmp_path, monkeypatch):
 
     assert summary["skipped"] == 1
     assert not (tmp_path / "auto_promote_skipped.csv").exists()
+
+
+def test_failed_update_does_not_consume_rotation():
+    class FailingFirstUpdateBitrix(FakeBitrix):
+        def update_deal(self, deal_id, fields, *, params=None):
+            if deal_id == "10":
+                raise RuntimeError("bitrix down")
+            return super().update_deal(deal_id, fields, params=params)
+
+    bx = FailingFirstUpdateBitrix(
+        company=ready_company(),
+        contacts=[{"ID": "5"}],
+        requisites=[{"RQ_INN": "7700000000"}],
+        deals=[
+            {"ID": "10", "COMPANY_ID": "1", "STAGE_ID": "C50:UC_1S1KIU", "CLOSED": "N"},
+            {"ID": "11", "COMPANY_ID": "1", "STAGE_ID": "C50:UC_1S1KIU", "CLOSED": "N"},
+        ],
+    )
+
+    summary = stage.run(bx, dry_run=False, rotation_index=0)
+
+    assert summary["outcomes"][0]["status"] == "FAILED"
+    assert summary["outcomes"][1]["new_assignee"] == "2772"
+    assert bx.updated_deals[0][0] == "11"

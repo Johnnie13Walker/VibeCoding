@@ -160,7 +160,7 @@ def _process_deal(
     except Exception as exc:  # noqa: BLE001
         return (
             ReactivationOutcome(deal_id, company_id, reason_id, count_before, new_assignee, "FAILED", error=str(exc)[:200]),
-            used_rotation,
+            False,
         )
     return (
         ReactivationOutcome(deal_id, company_id, reason_id, count_before, new_assignee, "REACTIVATED"),

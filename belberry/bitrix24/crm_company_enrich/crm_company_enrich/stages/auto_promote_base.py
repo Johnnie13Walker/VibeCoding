@@ -133,7 +133,7 @@ def _process_deal(
             params={"REGISTER_SONET_EVENT": "Y"},
         )
     except Exception as exc:  # noqa: BLE001
-        return PromoteOutcome(deal_id, company_id, "FAILED", new_assignee=new_assignee, error=str(exc)[:200]), True
+        return PromoteOutcome(deal_id, company_id, "FAILED", new_assignee=new_assignee, error=str(exc)[:200]), False
     return PromoteOutcome(deal_id, company_id, "PROMOTED", new_assignee=new_assignee), True
 
 
