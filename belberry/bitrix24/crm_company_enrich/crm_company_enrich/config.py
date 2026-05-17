@@ -60,6 +60,12 @@ DEAL_MERGE_ACTIVE_STATUSES = frozenset({"APPROVED", "TRANSFERRED", "MERGED", "MA
 # Portal
 PORTAL_DOMAIN = "belberrycrm.bitrix24.ru"
 
+# TG-дайджест Ларисы Ивановны. Токен/chat_id живут в ENV на VPS; локально
+# отсутствие ENV не ошибка — отправка молча пропускается для CI/dev.
+LARISA_BOT_TOKEN_ENV = "LARISA_BOT_TOKEN"
+LARISA_CHAT_ID_LARISA_ENV = "LARISA_CHAT_ID_LARISA"
+DIGEST_BITRIX_PORTAL = "belberrycrm.bitrix24.ru"
+
 # Телемаркетинг: целевая воронка и ротация ответственных.
 TELEMARKETING_CATEGORY_ID = "50"
 TELEMARKETING_NEW_STAGE_ID = "C50:NEW"

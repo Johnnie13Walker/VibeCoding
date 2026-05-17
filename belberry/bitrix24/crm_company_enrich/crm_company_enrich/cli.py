@@ -218,6 +218,19 @@ def cmd_dedupe_contacts(args: argparse.Namespace) -> int:
     return 1 if summary.get("failed") else 0
 
 
+def cmd_telemarketing_digest(args: argparse.Namespace) -> int:
+    from .stages import telemarketing_digest
+    bx, _ = _make_clients()
+    summary = telemarketing_digest.run(
+        bx,
+        dry_run=not args.live,
+        since=args.since,
+    )
+    print(json.dumps(summary, indent=2, ensure_ascii=False))
+    telegram_result = summary.get("telegram") or {}
+    return 1 if telegram_result.get("ok") is False else 0
+
+
 def cmd_auto_reject_telemarketing(args: argparse.Namespace) -> int:
     from .stages import auto_reject_telemarketing
     bx, _ = _make_clients()
@@ -570,6 +583,17 @@ def main() -> None:
     sp.add_argument("--company-id", required=True)
     sp.add_argument("--live", action="store_true")
     sp.set_defaults(func=cmd_dedupe_contacts)
+
+    sp = sub.add_parser(
+        "telemarketing-digest",
+        help=(
+            "TG: собрать дневной дайджест Ларисы. По умолчанию dry-run; "
+            "отправка только с --live."
+        ),
+    )
+    sp.add_argument("--live", action="store_true")
+    sp.add_argument("--since", help="ISO date YYYY-MM-DD, по умолчанию вчера по МСК")
+    sp.set_defaults(func=cmd_telemarketing_digest)
 
     sp = sub.add_parser(
         "auto-reject-telemarketing",
