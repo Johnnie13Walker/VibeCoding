@@ -215,6 +215,19 @@ def cmd_auto_reject_telemarketing(args: argparse.Namespace) -> int:
     return 0 if not summary.get("failed") else 1
 
 
+def cmd_auto_revive_lose(args: argparse.Namespace) -> int:
+    from .stages import auto_revive_lose
+    bx, _ = _make_clients()
+    summary = auto_revive_lose.run(
+        bx,
+        dry_run=not args.live,
+        due_before=args.due_before,
+        limit=args.limit,
+    )
+    print(json.dumps(summary, indent=2, ensure_ascii=False))
+    return 0 if not summary.get("failed") else 1
+
+
 def cmd_telemarketing_dedupe(args: argparse.Namespace) -> int:
     from .stages import telemarketing_dedupe
     bx, _ = _make_clients()
@@ -486,6 +499,18 @@ def main() -> None:
         help="Конкретные стадии для скана (по умолчанию UC_1S1KIU,NEW)",
     )
     sp.set_defaults(func=cmd_auto_reject_telemarketing)
+
+    sp = sub.add_parser(
+        "auto-revive-lose",
+        help=(
+            "WRITE: вернуть LOSE-сделки в NEW по дате UF_CRM_1770901971. "
+            "По умолчанию dry-run."
+        ),
+    )
+    sp.add_argument("--live", action="store_true")
+    sp.add_argument("--due-before", help="ISO date, по умолчанию сегодня (МСК)")
+    sp.add_argument("--limit", type=int)
+    sp.set_defaults(func=cmd_auto_revive_lose)
 
     sp = sub.add_parser(
         "telemarketing-dedupe",
