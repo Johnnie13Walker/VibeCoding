@@ -69,12 +69,13 @@ def _extract_company_revenue(company: dict) -> int | None:
         if raw in (None, "", "0", 0):
             continue
         try:
-            cleaned = re.sub(r"[^\d.]", "", str(raw))
+            cleaned = re.sub(r"[^\d.\-]", "", str(raw))
             if not cleaned:
                 continue
             value = int(float(cleaned))
-            if value > 0:
-                return value
+            if value <= 0:
+                continue
+            return value
         except (ValueError, TypeError):
             continue
     return None

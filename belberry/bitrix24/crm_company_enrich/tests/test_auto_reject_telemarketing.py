@@ -240,6 +240,47 @@ def test_revenue_extraction_handles_string_with_separators(monkeypatch, tmp_path
     assert bx.update_deal_calls[0][1][HOLD_REASON_FIELD] == "8542"
 
 
+def test_revenue_extraction_negative_returns_none():
+    company = {"UF_CRM_1737098549301": "-50000000"}
+
+    assert stage._extract_company_revenue(company) is None
+
+
+def test_revenue_extraction_float_with_decimals_parses():
+    company = {"UF_CRM_1737098549301": "15000000.50"}
+
+    assert stage._extract_company_revenue(company) == 15000000
+
+
+def test_revenue_boundary_29_999_999_rejects():
+    company = {"UF_CRM_ORG_STATUS": "8850", "UF_CRM_1737098549301": "29999999"}
+
+    decision = stage.classify_for_rejection(company)
+
+    assert decision is not None
+    assert decision[0] == "8542"
+
+
+def test_revenue_boundary_30_000_000_does_not_reject():
+    company = {"UF_CRM_ORG_STATUS": "8850", "UF_CRM_1737098549301": "30000000"}
+
+    assert stage.classify_for_rejection(company) is None
+
+
+def test_classify_priority_liquidated_first():
+    company = {"UF_CRM_ORG_STATUS": "8852", "UF_CRM_1737098549301": "10000000"}
+
+    decision = stage.classify_for_rejection(company)
+
+    assert decision is not None
+    assert decision[0] == "8538"
+
+
+def test_marker_already_set_recognises_Y_and_true_and_True():
+    for value in ("Y", "true", True, "1"):
+        assert stage._marker_already_set(value) is True
+
+
 def test_default_scan_stages_are_base_and_new():
     bx = FakeBitrix(deals=[], companies={})
 
