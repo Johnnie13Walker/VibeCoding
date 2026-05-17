@@ -45,6 +45,10 @@ from .enrich_from_sheet import (
 MOSCOW_TZ = ZoneInfo("Europe/Moscow")
 
 DEAL_URL_RE = re.compile(r"/crm/deal/details/(\d+)/?", re.IGNORECASE)
+DOMAIN_RE = re.compile(
+    r"(?:https?://)?(?:www\.)?([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+)(?:/[^\s)]*)?",
+    re.IGNORECASE,
+)
 
 # Колонки col A=0 ... col U=20. Output блок I-U.
 OUTPUT_COL_START = 8   # I
@@ -86,6 +90,20 @@ def normalize_url_value(raw: str) -> str:
     return text.lower()
 
 
+def extract_business_url(raw: str) -> str:
+    """Extract a company website URL from a displayed deal title/text value."""
+    text = normalize_url_value(raw)
+    if not text:
+        return ""
+    match = DOMAIN_RE.search(text)
+    if not match:
+        return ""
+    domain = match.group(1).lower()
+    if domain == PORTAL_DOMAIN.lower():
+        return ""
+    return "https://" + domain
+
+
 def extract_row_inputs(grid_data: dict[str, Any]) -> list[RowInput]:
     """Parse grid data response into RowInput list.
 
@@ -123,13 +141,9 @@ def extract_row_inputs(grid_data: dict[str, Any]) -> list[RowInput]:
         # из displayed text col A (например 'plastica-s.ru'). Иначе orchestrator
         # получит deal_id без URL и для сделок без COMPANY_ID создаст пустую
         # "Компания без названия" вместо обогащения по домену.
-        url = ""
-        if not deal_id:
-            url = hyperlink
-        if not url:
-            normalized = normalize_url_value(raw_text)
-            if normalized and "." in normalized:
-                url = "https://" + normalized
+        url = extract_business_url(raw_text)
+        if not url and hyperlink and not deal_id:
+            url = extract_business_url(hyperlink)
 
         company_title = str(cell_e.get("formattedValue") or "").strip()
         existing_status = str(cell_k.get("formattedValue") or "").strip()
