@@ -9,6 +9,7 @@ from crm_company_enrich.config import (
     COMPANY_UF_ORGANIZATION_STATUS,
     COMPANY_UF_REGION,
     COMPANY_UF_RUSPROFILE_CHECKO_URL,
+    DEAL_INDUSTRY_ENUM,
     DEAL_UF_BRAND_PROJECT,
     DEAL_UF_CITY,
     DEAL_UF_REGION,
@@ -20,6 +21,7 @@ from crm_company_enrich.config import (
     DEAL_UF_RUSPROFILE_URL,
     DEAL_UF_SITE_MULTI,
     DEAL_UF_SITE_PRIMARY,
+    HOLD_MARKER_FLAG_FIELD,
     HOLD_REASON_FIELD,
 )
 from crm_company_enrich.stages import sync_deals
@@ -58,6 +60,7 @@ class FakeBitrix:
         self.update_deal_calls: list[tuple[str, dict]] = []
         self.update_company_calls: list[tuple[str, dict]] = []
         self.add_deal_contact_calls: list[tuple[str, str]] = []
+        self.add_contact_company_relation_calls: list[tuple[str, str]] = []
         self.update_contact_calls: list[tuple[str, dict]] = []
 
     def get_company(self, company_id: str) -> dict | None:
@@ -100,6 +103,11 @@ class FakeBitrix:
     def add_deal_contact(self, deal_id: str, contact_id: str) -> bool:
         self.add_deal_contact_calls.append((str(deal_id), str(contact_id)))
         self.deal_contacts.setdefault(str(deal_id), []).append({"CONTACT_ID": str(contact_id)})
+        return True
+
+    def add_contact_company_relation(self, contact_id: str, company_id: str) -> bool:
+        self.add_contact_company_relation_calls.append((str(contact_id), str(company_id)))
+        self.company_contacts.setdefault(str(company_id), []).append(str(contact_id))
         return True
 
     def add_timeline_comment(self, *, owner_type_id: int, owner_id: str, text: str) -> str:
@@ -333,7 +341,41 @@ def test_live_adds_company_contacts_to_deal_without_field_updates():
     assert bx.update_deal_calls == []
     assert bx.add_deal_contact_calls == [("200", "20")]
     assert summary["outcomes"][0]["contacts_added"] == ["20"]
-    assert summary["outcomes"][0]["contacts_skipped"] == {"10": "already_linked"}
+    assert summary["outcomes"][0]["contacts_skipped"] == {
+        "10": "already_linked",
+        "company_contact:10": "already_linked",
+    }
+
+
+def test_live_adds_deal_contacts_to_company_without_field_updates():
+    filled_deal = _deal(
+        **{
+            DEAL_UF_SITE_PRIMARY: "https://milbag.ru",
+            DEAL_UF_SITE_MULTI: ["https://milbag.ru"],
+            DEAL_UF_BRAND_PROJECT: "1820",
+            DEAL_UF_CITY: "Новосибирск",
+            DEAL_UF_INN: "5406990573",
+            DEAL_UF_REVENUE_TEXT: "139866000",
+            DEAL_UF_REVENUE_MONEY: "139866000|RUB",
+            DEAL_UF_REVENUE_NUMBER: 139866000,
+            DEAL_UF_INDUSTRY: "456",
+            DEAL_UF_RUSPROFILE_URL: "https://www.rusprofile.ru/search?query=5406990573",
+        }
+    )
+    bx = FakeBitrix(
+        companies={"100": _company()},
+        deals_by_company={"100": [filled_deal]},
+        company_contacts={"100": ["10"]},
+        deal_contacts={"200": [{"CONTACT_ID": "10"}, {"CONTACT_ID": "30"}]},
+        contacts={"10": {"ID": "10"}, "30": {"ID": "30", "COMPANY_ID": ""}},
+    )
+
+    summary = sync_deals.run(bx, company_id="100", dry_run=False)
+
+    assert summary["updated"] == 0
+    assert summary["company_contacts_added"] == 1
+    assert bx.add_contact_company_relation_calls == [("30", "100")]
+    assert summary["outcomes"][0]["company_contacts_added"] == ["30"]
 
 
 def test_dry_run_reports_missing_company_contacts_without_writing():
@@ -577,6 +619,21 @@ def test_organization_status_parses_rusprofile_html(monkeypatch):
     assert sync_deals._parse_organization_status("<span>Имеет статус Действующее</span>") == "Действующая"
 
     assert sync_deals._parse_organization_status("<span>Организация ликвидирована</span>") == "Ликвидирована"
+    assert sync_deals._parse_organization_status("<span>В стадии банкротства с 10.12.2021</span>") == "Ликвидирована"
+    assert sync_deals._parse_organization_status("<span>Конкурсный управляющий Иванов Иван Иванович</span>") == "Ликвидирована"
+    assert sync_deals._parse_organization_status("<span>Есть решение ФНС о ликвидации</span>") == "Ликвидирована"
+
+
+def test_organization_status_bankruptcy_wins_over_active_marker():
+    html = """
+    <main>
+      <h1>ООО "ГЛИНКОМ"</h1>
+      <p>Действует с 02.10.2019.</p>
+      <p>В стадии банкротства с 10.12.2021.</p>
+    </main>
+    """
+
+    assert sync_deals._parse_organization_status(html) == "Ликвидирована"
 
 
 def test_organization_status_ignores_unrelated_liquidated_word_on_search_page():
@@ -887,6 +944,53 @@ def test_run_company_fills_company_without_deals(monkeypatch):
     ]
 
 
+def test_run_company_refines_other_industry_from_doctor_domain(monkeypatch):
+    monkeypatch.setattr(sync_deals, "_organization_status_from_inn", lambda inn: "Действующая")
+    monkeypatch.setattr(sync_deals, "_industry_from_inn", lambda inn: "")
+    bx = FakeBitrix(
+        companies={
+            "14366": _company(
+                ID="14366",
+                TITLE='ООО "ДОКТОР ГОЛЛИВУД"',
+                UF_CRM_5DEF838D882A2="https://doctorhollywood.ru/",
+                INDUSTRY=COMPANY_INDUSTRY_STATUS["Другое"],
+                UF_CRM_1735331882180="7717707950",
+                UF_CRM_1737098476975="",
+                UF_CRM_RUSPROFILE_CHECKO_URL="https://www.rusprofile.ru/search?query=7717707950",
+                UF_CRM_ORG_STATUS=COMPANY_ORGANIZATION_STATUS_ENUM["Действующая"],
+                UF_CRM_1737100327954="",
+                UF_CRM_1737098525088="doctorhollywood.ru",
+            )
+        },
+        deals_by_company={"14366": []},
+    )
+
+    summary = sync_deals.run_company(bx, company_id="14366", dry_run=False)
+
+    assert summary["updated"] == 1
+    assert bx.update_company_calls == [
+        (
+            "14366",
+            {
+                "INDUSTRY": COMPANY_INDUSTRY_STATUS["Медицина"],
+                "UF_CRM_1737098476975": "Belberry",
+            },
+        )
+    ]
+
+
+def test_deal_industry_uses_company_industry_enum():
+    fields = sync_deals.build_deal_fields_from_company(
+        _company(
+            TITLE="Салон финских дверей и фурнитуры",
+            INDUSTRY=COMPANY_INDUSTRY_STATUS["E-commerce"],
+            UF_CRM_1737100327954="",
+        )
+    )
+
+    assert fields[DEAL_UF_INDUSTRY] == DEAL_INDUSTRY_ENUM["E-commerce"]
+
+
 def test_run_company_replaces_dead_site_with_explicit_working_site(monkeypatch):
     monkeypatch.setattr(sync_deals, "_organization_status_from_inn", lambda inn: "")
     monkeypatch.setattr(sync_deals, "_industry_from_inn", lambda inn: "")
@@ -1000,6 +1104,21 @@ def test_refusal_deal_on_daria_returns_to_arkady():
     assert fields["CLOSED"] == "N"
     assert fields["ASSIGNED_BY_ID"] == "2832"
     assert "ASSIGNED_BY_ID" not in skipped
+
+
+def test_auto_rejected_deal_is_not_returned_to_work_by_sync():
+    fields, skipped = sync_deals.build_telemarketing_existing_deal_fields(
+        _deal(
+            STAGE_ID="C50:APOLOGY",
+            ASSIGNED_BY_ID="2772",
+            CLOSED="Y",
+            **{HOLD_MARKER_FLAG_FIELD: "1"},
+        ),
+    )
+
+    assert fields == {}
+    assert skipped["STAGE_ID"] == "auto_reject_closed"
+    assert skipped["CLOSED"] == "auto_reject_closed"
 
 
 def test_apology_stage_on_arkady_returns_to_daria():
