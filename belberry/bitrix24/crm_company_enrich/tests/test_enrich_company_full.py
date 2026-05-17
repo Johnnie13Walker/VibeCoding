@@ -126,6 +126,21 @@ def req(company_id="10", inn="7720238793", **extra):
     return data
 
 
+def test_write_audit_does_not_add_deal_timeline_comment():
+    bx = FakeBitrix()
+    outcome = stage.FullEnrichmentOutcome(
+        input_kind="deal_id",
+        input_value="100",
+        company_id="10",
+        deal_id="100",
+    )
+
+    step = stage._step_write_audit(bx, outcome, {}, {"dry_run": False})
+
+    assert step.status == "DONE"
+    assert bx.timeline_comments == []
+
+
 @pytest.fixture(autouse=True)
 def no_network(monkeypatch, tmp_path):
     monkeypatch.setattr(stage, "AUDIT_PATH", tmp_path / "enrich_company_full.csv")
@@ -135,6 +150,7 @@ def no_network(monkeypatch, tmp_path):
     monkeypatch.setattr(stage.sync_deals, "parse_organization_status", lambda html: "")
     monkeypatch.setattr(stage.enrich_web, "try_web", lambda *a, **k: (None, None))
     monkeypatch.setattr(stage.enrich_web, "try_rusprofile", lambda *a, **k: (None, None, []))
+    monkeypatch.setattr(stage.sync_deals, "run_company", lambda *a, **k: {"failed": 0, "outcomes": [{"status": "DRY_RUN"}]})
     monkeypatch.setattr(stage.sync_deals, "run", lambda *a, **k: {"failed": 0, "outcomes": [{"status": "DRY_RUN"}]})
     monkeypatch.setattr(stage.dedupe_contacts, "run_company", lambda *a, **k: {"failed": 0, "outcomes": [{"status": "NO_DUPLICATES"}]})
     monkeypatch.setattr(stage.telemarketing_dedupe, "run_company", lambda *a, **k: {"failed": 0, "unresolved": 0, "outcomes": [{"status": "NO_DUPLICATES"}]})
@@ -174,12 +190,64 @@ def test_resolve_fails_without_create_if_missing():
 
 def test_create_if_missing_creates_minimum_company():
     bx = FakeBitrix()
-    out = stage.run(bx, url="https://zublechit.ru", create_if_missing=True, dry_run=False, skip_bp=True, bizproc_wait_s=0)
+    out = stage.run(bx, inn="7720238793", create_if_missing=True, dry_run=False, skip_bp=True, bizproc_wait_s=0)
     assert out.company_id in bx.companies
     assert bx.added_companies
 
 
-def test_deal_without_company_uses_supplemental_url_and_attaches_created_company():
+def test_create_if_missing_skips_without_inn():
+    bx = FakeBitrix(deals={"100": deal(company_id="")})
+
+    out = stage.run(
+        bx,
+        deal_id="100",
+        url="https://missing-inn.ru",
+        create_if_missing=True,
+        dry_run=False,
+        skip_bp=True,
+        bizproc_wait_s=0,
+    )
+
+    assert out.final_status == "SKIPPED"
+    assert "no_inn_no_company" in out.flags
+    assert bx.added_companies == []
+    assert bx.updated_deals == []
+
+
+def test_deal_without_company_skips_creation_when_inn_missing():
+    sync_company_calls = []
+    sync_deal_calls = []
+    stage.sync_deals.run_company = lambda *a, **k: sync_company_calls.append(k) or {"failed": 0, "outcomes": [{"status": "DRY_RUN"}]}
+    stage.sync_deals.run = lambda *a, **k: sync_deal_calls.append(k) or {"failed": 0, "outcomes": [{"status": "DRY_RUN"}]}
+    bx = FakeBitrix(deals={"100": deal(company_id="")})
+
+    out = stage.run(
+        bx,
+        deal_id="100",
+        url="https://kankadze.school",
+        create_if_missing=True,
+        dry_run=False,
+        skip_bp=True,
+        skip_dedupe_contacts=True,
+        skip_director_inn=True,
+        skip_telemarketing_dedupe=True,
+        bizproc_wait_s=0,
+    )
+
+    assert out.final_status == "SKIPPED"
+    assert out.company_id == ""
+    assert bx.added_companies == []
+    assert bx.updated_deals == []
+    assert sync_company_calls == []
+    assert sync_deal_calls == []
+
+
+def test_deal_without_company_creates_company_only_after_inn_found(monkeypatch):
+    sync_company_calls = []
+    sync_deal_calls = []
+    stage.sync_deals.run_company = lambda *a, **k: sync_company_calls.append(k) or {"failed": 0, "outcomes": [{"status": "DRY_RUN"}]}
+    stage.sync_deals.run = lambda *a, **k: sync_deal_calls.append(k) or {"failed": 0, "outcomes": [{"status": "DRY_RUN"}]}
+    monkeypatch.setattr(stage.enrich_web, "try_web", lambda *a, **k: ("7720238793", "ООО Тест"))
     bx = FakeBitrix(deals={"100": deal(company_id="")})
 
     out = stage.run(
@@ -198,10 +266,15 @@ def test_deal_without_company_uses_supplemental_url_and_attaches_created_company
     assert out.company_id in bx.companies
     assert bx.added_companies[0][0]["TITLE"] == "kankadze.school"
     assert bx.added_companies[0][0]["WEB"] == [{"VALUE": "https://kankadze.school", "VALUE_TYPE": "WORK"}]
+    assert bx.added_companies[0][0]["UF_CRM_5DEF838D882A2"] == "https://kankadze.school"
+    assert bx.added_companies[0][0]["UF_CRM_1735331882180"] == "7720238793"
     assert bx.updated_deals[0][0] == "100"
     assert bx.updated_deals[0][1] == {"COMPANY_ID": out.company_id}
     assert bx.added_deals == []
     assert _step(out, "RESOLVE_DEAL").details["attached_input_deal"] is True
+    assert sync_company_calls[-1]["company_id"] == out.company_id
+    assert sync_company_calls[-1]["site"] == "https://kankadze.school"
+    assert sync_deal_calls[-1]["telemarketing_workflow"] is True
 
 
 def test_dry_run_created_company_reuses_context_without_bitrix_get():
@@ -226,8 +299,8 @@ def test_dry_run_created_company_reuses_context_without_bitrix_get():
         bizproc_wait_s=0,
     )
 
-    assert out.company_id == "DRY_RUN_COMPANY"
-    assert out.final_status in {"PARTIAL", "SKIPPED", "ENRICHED"}
+    assert out.company_id == ""
+    assert out.final_status == "SKIPPED"
 
 
 def test_find_site_writes_web_if_empty():

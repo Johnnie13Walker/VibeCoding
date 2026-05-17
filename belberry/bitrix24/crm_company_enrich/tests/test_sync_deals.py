@@ -381,6 +381,22 @@ def test_missing_deal_contacts_skips_placeholder_when_real_exists():
     assert skipped == {"1": "placeholder_has_real_contact"}
 
 
+def test_missing_deal_contacts_keeps_director_bang_contact_when_real_exists():
+    bx = FakeBitrix(
+        companies={"100": _company()},
+        company_contacts={"100": ["1", "2"]},
+        contacts={
+            "1": {"ID": "1", "LAST_NAME": "!", "NAME": "Лагойский Дмитрий Владимирович", "POST": "ГЕНЕРАЛЬНЫЙ ДИРЕКТОР"},
+            "2": {"ID": "2", "LAST_NAME": "Лагойский", "NAME": "Дмитрий", "SECOND_NAME": "Владимирович"},
+        },
+    )
+
+    missing, skipped = sync_deals._missing_deal_contacts(bx, "100", "200")
+
+    assert missing == ["1", "2"]
+    assert skipped == {}
+
+
 def test_missing_deal_contacts_keeps_placeholder_when_no_real_alternative():
     bx = FakeBitrix(
         companies={"100": _company()},
@@ -558,8 +574,21 @@ def test_live_reconciles_company_organization_status(monkeypatch):
 
 def test_organization_status_parses_rusprofile_html(monkeypatch):
     assert sync_deals._parse_organization_status("<span>Действующая организация</span>") == "Действующая"
+    assert sync_deals._parse_organization_status("<span>Имеет статус Действующее</span>") == "Действующая"
 
     assert sync_deals._parse_organization_status("<span>Организация ликвидирована</span>") == "Ликвидирована"
+
+
+def test_organization_status_ignores_unrelated_liquidated_word_on_search_page():
+    html = """
+    <main>
+      <h1>ООО "МЕЖДУНАРОДНЫЙ ЦЕНТР ФЕРТИЛЬНОСТИ"</h1>
+      <p>ИНН 7840085309. Действует с 07.12.2018.</p>
+      <aside>Другие результаты: ликвидировано 12 организаций</aside>
+    </main>
+    """
+
+    assert sync_deals._parse_organization_status(html) == "Действующая"
 
 
 def test_brand_defaults_to_belberry_when_company_brand_is_empty():

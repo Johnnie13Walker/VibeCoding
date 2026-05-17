@@ -139,6 +139,7 @@ def run(
         ("APPLY_INN", _step_apply_inn),
         ("RUN_BP", _step_run_bp),
         ("VERIFY", _step_verify),
+        ("SYNC_COMPANY", _step_sync_company),
         ("ADDRESS_SYNC", _step_address_sync),
         ("CHECK_BANKRUPTCY", _step_check_bankruptcy),
         ("RANK_DEAL_VIABILITY", _step_rank_deal_viability),
@@ -197,9 +198,16 @@ def _step_resolve(bx: BitrixClient, outcome: FullEnrichmentOutcome, context: dic
         if deal:
             context["deal_id"] = str(deal.get("ID") or context["deal_id"])
             context["company_id"] = str(deal.get("COMPANY_ID") or "")
+            if context["company_id"] == "0":
+                context["company_id"] = ""
             outcome.deal_id = context["deal_id"]
             deal_had_company = bool(context["company_id"])
             company = bx.get_company(context["company_id"]) if context["company_id"] else None
+            if not company and context.get("url") and flags["create_if_missing"]:
+                context["site"] = context["url"]
+                found, _name = enrich_web.try_web(context["url"], enrich_web.HttpFetcher().fetch, sleep_s=0.1)
+                if found:
+                    context["inn"] = found
     elif outcome.input_kind == "inn":
         reqs = bx.search_requisite_by_inn(context["inn"])
         company_id = str((reqs[0] if reqs else {}).get("ENTITY_ID") or "")
@@ -212,9 +220,14 @@ def _step_resolve(bx: BitrixClient, outcome: FullEnrichmentOutcome, context: dic
             context["company_id"] = str(company.get("ID") or "")
 
     if not company and flags["create_if_missing"]:
+        if not context.get("inn"):
+            outcome.flags.append("no_inn_no_company")
+            outcome.final_status = "SKIPPED"
+            return StepOutcome("RESOLVE", "SKIPPED", {"reason": "no_inn_no_company", "url": context.get("url", "")})
         if flags["dry_run"]:
             context["company_id"] = "DRY_RUN_COMPANY"
             outcome.company_id = context["company_id"]
+            context["created_company"] = True
             context["company"] = {"ID": context["company_id"], "TITLE": _title_from_url(context["url"]) or context["inn"], "WEB": _web_values(context["url"])}
             if outcome.input_kind == "deal_id" and context.get("deal_id") and not deal_had_company:
                 context["attached_input_deal"] = True
@@ -348,6 +361,22 @@ def _step_verify(bx: BitrixClient, outcome: FullEnrichmentOutcome, context: dict
     return StepOutcome("VERIFY", "PARTIAL", {"flag": "verify_pending"})
 
 
+def _step_sync_company(bx: BitrixClient, outcome: FullEnrichmentOutcome, context: dict[str, Any], flags: dict[str, Any]) -> StepOutcome:
+    if not outcome.company_id or outcome.company_id == "DRY_RUN_COMPANY":
+        return StepOutcome("SYNC_COMPANY", "SKIPPED", {"reason": "no_real_company"})
+    summary = sync_deals.run_company(
+        bx,
+        company_id=outcome.company_id,
+        inn=context.get("inn", ""),
+        site=context.get("site", ""),
+        dry_run=flags["dry_run"],
+        overwrite=False,
+    )
+    if not flags["dry_run"]:
+        context["company"] = bx.get_company(outcome.company_id) or context.get("company") or {}
+    return StepOutcome("SYNC_COMPANY", "DONE" if not summary.get("failed") else "FAILED", {"summary": summary})
+
+
 def _step_address_sync(bx: BitrixClient, outcome: FullEnrichmentOutcome, context: dict[str, Any], flags: dict[str, Any]) -> StepOutcome:
     company = _company(bx, context)
     planned = _address_updates(company)
@@ -457,7 +486,16 @@ def _step_create_deal(bx: BitrixClient, outcome: FullEnrichmentOutcome, context:
 def _step_sync_deal(bx: BitrixClient, outcome: FullEnrichmentOutcome, context: dict[str, Any], flags: dict[str, Any]) -> StepOutcome:
     if context.get("deal_action") not in {"sync", "create"} or not outcome.deal_id or outcome.deal_id == "DRY_RUN_DEAL":
         return StepOutcome("SYNC_DEAL", "SKIPPED", {"reason": "not_needed"})
-    summary = sync_deals.run(bx, deal_id=outcome.deal_id, dry_run=flags["dry_run"], overwrite=False, active_only=True)
+    if flags["dry_run"] and context.get("attached_input_deal") and context.get("created_company"):
+        return StepOutcome("SYNC_DEAL", "SKIPPED", {"reason": "dry_run_attached_input_deal"})
+    summary = sync_deals.run(
+        bx,
+        deal_id=outcome.deal_id,
+        dry_run=flags["dry_run"],
+        overwrite=False,
+        active_only=True,
+        telemarketing_workflow=True,
+    )
     return StepOutcome("SYNC_DEAL", "DONE" if not summary.get("failed") else "FAILED", {"summary": summary})
 
 
@@ -496,6 +534,8 @@ def _step_revive_deal(bx: BitrixClient, outcome: FullEnrichmentOutcome, context:
 def _step_dedupe_contacts(bx: BitrixClient, outcome: FullEnrichmentOutcome, context: dict[str, Any], flags: dict[str, Any]) -> StepOutcome:
     if flags["skip_dedupe_contacts"]:
         return StepOutcome("DEDUPE_CONTACTS", "SKIPPED", {"reason": "skip_dedupe_contacts"})
+    if flags["dry_run"] and context.get("created_company"):
+        return StepOutcome("DEDUPE_CONTACTS", "SKIPPED", {"reason": "dry_run_created_company"})
     summary = dedupe_contacts.run_company(
         bx,
         company_id=outcome.company_id,
@@ -508,6 +548,8 @@ def _step_dedupe_contacts(bx: BitrixClient, outcome: FullEnrichmentOutcome, cont
 def _step_enrich_director_inn(bx: BitrixClient, outcome: FullEnrichmentOutcome, context: dict[str, Any], flags: dict[str, Any]) -> StepOutcome:
     if flags["skip_director_inn"]:
         return StepOutcome("ENRICH_DIRECTOR_INN", "SKIPPED", {"reason": "skip_director_inn"})
+    if flags["dry_run"] and context.get("created_company"):
+        return StepOutcome("ENRICH_DIRECTOR_INN", "SKIPPED", {"reason": "dry_run_created_company"})
     try:
         from . import enrich_director_inn  # type: ignore
     except ImportError:
@@ -523,6 +565,8 @@ def _step_enrich_director_inn(bx: BitrixClient, outcome: FullEnrichmentOutcome, 
 def _step_telemarketing_dedupe_scoped(bx: BitrixClient, outcome: FullEnrichmentOutcome, context: dict[str, Any], flags: dict[str, Any]) -> StepOutcome:
     if flags["skip_telemarketing_dedupe"]:
         return StepOutcome("TELEMARKETING_DEDUPE_SCOPED", "SKIPPED", {"reason": "skip_telemarketing_dedupe"})
+    if flags["dry_run"] and context.get("created_company"):
+        return StepOutcome("TELEMARKETING_DEDUPE_SCOPED", "SKIPPED", {"reason": "dry_run_created_company"})
     summary = telemarketing_dedupe.run_company(bx, company_id=outcome.company_id, dry_run=flags["dry_run"], rotation_index=0)
     status = "DONE" if not summary.get("failed") and not summary.get("unresolved") else "PARTIAL"
     return StepOutcome("TELEMARKETING_DEDUPE_SCOPED", status, {"summary": summary})
@@ -530,12 +574,6 @@ def _step_telemarketing_dedupe_scoped(bx: BitrixClient, outcome: FullEnrichmentO
 
 def _step_write_audit(bx: BitrixClient, outcome: FullEnrichmentOutcome, context: dict[str, Any], flags: dict[str, Any]) -> StepOutcome:
     _write_audit(outcome)
-    if outcome.deal_id and outcome.deal_id != "DRY_RUN_DEAL" and not flags["dry_run"]:
-        bx.add_timeline_comment(
-            owner_type_id=DEAL_OWNER_TYPE_ID,
-            owner_id=outcome.deal_id,
-            text=f"[enrich-full] Полный pipeline пройден: {_done_step_names(outcome)}",
-        )
     return StepOutcome("WRITE_AUDIT", "DONE", {"path": str(AUDIT_PATH), "dry_run": flags["dry_run"]})
 
 
@@ -570,6 +608,7 @@ def _minimum_company_fields(context: dict[str, Any]) -> dict[str, Any]:
     fields: dict[str, Any] = {"TITLE": title}
     if context.get("url"):
         fields["WEB"] = _web_values(context["url"])
+        fields["UF_CRM_5DEF838D882A2"] = _normalize_url(context["url"])
     if context.get("inn"):
         fields["UF_CRM_1735331882180"] = context["inn"]
     if _looks_medical(title, context.get("url", "")):
@@ -688,14 +727,12 @@ def _next_assignee(current: str, active_users: set[str]) -> str:
 
 
 def _address_updates(company: dict) -> dict[str, Any]:
-    updates = {}
-    city = str(company.get("REG_ADDRESS_CITY") or company.get("ADDRESS_CITY") or "").strip()
-    region = str(company.get("REG_ADDRESS_REGION") or company.get("ADDRESS_REGION") or "").strip()
-    if city and not str(company.get(COMPANY_UF_CITY) or "").strip():
-        updates[COMPANY_UF_CITY] = city
-    if region and not str(company.get(COMPANY_UF_REGION) or "").strip():
-        updates[COMPANY_UF_REGION] = region
-    return updates
+    return enrich_empty_companies._fill_company_address_fields(_DryRunAddressBx(), "__dry_run__", company)
+
+
+class _DryRunAddressBx:
+    def update_company(self, company_id: str, fields: dict[str, Any]) -> bool:
+        return True
 
 
 def _has_verified_data(company: dict, reqs: list[dict]) -> bool:

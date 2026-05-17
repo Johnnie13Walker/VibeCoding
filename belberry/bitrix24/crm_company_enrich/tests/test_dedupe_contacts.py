@@ -44,6 +44,16 @@ def test_placeholder_does_not_cluster_homonyms_when_both_real():
     assert sorted(len(cluster) for cluster in clusters) == [1, 1]
 
 
+def test_director_bang_contact_is_not_placeholder():
+    director = _contact("1", LAST_NAME="!", NAME="Лагойский Дмитрий Владимирович", POST="ГЕНЕРАЛЬНЫЙ ДИРЕКТОР")
+    real = _contact("2", LAST_NAME="Лагойский", NAME="Дмитрий", SECOND_NAME="Владимирович")
+
+    clusters = dedupe_contacts._cluster_duplicates([director, real])
+
+    assert dedupe_contacts._is_placeholder_contact(director) is False
+    assert sorted(len(cluster) for cluster in clusters) == [1, 1]
+
+
 def test_winner_is_non_placeholder():
     placeholder = _contact(
         "1",
@@ -129,6 +139,23 @@ def test_merge_keeps_placeholder_deal_binding(monkeypatch):
     assert bx.removed_deal_contacts == [("24318", "75774")]
     assert bx.removed_company_contacts == [("75774", "17658")]
     assert bx.deleted_contacts == ["75774"]
+
+
+def test_director_cluster_is_unresolved_instead_of_deleted():
+    class FakeBitrix:
+        def list_contact_deals(self, contact_id):
+            return []
+
+        def list_contact_companies(self, contact_id):
+            return ["100"]
+
+    director = _contact("1", LAST_NAME="!", NAME="Лагойский Дмитрий Владимирович", POST="ГЕНЕРАЛЬНЫЙ ДИРЕКТОР")
+    real = _contact("2", LAST_NAME="Лагойский", NAME="Дмитрий", SECOND_NAME="Владимирович", POST="ГЕНЕРАЛЬНЫЙ ДИРЕКТОР")
+
+    outcome = dedupe_contacts._process_cluster(FakeBitrix(), "100", [director, real], dry_run=False)
+
+    assert outcome.status == "UNRESOLVED"
+    assert outcome.skipped_reason == "director_contact_protected"
 
 
 class FakeBitrixForRun:

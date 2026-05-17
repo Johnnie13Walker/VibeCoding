@@ -35,6 +35,35 @@ def test_company_region_filled_from_reg_address_after_bp(monkeypatch):
     assert bx.update_company_calls == [("10", {COMPANY_UF_REGION: "123"})]
 
 
+def test_city_and_region_filled_from_full_moscow_reg_address():
+    bx = FakeBitrix()
+    company = {
+        COMPANY_UF_CITY: "",
+        COMPANY_UF_REGION: "",
+        "REG_ADDRESS": "107078, г Москва, Красносельский р-н, Красноворотский проезд, д 3Б стр 3",
+    }
+
+    updates = stage._fill_company_address_fields(bx, "10", company)
+
+    assert updates == {COMPANY_UF_CITY: "Москва", COMPANY_UF_REGION: "9234"}
+    assert bx.update_company_calls == [("10", updates)]
+
+
+def test_city_and_region_filled_from_full_regional_address(monkeypatch):
+    bx = FakeBitrix()
+    monkeypatch.setattr(stage, "COMPANY_REGION_ENUM_MAP", {"нижегородская": "321"})
+    company = {
+        COMPANY_UF_CITY: "",
+        COMPANY_UF_REGION: "",
+        "REG_ADDRESS": "603000, Нижегородская область, г Нижний Новгород, ул. Тестовая, д 1",
+    }
+
+    updates = stage._fill_company_address_fields(bx, "10", company)
+
+    assert updates == {COMPANY_UF_CITY: "Нижний Новгород", COMPANY_UF_REGION: "321"}
+    assert bx.update_company_calls == [("10", updates)]
+
+
 def test_company_existing_city_not_overwritten():
     bx = FakeBitrix()
     company = {COMPANY_UF_CITY: "Москва", "REG_ADDRESS_CITY": "Питер"}

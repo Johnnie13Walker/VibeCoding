@@ -1546,8 +1546,10 @@ def verify_with_retries(bx: BitrixClient, company_id: str) -> tuple[bool, dict |
 
 def _fill_company_address_fields(bx: BitrixClient, company_id: str, company: dict) -> dict[str, Any]:
     """Заполнить город/область компании из юридического адреса, не затирая ручной ввод."""
-    reg_city = _clean(company.get("REG_ADDRESS_CITY") or company.get("ADDRESS_CITY"))
-    reg_region = _clean(company.get("REG_ADDRESS_REGION") or company.get("ADDRESS_REGION"))
+    raw_address = _clean(company.get("REG_ADDRESS") or company.get("ADDRESS"))
+    fallback_city, fallback_region = _city_region_from_address(raw_address)
+    reg_city = _clean(company.get("REG_ADDRESS_CITY") or company.get("ADDRESS_CITY") or fallback_city)
+    reg_region = _clean(company.get("REG_ADDRESS_REGION") or company.get("ADDRESS_REGION") or fallback_region)
     updates: dict[str, Any] = {}
     if COMPANY_UF_CITY and reg_city and not _clean(company.get(COMPANY_UF_CITY)):
         updates[COMPANY_UF_CITY] = reg_city
@@ -1572,6 +1574,31 @@ def fill_company_address_fields(bx: BitrixClient, company_id: str, company: dict
 def _resolve_region_enum(raw_region: str, mapping: dict[str, str]) -> str:
     norm = _normalize_region_key(raw_region)
     return mapping.get(norm, "")
+
+
+def _city_region_from_address(address: str) -> tuple[str, str]:
+    """Достать город и регион из полной строки адреса, если BP не дал структурные поля."""
+    text = _clean(address)
+    if not text:
+        return "", ""
+    lowered = text.lower()
+    federal_cities = {
+        "москва": "Москва",
+        "санкт-петербург": "Санкт-Петербург",
+        "севастополь": "Севастополь",
+    }
+    for key, label in federal_cities.items():
+        if re.search(rf"\bг\.?\s*{re.escape(key)}\b|\b{re.escape(key)}\b", lowered):
+            return label, label
+    city_match = re.search(r"\bг\.?\s*([А-ЯЁA-Z][А-ЯЁа-яёA-Za-z\-\s]+?)(?:,|$)", text)
+    city = _clean(city_match.group(1)) if city_match else ""
+    region_match = re.search(
+        r"\b([А-ЯЁA-Z][А-ЯЁа-яёA-Za-z\-\s]+?(?:область|край|республика|автономный округ|АО))(?:,|$)",
+        text,
+        re.IGNORECASE,
+    )
+    region = _clean(region_match.group(1)) if region_match else ""
+    return city, region
 
 
 def _normalize_region_key(raw_region: str) -> str:
