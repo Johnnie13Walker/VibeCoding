@@ -100,8 +100,20 @@ def _process_deal(
         company = bx.get_company(company_id) or {}
     except Exception as exc:  # noqa: BLE001
         return PromoteOutcome(deal_id, company_id, "FAILED", error=f"company_get_failed: {str(exc)[:160]}"), False
-    contacts = list(bx.list_company_contacts_full(company_id))
-    requisites = list(bx.list_company_requisites(company_id))
+    try:
+        contacts = list(bx.list_company_contacts_full(company_id))
+    except Exception as exc:  # noqa: BLE001
+        return (
+            PromoteOutcome(deal_id, company_id, "FAILED", skipped_reason=f"list_contacts_failed: {str(exc)[:120]}"),
+            False,
+        )
+    try:
+        requisites = list(bx.list_company_requisites(company_id))
+    except Exception as exc:  # noqa: BLE001
+        return (
+            PromoteOutcome(deal_id, company_id, "FAILED", skipped_reason=f"list_requisites_failed: {str(exc)[:120]}"),
+            False,
+        )
     ready, missing = _evaluate_readiness(company, contacts, requisites)
     if not ready:
         if not dry_run:

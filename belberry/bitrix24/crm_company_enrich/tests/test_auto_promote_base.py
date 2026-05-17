@@ -185,3 +185,27 @@ def test_failed_update_does_not_consume_rotation():
     assert summary["outcomes"][0]["status"] == "FAILED"
     assert summary["outcomes"][1]["new_assignee"] == "2772"
     assert bx.updated_deals[0][0] == "11"
+
+
+def test_list_contacts_failure_does_not_break_batch():
+    class ContactFailureBitrix(FakeBitrix):
+        def list_company_contacts_full(self, company_id):
+            if company_id == "1":
+                raise RuntimeError("contacts api down")
+            return self.contacts
+
+    bx = ContactFailureBitrix(
+        company=ready_company(),
+        contacts=[{"ID": "5"}],
+        requisites=[{"RQ_INN": "7700000000"}],
+        deals=[
+            {"ID": "10", "COMPANY_ID": "1", "STAGE_ID": "C50:UC_1S1KIU", "CLOSED": "N"},
+            {"ID": "11", "COMPANY_ID": "2", "STAGE_ID": "C50:UC_1S1KIU", "CLOSED": "N"},
+        ],
+    )
+
+    summary = stage.run(bx, dry_run=True)
+
+    assert summary["outcomes"][0]["status"] == "FAILED"
+    assert "list_contacts_failed" in summary["outcomes"][0]["skipped_reason"]
+    assert summary["outcomes"][1]["status"] == "DRY_RUN"
