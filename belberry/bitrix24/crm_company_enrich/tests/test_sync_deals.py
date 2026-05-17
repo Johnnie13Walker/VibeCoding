@@ -922,9 +922,9 @@ def test_refusal_deal_on_daria_returns_to_arkady():
     assert "ASSIGNED_BY_ID" not in skipped
 
 
-def test_refusal_deal_on_arkady_returns_to_daria():
+def test_apology_stage_on_arkady_returns_to_daria():
     fields, _ = sync_deals.build_telemarketing_existing_deal_fields(
-        _deal(STAGE_ID="C50:UC_1S1KIU", ASSIGNED_BY_ID="2832", CLOSED="Y"),
+        _deal(STAGE_ID="C50:APOLOGY", ASSIGNED_BY_ID="2832", CLOSED="Y"),
     )
 
     assert fields["ASSIGNED_BY_ID"] == "2772"
@@ -943,6 +943,40 @@ def test_non_refusal_existing_deal_is_not_reassigned_by_telemarketing_workflow()
     fields, skipped = sync_deals.build_telemarketing_existing_deal_fields(
         _deal(STAGE_ID="C50:NEW", ASSIGNED_BY_ID="2772", CLOSED="N"),
         rotation_index=1,
+    )
+
+    assert "ASSIGNED_BY_ID" not in fields
+    assert skipped["ASSIGNED_BY_ID"] == "not_refusal_deal"
+
+
+def test_base_stage_C50_UC_1S1KIU_is_not_refusal():
+    assert sync_deals._is_refusal_deal({"STAGE_ID": "C50:UC_1S1KIU"}) is False
+
+
+def test_apology_stage_is_refusal_regression():
+    assert sync_deals._is_refusal_deal({"STAGE_ID": "C50:APOLOGY"}) is True
+
+
+def test_lose_stage_is_refusal_regression():
+    assert sync_deals._is_refusal_deal({"STAGE_ID": "C50:LOSE"}) is True
+
+
+def test_unknown_stage_with_semantic_F_is_refusal():
+    assert sync_deals._is_refusal_deal(
+        {"STAGE_ID": "C50:NEW_LOSE_VARIANT", "STAGE_SEMANTIC_ID": "F"}
+    ) is True
+
+
+def test_open_stage_with_semantic_P_is_not_refusal():
+    assert sync_deals._is_refusal_deal(
+        {"STAGE_ID": "C50:UC_1S1KIU", "STAGE_SEMANTIC_ID": "P"}
+    ) is False
+
+
+def test_base_stage_telemarketing_workflow_does_not_reassign_assignee():
+    fields, skipped = sync_deals.build_telemarketing_existing_deal_fields(
+        _deal(STAGE_ID="C50:UC_1S1KIU", ASSIGNED_BY_ID="2832", CLOSED="N"),
+        rotation_index=0,
     )
 
     assert "ASSIGNED_BY_ID" not in fields

@@ -64,7 +64,15 @@ PORTAL_DOMAIN = "belberrycrm.bitrix24.ru"
 TELEMARKETING_CATEGORY_ID = "50"
 TELEMARKETING_NEW_STAGE_ID = "C50:NEW"
 TELEMARKETING_SOURCE_ID = "12"
-TELEMARKETING_REFUSAL_STAGE_IDS = frozenset({"C50:APOLOGY", "C50:LOSE", "C50:UC_1S1KIU"})
+# Стадии отказа в воронке 50. Закрытые failure-стадии (CLOSED=Y,
+# STAGE_SEMANTIC_ID=F). НЕ включают C50:UC_1S1KIU («База») — это
+# первая стадия входящего лида (process, open), не отказ. Проверено
+# через crm.dealcategory.stage.list?id=50 2026-05-17.
+TELEMARKETING_REFUSAL_STAGE_IDS = frozenset({"C50:APOLOGY", "C50:LOSE"})
+# Bitrix STAGE_SEMANTIC_ID для failure-стадий — устойчивый признак
+# отказа, не зависит от STATUS_ID. Используется как дополнительная
+# защита от ошибочной классификации при добавлении новых отказных стадий.
+TELEMARKETING_REFUSAL_SEMANTIC = "F"
 TELEMARKETING_AUTO_REJECT_SCAN_STAGES = ("C50:UC_1S1KIU", "C50:NEW")
 TELEMARKETING_OPEN_STAGES = (
     "C50:UC_1S1KIU",

@@ -48,6 +48,7 @@ from ..config import (
     TELEMARKETING_ASSIGNEES,
     TELEMARKETING_CATEGORY_ID,
     TELEMARKETING_NEW_STAGE_ID,
+    TELEMARKETING_REFUSAL_SEMANTIC,
     TELEMARKETING_REFUSAL_STAGE_IDS,
     TELEMARKETING_SOURCE_ID,
     UF_BRAND_FIELD,
@@ -495,8 +496,15 @@ def _assignee_by_rotation(rotation_index: int) -> str:
 
 
 def _is_refusal_deal(deal: dict[str, Any]) -> bool:
-    stage = _clean(deal.get("STAGE_ID"))
-    return stage in TELEMARKETING_REFUSAL_STAGE_IDS
+    stage_id = _clean(deal.get("STAGE_ID"))
+    if stage_id in TELEMARKETING_REFUSAL_STAGE_IDS:
+        return True
+    # Доп. защита: если Bitrix указал STAGE_SEMANTIC_ID="F" (failure),
+    # это отказ, даже если STATUS_ID не в нашем списке. Защищает от
+    # появления новых отказных стадий в воронке.
+    if _clean(deal.get("STAGE_SEMANTIC_ID")) == TELEMARKETING_REFUSAL_SEMANTIC:
+        return True
+    return False
 
 
 def _missing_deal_contacts(bx: BitrixClient, company_id: str, deal_id: str) -> tuple[list[str], dict[str, str]]:
