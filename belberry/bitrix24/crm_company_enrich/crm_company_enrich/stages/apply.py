@@ -18,7 +18,7 @@
    applied_status, error_message. Идемпотентно (append-only). В dry-run snapshot
    только печатается, в таб не пишется.
 4. Write: crm.requisite.add c PRESET_ID из ENV CCE_PRESET_ID (default 1).
-5. Bizproc (best-effort): bizproc.workflow.start если CCE_BIZPROC_TEMPLATE_ID
+5. Bizproc (best-effort): bizproc.workflow.start если CCE_BIZPROC_UPDATE_ID
    задан; иначе bizproc_status=not_configured.
 6. Status: success → APPLIED, failure → FAILED.
    Идемпотентность: строки со status ∈ {APPLIED, FAILED, SKIPPED, DONE, MERGED,
@@ -42,7 +42,7 @@ from ..config import (
     CCE_APPLY_CLEANUP_DUPLICATE,
     CCE_APPLY_SET_BRAND,
     CCE_APPLY_SLEEP_S,
-    CCE_BIZPROC_TEMPLATE_ID,
+    CCE_BIZPROC_UPDATE_ID,
     CCE_BIZPROC_WAIT_S,
     CCE_COMPANY_TOUCH,
     CCE_PRESET_ID,
@@ -180,7 +180,7 @@ def run(
     sleep_s = CCE_APPLY_SLEEP_S if sleep_s is None else sleep_s
     preset_id = CCE_PRESET_ID if preset_id is None else preset_id
     if bizproc_template_id is _BIZPROC_SENTINEL:
-        bizproc_template_id = CCE_BIZPROC_TEMPLATE_ID
+        bizproc_template_id = CCE_BIZPROC_UPDATE_ID
     if write_name_full is None:
         write_name_full = CCE_WRITE_NAME_FULL
     if company_touch is None:

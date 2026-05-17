@@ -288,3 +288,141 @@ def test_manual_site_promote_skips_unchanged_failed_rows(monkeypatch):
     assert summary["skipped_existing_failed"] == 1
     assert state["results"][0]["apply_status"] == "BP_FAILED"
     assert state["results"][1]["apply_status"] == ""
+
+
+class FakeApplyBitrix:
+    def __init__(
+        self,
+        *,
+        initial_requisites=None,
+        verified_requisites=None,
+        organization_status="8850",
+    ):
+        self.requisites = list(initial_requisites or [])
+        self.verified_requisites = list(verified_requisites or [])
+        self.organization_status = organization_status
+        self.workflow_calls = []
+        self.updated_companies = []
+        self.added_requisites = []
+        self.deleted_requisites = []
+
+    def get_company(self, company_id):
+        return {
+            "ID": company_id,
+            "TITLE": "Тестовая компания",
+            "UF_CRM_ORG_STATUS": self.organization_status,
+            "INDUSTRY": "",
+            "REVENUE": "1000",
+        }
+
+    def list_company_requisites(self, company_id):
+        if self.verified_requisites and any(tpl == 8612 for tpl, _ in self.workflow_calls):
+            return list(self.verified_requisites)
+        return list(self.requisites)
+
+    def add_requisite(self, payload):
+        self.added_requisites.append(payload)
+        req_id = str(7000 + len(self.added_requisites))
+        self.requisites.append({"ID": req_id, "RQ_INN": payload["RQ_INN"]})
+        return req_id
+
+    def start_workflow(self, template_id, document_type):
+        self.workflow_calls.append((int(template_id), list(document_type)))
+        return {"workflow_id": f"wf-{template_id}"}
+
+    def update_company(self, company_id, fields):
+        self.updated_companies.append((company_id, fields))
+        return True
+
+    def delete_requisite(self, requisite_id):
+        self.deleted_requisites.append(str(requisite_id))
+        return True
+
+
+def _apply_state():
+    return {
+        "results": [
+            {
+                "company_id": "10",
+                "title": "Тестовая компания",
+                "score": 3,
+                "source": "manual_site",
+                "inn_candidate": "7707083893",
+                "geo_verified": True,
+                "brand_predicted": "Belberry",
+                "brand_evidence": "test",
+                "classification": "READY_TO_APPLY",
+                "evidence": {"signals": {}},
+                "apply_status": "",
+            }
+        ]
+    }
+
+
+def _patch_apply_io(monkeypatch, fake_bx):
+    monkeypatch.setattr(stage, "BitrixClient", lambda *args, **kwargs: fake_bx)
+    monkeypatch.setattr(stage, "_load_state", _apply_state)
+    monkeypatch.setattr(stage, "_write_json", lambda *args, **kwargs: None)
+    monkeypatch.setattr(stage, "run_upload_plan", lambda: None)
+    monkeypatch.setattr(stage, "_backup_before_apply_snapshot", lambda *args, **kwargs: "backup.json")
+    monkeypatch.setattr(stage.time, "sleep", lambda seconds: None)
+    monkeypatch.setattr(stage, "CCE_BIZPROC_WAIT_S", 1)
+    monkeypatch.setattr(stage, "CCE_COMPANY_TOUCH", False)
+
+
+def test_empty_apply_first_requisite_starts_both_bp_in_order(monkeypatch):
+    fake_bx = FakeApplyBitrix(
+        initial_requisites=[],
+        verified_requisites=[
+            {"ID": "8001", "RQ_INN": "7707083893", "RQ_KPP": "770701001", "RQ_OGRN": "1027700132195"}
+        ],
+    )
+    _patch_apply_io(monkeypatch, fake_bx)
+
+    summary = stage.run_apply(dry_run=False)
+
+    assert summary["applied"] == 1
+    assert [call[0] for call in fake_bx.workflow_calls[:2]] == [5938, 8612]
+
+
+def test_empty_apply_existing_requisite_starts_only_update_bp(monkeypatch):
+    fake_bx = FakeApplyBitrix(
+        initial_requisites=[{"ID": "7001", "RQ_INN": "7707083893"}],
+        verified_requisites=[
+            {"ID": "8001", "RQ_INN": "7707083893", "RQ_KPP": "770701001", "RQ_OGRN": "1027700132195"}
+        ],
+    )
+    _patch_apply_io(monkeypatch, fake_bx)
+
+    summary = stage.run_apply(dry_run=False)
+
+    assert summary["applied"] == 1
+    assert [call[0] for call in fake_bx.workflow_calls] == [8612]
+
+
+def test_empty_apply_liquidated_status_is_valid_without_retry(monkeypatch):
+    fake_bx = FakeApplyBitrix(
+        initial_requisites=[],
+        verified_requisites=[],
+        organization_status="8852",
+    )
+    _patch_apply_io(monkeypatch, fake_bx)
+
+    summary = stage.run_apply(dry_run=False)
+
+    assert summary["applied"] == 1
+    assert summary["applied_liquidated"] == 1
+    assert [call[0] for call in fake_bx.workflow_calls] == [5938, 8612]
+
+
+def test_verify_retry_restarts_only_update_bp(monkeypatch):
+    fake_bx = FakeApplyBitrix(initial_requisites=[])
+    monkeypatch.setattr(stage.time, "sleep", lambda seconds: None)
+    monkeypatch.setattr(stage, "CCE_COMPANY_TOUCH", False)
+
+    verified, requisite, apply_status = stage._verify_with_retries(fake_bx, "10")
+
+    assert verified is False
+    assert requisite is None
+    assert apply_status == "BP_FAILED"
+    assert [call[0] for call in fake_bx.workflow_calls] == [8612, 8612]

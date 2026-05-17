@@ -86,22 +86,31 @@ ENRICH_USER_AGENT = os.environ.get(
 # большинстве порталов = 1; меняется через ENV для прогонов на dev-портале.
 CCE_PRESET_ID = int(os.environ.get("CCE_PRESET_ID", "1"))
 
-# Bizproc-шаблон, запускаемый после успешного crm.requisite.add.
-# На belberrycrm рабочий шаблон обогащения компаний — 5614:
-# «Автозаполнение реквизитов по ИНН». Корректно подтягивает ОГРН/КПП/адрес,
-# НЕ создаёт мусорные контакты-«ответственные лица» с placeholder-фамилией.
-# BP 8618 ранее создавал по 1-2 пустых контакта на каждый apply (зафиксировано
-# 2026-05-16, 50 шт удалено вручную).
-# Можно переопределить через CCE_BIZPROC_TEMPLATE_ID=<id>.
-# Отключить запуск можно через CCE_BIZPROC_TEMPLATE_ID=0 или любую не-цифру.
-_bp_raw = os.environ.get("CCE_BIZPROC_TEMPLATE_ID", "5614").strip()
-if _bp_raw.isdigit():
-    _bp_val = int(_bp_raw)
-    CCE_BIZPROC_TEMPLATE_ID: int | None = _bp_val if _bp_val > 0 else None
-elif _bp_raw == "":
-    CCE_BIZPROC_TEMPLATE_ID = 5614
-else:
-    CCE_BIZPROC_TEMPLATE_ID = None
+def _env_optional_positive_int(name: str, default: int) -> int | None:
+    raw = os.environ.get(name, str(default)).strip()
+    if raw.isdigit():
+        value = int(raw)
+        return value if value > 0 else None
+    return None
+
+
+# История BP-конфига:
+#   - BP 8618: создавал placeholder-контакты с LAST_NAME="!"
+#     (50 шт удалено вручную 2026-05-16). Отвергнут в коммите a20a753.
+#   - BP 5614 «Автозаполнение реквизитов по ИНН»: использовался как
+#     единичный BP-обогатитель. Заменён на двухступенчатую схему по
+#     требованию менеджера 2026-05-17.
+#   - Сейчас: два BP, см. CCE_BIZPROC_FIRST_ENTRY_ID и
+#     CCE_BIZPROC_UPDATE_ID ниже.
+#
+# Первичный BP, запускается только при первом внесении реквизитов.
+# «Изменение компании и заполнение данных» — мгновенный.
+CCE_BIZPROC_FIRST_ENTRY_ID = _env_optional_positive_int("CCE_BIZPROC_FIRST_ENTRY_ID", 5938)
+
+# Основной BP, запускается всегда после реквизитов.
+# «Обновление компании и заполнение данных» — около 4 минут, подтягивает
+# ОГРН/КПП/адрес/статус/выручку из ЕГРЮЛ/ДаДата.
+CCE_BIZPROC_UPDATE_ID = _env_optional_positive_int("CCE_BIZPROC_UPDATE_ID", 8612)
 
 # Пауза между write-запросами (rate-limit для crm.requisite.add).
 CCE_APPLY_SLEEP_S = float(os.environ.get("CCE_APPLY_SLEEP_S", "0.5"))

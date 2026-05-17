@@ -4,7 +4,7 @@
 
   1. happy path — touch + start_workflow + verify=enriched → APPLIED.
   2. BP запустился, verify=not_enriched → APPLIED_PENDING_BP.
-  3. BP не настроен (CCE_BIZPROC_TEMPLATE_ID=None) → нет touch/BP/verify.
+  3. BP не настроен (bizproc_template_id=None) → нет touch/BP/verify.
   4. BP failed (start_workflow raises) → status=APPLIED, no verify.
   5. CCE_COMPANY_TOUCH=False → не вызывает update_company.
   6. dry-run — ничего не пишется, ни touch ни BP не запускаются.

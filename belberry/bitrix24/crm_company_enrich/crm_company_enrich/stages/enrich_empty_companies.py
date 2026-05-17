@@ -24,7 +24,8 @@ import requests
 from ..bitrix_client import BitrixClient
 from ..config import (
     CCE_APPLY_SLEEP_S,
-    CCE_BIZPROC_TEMPLATE_ID,
+    CCE_BIZPROC_FIRST_ENTRY_ID,
+    CCE_BIZPROC_UPDATE_ID,
     CCE_BIZPROC_WAIT_S,
     CCE_COMPANY_TOUCH,
     CCE_PRESET_ID,
@@ -231,7 +232,7 @@ def run_enrich(*, limit: int | None = None, throttle_s: float = 0.1) -> dict:
 def run_upload_plan() -> dict:
     state = _load_state()
     rows = [PlanRow(**r) for r in state.get("results", [])]
-    visible_rows = [r for r in rows if r.apply_status != "APPLIED"]
+    visible_rows = [r for r in rows if r.apply_status not in {"APPLIED", "APPLIED_LIQUIDATED"}]
     sheets = _sheets()
     sheets.ensure_sheet(TAB_PLAN)
     sheets.clear(TAB_PLAN)
@@ -527,7 +528,7 @@ def run_apply(*, dry_run: bool = True, limit: int | None = None, throttle_s: flo
     targets = [
         r for r in rows
         if r.classification == "READY_TO_APPLY"
-        and r.apply_status not in {"APPLIED", "SKIPPED_ALREADY_HAS_INN", "COMPANY_DELETED", "BP_FAILED", "VERIFY_FAILED"}
+        and r.apply_status not in {"APPLIED", "APPLIED_LIQUIDATED", "SKIPPED_ALREADY_HAS_INN", "COMPANY_DELETED", "BP_FAILED", "VERIFY_FAILED"}
     ]
     targets.sort(key=lambda r: int(r.company_id))
     if limit:
@@ -535,6 +536,7 @@ def run_apply(*, dry_run: bool = True, limit: int | None = None, throttle_s: flo
 
     bx = BitrixClient(state_path=STATE_PATH, log_path=LOG_PATH)
     applied = 0
+    applied_liquidated = 0
     skipped = 0
     bp_failed = 0
     verify_failed = 0
@@ -589,24 +591,26 @@ def run_apply(*, dry_run: bool = True, limit: int | None = None, throttle_s: flo
             print(f"[empty-apply] backup company {row.company_id}: {backup_path}")
             if CCE_COMPANY_TOUCH:
                 _touch_company(bx, row.company_id)
-            wf = _start_bp(bx, row.company_id)
+            wf = _start_bp_update(bx, row.company_id)
             if wf.startswith("failed:"):
                 row.apply_status = "BP_FAILED"
                 bp_failed += 1
                 continue
-            verified, verified_req = _verify_with_retries(bx, row.company_id)
-            if verified and verified_req:
+            verified, verified_req, apply_status = _verify_with_retries(bx, row.company_id)
+            if verified:
                 bx.update_company(row.company_id, {UF_BRAND_FIELD: row.brand_predicted})
                 cleanup_deleted = _cleanup_trigger_requisites(bx, row.company_id, inn)
-                row.apply_status = "APPLIED"
+                row.apply_status = apply_status
                 applied += 1
+                if apply_status == "APPLIED_LIQUIDATED":
+                    applied_liquidated += 1
                 by_brand[row.brand_predicted] += 1
                 if len(success_examples) < 2:
                     success_examples.append(
                         {
                             "company_id": row.company_id,
                             "inn": inn,
-                            "rq_ogrn": str(verified_req.get("RQ_OGRN") or verified_req.get("RQ_OGRNIP") or ""),
+                            "rq_ogrn": str((verified_req or {}).get("RQ_OGRN") or (verified_req or {}).get("RQ_OGRNIP") or ""),
                             "brand": row.brand_predicted,
                             "cleanup_deleted": str(cleanup_deleted),
                         }
@@ -665,29 +669,43 @@ def run_apply(*, dry_run: bool = True, limit: int | None = None, throttle_s: flo
         try:
             backup_path = _backup_before_apply_snapshot(bx, row, company_before, existing)
             print(f"[empty-apply] backup company {row.company_id}: {backup_path}")
+            had_requisites_before = bool(existing)
             if not existing_same_inn:
                 req_id = bx.add_requisite(payload)
             if CCE_COMPANY_TOUCH:
                 _touch_company(bx, row.company_id)
-            wf = _start_bp(bx, row.company_id)
-            if wf.startswith("failed:"):
+            if not had_requisites_before:
+                wf_first = _start_bp_first_entry(bx, row.company_id)
+                if wf_first.startswith("failed:"):
+                    row.apply_status = "BP_FAILED"
+                    bp_failed += 1
+                    _rollback_added_requisite(bx, req_id)
+                    continue
+                if wf_first.startswith("triggered:") and CCE_BIZPROC_WAIT_S > 0:
+                    time.sleep(min(CCE_BIZPROC_WAIT_S, 3))
+            wf_update = _start_bp_update(bx, row.company_id)
+            if wf_update.startswith("failed:"):
                 row.apply_status = "BP_FAILED"
                 bp_failed += 1
                 _rollback_added_requisite(bx, req_id)
                 continue
-            verified, verified_req = _verify_with_retries(bx, row.company_id)
-            if verified and verified_req:
+            if wf_update.startswith("triggered:") and CCE_BIZPROC_WAIT_S > 0:
+                time.sleep(CCE_BIZPROC_WAIT_S)
+            verified, verified_req, apply_status = _verify_with_retries(bx, row.company_id)
+            if verified:
                 bx.update_company(row.company_id, {UF_BRAND_FIELD: row.brand_predicted})
                 cleanup_deleted = _cleanup_trigger_requisites(bx, row.company_id, inn)
-                row.apply_status = "APPLIED"
+                row.apply_status = apply_status
                 applied += 1
+                if apply_status == "APPLIED_LIQUIDATED":
+                    applied_liquidated += 1
                 by_brand[row.brand_predicted] += 1
                 if len(success_examples) < 2:
                     success_examples.append(
                         {
                             "company_id": row.company_id,
                             "inn": inn,
-                            "rq_ogrn": str(verified_req.get("RQ_OGRN") or verified_req.get("RQ_OGRNIP") or ""),
+                            "rq_ogrn": str((verified_req or {}).get("RQ_OGRN") or (verified_req or {}).get("RQ_OGRNIP") or ""),
                             "brand": row.brand_predicted,
                             "cleanup_deleted": str(cleanup_deleted),
                         }
@@ -717,6 +735,7 @@ def run_apply(*, dry_run: bool = True, limit: int | None = None, throttle_s: flo
         "dry_run": dry_run,
         "targets": len(targets),
         "applied": applied,
+        "applied_liquidated": applied_liquidated,
         "skipped": skipped,
         "bp_failed": bp_failed,
         "verify_failed": verify_failed,
@@ -1263,7 +1282,7 @@ def _manual_site_targets() -> list[PlanRow]:
     rows = [PlanRow(**r) for r in _load_state().get("results", [])]
     targets = [
         r for r in rows
-        if r.apply_status not in {"APPLIED", "COMPANY_DELETED"}
+        if r.apply_status not in {"APPLIED", "APPLIED_LIQUIDATED", "COMPANY_DELETED"}
         and (
             r.classification in {"NO_INN_FOUND", "MANUAL"}
             or (r.classification == "READY_TO_APPLY" and r.source == "manual_site")
@@ -1408,29 +1427,45 @@ def _touch_company(bx: BitrixClient, company_id: str) -> None:
     bx.update_company(company_id, {"COMMENTS": f"{comments}\n[touch {uuid.uuid4().hex[:8]}]"})
 
 
-def _start_bp(bx: BitrixClient, company_id: str) -> str:
-    if not CCE_BIZPROC_TEMPLATE_ID:
-        return "not_configured"
+def _start_bp_first_entry(bx: BitrixClient, company_id: str) -> str:
+    if not CCE_BIZPROC_FIRST_ENTRY_ID:
+        return "skipped:first_entry_bp_disabled"
+    return _start_bp_template(bx, company_id, CCE_BIZPROC_FIRST_ENTRY_ID)
+
+
+def _start_bp_update(bx: BitrixClient, company_id: str) -> str:
+    if not CCE_BIZPROC_UPDATE_ID:
+        return "skipped:update_bp_disabled"
+    return _start_bp_template(bx, company_id, CCE_BIZPROC_UPDATE_ID)
+
+
+def _start_bp_template(bx: BitrixClient, company_id: str, template_id: int) -> str:
     doc = ["crm", "CCrmDocumentCompany", f"COMPANY_{company_id}"]
     try:
-        result = bx.start_workflow(CCE_BIZPROC_TEMPLATE_ID, doc)
-        return str(result.get("workflow_id") or "started")
+        result = bx.start_workflow(template_id, doc)
+        return f"triggered:{str(result.get('workflow_id') or 'started')}"
     except Exception as exc:  # noqa: BLE001
         return f"failed:{str(exc)[:120]}"
 
 
-def _verify_with_retries(bx: BitrixClient, company_id: str) -> tuple[bool, dict | None]:
+def _verify_with_retries(bx: BitrixClient, company_id: str) -> tuple[bool, dict | None, str]:
     for attempt in range(3):
         time.sleep(45)
+        company = bx.get_company(company_id) or {}
         reqs = bx.list_company_requisites(company_id)
         verified_req = _find_verified_requisite(reqs)
+        organization_status = str(company.get("UF_CRM_ORG_STATUS") or "").strip()
+        # Ликвидированная компания — валидный итог второго BP: дальше ретраи
+        # не нужны, сделку в работу для неё запускать нельзя.
+        if organization_status == "8852":
+            return True, verified_req, "APPLIED_LIQUIDATED"
         if verified_req:
-            return True, verified_req
+            return True, verified_req, "APPLIED"
         if attempt < 2:
             if CCE_COMPANY_TOUCH:
                 _touch_company(bx, company_id)
-            _start_bp(bx, company_id)
-    return False, None
+            _start_bp_update(bx, company_id)
+    return False, None, "BP_FAILED"
 
 
 def _find_verified_requisite(requisites: list[dict]) -> dict | None:
