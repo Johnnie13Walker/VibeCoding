@@ -11,6 +11,19 @@ class FakeTelegram:
         return {"ok": True}
 
 
+class FakeBitrix:
+    def __init__(self, deals):
+        self.deals = deals
+
+    def list_deals_by_stages(self, *, category_id, stage_ids, closed, select):
+        return [
+            deal
+            for deal in self.deals
+            if str(deal.get("STAGE_ID")) in set(stage_ids)
+            and str(deal.get("CLOSED", closed)) == closed
+        ]
+
+
 def test_dry_run_returns_preview_no_send():
     tg = FakeTelegram()
 
@@ -109,3 +122,41 @@ def test_missing_csv_file_returns_empty_section_not_raise(tmp_path, monkeypatch)
 
     assert stage._section_auto_revive(object(), "2026-05-17").lines == []
     assert stage._section_auto_reject(object(), "2026-05-17").lines == []
+
+
+def test_manager_conversions_aggregates_7_days():
+    bx = FakeBitrix(
+        [
+            {"ID": "1", "STAGE_ID": "C50:APOLOGY", "ASSIGNED_BY_ID": "2772", "DATE_MODIFY": "2026-05-17T10:00:00", "CLOSED": "Y"},
+            {"ID": "2", "STAGE_ID": "C50:WON", "ASSIGNED_BY_ID": "2772", "DATE_MODIFY": "2026-05-12T10:00:00", "CLOSED": "Y"},
+            {"ID": "3", "STAGE_ID": "C50:WON", "ASSIGNED_BY_ID": "2832", "DATE_MODIFY": "2026-05-17T10:00:00", "CLOSED": "Y"},
+            {"ID": "4", "STAGE_ID": "C50:APOLOGY", "ASSIGNED_BY_ID": "2772", "DATE_MODIFY": "2026-05-01T10:00:00", "CLOSED": "Y"},
+        ]
+    )
+
+    section = stage._section_manager_conversions(bx, "2026-05-17")
+
+    assert "- Дарья: APOLOGY 1 / WON 1" in section.lines
+    assert "- Аркадий: APOLOGY 0 / WON 1" in section.lines
+
+
+def test_stuck_alerts_aggregates_open_deals():
+    bx = FakeBitrix(
+        [
+            {"ID": "1", "STAGE_ID": "C50:PREPARATION", "CLOSED": "N"},
+            {"ID": "2", "STAGE_ID": "C50:UC_WZ4KQE", "CLOSED": "N"},
+            {"ID": "3", "STAGE_ID": "C50:UC_WZ4KQE", "CLOSED": "Y"},
+        ]
+    )
+
+    section = stage._section_stuck_alerts(bx)
+
+    assert "- PREPARATION открытых: 1" in section.lines
+    assert "- WZ4KQE открытых: 1" in section.lines
+
+
+def test_section_returns_empty_when_no_data():
+    bx = FakeBitrix([])
+
+    assert stage._section_manager_conversions(bx, "2026-05-17").lines == []
+    assert stage._section_stuck_alerts(bx).lines == []

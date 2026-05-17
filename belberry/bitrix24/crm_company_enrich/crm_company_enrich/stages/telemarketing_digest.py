@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import csv
 from dataclasses import asdict, dataclass
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from html import escape
 from pathlib import Path
 from typing import Any
@@ -15,6 +15,7 @@ from ..config import (
     HOLD_REASON_LOW_REVENUE,
     LOG_DIR,
     TELEMARKETING_ASSIGNEES,
+    TELEMARKETING_CATEGORY_ID,
 )
 from ..telegram_client import TelegramClient
 
@@ -132,11 +133,55 @@ def _section_auto_reject(bx: Any, since: str) -> DigestSection:
 
 
 def _section_manager_conversions(bx: Any, since: str) -> DigestSection:
-    return DigestSection("Конверсия менеджеров", [])
+    start = (_parse_date(since) - timedelta(days=6)).isoformat()
+    deals = _list_stage_deals(
+        bx,
+        ["C50:APOLOGY", "C50:WON"],
+        closed="Y",
+        select=["ID", "STAGE_ID", "ASSIGNED_BY_ID", "DATE_MODIFY"],
+    )
+    counters = {uid: {"APOLOGY": 0, "WON": 0} for uid, _ in TELEMARKETING_ASSIGNEES}
+    for deal in deals:
+        assignee = str(deal.get("ASSIGNED_BY_ID") or "")
+        if assignee not in counters:
+            continue
+        modified = str(deal.get("DATE_MODIFY") or "")[:10]
+        if modified and modified < start:
+            continue
+        stage_id = str(deal.get("STAGE_ID") or "")
+        if stage_id == "C50:APOLOGY":
+            counters[assignee]["APOLOGY"] += 1
+        elif stage_id == "C50:WON":
+            counters[assignee]["WON"] += 1
+
+    lines = []
+    for assignee, name in TELEMARKETING_ASSIGNEES:
+        first_name = name.split()[0]
+        values = counters[assignee]
+        if values["APOLOGY"] or values["WON"]:
+            lines.append(f"- {escape(first_name)}: APOLOGY {values['APOLOGY']} / WON {values['WON']}")
+    return DigestSection("Конверсия менеджеров за 7 дней", lines)
 
 
 def _section_stuck_alerts(bx: Any) -> DigestSection:
-    return DigestSection("Застрявшие сделки", [])
+    prep = _list_stage_deals(
+        bx,
+        ["C50:PREPARATION"],
+        closed="N",
+        select=["ID", "TITLE", "STAGE_ID", "ASSIGNED_BY_ID", "DATE_MODIFY"],
+    )
+    wz4 = _list_stage_deals(
+        bx,
+        ["C50:UC_WZ4KQE"],
+        closed="N",
+        select=["ID", "TITLE", "STAGE_ID", "ASSIGNED_BY_ID", "DATE_MODIFY"],
+    )
+    lines = []
+    if prep:
+        lines.append(f"- PREPARATION открытых: {len(prep)}")
+    if wz4:
+        lines.append(f"- WZ4KQE открытых: {len(wz4)}")
+    return DigestSection("Застрявшие сделки", lines)
 
 
 def _read_csv_rows(path: Path, *, since: str) -> list[dict[str, str]]:
@@ -151,3 +196,40 @@ def _read_csv_rows(path: Path, *, since: str) -> list[dict[str, str]]:
             if ts[:10] == since:
                 out.append({str(k): str(v or "") for k, v in row.items()})
     return out
+
+
+def _list_stage_deals(
+    bx: Any,
+    stage_ids: list[str],
+    *,
+    closed: str,
+    select: list[str],
+) -> list[dict[str, Any]]:
+    if hasattr(bx, "list_deals_by_stages"):
+        return list(
+            bx.list_deals_by_stages(
+                category_id=int(TELEMARKETING_CATEGORY_ID),
+                stage_ids=stage_ids,
+                closed=closed,
+                select=select,
+            )
+        )
+    if hasattr(bx, "paginate"):
+        return list(
+            bx.paginate(
+                "crm.deal.list",
+                {
+                    "filter": {
+                        "CATEGORY_ID": int(TELEMARKETING_CATEGORY_ID),
+                        "STAGE_ID": stage_ids,
+                        "CLOSED": closed,
+                    },
+                    "select": select,
+                },
+            )
+        )
+    return []
+
+
+def _parse_date(value: str) -> date:
+    return datetime.fromisoformat(str(value)[:10]).date()
