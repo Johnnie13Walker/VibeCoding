@@ -38,7 +38,8 @@ CSV_HEADERS = [
     "status",
 ]
 
-COOLDOWN_BY_REASON_MONTHS: dict[str, int | None] = {
+# int N: cooldown N месяцев; None: никогда; trigger_only: только по триггеру.
+COOLDOWN_BY_REASON_MONTHS: dict[str, int | None | str] = {
     "8538": None,
     "8540": 12,
     "8542": None,
@@ -47,7 +48,7 @@ COOLDOWN_BY_REASON_MONTHS: dict[str, int | None] = {
     "8548": 12,
     "8550": 12,
     "8838": 6,
-    "8840": 0,
+    "8840": "trigger_only",
     "8842": None,
 }
 
@@ -174,14 +175,16 @@ def _is_eligible(deal: dict[str, Any], company: dict[str, Any], today: date) -> 
     cooldown = COOLDOWN_BY_REASON_MONTHS[reason_id]
     if cooldown is None:
         return False, "never_reactivate"
-    if reason_id == "8840":
-        if not _has_phone_or_email(company):
-            return False, "no_trigger_yet"
-        return True, ""
-
     close_date = _parse_date(deal.get("CLOSEDATE")) or _parse_date(deal.get("DATE_MODIFY"))
     if not close_date:
         return False, "missing_close_date"
+    if cooldown == "trigger_only":
+        if reason_id == "8840":
+            if _has_new_contacts_since(company, close_date):
+                return True, ""
+            return False, "no_trigger_yet"
+        return False, f"unknown_trigger_for_{reason_id}"
+
     if today < _add_months(close_date, cooldown):
         return False, "too_early"
     return True, ""
@@ -211,6 +214,21 @@ def _list_apology_deals(bx: Any) -> list[dict[str, Any]]:
 
 def _has_phone_or_email(company: dict[str, Any]) -> bool:
     return _has_multifield(company, "PHONE") or _has_multifield(company, "EMAIL")
+
+
+def _has_new_contacts_since(company: dict[str, Any], since_date: date) -> bool:
+    """Proxy-baseline для 8840.
+
+    Bitrix multi-fields не дают created_at по конкретному телефону/email.
+    Поэтому считаем триггером только наличие phone/email при DATE_MODIFY
+    компании позже даты закрытия сделки. Это не идеальный baseline:
+    DATE_MODIFY меняется при любом edit карточки, но снижает false-positive
+    относительно прежнего правила "любой phone/email".
+    """
+    modified = _parse_date(company.get("DATE_MODIFY"))
+    if not modified or modified <= since_date:
+        return False
+    return _has_phone_or_email(company)
 
 
 def _has_multifield(entity: dict[str, Any], field: str) -> bool:
@@ -276,7 +294,7 @@ def _append_audit_row(outcome: ReactivationOutcome, count_after: int) -> None:
                 outcome.deal_id,
                 outcome.company_id,
                 outcome.reason_id,
-                "" if cooldown is None else cooldown,
+                cooldown if isinstance(cooldown, int) else "",
                 count_after,
                 outcome.new_assignee,
                 outcome.status,

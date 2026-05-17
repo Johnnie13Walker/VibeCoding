@@ -81,13 +81,36 @@ def test_reason_8546_reactivated_after_6_months():
 
 
 def test_reason_8840_reactivated_when_contacts_appear():
-    bx = FakeBitrix([apology_deal("8840")], company={"PHONE": [{"VALUE": "+79990000000"}]})
+    bx = FakeBitrix(
+        [apology_deal("8840", CLOSEDATE="2026-01-01")],
+        company={"PHONE": [{"VALUE": "+79990000000"}], "DATE_MODIFY": "2026-04-01"},
+    )
 
     assert stage.run(bx, today=date(2026, 5, 17))["dry_run_reactivations"] == 1
 
 
+def test_reason_8840_requires_new_contacts_since_close():
+    bx = FakeBitrix(
+        [apology_deal("8840", CLOSEDATE="2026-01-01")],
+        company={"EMAIL": [{"VALUE": "new@example.com"}], "DATE_MODIFY": "2026-04-01"},
+    )
+
+    assert stage.run(bx, today=date(2026, 5, 17))["dry_run_reactivations"] == 1
+
+
+def test_reason_8840_not_reactivated_when_contacts_existed_at_close():
+    bx = FakeBitrix(
+        [apology_deal("8840", CLOSEDATE="2026-04-01")],
+        company={"PHONE": [{"VALUE": "+79990000000"}], "DATE_MODIFY": "2026-03-01"},
+    )
+
+    summary = stage.run(bx, today=date(2026, 5, 17))
+
+    assert summary["outcomes"][0]["skipped_reason"] == "no_trigger_yet"
+
+
 def test_reason_8840_not_reactivated_without_trigger():
-    bx = FakeBitrix([apology_deal("8840")], company={})
+    bx = FakeBitrix([apology_deal("8840")], company={"DATE_MODIFY": "2026-04-01"})
 
     summary = stage.run(bx, today=date(2026, 5, 17))
 
@@ -166,3 +189,16 @@ def test_no_trigger_skipped_appended_to_sheets(monkeypatch):
     assert summary["outcomes"][0]["skipped_reason"] == "no_trigger_yet"
     assert sheets.rows
     assert sheets.rows[0][1] == "100"
+
+
+def test_cooldown_sentinel_trigger_only_csv_empty(tmp_path, monkeypatch):
+    monkeypatch.setattr(stage, "LOG_DIR", tmp_path)
+    bx = FakeBitrix(
+        [apology_deal("8840", CLOSEDATE="2026-01-01")],
+        company={"PHONE": [{"VALUE": "+79990000000"}], "DATE_MODIFY": "2026-04-01"},
+    )
+
+    stage.run(bx, dry_run=False, today=date(2026, 5, 17))
+
+    lines = (tmp_path / "reactivation_apology.csv").read_text(encoding="utf-8").splitlines()
+    assert lines[1].split(",")[4] == ""
