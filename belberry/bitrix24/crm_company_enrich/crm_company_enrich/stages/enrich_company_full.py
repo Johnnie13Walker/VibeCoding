@@ -1068,7 +1068,13 @@ def _title_from_url(url: str) -> str:
 
 def _looks_medical(title: str, url: str) -> bool:
     text = f"{title} {url}".lower()
-    return any(token in text for token in ("med", "clinic", "клиник", "мед", "леч"))
+    return any(
+        token in text
+        for token in (
+            "med", "clinic", "клиник", "мед", "леч", "ветеринар",
+            "ветклиник", "вет-доктор", "зоовет", "veterinary", "vetclinic",
+        )
+    )
 
 
 def _now_iso() -> str:

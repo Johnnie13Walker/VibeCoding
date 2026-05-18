@@ -98,12 +98,14 @@ MEDICAL_KEYWORDS = (
     "диагност", "реабилит", "лаборатори", "поликлиник", "больниц",
     "санатор", "врач", "аптек", "фарм", "ортопед", "офтальм",
     "гинеколог", "косметолог", "эстетик", "эко-центр", "репродукт",
-    "невролог", "терапия", "clinic", "med", "dent", "stom", "doctor",
-    "health", "pharm", "hospital",
+    "невролог", "терапия", "ветеринар", "ветклиник", "вет-доктор", "зоовет",
+    "clinic", "med", "dent", "stom", "doctor", "health", "pharm", "hospital",
+    "veterinary", "vetclinic",
 )
 DOMAIN_MEDICAL_HINTS = (
     ".clinic", "clinic", "klinika", "med", "dent", "dental", "stom",
     "doctor", "health", "pharm", "apteka", "mrt", "uzi", "rehab",
+    "veterinary", "vetclinic",
 )
 NON_MEDICAL_KEYWORDS = (
     "авто", "автосервис", "недвиж", "мебел", "ресторан", "кафе",

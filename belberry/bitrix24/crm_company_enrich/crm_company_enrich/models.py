@@ -411,10 +411,10 @@ _MEDICAL_KEYWORDS: tuple[str, ...] = (
     "пластич", "омолож", "оптик", "аптек", "лабор", "рентген", "мрт", "узи",
     "ктг", "хирург", "онко", "кардио", "лор", "гастро", "гинеколог",
     "дерматолог", "эндокринол", "педиатр", "психиатр", "психолог", "неврол",
-    "проктолог", "уролог",
+    "проктолог", "уролог", "ветеринар", "ветклиник", "вет-доктор", "зоовет",
     "doctor", "clinic", "medic", "health", "cosm", "dent", "surg", "derma",
     "ortho", "pharm", "healthcare", "hospital", "medspa", "beauty", "wellness",
-    "youcanlive", "healthgarden", "oncocareclinic",
+    "veterinary", "vetclinic", "youcanlive", "healthgarden", "oncocareclinic",
 )
 
 # Не-медицинские «сильные» маркеры. Срабатывают только если в blob НЕТ
