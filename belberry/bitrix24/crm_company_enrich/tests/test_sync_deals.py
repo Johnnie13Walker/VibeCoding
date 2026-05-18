@@ -913,6 +913,12 @@ def test_parse_main_activity_from_rusprofile_text():
     assert sync_deals._industry_from_text(activity, fallback_other=True) == "Другое"
 
 
+def test_veterinary_clinic_is_medical_industry():
+    activity = "Деятельность ветеринарная. Ветеринарная клиника Вет-Доктор"
+
+    assert sync_deals._industry_from_text(activity, fallback_other=True) == "Медицина"
+
+
 def test_run_company_fills_company_without_deals(monkeypatch):
     monkeypatch.setattr(sync_deals, "_organization_status_from_inn", lambda inn: "Действующая")
     monkeypatch.setattr(sync_deals, "_industry_from_inn", lambda inn: "Медицина")
