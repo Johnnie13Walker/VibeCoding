@@ -8,7 +8,7 @@ from datetime import datetime
 
 from sales_dashboard.sheets_client import SheetsClient
 
-from .config import GOOGLE_SA_KEY, MOSCOW_TZ, OUTPUT_SHEET_ID
+from .config import GOOGLE_SA_KEY, MOSCOW_TZ, OUTPUT_SHEET_ID, RUN_PHASE_LABEL
 
 SYNC_LOG_HEADER = ["ts", "status", "phase", "duration_ms", "rows_written", "error"]
 
@@ -69,12 +69,12 @@ def check_and_alert(threshold: int = 2) -> int:
     return failures
 
 
-def append_sync_error(error: str, phase: str = "phase 4") -> None:
+def append_sync_error(error: str, phase: str | None = None) -> None:
     sheets = SheetsClient(OUTPUT_SHEET_ID, GOOGLE_SA_KEY)
     row = [
         datetime.now(MOSCOW_TZ).isoformat(timespec="seconds"),
         "error",
-        phase,
+        phase or RUN_PHASE_LABEL,
         0,
         0,
         error[:500],
