@@ -1,0 +1,105 @@
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from datetime import datetime
+
+from google.oauth2.service_account import Credentials
+
+from sales_dashboard.bitrix_client import BitrixClient
+from sales_dashboard.sheets_client import SheetsClient
+
+from .aggregator import aggregate
+from .config import GOOGLE_SA_KEY, MOSCOW_TZ, OUTPUT_SHEET_ID
+
+PROBE_TAB = "_write_probe_tmp"
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog="sales_kpi_dashboard")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+    subparsers.add_parser("check")
+    refresh = subparsers.add_parser("refresh")
+    refresh.add_argument("--dry-run", action="store_true")
+    return parser
+
+
+def run_check() -> int:
+    try:
+        bitrix = BitrixClient()
+        profile = bitrix.call("profile").get("result") or {}
+        print(f"Bitrix: OK ID={profile.get('ID')} NAME={profile.get('NAME')}")
+
+        creds = Credentials.from_service_account_file(
+            str(GOOGLE_SA_KEY),
+            scopes=["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"],
+        )
+        service_account_email = getattr(creds, "service_account_email", "")
+        print(f"Service account: OK {service_account_email}")
+
+        sheets = SheetsClient(OUTPUT_SHEET_ID, GOOGLE_SA_KEY)
+        meta = sheets._execute(
+            sheets.service.spreadsheets().get(spreadsheetId=OUTPUT_SHEET_ID)
+        )
+        timezone = meta.get("properties", {}).get("timeZone", "")
+        probe_sheet_id = _create_probe_tab(sheets)
+        _delete_probe_tab(sheets, probe_sheet_id)
+        if timezone == "Europe/Moscow":
+            print("Sheet: OK TZ=Europe/Moscow Editor=Yes")
+        else:
+            print(f"Sheet: WARN TZ={timezone} Editor=Yes (нужно Europe/Moscow)")
+        return 0
+    except Exception as exc:  # noqa: BLE001 - CLI должен дать понятный smoke-ответ
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+
+
+def _create_probe_tab(sheets: SheetsClient) -> int:
+    tabs = sheets.get_tabs()
+    if PROBE_TAB in tabs:
+        _delete_probe_tab(sheets, tabs[PROBE_TAB])
+    response = sheets._execute(
+        sheets.service.spreadsheets().batchUpdate(
+            spreadsheetId=OUTPUT_SHEET_ID,
+            body={"requests": [{"addSheet": {"properties": {"title": PROBE_TAB}}}]},
+        )
+    )
+    return int(response["replies"][0]["addSheet"]["properties"]["sheetId"])
+
+
+def _delete_probe_tab(sheets: SheetsClient, sheet_id: int) -> None:
+    sheets._execute(
+        sheets.service.spreadsheets().batchUpdate(
+            spreadsheetId=OUTPUT_SHEET_ID,
+            body={"requests": [{"deleteSheet": {"sheetId": sheet_id}}]},
+        )
+    )
+
+
+def run_refresh(dry_run: bool) -> int:
+    result = aggregate()
+    if dry_run:
+        payload = {
+            "ts": datetime.now(MOSCOW_TZ).isoformat(timespec="seconds"),
+            "dry_run": True,
+            "tabs": {name: len(rows) for name, rows in result.items()},
+        }
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return 0
+
+    print("Phase 1: refresh пока заглушка, production Sheet не перезаписываем.")
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+    if args.command == "check":
+        return run_check()
+    if args.command == "refresh":
+        return run_refresh(args.dry_run)
+    raise AssertionError(args.command)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
