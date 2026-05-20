@@ -20,6 +20,9 @@ mkdir -p /opt/openclaw/secrets
 # /opt/openclaw/secrets/finance-director-sheets-903611b799c3.json
 chmod 600 /opt/openclaw/secrets/finance-director-sheets-903611b799c3.json
 
+# Bitrix OAuth refresh script уже есть на VPS:
+# /opt/openclaw/repos/vibecoding/shared/scripts/bitrix-sync-state.sh
+
 cp sales_kpi_dashboard/scripts/deploy/cloudbot-larisa-sales-kpi.sh /usr/local/bin/
 chmod +x /usr/local/bin/cloudbot-larisa-sales-kpi.sh
 

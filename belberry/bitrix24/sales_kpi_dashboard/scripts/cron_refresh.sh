@@ -10,7 +10,7 @@ SALES_DASHBOARD_DIR="${SALES_DASHBOARD_DIR:-$JOB_ROOT/sales_dashboard}"
 KPI_DIR="${KPI_DIR:-$JOB_ROOT/sales_kpi_dashboard}"
 VENV="${VENV:-$JOB_ROOT/.venv}"
 BITRIX_STATE="${BITRIX_STATE:-/opt/openclaw/state/bitrix_app/install.latest.json}"
-BITRIX_SYNC_SCRIPT="${BITRIX_SYNC_SCRIPT:-/opt/cloudbot-runtime/shared/scripts/bitrix-sync-state.sh}"
+BITRIX_SYNC_SCRIPT="${BITRIX_SYNC_SCRIPT:-/opt/openclaw/repos/vibecoding/shared/scripts/bitrix-sync-state.sh}"
 GOOGLE_SA_KEY="${GOOGLE_SA_KEY:-/opt/openclaw/secrets/finance-director-sheets-903611b799c3.json}"
 LOCK_FILE="${LOCK_FILE:-/tmp/sales_kpi.lock}"
 

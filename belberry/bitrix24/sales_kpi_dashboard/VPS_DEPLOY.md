@@ -43,6 +43,7 @@
 
 ```bash
 BITRIX_STATE=/opt/openclaw/state/bitrix_app/install.latest.json
+BITRIX_SYNC_SCRIPT=/opt/openclaw/repos/vibecoding/shared/scripts/bitrix-sync-state.sh
 ```
 
 ## Larisa wrappers / cron pattern
