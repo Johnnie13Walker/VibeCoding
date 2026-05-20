@@ -173,18 +173,13 @@ class BitrixReader:
                 "stageId": stage_id,
                 ">=movedTime": _date_value(period_start),
             },
-            "start": 0,
         }
         if assigned_id is not None:
             params["filter"]["assignedById"] = assigned_id
-        body = self.client.call("crm.item.list", params)
-        result = body.get("result") or {}
-        if isinstance(result, dict) and isinstance(result.get("items"), list):
-            return len(result["items"])
-        return len(_result_rows(body))
+        return self._count_start_pages("crm.item.list", params)
 
     def count_tasks_closed(self, user_id: int, period_start: date) -> int:
-        body = self.client.call(
+        return self._count_start_pages(
             "tasks.task.list",
             {
                 "filter": {
@@ -193,19 +188,28 @@ class BitrixReader:
                     ">=CLOSED_DATE": _date_value(period_start),
                 },
                 "select": ["ID"],
-                "start": 0,
             },
         )
-        result = body.get("result") or {}
-        if isinstance(result, dict) and isinstance(result.get("tasks"), list):
-            return len(result["tasks"])
-        return len(_result_rows(body))
 
     def deal_stages(self, category_id: int = 10) -> list[dict]:
         if category_id not in self._stage_cache:
             body = self.client.call("crm.dealcategory.stage.list", {"id": category_id})
             self._stage_cache[category_id] = _result_rows(body)
         return self._stage_cache[category_id]
+
+    def _count_start_pages(self, method: str, params: dict[str, Any]) -> int:
+        total = 0
+        start = 0
+        while True:
+            page_params = _deep(params)
+            page_params["start"] = start
+            body = self.client.call(method, page_params)
+            rows = _result_rows(body)
+            total += len(rows)
+            next_start = body.get("next")
+            if next_start is None or not rows:
+                return total
+            start = int(next_start)
 
 
 def _result_rows(value: Any) -> list[dict]:
@@ -241,3 +245,11 @@ def _date_value(value: date) -> str:
 
 def _chunks(values: list[int], size: int) -> list[list[int]]:
     return [values[index : index + size] for index in range(0, len(values), size)]
+
+
+def _deep(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {key: _deep(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_deep(item) for item in value]
+    return value

@@ -74,3 +74,14 @@ def test_productrows_for_deals_batches() -> None:
     assert len(rows) == 100
     assert client.call.call_count == 2
     assert client.call.call_args_list[0].args[0] == "batch"
+
+
+def test_count_tasks_closed_paginates() -> None:
+    client = Mock()
+    client.call.side_effect = [
+        {"result": {"tasks": [{"ID": str(i)} for i in range(50)]}, "next": 50},
+        {"result": {"tasks": [{"ID": str(i)} for i in range(50, 75)]}},
+    ]
+    reader = BitrixReader(client)
+
+    assert reader.count_tasks_closed(2806, __import__("datetime").date(2026, 5, 1)) == 75
