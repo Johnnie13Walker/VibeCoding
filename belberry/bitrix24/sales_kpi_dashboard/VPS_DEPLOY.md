@@ -102,3 +102,17 @@ LARISA_TELEGRAM_CHAT_ID="$LARISA_TELEGRAM_CHAT_ID"
 - `belberry/bitrix24/sales_kpi_dashboard/`
 
 в целевой runtime `/opt/cloudbot-runtime/larisa/sales-kpi-dashboard/`.
+
+## Live deploy result
+
+Phase 4 live deploy выполнен 2026-05-20:
+
+- `/opt/cloudbot-runtime/larisa/sales-kpi-dashboard/` создан.
+- `.venv` создан через VPS `python3 -m venv`.
+- `sales_dashboard` и `sales_kpi_dashboard` установлены editable.
+- wrapper установлен в `/usr/local/bin/cloudbot-larisa-sales-kpi.sh`.
+- cron установлен в `/etc/cron.d/cloudbot-larisa-sales-kpi`.
+- два ручных запуска wrapper завершились `Refresh: OK`.
+- `sync_log` Output Sheet получил 2 новые строки, `Plan` остался 30 строк.
+
+См. подробный smoke-log в `UAT_PHASE4.md`.

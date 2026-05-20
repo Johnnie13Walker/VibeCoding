@@ -95,6 +95,33 @@ bash /Users/pro2kuror/Desktop/VibeCoding/shared/scripts/bitrix-sync-state.sh
 
 Текущая схема вкладок описана в `SHEET_SCHEMA.md`.
 
+## Production cron на VPS
+
+Phase 4 развёрнут на `cloudbot-ssh-proxy`:
+
+- runtime: `/opt/cloudbot-runtime/larisa/sales-kpi-dashboard/`
+- wrapper: `/usr/local/bin/cloudbot-larisa-sales-kpi.sh`
+- cron: `/etc/cron.d/cloudbot-larisa-sales-kpi`
+- log: `/var/log/cloudbot-larisa-sales-kpi.log`
+- schedule: `0 3,7,11,15 * * *` UTC = `06/10/14/18` МСК
+
+Ручной smoke на VPS:
+
+```bash
+ssh root@cloudbot-ssh-proxy /usr/local/bin/cloudbot-larisa-sales-kpi.sh
+```
+
+Freshness-check для Cloudbot daily health-check:
+
+```bash
+python -m sales_kpi_dashboard.cli health-check --max-age-hours 6
+```
+
+Подробности deploy и UAT:
+
+- `VPS_DEPLOY.md`
+- `UAT_PHASE4.md`
+
 ## Ссылки
 
 - Полный план: см. Obsidian-проект выше.
