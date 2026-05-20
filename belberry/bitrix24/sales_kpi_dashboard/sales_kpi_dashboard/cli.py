@@ -12,6 +12,7 @@ from sales_dashboard.sheets_client import SheetsClient
 
 from .aggregator import aggregate
 from .config import GOOGLE_SA_KEY, MOSCOW_TZ, OUTPUT_SHEET_ID
+from .writer import SheetsWriter
 
 PROBE_TAB = "_write_probe_tmp"
 
@@ -83,12 +84,21 @@ def run_refresh(dry_run: bool) -> int:
         payload = {
             "ts": datetime.now(MOSCOW_TZ).isoformat(timespec="seconds"),
             "dry_run": True,
-            "tabs": {name: len(rows) for name, rows in result.items()},
+            "tabs": {
+                name: {
+                    "row_count": max(len(rows) - 1, 0) if rows and isinstance(rows[0], list) else len(rows),
+                    "preview": rows[:4],
+                }
+                for name, rows in result.items()
+            },
         }
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         return 0
 
-    print("Phase 1: refresh пока заглушка, production Sheet не перезаписываем.")
+    writer = SheetsWriter()
+    for tab_name, rows in result.items():
+        writer.write_tab(tab_name, rows)
+    print("Refresh: OK")
     return 0
 
 

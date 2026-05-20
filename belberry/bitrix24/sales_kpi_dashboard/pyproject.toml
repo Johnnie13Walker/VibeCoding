@@ -16,3 +16,6 @@ dev = ["pytest>=8", "pytest-mock"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["sales_kpi_dashboard"]
+
+[tool.pytest.ini_options]
+pythonpath = ["../sales_dashboard"]
