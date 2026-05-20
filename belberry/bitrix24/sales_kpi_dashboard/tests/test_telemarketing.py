@@ -28,12 +28,10 @@ def test_telemarketing_computes_calls_and_meetings() -> None:
         {"ID": str(index), "OWNER_TYPE_ID": "2", "OWNER_ID": "100", "CREATED_BY_ID": "2772", "CREATED": f"2026-05-{index + 1:02d}T10:00:00+03:00"}
         for index in range(10)
     ]
-    reader.productrows_for_deals.return_value = {
-        100: [{"PRODUCT_ID": "7658", "PRICE": "1000", "QUANTITY": "1"}]
-    }
 
     rows = telemarketing.compute(reader, Plan({"Встречи_всего": 20, "Встречи_2772": 10}), date(2026, 5, 20))
 
+    reader.productrows_for_deals.assert_not_called()
     assert rows[0] == telemarketing.HEADER
     user_row = rows[2]
     assert user_row[2] == 2772

@@ -11,14 +11,10 @@ from .common import (
     cumulative_by_day,
     days_passed,
     days_total,
-    deal_id_from_activity,
-    known_product_ids,
     month_bounds,
     percent,
-    product_ids_by_deal,
     safe_div,
     to_int,
-    weeks_passed,
 )
 
 HEADER = [
@@ -51,16 +47,10 @@ def compute(reader: BitrixReader, plan: PlanLike, today: date) -> list[list[obje
     tm_users = reader.resolve_role_users(config.TM_POSITION_REGEX)
     calls = reader.list_calls_in_period(month_start, month_end)
     meetings = reader.list_meetings_in_period(month_start, month_end)
-    meeting_deal_ids = sorted(
-        {deal_id for meeting in meetings if (deal_id := deal_id_from_activity(meeting))}
-    )
-    productrows = reader.productrows_for_deals(meeting_deal_ids)
-    products_by_deal = product_ids_by_deal(productrows)
-    known_ids = known_product_ids()
 
     rows = [HEADER]
     all_calls = [call for call in calls if to_int(call.get("PORTAL_USER_ID")) in tm_users]
-    all_meetings = _meetings_for_users_with_products(meetings, tm_users, products_by_deal, known_ids)
+    all_meetings = _meetings_for_users(meetings, tm_users)
     rows.append(
         _build_row(
             date_calc,
@@ -77,12 +67,7 @@ def compute(reader: BitrixReader, plan: PlanLike, today: date) -> list[list[obje
 
     for user_id, user_name in sorted(tm_users.items(), key=lambda item: item[1]):
         user_calls = [call for call in calls if to_int(call.get("PORTAL_USER_ID")) == user_id]
-        user_meetings = _meetings_for_users_with_products(
-            meetings,
-            {user_id: user_name},
-            products_by_deal,
-            known_ids,
-        )
+        user_meetings = _meetings_for_users(meetings, {user_id: user_name})
         rows.append(
             _build_row(
                 date_calc,
@@ -99,21 +84,9 @@ def compute(reader: BitrixReader, plan: PlanLike, today: date) -> list[list[obje
     return rows
 
 
-def _meetings_for_users_with_products(
-    meetings: list[dict],
-    users: dict[int, str],
-    products_by_deal: dict[int, set[int]],
-    known_ids: set[int],
-) -> list[dict]:
+def _meetings_for_users(meetings: list[dict], users: dict[int, str]) -> list[dict]:
     user_ids = set(users)
-    selected: list[dict] = []
-    for meeting in meetings:
-        if to_int(meeting.get("CREATED_BY_ID")) not in user_ids:
-            continue
-        deal_id = deal_id_from_activity(meeting)
-        if products_by_deal.get(deal_id, set()) & known_ids:
-            selected.append(meeting)
-    return selected
+    return [meeting for meeting in meetings if to_int(meeting.get("CREATED_BY_ID")) in user_ids]
 
 
 def _build_row(

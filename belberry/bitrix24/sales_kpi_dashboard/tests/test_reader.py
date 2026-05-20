@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from datetime import date
 from unittest.mock import Mock
 
 from sales_kpi_dashboard.reader import BitrixReader
@@ -84,4 +85,42 @@ def test_count_tasks_closed_paginates() -> None:
     ]
     reader = BitrixReader(client)
 
-    assert reader.count_tasks_closed(2806, __import__("datetime").date(2026, 5, 1)) == 75
+    assert reader.count_tasks_closed(2806, date(2026, 5, 1)) == 75
+
+
+def test_list_meetings_in_period_includes_meeting_smart_process() -> None:
+    client = Mock()
+    client.paginate_by_start.return_value = []
+    client.call.return_value = {
+        "result": {
+            "items": [
+                {
+                    "id": 2030,
+                    "title": "aclinic.ru (Бриффинг)",
+                    "createdBy": 2832,
+                    "assignedById": 2822,
+                    "stageId": "DT1048_24:SUCCESS",
+                    "ufCrm16_1751009238": "2026-05-05T14:00:00+03:00",
+                    "parentId2": 14652,
+                }
+            ]
+        }
+    }
+    reader = BitrixReader(client)
+
+    rows = reader.list_meetings_in_period(date(2026, 5, 1), date(2026, 5, 20))
+
+    assert rows == [
+        {
+            "ID": "SP1048:2030",
+            "SUBJECT": "aclinic.ru (Бриффинг)",
+            "OWNER_ID": 14652,
+            "OWNER_TYPE_ID": "2",
+            "DEAL_ID": 14652,
+            "COMPANY_ID": 0,
+            "COMPLETED": "Y",
+            "CREATED": "2026-05-05T14:00:00+03:00",
+            "CREATED_BY_ID": 2832,
+            "RESPONSIBLE_ID": 2822,
+        }
+    ]

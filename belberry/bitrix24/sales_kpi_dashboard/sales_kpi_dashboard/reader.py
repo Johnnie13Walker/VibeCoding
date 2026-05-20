@@ -119,7 +119,7 @@ class BitrixReader:
         return rows_by_deal
 
     def list_meetings_in_period(self, start: date, end: date) -> list[dict]:
-        return list(
+        activities = list(
             self.client.paginate_by_start(
                 "crm.activity.list",
                 {
@@ -145,6 +145,7 @@ class BitrixReader:
                 },
             )
         )
+        return activities + self._list_meeting_sp_items(start, end)
 
     def list_calls_in_period(self, start: date, end: date) -> list[dict]:
         return list(
@@ -198,19 +199,35 @@ class BitrixReader:
         return self._stage_cache[category_id]
 
     def _count_start_pages(self, method: str, params: dict[str, Any]) -> int:
-        total = 0
+        return len(self._list_start_pages(method, params))
+
+    def _list_start_pages(self, method: str, params: dict[str, Any]) -> list[dict]:
+        rows: list[dict] = []
         start = 0
         while True:
             page_params = _deep(params)
             page_params["start"] = start
             body = self.client.call(method, page_params)
-            rows = _result_rows(body)
-            total += len(rows)
+            page_rows = _result_rows(body)
+            rows.extend(page_rows)
             next_start = body.get("next")
-            if next_start is None or not rows:
-                return total
+            if next_start is None or not page_rows:
+                return rows
             start = int(next_start)
 
+    def _list_meeting_sp_items(self, start: date, end: date) -> list[dict]:
+        rows = self._list_start_pages(
+            "crm.item.list",
+            {
+                "entityTypeId": 1048,
+                "filter": {
+                    "stageId": "DT1048_24:SUCCESS",
+                    ">=ufCrm16_1751009238": _date_value(start),
+                    "<ufCrm16_1751009238": _date_value(end + timedelta(days=1)),
+                },
+            },
+        )
+        return [_normalize_meeting_sp_item(row) for row in rows]
 
 def _result_rows(value: Any) -> list[dict]:
     if isinstance(value, dict) and "result" in value:
@@ -241,6 +258,21 @@ def _to_int(value: Any) -> int | None:
 
 def _date_value(value: date) -> str:
     return value.isoformat()
+
+
+def _normalize_meeting_sp_item(row: dict) -> dict:
+    return {
+        "ID": f"SP1048:{row.get('id')}",
+        "SUBJECT": row.get("title") or "",
+        "OWNER_ID": row.get("parentId2") or 0,
+        "OWNER_TYPE_ID": "2",
+        "DEAL_ID": row.get("parentId2") or 0,
+        "COMPANY_ID": row.get("companyId") or 0,
+        "COMPLETED": "Y",
+        "CREATED": row.get("ufCrm16_1751009238") or row.get("createdTime") or "",
+        "CREATED_BY_ID": row.get("createdBy") or 0,
+        "RESPONSIBLE_ID": row.get("assignedById") or 0,
+    }
 
 
 def _chunks(values: list[int], size: int) -> list[list[int]]:
