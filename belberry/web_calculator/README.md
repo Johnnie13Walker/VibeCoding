@@ -54,7 +54,7 @@ https://docs.google.com/spreadsheets/d/1AaBbCc...XxYyZz/edit
 В новом Sheet нажми «Поделиться» и добавь как **редактор**:
 
 ```
-finance-director-sheets@finance-director-sheets.iam.gserviceaccount.com
+finance-director-sheets-bot@finance-director-sheets.iam.gserviceaccount.com
 ```
 
 (Service account нашего проекта. Ключ лежит в `~/.config/vibecoding/assistant/secrets/finance-director-sheets-903611b799c3.json`.)
