@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import re
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -53,7 +54,12 @@ MOP_POSITION_REGEX = re.compile(r"менеджер по продаж", re.IGNORE
 RECENT_WEEKS = 8
 
 SECRETS_DIR = Path("/Users/pro2kuror/.config/vibecoding/assistant/secrets")
-GOOGLE_SA_KEY = SECRETS_DIR / "finance-director-sheets-903611b799c3.json"
+GOOGLE_SA_KEY = Path(
+    os.environ.get(
+        "GOOGLE_SA_KEY",
+        SECRETS_DIR / "finance-director-sheets-903611b799c3.json",
+    )
+)
 
 STATE_DIR = Path(__file__).parent.parent / "state"
 ETL_STATE_PATH = STATE_DIR / "kpi_state.json"

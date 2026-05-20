@@ -11,7 +11,9 @@ from sales_dashboard.bitrix_client import BitrixClient
 from sales_dashboard.sheets_client import SheetsClient
 
 from .aggregator import aggregate
+from .alerts import append_sync_error, check_and_alert
 from .config import GOOGLE_SA_KEY, MOSCOW_TZ, OUTPUT_SHEET_ID
+from .freshness import check_sales_kpi_freshness
 from .sheet_schema import bootstrap_schema
 from .writer import SheetsWriter
 
@@ -26,6 +28,13 @@ def build_parser() -> argparse.ArgumentParser:
     refresh.add_argument("--dry-run", action="store_true")
     bootstrap = subparsers.add_parser("bootstrap-schema")
     bootstrap.add_argument("--dry-run", action="store_true")
+    alert_check = subparsers.add_parser("alert-check")
+    alert_check.add_argument("--threshold", type=int, default=2)
+    sync_error = subparsers.add_parser("sync-log-error")
+    sync_error.add_argument("--phase", default="phase 4")
+    sync_error.add_argument("--error", required=True)
+    health_check = subparsers.add_parser("health-check")
+    health_check.add_argument("--max-age-hours", type=int, default=6)
     return parser
 
 
@@ -111,6 +120,24 @@ def run_bootstrap_schema(dry_run: bool) -> int:
     return 0
 
 
+def run_alert_check(threshold: int) -> int:
+    failures = check_and_alert(threshold=threshold)
+    print(json.dumps({"consecutive_failures": failures, "threshold": threshold}, ensure_ascii=False))
+    return 0
+
+
+def run_sync_log_error(phase: str, error: str) -> int:
+    append_sync_error(error=error, phase=phase)
+    print("sync_log error: OK")
+    return 0
+
+
+def run_health_check(max_age_hours: int) -> int:
+    result = check_sales_kpi_freshness(max_age_hours=max_age_hours)
+    print(json.dumps(result.__dict__, ensure_ascii=False))
+    return 0 if result.ok else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.command == "check":
@@ -119,6 +146,12 @@ def main(argv: list[str] | None = None) -> int:
         return run_refresh(args.dry_run)
     if args.command == "bootstrap-schema":
         return run_bootstrap_schema(args.dry_run)
+    if args.command == "alert-check":
+        return run_alert_check(args.threshold)
+    if args.command == "sync-log-error":
+        return run_sync_log_error(args.phase, args.error)
+    if args.command == "health-check":
+        return run_health_check(args.max_age_hours)
     raise AssertionError(args.command)
 
 

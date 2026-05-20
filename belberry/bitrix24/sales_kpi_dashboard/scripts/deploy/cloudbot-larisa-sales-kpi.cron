@@ -1,0 +1,7 @@
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+# Sales KPI Dashboard — refresh 4×/сутки в рабочие часы МСК.
+# Production Debian cron исполняет /etc/cron.d по системному UTC.
+# 03:00=06:00 МСК, 07:00=10:00 МСК, 11:00=14:00 МСК, 15:00=18:00 МСК.
+0 3,7,11,15 * * * root /usr/local/bin/cloudbot-larisa-sales-kpi.sh >> /var/log/cloudbot-larisa-sales-kpi.log 2>&1
