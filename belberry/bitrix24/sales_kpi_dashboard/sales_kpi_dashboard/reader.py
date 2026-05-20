@@ -6,6 +6,8 @@ from typing import Any
 
 from sales_dashboard.bitrix_client import BitrixClient
 
+from . import config
+
 
 class BitrixReader:
     def __init__(self, client: BitrixClient | None = None):
@@ -219,11 +221,11 @@ class BitrixReader:
         rows = self._list_start_pages(
             "crm.item.list",
             {
-                "entityTypeId": 1048,
+                "entityTypeId": config.SP_MEETING_ENTITY_TYPE_ID,
                 "filter": {
-                    "stageId": "DT1048_24:SUCCESS",
-                    ">=ufCrm16_1751009238": _date_value(start),
-                    "<ufCrm16_1751009238": _date_value(end + timedelta(days=1)),
+                    "stageId": config.SP_MEETING_SUCCESS_STAGE_ID,
+                    f">={config.SP_MEETING_DATE_FIELD}": _date_value(start),
+                    f"<{config.SP_MEETING_DATE_FIELD}": _date_value(end + timedelta(days=1)),
                 },
             },
         )
@@ -269,7 +271,7 @@ def _normalize_meeting_sp_item(row: dict) -> dict:
         "DEAL_ID": row.get("parentId2") or 0,
         "COMPANY_ID": row.get("companyId") or 0,
         "COMPLETED": "Y",
-        "CREATED": row.get("ufCrm16_1751009238") or row.get("createdTime") or "",
+        "CREATED": row.get(config.SP_MEETING_DATE_FIELD) or row.get("createdTime") or "",
         "CREATED_BY_ID": row.get("createdBy") or 0,
         "RESPONSIBLE_ID": row.get("assignedById") or 0,
     }
