@@ -30,10 +30,17 @@ run_refresh() {
   return "${PIPESTATUS[0]}"
 }
 
+run_alert_check() {
+  log "=== alert-check ==="
+  BITRIX_STATE_PATH="$BITRIX_STATE" BITRIX_SYNC_SCRIPT="$BITRIX_SYNC_SCRIPT" GOOGLE_SA_KEY="$GOOGLE_SA_KEY" PYTHONPATH="$SALES_DASHBOARD_DIR" \
+    "$VENV/bin/python" -m sales_kpi_dashboard.cli alert-check 2>&1 | tee -a "$LOG_FILE" || log "alert-check failed (non-blocking)"
+}
+
 log "=== sales_kpi refresh start ==="
 
 if run_refresh; then
   log "refresh OK"
+  run_alert_check
   exit 0
 fi
 
@@ -43,6 +50,7 @@ if [[ -x "$BITRIX_SYNC_SCRIPT" ]]; then
     log "state synced, retrying refresh..."
     if run_refresh; then
       log "refresh OK after sync"
+      run_alert_check
       exit 0
     fi
   else
@@ -58,7 +66,5 @@ BITRIX_STATE_PATH="$BITRIX_STATE" BITRIX_SYNC_SCRIPT="$BITRIX_SYNC_SCRIPT" GOOGL
   --phase "phase 4" \
   --error "cron_refresh failed after retry" 2>&1 | tee -a "$LOG_FILE" || log "sync-log-error failed (non-blocking)"
 
-log "=== alert-check ==="
-BITRIX_STATE_PATH="$BITRIX_STATE" BITRIX_SYNC_SCRIPT="$BITRIX_SYNC_SCRIPT" GOOGLE_SA_KEY="$GOOGLE_SA_KEY" PYTHONPATH="$SALES_DASHBOARD_DIR" \
-  "$VENV/bin/python" -m sales_kpi_dashboard.cli alert-check 2>&1 | tee -a "$LOG_FILE" || log "alert-check failed (non-blocking)"
+run_alert_check
 exit 1
