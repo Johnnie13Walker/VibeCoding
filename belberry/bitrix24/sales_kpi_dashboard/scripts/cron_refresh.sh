@@ -52,4 +52,10 @@ else
 fi
 
 log "refresh FAILED"
+PYTHONPATH="$SALES_DASHBOARD_DIR" "$VENV/bin/python" -m sales_kpi_dashboard.cli sync-log-error \
+  --phase "phase 4" \
+  --error "cron_refresh failed after retry" 2>&1 | tee -a "$LOG_FILE" || log "sync-log-error failed (non-blocking)"
+
+log "=== alert-check ==="
+PYTHONPATH="$SALES_DASHBOARD_DIR" "$VENV/bin/python" -m sales_kpi_dashboard.cli alert-check 2>&1 | tee -a "$LOG_FILE" || log "alert-check failed (non-blocking)"
 exit 1
