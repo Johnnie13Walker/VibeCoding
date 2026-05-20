@@ -1,0 +1,18 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sales_kpi_dashboard"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+    "google-api-python-client>=2.0",
+    "google-auth>=2.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-mock"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["sales_kpi_dashboard"]
