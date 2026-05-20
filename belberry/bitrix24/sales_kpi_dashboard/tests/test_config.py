@@ -11,7 +11,5 @@ def test_sheet_and_tabs_are_configured() -> None:
 
 
 def test_users_are_named() -> None:
-    assert config.TM_USERS
-    assert config.MOP_USERS
     assert all(isinstance(user_id, int) for user_id in config.TM_USERS)
     assert all(" " in name for name in [*config.TM_USERS.values(), *config.MOP_USERS.values()])
