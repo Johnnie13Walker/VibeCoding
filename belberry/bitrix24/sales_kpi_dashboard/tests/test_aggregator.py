@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from unittest.mock import Mock
 
-from sales_kpi_dashboard import aggregator
+from sales_kpi_dashboard import aggregator, config
 
 
 def test_aggregate_returns_expected_tabs(monkeypatch) -> None:
@@ -30,7 +30,8 @@ def test_aggregate_returns_expected_tabs(monkeypatch) -> None:
     assert all(isinstance(rows, list) for rows in result.values())
     assert all(isinstance(row, list) for rows in result.values() for row in rows)
     assert result["sync_log"][0] == ["ts", "status", "phase", "duration_ms", "rows_written", "error"]
-    assert result["sync_log"][1][1:3] == ["ok", "phase 3"]
+    assert result["sync_log"][1][1] == "ok"
+    assert result["sync_log"][1][2] == config.RUN_PHASE_LABEL
     assert result["sync_log"][1][4] == 3
 
 

@@ -8,7 +8,7 @@ from typing import Any
 
 from sales_dashboard.sheets_client import SheetsClient
 
-from .config import GOOGLE_SA_KEY, MOSCOW_TZ, OUTPUT_SHEET_ID
+from .config import GOOGLE_SA_KEY, MOSCOW_TZ, OUTPUT_SHEET_ID, RUN_PHASE_LABEL
 from .metrics import mop_effectiveness, sales_plan, telemarketing
 from .reader import BitrixReader
 
@@ -72,7 +72,7 @@ def aggregate() -> dict[str, list[list[object]]]:
     duration_ms = round((time.monotonic() - started_at) * 1000)
     outputs["sync_log"] = [
         ["ts", "status", "phase", "duration_ms", "rows_written", "error"],
-        [datetime.now(MOSCOW_TZ).isoformat(timespec="seconds"), "ok", "phase 3", duration_ms, rows_written, ""],
+        [datetime.now(MOSCOW_TZ).isoformat(timespec="seconds"), "ok", RUN_PHASE_LABEL, duration_ms, rows_written, ""],
     ]
     return outputs
 

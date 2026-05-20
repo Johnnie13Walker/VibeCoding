@@ -49,9 +49,21 @@ PRODUCTS: dict[str, int] = {
 OTHER_PRODUCT = "Прочее"
 
 TM_POSITION_REGEX = re.compile(r"телемарк", re.IGNORECASE)
-MOP_POSITION_REGEX = re.compile(r"менеджер по продаж", re.IGNORECASE)
+# Захватывает: «Менеджер по продажам», «Руководитель отдела продаж»,
+# и точную аббревиатуру «РОП» как WORK_POSITION (так заведена Гордиенко в Bitrix).
+# НЕ захватывает: «Аккаунт-менеджер», «Руководитель отдела аккаунтинга/SEO/ORM»,
+# «Административный менеджер», «Контент-менеджер», «бывший РОП» (есть ^…$ граница).
+MOP_POSITION_REGEX = re.compile(
+    r"менеджер по продаж|руководитель отдела продаж|^\s*роп\s*$",
+    re.IGNORECASE,
+)
 
 RECENT_WEEKS = 8
+
+# Label, который пишется в колонку `phase` вкладки `sync_log` на каждом refresh.
+# Переопределяется через env при rollout новой фазы — единая точка обновления,
+# чтобы не править aggregator/alerts вручную.
+RUN_PHASE_LABEL = os.environ.get("SALES_KPI_PHASE_LABEL", "phase 4")
 
 SECRETS_DIR = Path("/Users/pro2kuror/.config/vibecoding/assistant/secrets")
 GOOGLE_SA_KEY = Path(
