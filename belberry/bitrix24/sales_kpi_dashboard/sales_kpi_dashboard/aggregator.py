@@ -1,16 +1,18 @@
 from __future__ import annotations
 
+import logging
+import time
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
-
-from googleapiclient.errors import HttpError
 
 from sales_dashboard.sheets_client import SheetsClient
 
 from .config import GOOGLE_SA_KEY, MOSCOW_TZ, OUTPUT_SHEET_ID
 from .metrics import mop_effectiveness, sales_plan, telemarketing
 from .reader import BitrixReader
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -32,7 +34,8 @@ def read_plan(sheets_client: SheetsClient, today: datetime | None = None) -> Pla
                 valueRenderOption="UNFORMATTED_VALUE",
             )
         )
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - refresh должен жить без заполненной Plan
+        logger.warning("Plan tab недоступен, используем пустой план: %s", exc)
         return PlanData({})
 
     values = response.get("values") or []
@@ -55,19 +58,23 @@ def read_plan(sheets_client: SheetsClient, today: datetime | None = None) -> Pla
 
 
 def aggregate() -> dict[str, list[list[object]]]:
+    started_at = time.monotonic()
     today = datetime.now(MOSCOW_TZ).date()
     sheets = SheetsClient(OUTPUT_SHEET_ID, GOOGLE_SA_KEY)
     plan = read_plan(sheets)
     reader = BitrixReader()
-    return {
+    outputs = {
         "tm_metrics": telemarketing.compute(reader, plan, today),
         "sales_plan": sales_plan.compute(reader, plan, today),
         "mop_metrics": mop_effectiveness.compute(reader, today),
-        "sync_log": [
-            ["ts", "status", "phase"],
-            [datetime.now(MOSCOW_TZ).isoformat(timespec="seconds"), "ok", "phase 2"],
-        ],
     }
+    rows_written = sum(_data_row_count(rows) for rows in outputs.values())
+    duration_ms = round((time.monotonic() - started_at) * 1000)
+    outputs["sync_log"] = [
+        ["ts", "status", "phase", "duration_ms", "rows_written", "error"],
+        [datetime.now(MOSCOW_TZ).isoformat(timespec="seconds"), "ok", "phase 3", duration_ms, rows_written, ""],
+    ]
+    return outputs
 
 
 def _cell(row: list[Any], index: int) -> Any:
@@ -79,3 +86,7 @@ def _float(value: Any) -> float:
         return float(value)
     except (TypeError, ValueError):
         return 0.0
+
+
+def _data_row_count(rows: list[list[object]]) -> int:
+    return max(len(rows) - 1, 0) if rows else 0

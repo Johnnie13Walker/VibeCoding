@@ -34,3 +34,45 @@ def test_writer_replaces_writeable_tab() -> None:
     writer.write_tab("tm_metrics", [["a", "b"], [1, 2]])
 
     client.replace_tab.assert_called_once_with("tm_metrics", ["a", "b"], [[1, 2]])
+
+
+def test_writer_appends_sync_log_when_header_matches() -> None:
+    client = Mock()
+    client._execute.return_value = {"values": [["ts", "status", "phase", "duration_ms", "rows_written", "error"]]}
+    writer = SheetsWriter(client)
+
+    writer.write_tab(
+        "sync_log",
+        [
+            ["ts", "status", "phase", "duration_ms", "rows_written", "error"],
+            ["2026-05-20T18:00:00+03:00", "ok", "phase 3", 100, 30, ""],
+        ],
+    )
+
+    client.append_log.assert_called_once_with(
+        "sync_log",
+        ["ts", "status", "phase", "duration_ms", "rows_written", "error"],
+        [["2026-05-20T18:00:00+03:00", "ok", "phase 3", 100, 30, ""]],
+    )
+    client.replace_tab.assert_not_called()
+
+
+def test_writer_migrates_sync_log_header_when_old_header_exists() -> None:
+    client = Mock()
+    client._execute.return_value = {"values": [["ts", "status", "phase"]]}
+    writer = SheetsWriter(client)
+
+    writer.write_tab(
+        "sync_log",
+        [
+            ["ts", "status", "phase", "duration_ms", "rows_written", "error"],
+            ["2026-05-20T18:00:00+03:00", "ok", "phase 3", 100, 30, ""],
+        ],
+    )
+
+    client.replace_tab.assert_called_once_with(
+        "sync_log",
+        ["ts", "status", "phase", "duration_ms", "rows_written", "error"],
+        [["2026-05-20T18:00:00+03:00", "ok", "phase 3", 100, 30, ""]],
+    )
+    client.append_log.assert_not_called()

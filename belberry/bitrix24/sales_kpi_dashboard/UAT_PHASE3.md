@@ -40,4 +40,21 @@
 - Первый production refresh прошёл успешно: CLI вернул `Refresh: OK`.
 - `Лист1` не удалён, а переименован в `_archive_лист1` и скрыт.
 - `Plan` содержит только структурный seed с нулевыми значениями; это input-вкладка для РОП.
-- Enriched `sync_log` будет включён следующим коммитом Phase 3.
+- Enriched `sync_log` включён следующим коммитом Phase 3; итоговая проверка ниже.
+
+## Проверка enriched sync_log и Plan-safety
+
+- Время проверки: `2026-05-20T18:01:35+03:00`
+- Перед контрольным refresh: `Plan` = 30 строк, `sync_log` = 3 строки.
+- После контрольного refresh: `Plan` = 30 строк, `sync_log` = 4 строки.
+- `Plan` неизменен: `true`.
+- `sync_log` append: `true`.
+
+Последние строки `sync_log`:
+
+| ts | status | phase | duration_ms | rows_written | error |
+|---|---|---|---:|---:|---|
+| `2026-05-20T17:58:06+03:00` | ok | phase 3 | 56405 | 30 | |
+| `2026-05-20T18:01:35+03:00` | ok | phase 3 | 53095 | 30 | |
+
+Перед успешной проверкой один контрольный refresh остановился на `BitrixTokenExpired: expired_token`; до записи в Sheet он не дошёл. OAuth обновлён штатно через `shared/scripts/bitrix-sync-state.sh`, повторный refresh прошёл успешно.
