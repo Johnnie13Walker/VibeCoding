@@ -72,3 +72,21 @@ Result:
 - VPS system timezone is `Etc/UTC`; wrapper exports `TZ=Europe/Moscow` so logs use MSK.
 - Bitrix sync script used by wrapper: `/opt/openclaw/repos/vibecoding/shared/scripts/bitrix-sync-state.sh`.
 - No Bitrix write methods were used.
+
+## Freshness health-check
+
+After syncing the final Phase 4 code to VPS:
+
+```bash
+GOOGLE_SA_KEY=/opt/openclaw/secrets/finance-director-sheets-903611b799c3.json \
+BITRIX_STATE_PATH=/opt/openclaw/state/bitrix_app/install.latest.json \
+BITRIX_SYNC_SCRIPT=/opt/openclaw/repos/vibecoding/shared/scripts/bitrix-sync-state.sh \
+PYTHONPATH=/opt/cloudbot-runtime/larisa/sales-kpi-dashboard/sales_dashboard \
+.venv/bin/python -m sales_kpi_dashboard.cli health-check
+```
+
+Output:
+
+```json
+{"ok": true, "status": "ok", "ts": "2026-05-20T19:45:30+03:00", "message": "sales_kpi: OK, последний refresh 2026-05-20T19:45:30+03:00"}
+```
