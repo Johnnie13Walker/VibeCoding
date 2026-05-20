@@ -11,6 +11,7 @@ KPI_DIR="${KPI_DIR:-$JOB_ROOT/sales_kpi_dashboard}"
 VENV="${VENV:-$JOB_ROOT/.venv}"
 BITRIX_STATE="${BITRIX_STATE:-/opt/openclaw/state/bitrix_app/install.latest.json}"
 BITRIX_SYNC_SCRIPT="${BITRIX_SYNC_SCRIPT:-/opt/cloudbot-runtime/shared/scripts/bitrix-sync-state.sh}"
+GOOGLE_SA_KEY="${GOOGLE_SA_KEY:-/opt/openclaw/secrets/finance-director-sheets-903611b799c3.json}"
 LOCK_FILE="${LOCK_FILE:-/tmp/sales_kpi.lock}"
 
 mkdir -p "$LOG_DIR"
@@ -24,7 +25,7 @@ log() { echo "[$(date -Iseconds)] $*" | tee -a "$LOG_FILE"; }
 
 run_refresh() {
   cd "$KPI_DIR"
-  BITRIX_STATE_PATH="$BITRIX_STATE" PYTHONPATH="$SALES_DASHBOARD_DIR" \
+  BITRIX_STATE_PATH="$BITRIX_STATE" BITRIX_SYNC_SCRIPT="$BITRIX_SYNC_SCRIPT" GOOGLE_SA_KEY="$GOOGLE_SA_KEY" PYTHONPATH="$SALES_DASHBOARD_DIR" \
     "$VENV/bin/python" -m sales_kpi_dashboard.cli refresh 2>&1 | tee -a "$LOG_FILE"
   return "${PIPESTATUS[0]}"
 }
@@ -52,10 +53,12 @@ else
 fi
 
 log "refresh FAILED"
-PYTHONPATH="$SALES_DASHBOARD_DIR" "$VENV/bin/python" -m sales_kpi_dashboard.cli sync-log-error \
+BITRIX_STATE_PATH="$BITRIX_STATE" BITRIX_SYNC_SCRIPT="$BITRIX_SYNC_SCRIPT" GOOGLE_SA_KEY="$GOOGLE_SA_KEY" PYTHONPATH="$SALES_DASHBOARD_DIR" \
+  "$VENV/bin/python" -m sales_kpi_dashboard.cli sync-log-error \
   --phase "phase 4" \
   --error "cron_refresh failed after retry" 2>&1 | tee -a "$LOG_FILE" || log "sync-log-error failed (non-blocking)"
 
 log "=== alert-check ==="
-PYTHONPATH="$SALES_DASHBOARD_DIR" "$VENV/bin/python" -m sales_kpi_dashboard.cli alert-check 2>&1 | tee -a "$LOG_FILE" || log "alert-check failed (non-blocking)"
+BITRIX_STATE_PATH="$BITRIX_STATE" BITRIX_SYNC_SCRIPT="$BITRIX_SYNC_SCRIPT" GOOGLE_SA_KEY="$GOOGLE_SA_KEY" PYTHONPATH="$SALES_DASHBOARD_DIR" \
+  "$VENV/bin/python" -m sales_kpi_dashboard.cli alert-check 2>&1 | tee -a "$LOG_FILE" || log "alert-check failed (non-blocking)"
 exit 1

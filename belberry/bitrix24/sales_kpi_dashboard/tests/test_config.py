@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import importlib
+from pathlib import Path
+
 from sales_kpi_dashboard import config
 
 
@@ -21,3 +24,13 @@ def test_role_regexes_match_target_positions_only() -> None:
     assert config.TM_POSITION_REGEX.search("Телемаркетолог")
     assert config.MOP_POSITION_REGEX.search("Менеджер по продажам")
     assert not config.MOP_POSITION_REGEX.search("Аккаунт-менеджер")
+
+
+def test_google_sa_key_can_be_overridden_by_env(monkeypatch) -> None:
+    monkeypatch.setenv("GOOGLE_SA_KEY", "/opt/openclaw/secrets/sales-kpi-sa.json")
+
+    reloaded = importlib.reload(config)
+
+    assert reloaded.GOOGLE_SA_KEY == Path("/opt/openclaw/secrets/sales-kpi-sa.json")
+    monkeypatch.delenv("GOOGLE_SA_KEY")
+    importlib.reload(config)

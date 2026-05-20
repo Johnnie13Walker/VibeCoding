@@ -23,3 +23,21 @@ def test_cron_refresh_script_is_not_dry_run() -> None:
     text = SCRIPT.read_text(encoding="utf-8")
 
     assert "--dry-run" not in text
+
+
+def test_deploy_cron_uses_utc_schedule() -> None:
+    cron = (ROOT / "scripts" / "deploy" / "cloudbot-larisa-sales-kpi.cron").read_text(encoding="utf-8")
+
+    assert "0 3,7,11,15 * * * root" in cron
+    assert "UTC" in cron
+    assert "06:00 МСК" in cron
+
+
+def test_deploy_wrapper_exports_secret_paths_without_values() -> None:
+    wrapper = (ROOT / "scripts" / "deploy" / "cloudbot-larisa-sales-kpi.sh").read_text(encoding="utf-8")
+
+    assert "source /opt/openclaw/.env" in wrapper
+    assert "source /etc/openclaw/larisa.env" in wrapper
+    assert "LARISA_TELEGRAM_BOT_TOKEN" in wrapper
+    assert "GOOGLE_SA_KEY" in wrapper
+    assert "81681699" not in wrapper
