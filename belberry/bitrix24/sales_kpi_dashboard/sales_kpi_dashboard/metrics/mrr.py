@@ -1,5 +1,5 @@
-from __future__ import annotations
+"""MRR-блок исключён из MVP.
 
-
-def build_rows() -> list[list[object]]:
-    return []
+Поля recurring amount в Bitrix сейчас нет; вернуться к метрике после отдельного
+решения и обновления PLAN.md.
+"""
