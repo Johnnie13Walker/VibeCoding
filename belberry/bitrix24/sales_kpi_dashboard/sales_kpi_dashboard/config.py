@@ -11,6 +11,28 @@ OUTPUT_SHEET_ID = "1LQR4qe3mofrfIS-YY8A8rgtBZdIJ7RpoKg-NytpcBIE"
 WRITEABLE_TABS = {"tm_metrics", "sales_plan", "mop_metrics", "sync_log"}
 READ_ONLY_TABS = {"Plan", "Plan_MRR"}
 
+# Smart-process «Встречи» (entityTypeId=1048).
+SP_MEETING_ENTITY_TYPE_ID = 1048
+SP_MEETING_SUCCESS_STAGE_ID = "DT1048_24:SUCCESS"
+# UF-поле «Дата встречи» в SP 1048. Имя автогенерировано Bitrix.
+SP_MEETING_DATE_FIELD = "ufCrm16_1751009238"
+
+# Smart-process «КП».
+SP_KP_ENTITY_TYPE_ID = 1106
+SP_KP_SENT_STAGE_ID = "DT1106_54:SUCCESS"
+
+# Smart-process «Договор».
+SP_CONTRACT_ENTITY_TYPE_ID = 1110
+SP_CONTRACT_SIGNED_STAGE_ID = "DT1110_56:SUCCESS"
+
+SHEET_TAB_TITLES = {
+    "Plan": "Plan",
+    "tm_metrics": "tm_metrics",
+    "sales_plan": "sales_plan",
+    "mop_metrics": "mop_metrics",
+    "sync_log": "sync_log",
+}
+
 PRODUCTS: dict[str, int] = {
     "SEO": 7658,
     "PPC": 2,

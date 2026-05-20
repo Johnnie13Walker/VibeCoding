@@ -4,7 +4,7 @@
 
 ## Статус
 
-Phase 0 — Discovery (готов к старту). Полный план в Obsidian:
+Phase 3 — Output Sheet schema + первый production refresh. Полный план в Obsidian:
 
 ```
 /Users/pro2kuror/Documents/Cloudbot-Vault/09-Projects/belberry-sales-kpi-dashboard/
@@ -15,7 +15,7 @@ Phase 0 — Discovery (готов к старту). Полный план в Obs
 └── AI-AGENTS-SETUP.md  ← как работать AI-агентам
 ```
 
-## Архитектура (после Phase 1)
+## Архитектура
 
 ```
 Bitrix24 REST
@@ -61,15 +61,39 @@ uv pip install -e ".[dev]"
 # read-only discovery Bitrix → DISCOVERY.md
 python discovery_probe.py
 
+# read-only probe UF-полей SP «Встречи» → DISCOVERY.md appendix
+python discovery_sp1048_probe.py
+
 # smoke: Bitrix profile + Google Sheet metadata + add/delete временной вкладки
 python -m sales_kpi_dashboard.cli check
 
-# Phase 1 refresh не пишет production-вкладки
+# посмотреть, что будет создано в Output Sheet, без записи
+python -m sales_kpi_dashboard.cli bootstrap-schema --dry-run
+
+# live bootstrap вкладок Output Sheet: Plan, tm_metrics, sales_plan, mop_metrics, sync_log
+python -m sales_kpi_dashboard.cli bootstrap-schema
+
+# dry-run агрегатора: печатает preview, в Sheet не пишет
 python -m sales_kpi_dashboard.cli refresh --dry-run
+
+# production refresh: перезаписывает output-вкладки, sync_log дописывает строку
+python -m sales_kpi_dashboard.cli refresh
 
 # тесты
 pytest -xvs tests/
 ```
+
+Перед Bitrix-вызовами обнови OAuth state штатным скриптом:
+
+```bash
+bash /Users/pro2kuror/Desktop/VibeCoding/shared/scripts/bitrix-sync-state.sh
+```
+
+`Plan` — input-вкладка РОП. `SheetsWriter` намеренно падает при попытке писать в `Plan` или `Plan_MRR`.
+
+## Output Sheet
+
+Текущая схема вкладок описана в `SHEET_SCHEMA.md`.
 
 ## Ссылки
 

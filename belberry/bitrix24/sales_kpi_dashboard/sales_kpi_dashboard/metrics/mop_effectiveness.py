@@ -19,12 +19,6 @@ HEADER = [
     "deals_signed",
 ]
 
-KP_ENTITY_TYPE_ID = 1106
-KP_SENT_STAGE_ID = "DT1106_54:SUCCESS"
-CONTRACT_ENTITY_TYPE_ID = 1110
-CONTRACT_SIGNED_STAGE_ID = "DT1110_56:SUCCESS"
-
-
 def compute(reader: BitrixReader, today: date) -> list[list[object]]:
     month_start, month_end = month_bounds(today)
     date_calc = today.isoformat()
@@ -49,12 +43,17 @@ def compute(reader: BitrixReader, today: date) -> list[list[object]]:
                 user_name,
                 len(user_calls_60),
                 reader.count_tasks_closed(user_id, month_start),
-                reader.count_sp_items(KP_ENTITY_TYPE_ID, KP_SENT_STAGE_ID, month_start, user_id),
+                reader.count_sp_items(
+                    config.SP_KP_ENTITY_TYPE_ID,
+                    config.SP_KP_SENT_STAGE_ID,
+                    month_start,
+                    user_id,
+                ),
                 first_count,
                 repeat_count,
                 reader.count_sp_items(
-                    CONTRACT_ENTITY_TYPE_ID,
-                    CONTRACT_SIGNED_STAGE_ID,
+                    config.SP_CONTRACT_ENTITY_TYPE_ID,
+                    config.SP_CONTRACT_SIGNED_STAGE_ID,
                     month_start,
                     user_id,
                 ),

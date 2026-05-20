@@ -23,4 +23,23 @@ class SheetsWriter:
         values = [list(row) for row in rows]
         header = values[0] if values else []
         body = values[1:] if values else []
+        if tab_name == "sync_log":
+            self._write_sync_log(header, body)
+            return
         self.client.replace_tab(tab_name, header, body)
+
+    def _write_sync_log(self, header: list[object], body: list[list[object]]) -> None:
+        try:
+            existing = self.client._execute(
+                self.client.service.spreadsheets().values().get(
+                    spreadsheetId=OUTPUT_SHEET_ID,
+                    range="'sync_log'!A1:ZZ1",
+                    valueRenderOption="UNFORMATTED_VALUE",
+                )
+            ).get("values", [])
+        except Exception:  # noqa: BLE001 - append_log сам создаст вкладку при необходимости
+            existing = []
+        if existing and existing[0] != header:
+            self.client.replace_tab("sync_log", header, body)
+            return
+        self.client.append_log("sync_log", [str(cell) for cell in header], body)

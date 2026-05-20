@@ -601,3 +601,22 @@
 
 ## Raw errors
 
+## 8. SP 1048 «Встречи» — UF-поля (Phase 3 supplement)
+
+Read-only probe: `python discovery_sp1048_probe.py`.
+
+| Field ID | Title | Type | Required |
+|---|---|---|---|
+| `ufCrm16Transcript` | Транскрибация встречи (TXT-файл) | file | False |
+| `ufCrm16_1751006126` | Бренд проекта | enumeration | False |
+| `ufCrm16_1751006460` | Встреча | enumeration | True |
+| `ufCrm16_1751006529` | Сотрудник производства | employee | False |
+| `ufCrm16_1751006555` | Ссылка на запись встречи | url | False |
+| `ufCrm16_1751009238` | Дата встречи | datetime | True |
+| `ufCrm16_1751009948` | ID события в календаре | integer | False |
+| `ufCrm16_1751470800` | Товары из списка | string | False |
+| `ufCrm16_1753868173` | ID задачи (обнови статус встречи) | double | False |
+| `ufCrm16_1753870562` | Дата встречи (системное) | datetime | False |
+| `ufCrm16_1772387247884` | ID задачи (провести бриффинг) | double | False |
+| `ufCrm16_1772391801968` | ID задачи (провести защиту КП) | double | False |
+| `ufCrm16_1774873038` | ВСТРЕЧИ: Причины отказа | enumeration | False |
