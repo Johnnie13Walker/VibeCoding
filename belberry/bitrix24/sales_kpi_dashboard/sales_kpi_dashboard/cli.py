@@ -12,6 +12,7 @@ from sales_dashboard.sheets_client import SheetsClient
 
 from .aggregator import aggregate
 from .config import GOOGLE_SA_KEY, MOSCOW_TZ, OUTPUT_SHEET_ID
+from .sheet_schema import bootstrap_schema
 from .writer import SheetsWriter
 
 PROBE_TAB = "_write_probe_tmp"
@@ -23,6 +24,8 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers.add_parser("check")
     refresh = subparsers.add_parser("refresh")
     refresh.add_argument("--dry-run", action="store_true")
+    bootstrap = subparsers.add_parser("bootstrap-schema")
+    bootstrap.add_argument("--dry-run", action="store_true")
     return parser
 
 
@@ -102,12 +105,20 @@ def run_refresh(dry_run: bool) -> int:
     return 0
 
 
+def run_bootstrap_schema(dry_run: bool) -> int:
+    report = bootstrap_schema(dry_run=dry_run)
+    print(json.dumps(report, ensure_ascii=False, indent=2))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.command == "check":
         return run_check()
     if args.command == "refresh":
         return run_refresh(args.dry_run)
+    if args.command == "bootstrap-schema":
+        return run_bootstrap_schema(args.dry_run)
     raise AssertionError(args.command)
 
 
