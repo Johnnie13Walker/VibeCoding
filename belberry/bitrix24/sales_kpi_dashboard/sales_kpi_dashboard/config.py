@@ -49,7 +49,14 @@ PRODUCTS: dict[str, int] = {
 OTHER_PRODUCT = "Прочее"
 
 TM_POSITION_REGEX = re.compile(r"телемарк", re.IGNORECASE)
-MOP_POSITION_REGEX = re.compile(r"менеджер по продаж", re.IGNORECASE)
+# Захватывает: «Менеджер по продажам», «Руководитель отдела продаж»,
+# и точную аббревиатуру «РОП» как WORK_POSITION (так заведена Гордиенко в Bitrix).
+# НЕ захватывает: «Аккаунт-менеджер», «Руководитель отдела аккаунтинга/SEO/ORM»,
+# «Административный менеджер», «Контент-менеджер», «бывший РОП» (есть ^…$ граница).
+MOP_POSITION_REGEX = re.compile(
+    r"менеджер по продаж|руководитель отдела продаж|^\s*роп\s*$",
+    re.IGNORECASE,
+)
 
 RECENT_WEEKS = 8
 

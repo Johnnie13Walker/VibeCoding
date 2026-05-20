@@ -26,6 +26,29 @@ def test_role_regexes_match_target_positions_only() -> None:
     assert not config.MOP_POSITION_REGEX.search("Аккаунт-менеджер")
 
 
+def test_mop_regex_includes_sales_rop_but_not_other_rops() -> None:
+    r = config.MOP_POSITION_REGEX
+    # МОП и РОП-продавец — должны попадать в блок
+    assert r.search("Менеджер по продажам")
+    assert r.search("менеджер по продажам ")
+    assert r.search("Руководитель отдела продаж")
+    assert r.search("руководитель отдела ПРОДАЖ")
+    # «РОП» как аббревиатура (так Гордиенко заведена в Bitrix)
+    assert r.search("РОП")
+    assert r.search("роп")
+    assert r.search(" РОП ")
+    # Соседние роли — не должны
+    assert not r.search("Аккаунт-менеджер")
+    assert not r.search("Руководитель отдела аккаунтинга")
+    assert not r.search("Руководитель отдела ORM и GEO")
+    assert not r.search("Руководитель отдела SEO")
+    assert not r.search("Административный менеджер")
+    assert not r.search("Контент-менеджер")
+    # «РОП» внутри длинной строки не должно матчиться
+    assert not r.search("бывший РОП Belberry")
+    assert not r.search("европа")
+
+
 def test_google_sa_key_can_be_overridden_by_env(monkeypatch) -> None:
     monkeypatch.setenv("GOOGLE_SA_KEY", "/opt/openclaw/secrets/sales-kpi-sa.json")
 

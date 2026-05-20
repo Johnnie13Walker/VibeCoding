@@ -27,6 +27,37 @@ def test_resolve_role_users_filters_by_regex() -> None:
     }
 
 
+def test_resolve_role_users_includes_sales_rop_via_mop_regex() -> None:
+    from sales_kpi_dashboard import config
+
+    client = Mock()
+    client.call.side_effect = [
+        {
+            "result": [
+                {"ID": "2806", "NAME": "Елизавета", "LAST_NAME": "Деговцова",
+                 "WORK_POSITION": "Менеджер по продажам"},
+                {"ID": "2846", "NAME": "Егор", "LAST_NAME": "Семенихин",
+                 "WORK_POSITION": "Менеджер по продажам"},
+                # Гордиенко в Bitrix заведена с аббревиатурой «РОП»
+                {"ID": "2188", "NAME": "Евгения", "LAST_NAME": "Гордиенко",
+                 "WORK_POSITION": "РОП"},
+                {"ID": "470", "NAME": "Мария", "LAST_NAME": "Лопатина",
+                 "WORK_POSITION": "Руководитель отдела аккаунтинга"},
+                {"ID": "584", "NAME": "Екатерина", "LAST_NAME": "Смирнова",
+                 "WORK_POSITION": "Аккаунт-менеджер"},
+            ]
+        }
+    ]
+    reader = BitrixReader(client)
+    users = reader.resolve_role_users(config.MOP_POSITION_REGEX)
+
+    assert users == {
+        2188: "Гордиенко Евгения",
+        2806: "Деговцова Елизавета",
+        2846: "Семенихин Егор",
+    }
+
+
 def test_list_active_users_paginates() -> None:
     client = Mock()
     client.call.side_effect = [
