@@ -220,11 +220,19 @@ def _step_resolve(bx: BitrixClient, outcome: FullEnrichmentOutcome, context: dic
             context["company_id"] = str(company.get("ID") or "")
 
     if not company and flags["create_if_missing"]:
+        if context.get("inn"):
+            existing_company_id = _find_company_id_by_inn(bx, context["inn"])
+            if existing_company_id:
+                context["company_id"] = existing_company_id
+                company = bx.get_company(existing_company_id) or {"ID": existing_company_id}
+                if outcome.input_kind == "deal_id" and context.get("deal_id") and not deal_had_company:
+                    bx.update_deal(context["deal_id"], {"COMPANY_ID": existing_company_id})
+                    context["attached_input_deal"] = True
         if not context.get("inn"):
             outcome.flags.append("no_inn_no_company")
             outcome.final_status = "SKIPPED"
             return StepOutcome("RESOLVE", "SKIPPED", {"reason": "no_inn_no_company", "url": context.get("url", "")})
-        if flags["dry_run"]:
+        if not company and flags["dry_run"]:
             context["company_id"] = "DRY_RUN_COMPANY"
             outcome.company_id = context["company_id"]
             context["created_company"] = True
@@ -233,13 +241,14 @@ def _step_resolve(bx: BitrixClient, outcome: FullEnrichmentOutcome, context: dic
                 context["attached_input_deal"] = True
             outcome.flags.append("would_create_company")
             return StepOutcome("RESOLVE", "DONE", {"created": "dry_run", "company_id": context["company_id"]})
-        fields = _minimum_company_fields(context)
-        context["company_id"] = _add_company(bx, fields)
-        context["created_company"] = True
-        company = bx.get_company(context["company_id"]) or {"ID": context["company_id"], **fields}
-        if outcome.input_kind == "deal_id" and context.get("deal_id") and not deal_had_company:
-            bx.update_deal(context["deal_id"], {"COMPANY_ID": context["company_id"]})
-            context["attached_input_deal"] = True
+        if not company:
+            fields = _minimum_company_fields(context)
+            context["company_id"] = _add_company(bx, fields)
+            context["created_company"] = True
+            company = bx.get_company(context["company_id"]) or {"ID": context["company_id"], **fields}
+            if outcome.input_kind == "deal_id" and context.get("deal_id") and not deal_had_company:
+                bx.update_deal(context["deal_id"], {"COMPANY_ID": context["company_id"]})
+                context["attached_input_deal"] = True
 
     if not company:
         outcome.final_status = "FAILED"
@@ -249,6 +258,11 @@ def _step_resolve(bx: BitrixClient, outcome: FullEnrichmentOutcome, context: dic
     context["company"] = company
     outcome.company_id = context["company_id"]
     return StepOutcome("RESOLVE", "DONE", {"company_id": outcome.company_id, "title": company.get("TITLE")})
+
+
+def _find_company_id_by_inn(bx: BitrixClient, inn: str) -> str:
+    reqs = bx.search_requisite_by_inn(inn) if inn else []
+    return str((reqs[0] if reqs else {}).get("ENTITY_ID") or "")
 
 
 def _step_find_site(bx: BitrixClient, outcome: FullEnrichmentOutcome, context: dict[str, Any], flags: dict[str, Any]) -> StepOutcome:
@@ -411,22 +425,70 @@ def _step_rank_deal_viability(bx: BitrixClient, outcome: FullEnrichmentOutcome, 
     if flags["skip_auto_reject"]:
         return StepOutcome("RANK_DEAL_VIABILITY", "SKIPPED", {"reason": "skip_auto_reject"})
     company = _company(bx, context)
+    company, recheck = _recheck_liquidated_status_before_reject(bx, outcome, context, flags, company)
     decision = auto_reject_telemarketing.classify_for_rejection(company)
     if not decision:
-        return StepOutcome("RANK_DEAL_VIABILITY", "DONE", {"decision": "continue"})
+        details = {"decision": "continue"}
+        if recheck:
+            details["liquidated_status_recheck"] = recheck
+        return StepOutcome("RANK_DEAL_VIABILITY", "DONE", details)
     reason_id, reason_desc = decision
     open_deal = _first_open_c50_deal(bx, outcome.company_id)
     if not open_deal:
         outcome.final_status = "SKIPPED"
         reason = "liquidated_no_deal" if reason_id == "8538" else "low_revenue_no_deal"
         outcome.rejected_reason = reason_desc
-        return StepOutcome("RANK_DEAL_VIABILITY", "SKIPPED", {"reason": reason, "reason_id": reason_id})
+        details = {"reason": reason, "reason_id": reason_id}
+        if recheck:
+            details["liquidated_status_recheck"] = recheck
+        return StepOutcome("RANK_DEAL_VIABILITY", "SKIPPED", details)
     outcome.deal_id = str(open_deal.get("ID") or "")
     context["deal_id"] = outcome.deal_id
     summary = auto_reject_telemarketing.run_deal(bx, deal_id=outcome.deal_id, dry_run=flags["dry_run"])
     outcome.final_status = "REJECTED"
     outcome.rejected_reason = reason_desc
-    return StepOutcome("RANK_DEAL_VIABILITY", "DONE", {"reason_id": reason_id, "reason_desc": reason_desc, "auto_reject": summary})
+    details = {"reason_id": reason_id, "reason_desc": reason_desc, "auto_reject": summary}
+    if recheck:
+        details["liquidated_status_recheck"] = recheck
+    return StepOutcome("RANK_DEAL_VIABILITY", "DONE", details)
+
+
+def _recheck_liquidated_status_before_reject(
+    bx: BitrixClient,
+    outcome: FullEnrichmentOutcome,
+    context: dict[str, Any],
+    flags: dict[str, Any],
+    company: dict,
+) -> tuple[dict, dict[str, Any]]:
+    if str(company.get(COMPANY_UF_ORGANIZATION_STATUS) or "").strip() != ORG_STATUS_LIQUIDATED:
+        return company, {}
+
+    inn = normalize_inn(context.get("inn")) or normalize_inn(company.get("UF_CRM_1735331882180"))
+    if not inn:
+        inn = _first_requisite_inn(bx.list_company_requisites(outcome.company_id))
+    if not inn:
+        return company, {"status": "skipped_no_inn"}
+
+    html = sync_deals.fetch_rusprofile_html(inn)
+    fresh_status = sync_deals.parse_organization_status(html) if html else ""
+    if fresh_status != "Действующая":
+        return company, {"status": fresh_status or "unknown", "inn": inn}
+
+    active_status_id = COMPANY_ORGANIZATION_STATUS_ENUM.get("Действующая", "")
+    if not active_status_id:
+        return company, {"status": "active_enum_missing", "inn": inn}
+
+    restored = dict(company)
+    restored[COMPANY_UF_ORGANIZATION_STATUS] = active_status_id
+    context["inn"] = inn
+    if flags["dry_run"]:
+        context["company"] = restored
+        return restored, {"status": "would_restore_active", "inn": inn}
+
+    bx.update_company(outcome.company_id, {COMPANY_UF_ORGANIZATION_STATUS: active_status_id})
+    refreshed = bx.get_company(outcome.company_id) or restored
+    context["company"] = refreshed
+    return refreshed, {"status": "restored_active", "inn": inn}
 
 
 def _step_resolve_deal(bx: BitrixClient, outcome: FullEnrichmentOutcome, context: dict[str, Any], flags: dict[str, Any]) -> StepOutcome:
@@ -851,7 +913,13 @@ def _title_from_url(url: str) -> str:
 
 def _looks_medical(title: str, url: str) -> bool:
     text = f"{title} {url}".lower()
-    return any(token in text for token in ("med", "clinic", "клиник", "мед", "леч"))
+    return any(
+        token in text
+        for token in (
+            "med", "clinic", "клиник", "мед", "леч", "ветеринар",
+            "ветклиник", "вет-доктор", "зоовет", "veterinary", "vetclinic",
+        )
+    )
 
 
 def _now_iso() -> str:

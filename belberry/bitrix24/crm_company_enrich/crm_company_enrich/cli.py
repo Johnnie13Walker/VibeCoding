@@ -307,6 +307,7 @@ def cmd_enrich_from_sheet_inplace(args: argparse.Namespace) -> int:
         limit=args.limit,
         cron_mode=args.cron,
         skip_already_processed=not args.no_skip_processed,
+        delete_successful=args.delete_successful,
     )
     print(json.dumps(summary, indent=2, ensure_ascii=False))
     return 0 if not summary.get("failed") else 1
@@ -714,6 +715,8 @@ def main() -> None:
     sp.add_argument("--limit", type=int, help="Обработать не более N строк")
     sp.add_argument("--no-skip-processed", action="store_true",
                     help="Не пропускать строки с уже заполненным status (col K)")
+    sp.add_argument("--delete-successful", action="store_true",
+                    help="После live-прогона удалить из исходного таба строки с успешным enrichment")
     sp.set_defaults(func=cmd_enrich_from_sheet_inplace)
 
     sp = sub.add_parser(

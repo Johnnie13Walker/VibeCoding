@@ -1013,7 +1013,11 @@ def _industry_from_text(text: str, *, fallback_other: bool = False) -> str:
     text = _clean(text).lower()
     if any(s in text for s in ("47.", "рознич", "магазин", "интернет-магаз", "e-commerce", "маркетплейс")):
         return "E-commerce"
-    if any(s in text for s in ("86.", "клиник", "медицин", "медцентр", "медико", "стомат", "дент", "доктор", "doctor", "врач")):
+    if any(s in text for s in (
+        "86.", "клиник", "медицин", "медцентр", "медико", "стомат", "дент",
+        "доктор", "doctor", "врач", "ветеринар", "ветклиник", "вет-доктор",
+        "зоовет", "veterinary", "vetclinic",
+    )):
         return "Медицина"
     if any(s in text for s in ("туризм", "турист", "турагент", "туроператор", "путешеств", "отдых")):
         return "Туризм, отдых, путешествия"

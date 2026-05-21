@@ -141,21 +141,29 @@ def test_filter_unprocessed_drops_rows_with_status():
 
 # ---------- color_for_status ----------
 
-def test_color_for_status_success_for_enriched_and_partial():
+def test_color_for_status_success_for_enriched_and_rejected():
     assert stage.color_for_status("ENRICHED") == stage.COLOR_SUCCESS
-    assert stage.color_for_status("PARTIAL") == stage.COLOR_SUCCESS
+    assert stage.color_for_status("REJECTED") == stage.COLOR_SUCCESS
 
 
-def test_color_for_status_failure_for_failed_rejected_exception():
+def test_color_for_status_failure_for_partial_failed_skipped_exception():
+    assert stage.color_for_status("PARTIAL") == stage.COLOR_FAILURE
     assert stage.color_for_status("FAILED") == stage.COLOR_FAILURE
-    assert stage.color_for_status("REJECTED") == stage.COLOR_FAILURE
+    assert stage.color_for_status("SKIPPED") == stage.COLOR_FAILURE
     assert stage.color_for_status("EXCEPTION") == stage.COLOR_FAILURE
 
 
-def test_color_for_status_neutral_for_skipped_and_unknown():
-    assert stage.color_for_status("SKIPPED") == stage.COLOR_NEUTRAL
+def test_color_for_status_neutral_for_unknown():
     assert stage.color_for_status("UNKNOWN") == stage.COLOR_NEUTRAL
     assert stage.color_for_status("") == stage.COLOR_NEUTRAL
+
+
+def test_is_successful_for_removal():
+    assert stage.is_successful_for_removal("ENRICHED")
+    assert stage.is_successful_for_removal("REJECTED")
+    assert not stage.is_successful_for_removal("PARTIAL")
+    assert not stage.is_successful_for_removal("FAILED")
+    assert not stage.is_successful_for_removal("SKIPPED")
 
 
 # ---------- build_color_request ----------
@@ -262,6 +270,10 @@ class FakeSheetsService:
         self.values_updates: list[tuple[str, list]] = []
         self.batch_updates: list[dict] = []
 
+    @property
+    def row_values_updates(self):
+        return [u for u in self.values_updates if not u[0].endswith("!H1:U1")]
+
     def spreadsheets(self):  # noqa: ANN201
         outer = self
 
@@ -332,17 +344,18 @@ def test_run_in_place_processes_unprocessed_rows(monkeypatch):
     assert captured[1]["deal_id"] == "200"
     assert captured[1]["url"] == "https://b.ru"
     # both row writes
-    assert len(svc.values_updates) == 2
-    assert svc.values_updates[0][0] == "'TestTab'!E2:U2"
-    assert svc.values_updates[1][0] == "'TestTab'!E3:U3"
-    assert svc.values_updates[0][1][0:4] == [
+    assert len(svc.row_values_updates) == 2
+    assert svc.values_updates[0][0] == "'TestTab'!H1:U1"
+    assert svc.row_values_updates[0][0] == "'TestTab'!E2:U2"
+    assert svc.row_values_updates[1][0] == "'TestTab'!E3:U3"
+    assert svc.row_values_updates[0][1][0:4] == [
         "Test Co",
         "7720238793",
         "100000000",
         "OK: компания и сделка обогащены",
     ]
-    assert svc.values_updates[0][1][4] == "100"  # I deal_id
-    assert svc.values_updates[0][1][6] == "ENRICHED"  # K status
+    assert svc.row_values_updates[0][1][4] == "100"  # I deal_id
+    assert svc.row_values_updates[0][1][6] == "ENRICHED"  # K status
     # both color requests
     assert len(svc.batch_updates) == 2
     assert all(
@@ -412,7 +425,7 @@ def test_run_in_place_records_exception_and_paints_red(monkeypatch):
     for b in svc.batch_updates:
         assert b["requests"][0]["repeatCell"]["cell"]["userEnteredFormat"]["backgroundColor"] == stage.COLOR_FAILURE
     # visible reason placed in H, technical error placed in U.
-    for _range, values in svc.values_updates:
+    for _range, values in svc.row_values_updates:
         assert values[3] == "EXCEPTION: network down"
         assert "network down" in values[-1]
 
@@ -428,7 +441,30 @@ def test_run_in_place_limit_caps_processing(monkeypatch):
     summary = stage.run_in_place(FakeBx(), svc, sheet_id="S", tab_title="TestTab", limit=1, dry_run=False)
     assert summary["to_process"] == 1
     assert summary["processed"] == 1
-    assert len(svc.values_updates) == 1
+    assert len(svc.row_values_updates) == 1
+
+
+def test_run_in_place_deletes_successful_rows_desc(monkeypatch):
+    svc = FakeSheetsService(_grid_two_rows())
+
+    def fake_run(bx, **kwargs):
+        return _outcome(deal_id=str(kwargs.get("deal_id") or ""))
+
+    monkeypatch.setattr(stage.enrich_company_full, "run", fake_run)
+
+    summary = stage.run_in_place(
+        FakeBx(),
+        svc,
+        sheet_id="S",
+        tab_title="TestTab",
+        dry_run=False,
+        delete_successful=True,
+    )
+
+    assert summary["successful_rows_deleted"] == 2
+    delete_batch = svc.batch_updates[-1]
+    requests = delete_batch["requests"]
+    assert [r["deleteDimension"]["range"]["startIndex"] for r in requests] == [2, 1]
 
 
 def test_run_in_place_cron_outside_window_stops_immediately(monkeypatch):
