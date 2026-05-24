@@ -23,6 +23,8 @@ from crm_company_enrich.config import (
     DEAL_UF_SITE_PRIMARY,
     HOLD_MARKER_FLAG_FIELD,
     HOLD_REASON_FIELD,
+    UF_BRAND_LEGACY_ENUM_BELBERRY,
+    UF_BRAND_LEGACY_ENUM_FIELD,
 )
 from crm_company_enrich.stages import sync_deals
 
@@ -939,6 +941,7 @@ def test_run_company_fills_company_without_deals(monkeypatch):
                 COMPANY_UF_ORGANIZATION_STATUS: COMPANY_ORGANIZATION_STATUS_ENUM["Действующая"],
                 "UF_CRM_1735331882180": "7725819008",
                 "UF_CRM_1737098476975": "Belberry",
+                UF_BRAND_LEGACY_ENUM_FIELD: UF_BRAND_LEGACY_ENUM_BELBERRY,
             },
         )
     ]
@@ -974,6 +977,7 @@ def test_run_company_refines_other_industry_from_doctor_domain(monkeypatch):
             {
                 "INDUSTRY": COMPANY_INDUSTRY_STATUS["Медицина"],
                 "UF_CRM_1737098476975": "Belberry",
+                UF_BRAND_LEGACY_ENUM_FIELD: UF_BRAND_LEGACY_ENUM_BELBERRY,
             },
         )
     ]
@@ -1039,7 +1043,15 @@ def test_run_company_replaces_dead_site_with_explicit_working_site(monkeypatch):
     )
 
     assert summary["updated"] == 1
-    assert bx.update_company_calls == [("1144", {"UF_CRM_5DEF838D882A2": "medscannet.ru"})]
+    assert bx.update_company_calls == [
+        (
+            "1144",
+            {
+                "UF_CRM_5DEF838D882A2": "medscannet.ru",
+                UF_BRAND_LEGACY_ENUM_FIELD: UF_BRAND_LEGACY_ENUM_BELBERRY,
+            },
+        )
+    ]
 
 
 def test_deal_replaces_dead_site_primary_with_working_company_site(monkeypatch):

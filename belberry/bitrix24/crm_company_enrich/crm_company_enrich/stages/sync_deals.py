@@ -55,6 +55,9 @@ from ..config import (
     UF_BRAND_FIELD,
     UF_BRAND_ACOOLA,
     UF_BRAND_BELBERRY,
+    UF_BRAND_LEGACY_ENUM_ACOOLA,
+    UF_BRAND_LEGACY_ENUM_BELBERRY,
+    UF_BRAND_LEGACY_ENUM_FIELD,
 )
 from ..models import is_medical_company, normalize_inn
 
@@ -170,6 +173,11 @@ def run_company(
         brand = _deal_brand_from_company(enriched_company)
     if brand:
         desired[UF_BRAND_FIELD] = brand
+        desired[UF_BRAND_LEGACY_ENUM_FIELD] = (
+            UF_BRAND_LEGACY_ENUM_BELBERRY
+            if brand == UF_BRAND_BELBERRY
+            else UF_BRAND_LEGACY_ENUM_ACOOLA
+        )
 
     fields, skipped = _filter_existing_fields(company, desired, overwrite=overwrite)
     _allow_dead_site_replacement(
