@@ -6,7 +6,9 @@ from typing import Any
 
 from ..bitrix_client import BitrixClient
 from ..config import COMPANY_UF_ORGANIZATION_STATUS, ORG_STATUS_LIQUIDATED
+from ..models import normalize_inn
 from . import enrich_company_full, sync_deals
+from .enrich_web import HttpFetcher, try_web
 
 
 @dataclass
@@ -104,6 +106,16 @@ def run(
     outcome.steps.append({"step": "ENRICH_COMPANY", "status": "DONE", "final_status": enrich_outcome.final_status, "company_id": outcome.new_company_id})
 
     company = bx.get_company(outcome.new_company_id) if not dry_run else None
+    if not dry_run:
+        verification = _verify_resolved_company(bx, company=company, company_id=outcome.new_company_id, url=url)
+        outcome.steps.append(verification)
+        if verification.get("status") == "FAILED":
+            outcome.status = "FAILED"
+            outcome.error = str(verification.get("reason") or "verification_failed")
+            return asdict(outcome)
+    else:
+        outcome.steps.append({"step": "VERIFY_RESOLVED_COMPANY", "status": "DRY_RUN"})
+
     if company and str(company.get(COMPANY_UF_ORGANIZATION_STATUS) or "") == ORG_STATUS_LIQUIDATED and not allow_liquidated:
         outcome.status = "SKIPPED"
         outcome.error = "company_liquidated"
@@ -154,3 +166,78 @@ def _clean_id(value: Any) -> str:
 
 def _domain_from_url(url: str) -> str:
     return enrich_company_full._title_from_url(url)
+
+
+def _verify_resolved_company(
+    bx: BitrixClient,
+    *,
+    company: dict | None,
+    company_id: str,
+    url: str,
+) -> dict[str, Any]:
+    expected_site_key = enrich_company_full._site_key(url)
+    if not company:
+        return {"step": "VERIFY_RESOLVED_COMPANY", "status": "FAILED", "reason": "company_not_found", "company_id": company_id}
+    company_site_keys = _company_site_keys(company)
+    if not expected_site_key or expected_site_key not in company_site_keys:
+        return {
+            "step": "VERIFY_RESOLVED_COMPANY",
+            "status": "FAILED",
+            "reason": "site_mismatch",
+            "expected_site_key": expected_site_key,
+            "company_site_keys": sorted(company_site_keys),
+            "company_id": company_id,
+        }
+
+    expected_inn = normalize_inn((try_web(url, HttpFetcher().fetch, sleep_s=0.1) or ("", ""))[0])
+    if not expected_inn:
+        return {
+            "step": "VERIFY_RESOLVED_COMPANY",
+            "status": "FAILED",
+            "reason": "no_inn_verification",
+            "company_id": company_id,
+            "expected_site_key": expected_site_key,
+        }
+    company_inns = _company_requisite_inns(bx, company_id)
+    if not company_inns:
+        return {
+            "step": "VERIFY_RESOLVED_COMPANY",
+            "status": "FAILED",
+            "reason": "no_inn_verification",
+            "company_id": company_id,
+            "expected_inn": expected_inn,
+        }
+    if expected_inn not in company_inns:
+        return {
+            "step": "VERIFY_RESOLVED_COMPANY",
+            "status": "FAILED",
+            "reason": "inn_mismatch",
+            "company_id": company_id,
+            "expected_inn": expected_inn,
+            "company_inns": sorted(company_inns),
+        }
+    return {
+        "step": "VERIFY_RESOLVED_COMPANY",
+        "status": "DONE",
+        "company_id": company_id,
+        "expected_site_key": expected_site_key,
+        "expected_inn": expected_inn,
+    }
+
+
+def _company_site_keys(company: dict) -> set[str]:
+    keys = {
+        enrich_company_full._site_key(item.get("VALUE") if isinstance(item, dict) else item)
+        for item in company.get("WEB") or []
+    }
+    keys.add(enrich_company_full._site_key(company.get("UF_CRM_5DEF838D882A2") or ""))
+    keys.discard("")
+    return keys
+
+
+def _company_requisite_inns(bx: BitrixClient, company_id: str) -> set[str]:
+    return {
+        inn
+        for inn in (normalize_inn(req.get("RQ_INN")) for req in bx.list_company_requisites(company_id))
+        if inn
+    }

@@ -201,6 +201,55 @@ def test_resolve_by_url_via_web_field():
     assert out.company_id == "10"
 
 
+def test_find_company_by_url_returns_none_when_no_exact_match():
+    """REGRESSION: bistrodengi.ru не должен резолвиться в СИТИ-ДЕНТ/mikaelyan.info."""
+    bx = FakeBitrix(
+        companies={
+            "10": company("10", TITLE='ООО "СИТИ-ДЕНТ"', WEB=[{"VALUE": "https://mikaelyan.info/"}]),
+            "20": company("20", TITLE='ООО "ТЕСТ"', WEB=[{"VALUE": "https://test.com"}]),
+        },
+    )
+
+    result = stage._find_company_by_url(bx, "https://bistrodengi.ru")
+
+    assert result is None, f"Expected None, got company #{result.get('ID') if result else 'None'}"
+
+
+def test_find_company_by_url_returns_exact_match():
+    bx = FakeBitrix(
+        companies={
+            "10": company("10", WEB=[{"VALUE": "https://mikaelyan.info/"}]),
+            "57308": company("57308", WEB=[{"VALUE": "https://bistrodengi.ru/"}]),
+        },
+    )
+
+    result = stage._find_company_by_url(bx, "https://bistrodengi.ru")
+
+    assert result is not None
+    assert str(result.get("ID")) == "57308"
+
+
+def test_find_company_by_url_matches_uf_site_field():
+    bx = FakeBitrix(
+        companies={
+            "42": company("42", WEB=[], UF_CRM_5DEF838D882A2="https://example.ru"),
+        },
+    )
+
+    result = stage._find_company_by_url(bx, "https://example.ru")
+
+    assert result is not None
+    assert str(result.get("ID")) == "42"
+
+
+def test_find_company_by_url_empty_or_invalid_url_returns_none():
+    bx = FakeBitrix(companies={"10": company("10")})
+
+    assert stage._find_company_by_url(bx, "") is None
+    assert stage._find_company_by_url(bx, "https://") is None
+    assert stage._find_company_by_url(bx, "invalid-not-url") is None
+
+
 def test_resolve_fails_without_create_if_missing():
     out = stage.run(FakeBitrix(), url="https://missing.ru")
     assert out.final_status == "FAILED"
@@ -718,6 +767,7 @@ def test_rebind_orphan_deal_passes_no_touch_existing_deals(monkeypatch):
 
 def test_rebind_orphan_deal_enriches_without_duplicate_and_rebinds(monkeypatch):
     monkeypatch.setattr(stage.enrich_web, "try_web", lambda *a, **k: ("7720238793", "ООО Тест"))
+    monkeypatch.setattr(rebind_orphan_deal, "try_web", lambda *a, **k: ("7720238793", "ООО Тест"))
     monkeypatch.setattr(rebind_orphan_deal.sync_deals, "run", lambda *a, **k: {"failed": 0, "updated": 1})
     bx = FakeBitrix(deals={"100": deal("100", company_id="999", TITLE="Грязное название")})
 
@@ -735,6 +785,60 @@ def test_rebind_orphan_deal_enriches_without_duplicate_and_rebinds(monkeypatch):
     assert bx.deals["100"]["COMPANY_ID"] == summary["new_company_id"]
     assert bx.deals["100"]["TITLE"] == "test.ru"
     assert not any("SOURCE_ID" in fields for _, fields, _ in bx.updated_deals)
+
+
+def test_rebind_orphan_deal_fails_when_resolved_company_has_different_inn(monkeypatch):
+    """REGRESSION: company_id с чужим ИНН не должен получать orphan-сделку."""
+    monkeypatch.setattr(
+        rebind_orphan_deal.enrich_company_full,
+        "run",
+        lambda *a, **k: stage.FullEnrichmentOutcome(
+            input_kind="url",
+            input_value="https://bistrodengi.ru",
+            company_id="10",
+            final_status="ENRICHED",
+        ),
+    )
+    monkeypatch.setattr(rebind_orphan_deal, "try_web", lambda *a, **k: ("7325081622", "ООО Быстроденьги"))
+    bx = FakeBitrix(
+        companies={"10": company("10", WEB=[{"VALUE": "https://bistrodengi.ru"}])},
+        deals={"5524": deal("5524", company_id="", TITLE="orphan")},
+        requisites={"10": [req("10", "9999999999")]},
+    )
+
+    summary = rebind_orphan_deal.run(bx, deal_id="5524", url="https://bistrodengi.ru", dry_run=False)
+
+    assert summary["status"] == "FAILED"
+    assert summary["error"] == "inn_mismatch"
+    assert bx.updated_deals == []
+    assert bx.deals["5524"]["COMPANY_ID"] == ""
+
+
+def test_rebind_orphan_deal_fails_when_resolved_company_has_different_site(monkeypatch):
+    """Защита: найденная компания должна содержать домен URL в WEB или UF site."""
+    monkeypatch.setattr(
+        rebind_orphan_deal.enrich_company_full,
+        "run",
+        lambda *a, **k: stage.FullEnrichmentOutcome(
+            input_kind="url",
+            input_value="https://bubble.ru",
+            company_id="10",
+            final_status="ENRICHED",
+        ),
+    )
+    monkeypatch.setattr(rebind_orphan_deal, "try_web", lambda *a, **k: ("7714938363", "ООО Бабл"))
+    bx = FakeBitrix(
+        companies={"10": company("10", WEB=[{"VALUE": "https://mikaelyan.info"}])},
+        deals={"18490": deal("18490", company_id="", TITLE="orphan")},
+        requisites={"10": [req("10", "7714938363")]},
+    )
+
+    summary = rebind_orphan_deal.run(bx, deal_id="18490", url="https://bubble.ru", dry_run=False)
+
+    assert summary["status"] == "FAILED"
+    assert summary["error"] == "site_mismatch"
+    assert bx.updated_deals == []
+    assert bx.deals["18490"]["COMPANY_ID"] == ""
 
 
 def test_rebind_orphan_deal_skips_if_old_company_still_live(monkeypatch):
