@@ -576,6 +576,39 @@ class BitrixClient:
             )
         return {"workflow_id": str(wf_id)}
 
+    def list_workflow_instances(self, *, workflow_id: str = "") -> list[dict]:
+        """Активные экземпляры BP.
+
+        Bitrix возвращает только незавершённые workflow. Для ожидания окончания
+        достаточно проверять, что workflow_id исчез из списка.
+        """
+        params: dict[str, Any] = {}
+        if workflow_id:
+            params["filter"] = {"ID": str(workflow_id)}
+        body = self.call("bizproc.workflow.instances", params)
+        result = body.get("result")
+        return result if isinstance(result, list) else []
+
+    def is_workflow_running(self, workflow_id: str) -> bool:
+        workflow_id = str(workflow_id or "").strip()
+        if not workflow_id:
+            return False
+        return any(str(item.get("ID") or "") == workflow_id for item in self.list_workflow_instances(workflow_id=workflow_id))
+
+    def wait_workflow_finished(self, workflow_id: str, *, timeout_s: int = 360, poll_s: int = 5) -> bool:
+        """Ждать завершения BP. True — завершился, False — timeout."""
+        workflow_id = str(workflow_id or "").strip()
+        if not workflow_id:
+            return True
+        deadline = time.monotonic() + max(0, int(timeout_s))
+        poll_s = max(1, int(poll_s))
+        while True:
+            if not self.is_workflow_running(workflow_id):
+                return True
+            if time.monotonic() >= deadline:
+                return False
+            time.sleep(poll_s)
+
     def delete_requisite(self, requisite_id: str) -> bool:
         """crm.requisite.delete — для rollback-стадии. Возвращает True/False."""
         body = self.call("crm.requisite.delete", {"id": requisite_id})

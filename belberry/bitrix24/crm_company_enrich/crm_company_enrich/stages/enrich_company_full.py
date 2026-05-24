@@ -15,6 +15,8 @@ from zoneinfo import ZoneInfo
 from ..bitrix_client import BitrixClient
 from ..config import (
     CCE_BIZPROC_FIRST_ENTRY_ID,
+    CCE_BIZPROC_POLL_S,
+    CCE_BIZPROC_TIMEOUT_S,
     CCE_BIZPROC_UPDATE_ID,
     CCE_BIZPROC_WAIT_S,
     CCE_PRESET_ID,
@@ -222,6 +224,10 @@ def _step_resolve(bx: BitrixClient, outcome: FullEnrichmentOutcome, context: dic
             context["company_id"] = str(company.get("ID") or "")
 
     if not company and flags["create_if_missing"]:
+        if not context.get("inn") and context.get("url"):
+            found, _name = enrich_web.try_web(context["url"], enrich_web.HttpFetcher().fetch, sleep_s=0.1)
+            if found:
+                context["inn"] = found
         if not context.get("inn"):
             outcome.flags.append("no_inn_no_company")
             outcome.final_status = "SKIPPED"
@@ -337,9 +343,8 @@ def _step_run_bp(bx: BitrixClient, outcome: FullEnrichmentOutcome, context: dict
         return StepOutcome("RUN_BP", "DONE", {"dry_run": True, "planned_template_ids": planned})
     results = []
     if not context.get("had_requisites_before"):
-        results.append(enrich_empty_companies.start_bp_first_entry(bx, outcome.company_id))
-        time.sleep(3)
-    results.append(enrich_empty_companies.start_bp_update(bx, outcome.company_id))
+        results.append(_start_bp_and_wait(bx, outcome.company_id, CCE_BIZPROC_FIRST_ENTRY_ID))
+    results.append(_start_bp_and_wait(bx, outcome.company_id, CCE_BIZPROC_UPDATE_ID))
     return StepOutcome("RUN_BP", "DONE", {"results": results})
 
 
@@ -361,6 +366,21 @@ def _step_verify(bx: BitrixClient, outcome: FullEnrichmentOutcome, context: dict
             return StepOutcome("VERIFY", "DONE", {"attempt": attempt + 1})
     outcome.flags.append("verify_pending")
     return StepOutcome("VERIFY", "PARTIAL", {"flag": "verify_pending"})
+
+
+def _start_bp_and_wait(bx: BitrixClient, company_id: str, template_id: int | None) -> dict[str, Any]:
+    if not template_id:
+        return {"template_id": template_id, "skipped": True}
+    result = bx.start_workflow(template_id, ["crm", "CCrmDocumentCompany", f"COMPANY_{company_id}"])
+    workflow_id = str(result.get("workflow_id") or "")
+    result["template_id"] = template_id
+    if workflow_id and hasattr(bx, "wait_workflow_finished"):
+        result["wait_finished"] = bx.wait_workflow_finished(
+            workflow_id,
+            timeout_s=CCE_BIZPROC_TIMEOUT_S,
+            poll_s=CCE_BIZPROC_POLL_S,
+        )
+    return result
 
 
 def _step_sync_company(bx: BitrixClient, outcome: FullEnrichmentOutcome, context: dict[str, Any], flags: dict[str, Any]) -> StepOutcome:

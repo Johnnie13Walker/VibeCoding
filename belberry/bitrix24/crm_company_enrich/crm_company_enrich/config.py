@@ -205,6 +205,8 @@ CCE_APPLY_SLEEP_S = float(os.environ.get("CCE_APPLY_SLEEP_S", "0.5"))
 # Гибридный apply: пауза после bizproc.workflow.start перед verify-чтением
 # реквизитов (BP подтягивает данные из ЕГРЮЛ — реалистично 5-20 сек).
 CCE_BIZPROC_WAIT_S = int(os.environ.get("CCE_BIZPROC_WAIT_S", "15"))
+CCE_BIZPROC_POLL_S = int(os.environ.get("CCE_BIZPROC_POLL_S", "5"))
+CCE_BIZPROC_TIMEOUT_S = int(os.environ.get("CCE_BIZPROC_TIMEOUT_S", "360"))
 
 # Гибридный apply: touch компании (crm.company.update COMMENTS+=" ") перед BP.
 # По умолчанию выключено: на belberrycrm есть AUTO_EXECUTE=2 шаблон 5938,
