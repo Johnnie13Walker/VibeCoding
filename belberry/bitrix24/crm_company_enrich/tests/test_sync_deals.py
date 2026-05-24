@@ -648,6 +648,19 @@ def test_organization_status_ignores_unrelated_liquidated_word_on_search_page():
     assert sync_deals._parse_organization_status(html) == "Действующая"
 
 
+def test_organization_status_active_header_wins_over_gosreg_liquidation_tooltip():
+    html = """
+    <main>
+      <span class="company-header__icon success">Действующая организация</span>
+      <span data-quetip="Информация о поданных в ФНС заявлениях.
+      Данные содержат сообщения о принятии решения о ликвидации,
+      реорганизации и попытках компаний изменить адрес."></span>
+    </main>
+    """
+
+    assert sync_deals._parse_organization_status(html) == "Действующая"
+
+
 def test_brand_defaults_to_belberry_when_company_brand_is_empty():
     bx = FakeBitrix(
         companies={"100": _company(UF_CRM_1737098476975="")},
