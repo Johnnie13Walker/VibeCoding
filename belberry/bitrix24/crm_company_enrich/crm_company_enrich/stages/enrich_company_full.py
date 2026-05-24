@@ -98,6 +98,7 @@ def run(
     skip_director_inn: bool = False,
     skip_telemarketing_dedupe: bool = False,
     skip_auto_reject: bool = False,
+    no_create_deal: bool = False,
     bizproc_wait_s: int | None = None,
 ) -> FullEnrichmentOutcome:
     """Главный orchestrator: resolve → enrich → deal workflow → audit."""
@@ -128,6 +129,7 @@ def run(
         "skip_director_inn": skip_director_inn,
         "skip_telemarketing_dedupe": skip_telemarketing_dedupe,
         "skip_auto_reject": skip_auto_reject,
+        "no_create_deal": no_create_deal,
         "bizproc_wait_s": CCE_BIZPROC_WAIT_S if bizproc_wait_s is None else bizproc_wait_s,
     }
 
@@ -464,6 +466,9 @@ def _step_resolve_deal(bx: BitrixClient, outcome: FullEnrichmentOutcome, context
 def _step_create_deal(bx: BitrixClient, outcome: FullEnrichmentOutcome, context: dict[str, Any], flags: dict[str, Any]) -> StepOutcome:
     if context.get("deal_action") != "create":
         return StepOutcome("CREATE_DEAL", "SKIPPED", {"reason": "not_needed"})
+    if flags.get("no_create_deal"):
+        context["deal_action"] = "skip"
+        return StepOutcome("CREATE_DEAL", "SKIPPED", {"reason": "flag_no_create"})
     company = _company(bx, context)
     site = _primary_site(company)
     if not site:

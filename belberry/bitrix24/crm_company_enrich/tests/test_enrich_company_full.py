@@ -402,6 +402,21 @@ def test_no_deal_creates_in_C50_NEW_with_rotation():
     assert out.deal_id
 
 
+def test_no_create_deal_flag_skips_create_deal():
+    bx = FakeBitrix(companies={"10": company()}, requisites={"10": [req()]})
+    out = stage.run(
+        bx,
+        company_id="10",
+        dry_run=False,
+        skip_bp=True,
+        no_create_deal=True,
+        bizproc_wait_s=0,
+    )
+    assert bx.added_deals == []
+    assert _step(out, "CREATE_DEAL").status == "SKIPPED"
+    assert _step(out, "CREATE_DEAL").details["reason"] == "flag_no_create"
+
+
 def test_create_deal_skipped_when_no_site():
     bx = FakeBitrix(companies={"10": company(WEB=[])}, requisites={"10": [req()]})
     out = stage.run(bx, company_id="10", dry_run=False, skip_bp=True, bizproc_wait_s=0)
