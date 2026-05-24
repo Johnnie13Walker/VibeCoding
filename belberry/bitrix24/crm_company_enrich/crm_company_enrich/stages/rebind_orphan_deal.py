@@ -39,6 +39,7 @@ def run(
 
     Важные гарантии:
     - enrich-company-full запускается с no_create_deal=True;
+    - enrich-company-full не ищет и не трогает существующие сделки новой компании;
     - существующий SOURCE_ID сделки не перезаписывается;
     - стадия сделки не меняется;
     - COMPANY_ID обновляется только после успешного enrich.
@@ -84,6 +85,8 @@ def run(
         dry_run=dry_run,
         skip_auto_reject=True,
         no_create_deal=True,
+        no_touch_existing_deals=True,
+        skip_telemarketing_dedupe=True,
         bizproc_wait_s=bizproc_wait_s,
     )
     outcome.enrich = asdict(enrich_outcome)

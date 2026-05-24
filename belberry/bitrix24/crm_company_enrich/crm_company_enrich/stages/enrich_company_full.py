@@ -76,6 +76,7 @@ class FullEnrichmentOutcome:
     input_value: str
     company_id: str = ""
     deal_id: str = ""
+    no_touch_existing_deals: bool = False
     contact_ids: list[str] = field(default_factory=list)
     duplicate_company_ids: list[str] = field(default_factory=list)
     flags: list[str] = field(default_factory=list)
@@ -101,6 +102,7 @@ def run(
     skip_telemarketing_dedupe: bool = False,
     skip_auto_reject: bool = False,
     no_create_deal: bool = False,
+    no_touch_existing_deals: bool = False,
     bizproc_wait_s: int | None = None,
 ) -> FullEnrichmentOutcome:
     """Главный orchestrator: resolve → enrich → deal workflow → audit."""
@@ -109,6 +111,7 @@ def run(
     outcome = FullEnrichmentOutcome(
         input_kind=input_kind,
         input_value=str(input_value),
+        no_touch_existing_deals=no_touch_existing_deals,
         timestamp=_now_iso(),
     )
 
@@ -132,6 +135,7 @@ def run(
         "skip_telemarketing_dedupe": skip_telemarketing_dedupe,
         "skip_auto_reject": skip_auto_reject,
         "no_create_deal": no_create_deal,
+        "no_touch_existing_deals": no_touch_existing_deals,
         "bizproc_wait_s": CCE_BIZPROC_WAIT_S if bizproc_wait_s is None else bizproc_wait_s,
     }
 
@@ -454,6 +458,11 @@ def _step_rank_deal_viability(bx: BitrixClient, outcome: FullEnrichmentOutcome, 
 def _step_resolve_deal(bx: BitrixClient, outcome: FullEnrichmentOutcome, context: dict[str, Any], flags: dict[str, Any]) -> StepOutcome:
     if outcome.final_status in {"REJECTED", "SKIPPED"}:
         return StepOutcome("RESOLVE_DEAL", "SKIPPED", {"reason": "final_status_already_set"})
+    if outcome.no_touch_existing_deals:
+        outcome.deal_id = ""
+        context["deal_id"] = ""
+        context["deal_action"] = "skip"
+        return StepOutcome("RESOLVE_DEAL", "SKIPPED", {"reason": "no_touch_existing_deals"})
     if context.get("attached_input_deal") and outcome.deal_id:
         context["deal_action"] = "sync"
         return StepOutcome("RESOLVE_DEAL", "DONE", {
@@ -484,11 +493,14 @@ def _step_resolve_deal(bx: BitrixClient, outcome: FullEnrichmentOutcome, context
 
 
 def _step_create_deal(bx: BitrixClient, outcome: FullEnrichmentOutcome, context: dict[str, Any], flags: dict[str, Any]) -> StepOutcome:
-    if context.get("deal_action") != "create":
-        return StepOutcome("CREATE_DEAL", "SKIPPED", {"reason": "not_needed"})
     if flags.get("no_create_deal"):
         context["deal_action"] = "skip"
         return StepOutcome("CREATE_DEAL", "SKIPPED", {"reason": "flag_no_create"})
+    if flags.get("no_touch_existing_deals"):
+        context["deal_action"] = "skip"
+        return StepOutcome("CREATE_DEAL", "SKIPPED", {"reason": "no_touch_existing_deals"})
+    if context.get("deal_action") != "create":
+        return StepOutcome("CREATE_DEAL", "SKIPPED", {"reason": "not_needed"})
     company = _company(bx, context)
     site = _primary_site(company)
     if not site:
@@ -509,6 +521,8 @@ def _step_create_deal(bx: BitrixClient, outcome: FullEnrichmentOutcome, context:
 
 
 def _step_sync_deal(bx: BitrixClient, outcome: FullEnrichmentOutcome, context: dict[str, Any], flags: dict[str, Any]) -> StepOutcome:
+    if flags.get("no_touch_existing_deals"):
+        return StepOutcome("SYNC_DEAL", "SKIPPED", {"reason": "no_touch_existing_deals"})
     if context.get("deal_action") not in {"sync", "create"} or not outcome.deal_id or outcome.deal_id == "DRY_RUN_DEAL":
         return StepOutcome("SYNC_DEAL", "SKIPPED", {"reason": "not_needed"})
     if flags["dry_run"] and context.get("attached_input_deal") and context.get("created_company"):
@@ -525,6 +539,8 @@ def _step_sync_deal(bx: BitrixClient, outcome: FullEnrichmentOutcome, context: d
 
 
 def _step_revive_deal(bx: BitrixClient, outcome: FullEnrichmentOutcome, context: dict[str, Any], flags: dict[str, Any]) -> StepOutcome:
+    if flags.get("no_touch_existing_deals"):
+        return StepOutcome("REVIVE_DEAL", "SKIPPED", {"reason": "no_touch_existing_deals"})
     action = context.get("deal_action")
     if action not in {"revive_lose", "reactivate_apology"}:
         return StepOutcome("REVIVE_DEAL", "SKIPPED", {"reason": "not_needed"})
@@ -588,6 +604,8 @@ def _step_enrich_director_inn(bx: BitrixClient, outcome: FullEnrichmentOutcome, 
 
 
 def _step_telemarketing_dedupe_scoped(bx: BitrixClient, outcome: FullEnrichmentOutcome, context: dict[str, Any], flags: dict[str, Any]) -> StepOutcome:
+    if flags.get("no_touch_existing_deals"):
+        return StepOutcome("TELEMARKETING_DEDUPE_SCOPED", "SKIPPED", {"reason": "no_touch_existing_deals"})
     if flags["skip_telemarketing_dedupe"]:
         return StepOutcome("TELEMARKETING_DEDUPE_SCOPED", "SKIPPED", {"reason": "skip_telemarketing_dedupe"})
     if flags["dry_run"] and context.get("created_company"):

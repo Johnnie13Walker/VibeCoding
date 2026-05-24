@@ -234,6 +234,7 @@ def cmd_enrich_company_full(args: argparse.Namespace) -> int:
         skip_telemarketing_dedupe=args.skip_telemarketing_dedupe,
         skip_auto_reject=args.skip_auto_reject,
         no_create_deal=args.no_create_deal,
+        no_touch_existing_deals=args.no_touch_existing_deals,
         bizproc_wait_s=args.bizproc_wait_s,
     )
     print(json.dumps(asdict(outcome), indent=2, ensure_ascii=False, default=str))
@@ -693,6 +694,11 @@ def main() -> None:
     sp.add_argument("--skip-telemarketing-dedupe", action="store_true")
     sp.add_argument("--skip-auto-reject", action="store_true")
     sp.add_argument("--no-create-deal", action="store_true", help="Не создавать новую сделку в CREATE_DEAL")
+    sp.add_argument(
+        "--no-touch-existing-deals",
+        action="store_true",
+        help="Не искать и не менять существующие сделки компании",
+    )
     sp.add_argument("--bizproc-wait-s", type=int)
     sp.set_defaults(func=cmd_enrich_company_full)
 
