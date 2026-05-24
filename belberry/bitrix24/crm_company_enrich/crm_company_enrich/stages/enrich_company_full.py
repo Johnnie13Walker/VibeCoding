@@ -689,11 +689,43 @@ def _detect_input_kind(company_id: str, deal_id: str, inn: str, url: str) -> str
 
 def _find_company_by_url(bx: BitrixClient, url: str) -> dict | None:
     key = _site_key(url)
-    candidates = bx.list_companies(filter_={"%WEB": key}, select=["ID", "TITLE", "WEB", "UF_*"])
+    if not key or "." not in key:
+        return None
+    select = ["ID", "TITLE", "WEB", "UF_*"]
+    candidates = bx.list_companies(filter_={"%UF_CRM_5DEF838D882A2": key}, select=select)
+    match = _exact_company_url_match(candidates, key)
+    if match:
+        return match
+
+    candidates = _list_company_url_candidates(bx, key, select)
+    return _exact_company_url_match(candidates, key)
+
+
+def _list_company_url_candidates(bx: BitrixClient, key: str, select: list[str]) -> list[dict]:
+    if hasattr(bx, "call"):
+        body = bx.call(
+            "crm.company.list",
+            {"filter": {"%WEB": key}, "select": select, "start": -1},
+        )
+        result = body.get("result") if isinstance(body, dict) else []
+        return result if isinstance(result, list) else []
+    return bx.list_companies(filter_={"%WEB": key}, select=select)
+
+
+def _exact_company_url_match(candidates: list[dict], key: str) -> dict | None:
     for company in candidates:
-        if any(_site_key(item.get("VALUE") if isinstance(item, dict) else item) == key for item in company.get("WEB") or []):
+        company_keys = {
+            _site_key(item.get("VALUE") if isinstance(item, dict) else item)
+            for item in company.get("WEB") or []
+        }
+        company_keys.discard("")
+        if key in company_keys:
             return company
-    return candidates[0] if candidates else None
+    for company in candidates:
+        uf_site_key = _site_key(company.get("UF_CRM_5DEF838D882A2") or "")
+        if uf_site_key and uf_site_key == key:
+            return company
+    return None
 
 
 def _minimum_company_fields(context: dict[str, Any]) -> dict[str, Any]:
