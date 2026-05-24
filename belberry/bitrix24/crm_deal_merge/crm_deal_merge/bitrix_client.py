@@ -326,6 +326,11 @@ class BitrixClient:
                 eb = _http_err_body(exc)
                 if eb is not None and _is_not_found(eb):
                     return eb
+                if exc.code == 401:
+                    if attempt == attempts - 1:
+                        raise BitrixTokenExpired(f"HTTP 401 after token sync on {method}") from exc
+                    self._sync_state()
+                    continue
                 if exc.code < 500 and exc.code != 429:
                     if attempt == attempts - 1:
                         raise BitrixError(f"HTTP {exc.code} on {method}") from exc
@@ -386,13 +391,18 @@ class BitrixClient:
             return
         if not SYNC_SCRIPT.exists():
             raise BitrixTokenExpired(f"Sync-скрипт не найден: {SYNC_SCRIPT}")
-        subprocess.run([str(SYNC_SCRIPT)], check=True)
-        self._state = self._read_state()
-        self._last_sync_at_monotonic = time.monotonic()
+        self._sync_state()
         # Не падаем если expires остался "плохим" — sync прошёл успешно (sync script
         # сам проверяет токен через /profile). Если REST в реальности 401 — retry-логика
-        # в _call_with_retries обработает это как обычную HTTPError.
+        # в _call_with_retries выполнит forced sync и повторит запрос.
         return
+
+    def _sync_state(self) -> None:
+        if not SYNC_SCRIPT.exists():
+            raise BitrixTokenExpired(f"Sync-скрипт не найден: {SYNC_SCRIPT}")
+        subprocess.run(["bash", str(SYNC_SCRIPT)], check=True)
+        self._state = self._read_state()
+        self._last_sync_at_monotonic = time.monotonic()
 
     def _read_state(self) -> dict[str, Any]:
         try:
