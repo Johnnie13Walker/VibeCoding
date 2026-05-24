@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import errno
+import socket
 import sys
 import time
+from http.client import RemoteDisconnected
 from pathlib import Path
 from socket import timeout as SocketTimeout
 from typing import Any
@@ -168,7 +170,7 @@ class SheetsClient:
                     raise
                 print(f"[sheets retry] HTTP {status}, retry in {status_delays[attempt]}s", file=sys.stderr)
                 time.sleep(status_delays[attempt])
-            except (SocketTimeout, TimeoutError, httplib2.HttpLib2Error, OSError) as exc:
+            except (SocketTimeout, TimeoutError, RemoteDisconnected, httplib2.HttpLib2Error, OSError) as exc:
                 if isinstance(exc, OSError) and not _is_timeout_os_error(exc):
                     raise
                 if attempt >= len(timeout_delays):
@@ -209,7 +211,15 @@ def _find_sheet_id(sheets: list[dict[str, Any]], title: str) -> int | None:
 
 
 def _is_timeout_os_error(exc: OSError) -> bool:
-    return getattr(exc, "errno", None) in {errno.ETIMEDOUT, 60} or "timed out" in str(exc).lower()
+    if isinstance(exc, socket.gaierror):
+        return True
+    text = str(exc).lower()
+    return (
+        getattr(exc, "errno", None) in {errno.ETIMEDOUT, errno.ECONNRESET, errno.ECONNABORTED, 54, 60}
+        or "timed out" in text
+        or "remote end closed connection" in text
+        or "nodename nor servname" in text
+    )
 
 
 def _retry_delays(status: int) -> tuple[int, ...]:
