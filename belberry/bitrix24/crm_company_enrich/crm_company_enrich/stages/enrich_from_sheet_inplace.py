@@ -348,6 +348,8 @@ def run_in_place(
     limit: int | None = None,
     cron_mode: bool = False,
     skip_already_processed: bool = True,
+    skip_cross_category_dup_check: bool = False,
+    skip_on_closed_dup: bool = False,
 ) -> dict[str, Any]:
     """Main entry. Reads tab, processes unprocessed rows, writes back per-row.
 
@@ -411,6 +413,8 @@ def run_in_place(
                 dry_run=dry_run,
                 skip_bp=effective_skip_bp,
                 create_if_missing=True,
+                skip_cross_category_dup_check=skip_cross_category_dup_check,
+                skip_on_closed_dup=skip_on_closed_dup,
             )
             status = outcome.final_status or "UNKNOWN"
         except Exception as exc:  # noqa: BLE001

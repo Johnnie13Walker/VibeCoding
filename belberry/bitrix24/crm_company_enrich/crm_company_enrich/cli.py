@@ -235,6 +235,8 @@ def cmd_enrich_company_full(args: argparse.Namespace) -> int:
         skip_auto_reject=args.skip_auto_reject,
         no_create_deal=args.no_create_deal,
         no_touch_existing_deals=args.no_touch_existing_deals,
+        skip_cross_category_dup_check=args.skip_cross_category_dup_check,
+        skip_on_closed_dup=args.skip_on_closed_dup,
         bizproc_wait_s=args.bizproc_wait_s,
     )
     print(json.dumps(asdict(outcome), indent=2, ensure_ascii=False, default=str))
@@ -301,6 +303,8 @@ def cmd_enrich_from_sheet(args: argparse.Namespace) -> int:
         max_duration_min=args.max_duration_min,
         limit=args.limit,
         cron_mode=args.cron,
+        skip_cross_category_dup_check=args.skip_cross_category_dup_check,
+        skip_on_closed_dup=args.skip_on_closed_dup,
     )
     print(json.dumps(summary, indent=2, ensure_ascii=False))
     return 0 if not summary.get("failed") else 1
@@ -326,6 +330,8 @@ def cmd_enrich_from_sheet_inplace(args: argparse.Namespace) -> int:
         limit=args.limit,
         cron_mode=args.cron,
         skip_already_processed=not args.no_skip_processed,
+        skip_cross_category_dup_check=args.skip_cross_category_dup_check,
+        skip_on_closed_dup=args.skip_on_closed_dup,
     )
     print(json.dumps(summary, indent=2, ensure_ascii=False))
     return 0 if not summary.get("failed") else 1
@@ -699,6 +705,16 @@ def main() -> None:
         action="store_true",
         help="Не искать и не менять существующие сделки компании",
     )
+    sp.add_argument(
+        "--skip-cross-category-dup-check",
+        action="store_true",
+        help="Emergency-обход защиты от дублей C50/C10 по домену",
+    )
+    sp.add_argument(
+        "--skip-on-closed-dup",
+        action="store_true",
+        help="Блокировать создание даже если найден только закрытый дубль C50/C10",
+    )
     sp.add_argument("--bizproc-wait-s", type=int)
     sp.set_defaults(func=cmd_enrich_company_full)
 
@@ -742,6 +758,16 @@ def main() -> None:
     sp.add_argument("--cron", action="store_true", help="cron-режим с проверкой окна 00:00-08:00 МСК")
     sp.add_argument("--max-duration-min", type=int, default=480)
     sp.add_argument("--limit", type=int)
+    sp.add_argument(
+        "--skip-cross-category-dup-check",
+        action="store_true",
+        help="Emergency-обход защиты от дублей C50/C10 по домену",
+    )
+    sp.add_argument(
+        "--skip-on-closed-dup",
+        action="store_true",
+        help="Блокировать создание даже если найден только закрытый дубль C50/C10",
+    )
     sp.set_defaults(func=cmd_enrich_from_sheet)
 
     sp = sub.add_parser(
@@ -762,6 +788,16 @@ def main() -> None:
     sp.add_argument("--limit", type=int, help="Обработать не более N строк")
     sp.add_argument("--no-skip-processed", action="store_true",
                     help="Не пропускать строки с уже заполненным status (col K)")
+    sp.add_argument(
+        "--skip-cross-category-dup-check",
+        action="store_true",
+        help="Emergency-обход защиты от дублей C50/C10 по домену",
+    )
+    sp.add_argument(
+        "--skip-on-closed-dup",
+        action="store_true",
+        help="Блокировать создание даже если найден только закрытый дубль C50/C10",
+    )
     sp.set_defaults(func=cmd_enrich_from_sheet_inplace)
 
     sp = sub.add_parser(

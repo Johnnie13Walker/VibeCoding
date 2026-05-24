@@ -235,6 +235,31 @@ class BitrixClient:
             )
         )
 
+    def find_deal_by_title(self, title_substring: str, category_ids: list[int]) -> list[dict]:
+        """Найти сделки по подстроке TITLE в указанных воронках."""
+        if not title_substring:
+            return []
+        params: dict[str, Any] = {
+            "filter": {
+                "%TITLE": title_substring,
+                "CATEGORY_ID": [int(category_id) for category_id in category_ids],
+            },
+            "select": ["ID", "COMPANY_ID", "CATEGORY_ID", "STAGE_ID", "CLOSED", "DATE_MODIFY", "TITLE"],
+            "order": {"DATE_MODIFY": "DESC"},
+        }
+        deals: list[dict] = []
+        start: int | str = 0
+        while True:
+            body = self.call("crm.deal.list", {**params, "start": start})
+            result = body.get("result")
+            if isinstance(result, list):
+                deals.extend(result)
+            nxt = body.get("next")
+            if nxt is None:
+                break
+            start = nxt
+        return deals
+
     def list_deals_by_stages(
         self,
         *,
