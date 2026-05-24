@@ -124,6 +124,9 @@ data/
 *.sqlite
 *.sqlite3
 
+# Локальные backup-дампы контактов перед удалением — sensitive data
+belberry/bitrix24/backups/
+
 # Secrets and keys
 secrets/
 keys/

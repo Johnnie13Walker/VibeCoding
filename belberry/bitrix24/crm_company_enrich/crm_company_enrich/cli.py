@@ -233,10 +233,29 @@ def cmd_enrich_company_full(args: argparse.Namespace) -> int:
         skip_director_inn=args.skip_director_inn,
         skip_telemarketing_dedupe=args.skip_telemarketing_dedupe,
         skip_auto_reject=args.skip_auto_reject,
+        no_create_deal=args.no_create_deal,
+        no_touch_existing_deals=args.no_touch_existing_deals,
         bizproc_wait_s=args.bizproc_wait_s,
     )
     print(json.dumps(asdict(outcome), indent=2, ensure_ascii=False, default=str))
     return 1 if outcome.final_status == "FAILED" else 0
+
+
+def cmd_rebind_orphan_deal(args: argparse.Namespace) -> int:
+    from .stages import rebind_orphan_deal
+
+    bx, _ = _make_clients()
+    summary = rebind_orphan_deal.run(
+        bx,
+        deal_id=args.deal_id,
+        url=args.url,
+        dry_run=not args.live,
+        allow_live_company=args.allow_live_company,
+        allow_liquidated=args.allow_liquidated,
+        bizproc_wait_s=args.bizproc_wait_s,
+    )
+    print(json.dumps(summary, indent=2, ensure_ascii=False, default=str))
+    return 1 if summary.get("status") == "FAILED" else 0
 
 
 def cmd_enrich_from_sheet(args: argparse.Namespace) -> int:
@@ -674,8 +693,37 @@ def main() -> None:
     sp.add_argument("--skip-director-inn", action="store_true")
     sp.add_argument("--skip-telemarketing-dedupe", action="store_true")
     sp.add_argument("--skip-auto-reject", action="store_true")
+    sp.add_argument("--no-create-deal", action="store_true", help="Не создавать новую сделку в CREATE_DEAL")
+    sp.add_argument(
+        "--no-touch-existing-deals",
+        action="store_true",
+        help="Не искать и не менять существующие сделки компании",
+    )
     sp.add_argument("--bizproc-wait-s", type=int)
     sp.set_defaults(func=cmd_enrich_company_full)
+
+    sp = sub.add_parser(
+        "rebind-orphan-deal",
+        help=(
+            "WRITE: обогатить/создать компанию по сайту и перевязать "
+            "существующую orphan-сделку без создания дубля. По умолчанию dry-run."
+        ),
+    )
+    sp.add_argument("--deal-id", required=True, help="ID существующей orphan-сделки")
+    sp.add_argument("--url", required=True, help="Сайт/домен для поиска ИНН и компании")
+    sp.add_argument("--live", action="store_true", help="Реально писать в Bitrix")
+    sp.add_argument(
+        "--allow-live-company",
+        action="store_true",
+        help="Разрешить rebind, даже если старый COMPANY_ID сделки всё ещё открывается",
+    )
+    sp.add_argument(
+        "--allow-liquidated",
+        action="store_true",
+        help="Разрешить rebind на компанию со статусом ликвидации",
+    )
+    sp.add_argument("--bizproc-wait-s", type=int)
+    sp.set_defaults(func=cmd_rebind_orphan_deal)
 
     sp = sub.add_parser(
         "enrich-from-sheet",

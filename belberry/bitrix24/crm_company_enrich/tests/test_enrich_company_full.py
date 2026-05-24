@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import sys
-import types
 from datetime import date, timedelta
 
 import pytest
 
 from crm_company_enrich.config import COMPANY_UF_CITY, COMPANY_UF_ORGANIZATION_STATUS, COMPANY_UF_REGION
 from crm_company_enrich.stages import enrich_company_full as stage
+from crm_company_enrich.stages import rebind_orphan_deal
 
 
 class FakeBitrix:
@@ -27,6 +27,7 @@ class FakeBitrix:
         self.updated_deals = []
         self.added_requisites = []
         self.started_workflows = []
+        self.waited_workflows = []
         self.added_companies = []
         self.added_deals = []
         self.timeline_comments = []
@@ -56,6 +57,9 @@ class FakeBitrix:
     def list_company_deals(self, company_id, select=None):
         return [dict(d) for d in self.deals.values() if str(d.get("COMPANY_ID")) == str(company_id)]
 
+    def list_company_contacts_full(self, company_id):
+        return []
+
     def add_deal(self, fields, params=None):
         deal_id = str(80000 + len(self.added_deals))
         self.added_deals.append((dict(fields), dict(params or {})))
@@ -82,6 +86,10 @@ class FakeBitrix:
     def start_workflow(self, template_id, document_type):
         self.started_workflows.append((template_id, list(document_type)))
         return {"workflow_id": f"wf-{template_id}"}
+
+    def wait_workflow_finished(self, workflow_id, *, timeout_s=360, poll_s=5):
+        self.waited_workflows.append((str(workflow_id), int(timeout_s), int(poll_s)))
+        return True
 
     def add_timeline_comment(self, *, owner_type_id, owner_id, text):
         self.timeline_comments.append({"owner_type_id": owner_type_id, "owner_id": str(owner_id), "text": text})
@@ -193,6 +201,28 @@ def test_create_if_missing_creates_minimum_company():
     out = stage.run(bx, inn="7720238793", create_if_missing=True, dry_run=False, skip_bp=True, bizproc_wait_s=0)
     assert out.company_id in bx.companies
     assert bx.added_companies
+
+
+def test_url_create_if_missing_finds_inn_before_create(monkeypatch):
+    monkeypatch.setattr(stage.enrich_web, "try_web", lambda *a, **k: ("7720238793", "ООО Тест"))
+    bx = FakeBitrix()
+
+    out = stage.run(
+        bx,
+        url="https://test.ru",
+        create_if_missing=True,
+        dry_run=False,
+        skip_bp=True,
+        skip_dedupe_contacts=True,
+        skip_director_inn=True,
+        skip_telemarketing_dedupe=True,
+        no_create_deal=True,
+        bizproc_wait_s=0,
+    )
+
+    assert out.company_id in bx.companies
+    assert bx.added_companies
+    assert bx.added_companies[0][0]["UF_CRM_1735331882180"] == "7720238793"
 
 
 def test_create_if_missing_skips_without_inn():
@@ -360,12 +390,14 @@ def test_run_bp_calls_5938_then_8612_for_first_entry():
     bx = FakeBitrix(companies={"10": company()}, requisites={"10": []})
     stage.run(bx, company_id="10", dry_run=False, bizproc_wait_s=0)
     assert [x[0] for x in bx.started_workflows] == [5938, 8612]
+    assert [x[0] for x in bx.waited_workflows] == ["wf-5938", "wf-8612"]
 
 
 def test_run_bp_calls_only_8612_for_existing_inn():
     bx = FakeBitrix(companies={"10": company()}, requisites={"10": [req()]})
     stage.run(bx, company_id="10", dry_run=False, bizproc_wait_s=0)
     assert [x[0] for x in bx.started_workflows] == [8612]
+    assert [x[0] for x in bx.waited_workflows] == ["wf-8612"]
 
 
 def test_skip_bp_flag_does_not_start_workflow():
@@ -400,6 +432,138 @@ def test_no_deal_creates_in_C50_NEW_with_rotation():
     assert bx.added_deals
     assert bx.added_deals[0][0]["STAGE_ID"] == "C50:NEW"
     assert out.deal_id
+
+
+def test_no_create_deal_flag_skips_create_deal():
+    bx = FakeBitrix(companies={"10": company()}, requisites={"10": [req()]})
+    out = stage.run(
+        bx,
+        company_id="10",
+        dry_run=False,
+        skip_bp=True,
+        no_create_deal=True,
+        bizproc_wait_s=0,
+    )
+    assert bx.added_deals == []
+    assert _step(out, "CREATE_DEAL").status == "SKIPPED"
+    assert _step(out, "CREATE_DEAL").details["reason"] == "flag_no_create"
+
+
+def test_rebind_does_not_modify_other_open_c50_deals_of_new_company(monkeypatch):
+    """BLOCKER regression: rebind не должен менять чужие C50-сделки новой компании."""
+    fake = FakeBitrix(
+        companies={"99": company("99", WEB=[{"VALUE": "https://example.test"}])},
+        deals={
+            "100": deal("100", company_id="0", TITLE="orphan-deal"),
+            "200": deal(
+                "200",
+                company_id="99",
+                TITLE="existing-foreign-deal",
+                STAGE_ID="C50:NEW",
+                CLOSED="N",
+                ASSIGNED_BY_ID="777",
+                UF_CRM_1733394127643="1",
+            ),
+        },
+        requisites={"99": [req("99")]},
+    )
+    sync_deal_calls = []
+
+    def mutating_sync_deal(bx, *, deal_id, **kwargs):
+        sync_deal_calls.append({"deal_id": str(deal_id), **kwargs})
+        bx.update_deal(str(deal_id), {"STAGE_ID": "C50:UC_1S1KIU", "ASSIGNED_BY_ID": "2772", "CLOSED": "N"})
+        return {"failed": 0, "updated": 1}
+
+    monkeypatch.setattr(stage.sync_deals, "run", mutating_sync_deal)
+    before_200 = dict(fake.deals["200"])
+
+    outcome = stage.run(
+        fake,
+        url="https://example.test",
+        no_create_deal=True,
+        no_touch_existing_deals=True,
+        skip_telemarketing_dedupe=True,
+        create_if_missing=True,
+        dry_run=False,
+        skip_bp=True,
+        skip_dedupe_contacts=True,
+        skip_director_inn=True,
+        skip_auto_reject=True,
+        bizproc_wait_s=0,
+    )
+
+    after_200 = fake.deals["200"]
+    assert after_200["STAGE_ID"] == before_200["STAGE_ID"]
+    assert after_200["ASSIGNED_BY_ID"] == before_200["ASSIGNED_BY_ID"]
+    assert after_200["CLOSED"] == before_200["CLOSED"]
+    assert after_200["UF_CRM_1733394127643"] == before_200["UF_CRM_1733394127643"]
+    assert sync_deal_calls == []
+    assert _step(outcome, "RESOLVE_DEAL").status == "SKIPPED"
+    assert _step(outcome, "RESOLVE_DEAL").details["reason"] == "no_touch_existing_deals"
+
+
+def test_rebind_orphan_deal_passes_no_touch_existing_deals(monkeypatch):
+    """Контракт: rebind_orphan_deal.run() всегда включает isolation-флаги enrich."""
+    captured_kwargs = {}
+
+    def fake_enrich_run(*args, **kwargs):
+        captured_kwargs.update(kwargs)
+        return stage.FullEnrichmentOutcome(
+            input_kind="url",
+            input_value="https://example.test",
+            company_id="42",
+            final_status="ENRICHED",
+            no_touch_existing_deals=True,
+        )
+
+    monkeypatch.setattr(rebind_orphan_deal.enrich_company_full, "run", fake_enrich_run)
+    monkeypatch.setattr(rebind_orphan_deal.sync_deals, "run", lambda *a, **k: {"failed": 0, "updated": 1})
+    fake = FakeBitrix(
+        deals={"100": deal("100", company_id="999", TITLE="test", STAGE_ID="C50:UC_1S1KIU")},
+        companies={"42": company("42")},
+    )
+
+    rebind_orphan_deal.run(bx=fake, deal_id="100", url="https://example.test", dry_run=False)
+
+    assert captured_kwargs.get("no_touch_existing_deals") is True
+    assert captured_kwargs.get("no_create_deal") is True
+    assert captured_kwargs.get("skip_telemarketing_dedupe") is True
+
+
+def test_rebind_orphan_deal_enriches_without_duplicate_and_rebinds(monkeypatch):
+    monkeypatch.setattr(stage.enrich_web, "try_web", lambda *a, **k: ("7720238793", "ООО Тест"))
+    monkeypatch.setattr(rebind_orphan_deal.sync_deals, "run", lambda *a, **k: {"failed": 0, "updated": 1})
+    bx = FakeBitrix(deals={"100": deal("100", company_id="999", TITLE="Грязное название")})
+
+    summary = rebind_orphan_deal.run(
+        bx,
+        deal_id="100",
+        url="https://test.ru/path",
+        dry_run=False,
+        bizproc_wait_s=0,
+    )
+
+    assert summary["status"] == "OK"
+    assert bx.added_deals == []
+    assert summary["new_company_id"] in bx.companies
+    assert bx.deals["100"]["COMPANY_ID"] == summary["new_company_id"]
+    assert bx.deals["100"]["TITLE"] == "test.ru"
+    assert not any("SOURCE_ID" in fields for _, fields, _ in bx.updated_deals)
+
+
+def test_rebind_orphan_deal_skips_if_old_company_still_live(monkeypatch):
+    monkeypatch.setattr(stage.enrich_web, "try_web", lambda *a, **k: ("7720238793", "ООО Тест"))
+    bx = FakeBitrix(
+        companies={"999": company("999")},
+        deals={"100": deal("100", company_id="999")},
+    )
+
+    summary = rebind_orphan_deal.run(bx, deal_id="100", url="https://test.ru", dry_run=False)
+
+    assert summary["status"] == "SKIPPED"
+    assert summary["error"] == "old_company_still_live"
+    assert bx.added_companies == []
+    assert bx.updated_deals == []
 
 
 def test_create_deal_skipped_when_no_site():
