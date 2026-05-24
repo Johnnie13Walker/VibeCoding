@@ -57,6 +57,16 @@ class FakeBitrix:
     def list_company_deals(self, company_id, select=None):
         return [dict(d) for d in self.deals.values() if str(d.get("COMPANY_ID")) == str(company_id)]
 
+    def find_deal_by_title(self, title_substring, category_ids):
+        needle = str(title_substring or "").lower()
+        categories = {str(c) for c in category_ids}
+        return [
+            dict(d)
+            for d in self.deals.values()
+            if needle in str(d.get("TITLE") or "").lower()
+            and str(d.get("CATEGORY_ID") or "") in categories
+        ]
+
     def list_company_contacts_full(self, company_id):
         return []
 
@@ -432,6 +442,182 @@ def test_no_deal_creates_in_C50_NEW_with_rotation():
     assert bx.added_deals
     assert bx.added_deals[0][0]["STAGE_ID"] == "C50:NEW"
     assert out.deal_id
+
+
+def test_resolve_deal_finds_cross_category_dup_blocks_create():
+    bx = FakeBitrix(
+        companies={
+            "99": company("99", WEB=[{"VALUE": "https://example.ru"}]),
+            "88": company("88"),
+        },
+        deals={
+            "200": deal(
+                "200",
+                company_id="88",
+                TITLE="example.ru",
+                CATEGORY_ID="10",
+                STAGE_ID="C10:NEGOTIATION",
+                CLOSED="N",
+                DATE_MODIFY="2026-05-24T10:00:00+03:00",
+            )
+        },
+        requisites={"99": [req("99")]},
+    )
+    before_200 = dict(bx.deals["200"])
+
+    out = stage.run(bx, company_id="99", dry_run=False, skip_bp=True, create_if_missing=True, bizproc_wait_s=0)
+
+    assert out.final_status == "SKIPPED"
+    assert "cross_category_dup_found" in out.flags
+    assert out.cross_dup_deal_id == "200"
+    assert out.cross_dup_company_id == "88"
+    assert bx.added_deals == []
+    assert bx.deals["200"] == before_200
+    assert _step(out, "RESOLVE_DEAL").details["reason"] == "cross_category_dup_open"
+    assert bx.timeline_comments[-1]["owner_type_id"] == 4
+    assert bx.timeline_comments[-1]["owner_id"] == "99"
+
+
+def test_resolve_deal_cross_dup_same_company_syncs_instead_of_create(monkeypatch):
+    sync_calls = []
+    monkeypatch.setattr(stage.sync_deals, "run", lambda *a, **k: sync_calls.append(k) or {"failed": 0, "outcomes": [{"status": "OK"}]})
+    bx = FakeBitrix(
+        companies={"99": company("99", WEB=[{"VALUE": "https://example.ru"}])},
+        deals={
+            "100": deal(
+                "100",
+                company_id="99",
+                TITLE="example.ru",
+                CATEGORY_ID="10",
+                STAGE_ID="C10:NEGOTIATION",
+                CLOSED="N",
+                DATE_MODIFY="2026-05-24T10:00:00+03:00",
+            )
+        },
+        requisites={"99": [req("99")]},
+    )
+
+    out = stage.run(bx, company_id="99", dry_run=False, skip_bp=True, bizproc_wait_s=0)
+
+    assert out.deal_id == "100"
+    assert _step(out, "RESOLVE_DEAL").details["action"] == "sync_same_company_cross_cat"
+    assert bx.added_deals == []
+    assert sync_calls[-1]["deal_id"] == "100"
+
+
+def test_resolve_deal_cross_dup_closed_does_not_block():
+    bx = FakeBitrix(
+        companies={
+            "99": company("99", WEB=[{"VALUE": "https://example.ru"}]),
+            "88": company("88"),
+        },
+        deals={
+            "200": deal(
+                "200",
+                company_id="88",
+                TITLE="example.ru",
+                CATEGORY_ID="50",
+                STAGE_ID="C50:APOLOGY",
+                CLOSED="Y",
+                DATE_MODIFY="2026-05-24T10:00:00+03:00",
+            )
+        },
+        requisites={"99": [req("99")]},
+    )
+
+    out = stage.run(bx, company_id="99", dry_run=False, skip_bp=True, bizproc_wait_s=0)
+
+    assert out.final_status == "ENRICHED"
+    assert bx.added_deals
+    assert "cross_category_dup_found" not in out.flags
+
+    blocked = stage.run(
+        FakeBitrix(
+            companies={
+                "99": company("99", WEB=[{"VALUE": "https://example.ru"}]),
+                "88": company("88"),
+            },
+            deals={
+                "200": deal(
+                    "200",
+                    company_id="88",
+                    TITLE="example.ru",
+                    CATEGORY_ID="50",
+                    STAGE_ID="C50:APOLOGY",
+                    CLOSED="Y",
+                    DATE_MODIFY="2026-05-24T10:00:00+03:00",
+                )
+            },
+            requisites={"99": [req("99")]},
+        ),
+        company_id="99",
+        dry_run=False,
+        skip_bp=True,
+        skip_on_closed_dup=True,
+        bizproc_wait_s=0,
+    )
+    assert blocked.final_status == "SKIPPED"
+    assert "cross_category_dup_closed_blocked" in blocked.flags
+    assert _step(blocked, "RESOLVE_DEAL").details["reason"] == "cross_category_dup_closed"
+
+
+def test_resolve_deal_skip_cross_category_dup_check_disables_protection():
+    bx = FakeBitrix(
+        companies={
+            "99": company("99", WEB=[{"VALUE": "https://example.ru"}]),
+            "88": company("88"),
+        },
+        deals={
+            "200": deal(
+                "200",
+                company_id="88",
+                TITLE="example.ru",
+                CATEGORY_ID="10",
+                STAGE_ID="C10:NEGOTIATION",
+                CLOSED="N",
+            )
+        },
+        requisites={"99": [req("99")]},
+    )
+
+    out = stage.run(
+        bx,
+        company_id="99",
+        dry_run=False,
+        skip_bp=True,
+        skip_cross_category_dup_check=True,
+        bizproc_wait_s=0,
+    )
+
+    assert out.final_status == "ENRICHED"
+    assert bx.added_deals
+    assert "cross_category_dup_found" not in out.flags
+
+
+def test_find_cross_category_dup_priority_ranking():
+    bx = FakeBitrix(
+        deals={
+            "201": deal("201", TITLE="example.ru", CATEGORY_ID="50", CLOSED="N", DATE_MODIFY="2026-05-24T12:00:00+03:00"),
+            "202": deal("202", TITLE="example.ru", CATEGORY_ID="10", CLOSED="N", DATE_MODIFY="2026-05-24T11:00:00+03:00"),
+            "203": deal("203", TITLE="example.ru", CATEGORY_ID="10", STAGE_ID="C10:WON", CLOSED="Y", DATE_MODIFY="2026-05-24T13:00:00+03:00"),
+        }
+    )
+
+    found = stage._find_cross_category_dup(bx, "example.ru", "99")
+
+    assert found["ID"] == "202"
+
+
+def test_find_cross_category_dup_includes_legacy_c40_telemarketing():
+    bx = FakeBitrix(
+        deals={
+            "16088": deal("16088", TITLE="seline.ru", CATEGORY_ID="40", STAGE_ID="C40:NEW", CLOSED="N"),
+        }
+    )
+
+    found = stage._find_cross_category_dup(bx, "seline.ru", "3056")
+
+    assert found["ID"] == "16088"
 
 
 def test_no_create_deal_flag_skips_create_deal():
