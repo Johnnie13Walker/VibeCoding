@@ -179,10 +179,13 @@ def is_site_alive(url: str, *, timeout: float = 6.0, use_cache: bool = True) -> 
             _SITE_ALIVE_CACHE[safe] = result
         return result
 
+    # allow_redirects=False: 3xx редиректы НЕ преследуем, иначе urllib3 валится на
+    # percent-encoded IDN host в Location-header (firstel.ru → первыйэлемент.рф).
+    # Сервер ответил 3xx — это alive: достаточный сигнал для UF-валидации.
     try:
-        response = session.head(safe, timeout=timeout, allow_redirects=True, verify=False)
+        response = session.head(safe, timeout=timeout, allow_redirects=False, verify=False)
         if response.status_code in {403, 405}:
-            response = session.get(safe, timeout=timeout, allow_redirects=True, verify=False)
+            response = session.get(safe, timeout=timeout, allow_redirects=False, verify=False)
         status_code = int(response.status_code)
     except requests.exceptions.Timeout:
         return store(SiteAliveCheck(safe, False, None, "timeout"))
@@ -202,8 +205,10 @@ def is_site_alive(url: str, *, timeout: float = 6.0, use_cache: bool = True) -> 
         # ValueError при парсинге URL и пр.) — не валим worker, помечаем bad_url.
         return store(SiteAliveCheck(safe, False, None, "bad_url"))
 
-    if 200 <= status_code < 400:
+    if 200 <= status_code < 300:
         return store(SiteAliveCheck(safe, True, status_code, "ok"))
+    if 300 <= status_code < 400:
+        return store(SiteAliveCheck(safe, True, status_code, "redirect"))
     if 500 <= status_code < 600:
         return store(SiteAliveCheck(safe, False, status_code, "5xx"))
     if 400 <= status_code < 500:

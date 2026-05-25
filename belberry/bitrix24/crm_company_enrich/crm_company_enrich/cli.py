@@ -345,14 +345,33 @@ def cmd_enrich_from_sheet_inplace(args: argparse.Namespace) -> int:
 def cmd_audit_uf_sites(args: argparse.Namespace) -> int:
     from .stages import audit_uf_sites
 
-    if args.live and not args.rollback_to_vk:
-        print("Для live cleanup нужен --live --rollback-to-vk", file=sys.stderr)
+    if args.live and not args.rollback_to_vk and not args.clear_dead:
+        print(
+            "Для live cleanup нужен --live --rollback-to-vk или --live --clear-dead",
+            file=sys.stderr,
+        )
         return 2
+    if args.rollback_to_vk and args.clear_dead:
+        print("--rollback-to-vk и --clear-dead взаимоисключающи", file=sys.stderr)
+        return 2
+
+    raw_reasons = (args.clear_dead_reasons or "").strip()
+    if raw_reasons:
+        clear_reasons = tuple(
+            reason.strip()
+            for reason in raw_reasons.split(",")
+            if reason.strip()
+        )
+    else:
+        clear_reasons = audit_uf_sites.DEFAULT_CLEAR_DEAD_REASONS
+
     bx, _ = _make_clients()
     summary = audit_uf_sites.run(
         bx,
         dry_run=not args.live,
         rollback_to_vk=args.rollback_to_vk,
+        clear_dead=args.clear_dead,
+        clear_dead_reasons=clear_reasons,
     )
     printable = dict(summary)
     printable["result_count"] = len(printable.pop("results", []) or [])
@@ -830,14 +849,35 @@ def main() -> None:
 
     sp = sub.add_parser(
         "audit-uf-sites",
-        help="READ/WRITE: проверить живость UF site; live cleanup только с --live --rollback-to-vk",
+        help=(
+            "READ/WRITE: проверить живость UF site; live cleanup только с "
+            "--live --rollback-to-vk или --live --clear-dead"
+        ),
     )
     src = sp.add_mutually_exclusive_group()
     src.add_argument("--from-sheet", action="store_true", help="Зарезервировано; сейчас audit идёт по Bitrix")
     src.add_argument("--all", action="store_true", help="Проверить все компании с UF site (default)")
-    sp.add_argument("--rollback-to-vk", action="store_true", help="Для dead UF вернуть VK/2gis из WEB[] или очистить")
+    sp.add_argument("--rollback-to-vk", action="store_true", help="Для dead UF вернуть VK/2gis из WEB[]")
+    sp.add_argument(
+        "--clear-dead",
+        action="store_true",
+        help="Для dead UF очистить поле (по умолчанию только reasons из --clear-dead-reasons)",
+    )
+    sp.add_argument(
+        "--clear-dead-reasons",
+        default="",
+        help=(
+            "Через запятую: какие reasons чистить в --clear-dead режиме. "
+            "По умолчанию: dns,conn_refused (надёжно мёртвые). "
+            "Допустимо: dns,conn_refused,5xx,timeout,ssl_error,bad_url,4xx_blocked"
+        ),
+    )
     sp.add_argument("--dry-run", action="store_true", help="Явный read-only режим (default)")
-    sp.add_argument("--live", action="store_true", help="Реально обновить Bitrix; требует --rollback-to-vk")
+    sp.add_argument(
+        "--live",
+        action="store_true",
+        help="Реально обновить Bitrix; требует --rollback-to-vk или --clear-dead",
+    )
     sp.set_defaults(func=cmd_audit_uf_sites)
 
     sp = sub.add_parser(

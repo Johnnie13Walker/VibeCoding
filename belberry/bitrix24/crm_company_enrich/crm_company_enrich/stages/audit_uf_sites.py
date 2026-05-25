@@ -16,6 +16,10 @@ MOSCOW_TZ = ZoneInfo("Europe/Moscow")
 UF_SITE_FIELD = "UF_CRM_5DEF838D882A2"
 DEFAULT_REPORT_PATH = Path("/tmp/uf_site_audit.json")
 DEFAULT_WORKERS = 256
+# Reasons, на которых сайт почти гарантированно мёртв (нет такого домена либо
+# сокет отказывает). Используются по умолчанию в clear_dead, чтобы не сносить
+# UF на временных проблемах (timeout/5xx/ssl_error/4xx_blocked).
+DEFAULT_CLEAR_DEAD_REASONS: tuple[str, ...] = ("dns", "conn_refused")
 
 
 def run(
@@ -23,18 +27,25 @@ def run(
     *,
     dry_run: bool = True,
     rollback_to_vk: bool = False,
+    clear_dead: bool = False,
+    clear_dead_reasons: tuple[str, ...] = DEFAULT_CLEAR_DEAD_REASONS,
     report_path: Path = DEFAULT_REPORT_PATH,
     timeout: float = 6.0,
 ) -> dict[str, Any]:
-    if not dry_run and not rollback_to_vk:
-        raise ValueError("--live audit-uf-sites требует --rollback-to-vk")
+    if not dry_run and not rollback_to_vk and not clear_dead:
+        raise ValueError("--live audit-uf-sites требует --rollback-to-vk или --clear-dead")
+    if rollback_to_vk and clear_dead:
+        raise ValueError("--rollback-to-vk и --clear-dead взаимоисключающи")
 
+    clear_reasons = tuple(clear_dead_reasons or ())
     rows = _companies_with_uf_site(bx)
     checks = _check_sites(rows, timeout=timeout)
     results: list[dict[str, Any]] = []
     counts: Counter[str] = Counter()
     live_updates = 0
-    backup_dir = LOG_DIR / "uf_site_audit"
+    cleared = 0
+    rolled_back = 0
+    backup_dir = LOG_DIR / ("uf_site_clear" if clear_dead else "uf_site_audit")
 
     for company in rows:
         company_id = str(company.get("ID") or "")
@@ -43,7 +54,23 @@ def run(
         counts[check.reason] += 1
         counts["alive" if check.is_alive else "dead"] += 1
 
-        target = _rollback_target(company) if rollback_to_vk and not check.is_alive else ""
+        rollback_target = (
+            _rollback_target(company) if rollback_to_vk and not check.is_alive else ""
+        )
+        should_clear = (
+            clear_dead and not check.is_alive and check.reason in clear_reasons
+        )
+
+        if rollback_to_vk:
+            target_value = rollback_target
+            action = "rollback" if rollback_target else ""
+        elif should_clear:
+            target_value = ""
+            action = "clear"
+        else:
+            target_value = ""
+            action = ""
+
         result = {
             "company_id": company_id,
             "title": str(company.get("TITLE") or ""),
@@ -51,29 +78,51 @@ def run(
             "is_alive": check.is_alive,
             "status_code": check.status_code,
             "reason": check.reason,
-            "rollback_target": target,
+            "rollback_target": rollback_target,
+            "action": action,
         }
         results.append(result)
 
-        if dry_run or check.is_alive:
+        if dry_run or check.is_alive or not action:
+            continue
+        if action == "clear" and not uf_site:
+            # нечего чистить — UF уже пустой
             continue
 
         backup_dir.mkdir(parents=True, exist_ok=True)
         _write_backup(backup_dir / f"{company_id}.json", company, result)
-        bx.update_company(company_id, {UF_SITE_FIELD: target})
+        bx.update_company(company_id, {UF_SITE_FIELD: target_value})
         live_updates += 1
+        if action == "rollback":
+            rolled_back += 1
+        elif action == "clear":
+            cleared += 1
 
     summary = {
         "dry_run": dry_run,
         "rollback_to_vk": rollback_to_vk,
+        "clear_dead": clear_dead,
+        "clear_dead_reasons": list(clear_reasons) if clear_dead else [],
         "total": len(rows),
         "alive": counts.get("alive", 0),
         "dead": counts.get("dead", 0),
         "reasons": {
             key: counts.get(key, 0)
-            for key in ("ok", "dns", "timeout", "5xx", "4xx_blocked", "conn_refused", "ssl_error", "bad_url")
+            for key in (
+                "ok",
+                "redirect",
+                "dns",
+                "timeout",
+                "5xx",
+                "4xx_blocked",
+                "conn_refused",
+                "ssl_error",
+                "bad_url",
+            )
         },
         "live_updates": live_updates,
+        "rolled_back": rolled_back,
+        "cleared": cleared,
         "report_path": str(report_path),
         "backup_dir": str(backup_dir),
         "results": results,
