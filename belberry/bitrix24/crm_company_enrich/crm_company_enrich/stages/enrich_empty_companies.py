@@ -238,10 +238,13 @@ def run_enrich(*, limit: int | None = None, throttle_s: float = 0.1) -> dict:
     return summary
 
 
+UPLOAD_PLAN_HIDDEN_STATUSES = {"APPLIED", "APPLIED_LIQUIDATED", "COMPANY_DELETED"}
+
+
 def run_upload_plan() -> dict:
     state = _load_state()
     rows = [PlanRow(**r) for r in state.get("results", [])]
-    visible_rows = [r for r in rows if r.apply_status not in {"APPLIED", "APPLIED_LIQUIDATED"}]
+    visible_rows = [r for r in rows if r.apply_status not in UPLOAD_PLAN_HIDDEN_STATUSES]
     sheets = _sheets()
     sheets.ensure_sheet(TAB_PLAN)
     sheets.clear(TAB_PLAN)
@@ -252,7 +255,8 @@ def run_upload_plan() -> dict:
         sheets.update(TAB_PLAN, f"A{off + 2}:J{off + len(chunk) + 1}", chunk, value_input_option="USER_ENTERED")
     summary = _summary(rows)
     summary["uploaded"] = len(payload)
-    summary["hidden_applied"] = len(rows) - len(visible_rows)
+    summary["hidden_applied"] = sum(1 for r in rows if r.apply_status in {"APPLIED", "APPLIED_LIQUIDATED"})
+    summary["hidden_company_deleted"] = sum(1 for r in rows if r.apply_status == "COMPANY_DELETED")
     summary["sheet_tab"] = TAB_PLAN
     return summary
 
