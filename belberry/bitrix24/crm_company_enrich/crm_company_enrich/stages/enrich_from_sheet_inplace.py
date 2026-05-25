@@ -350,6 +350,7 @@ def run_in_place(
     skip_already_processed: bool = True,
     skip_cross_category_dup_check: bool = False,
     skip_on_closed_dup: bool = False,
+    skip_uf_site_validation: bool = False,
 ) -> dict[str, Any]:
     """Main entry. Reads tab, processes unprocessed rows, writes back per-row.
 
@@ -415,6 +416,7 @@ def run_in_place(
                 create_if_missing=True,
                 skip_cross_category_dup_check=skip_cross_category_dup_check,
                 skip_on_closed_dup=skip_on_closed_dup,
+                skip_uf_site_validation=skip_uf_site_validation,
             )
             status = outcome.final_status or "UNKNOWN"
         except Exception as exc:  # noqa: BLE001

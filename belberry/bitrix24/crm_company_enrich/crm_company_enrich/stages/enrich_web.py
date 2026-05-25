@@ -114,6 +114,90 @@ class FetchResult:
     ssl_unsafe: bool = False  # True если получен через verify=False fallback
 
 
+@dataclass
+class SiteAliveCheck:
+    url: str
+    is_alive: bool
+    status_code: int | None
+    reason: str
+
+
+_SITE_ALIVE_CACHE: dict[str, SiteAliveCheck] = {}
+_SITE_ALIVE_USER_AGENT = "Mozilla/5.0 (compatible; Belberry-bot/1.0)"
+
+
+def _normalize_for_http(url: str) -> str:
+    raw = str(url or "").strip()
+    if not raw:
+        return ""
+    if not re.match(r"^https?://", raw, flags=re.IGNORECASE):
+        raw = f"https://{raw}"
+    parsed = urllib.parse.urlsplit(raw)
+    host = parsed.hostname or ""
+    if not host:
+        return ""
+    try:
+        ascii_host = host.encode("idna").decode("ascii")
+    except UnicodeError:
+        return ""
+    netloc = ascii_host
+    if parsed.port:
+        netloc = f"{netloc}:{parsed.port}"
+    path = urllib.parse.quote(urllib.parse.unquote(parsed.path or "/"), safe="/%:@")
+    query = urllib.parse.quote(urllib.parse.unquote(parsed.query or ""), safe="=&?/:;+,%@")
+    return urllib.parse.urlunsplit((parsed.scheme.lower(), netloc, path, query, ""))
+
+
+def is_site_alive(url: str, *, timeout: float = 6.0, use_cache: bool = True) -> SiteAliveCheck:
+    """Быстрая проверка, отвечает ли сайт перед записью UF site."""
+    if not url:
+        return SiteAliveCheck("", False, None, "bad_url")
+
+    safe = _normalize_for_http(url)
+    if not safe:
+        return SiteAliveCheck(url, False, None, "bad_url")
+
+    if use_cache and safe in _SITE_ALIVE_CACHE:
+        return _SITE_ALIVE_CACHE[safe]
+
+    import requests
+
+    session = requests.Session()
+    session.headers.update({"User-Agent": _SITE_ALIVE_USER_AGENT})
+
+    def store(result: SiteAliveCheck) -> SiteAliveCheck:
+        if use_cache:
+            _SITE_ALIVE_CACHE[safe] = result
+        return result
+
+    try:
+        response = session.head(safe, timeout=timeout, allow_redirects=True, verify=False)
+        if response.status_code in {403, 405}:
+            response = session.get(safe, timeout=timeout, allow_redirects=True, verify=False)
+        status_code = int(response.status_code)
+    except requests.exceptions.Timeout:
+        return store(SiteAliveCheck(safe, False, None, "timeout"))
+    except requests.exceptions.SSLError:
+        return store(SiteAliveCheck(safe, False, None, "ssl_error"))
+    except requests.exceptions.ConnectionError as exc:
+        if _is_dns_error(exc):
+            return store(SiteAliveCheck(safe, False, None, "dns"))
+        msg = str(exc).lower()
+        if "refused" in msg or "connection reset" in msg or "failed to establish" in msg:
+            return store(SiteAliveCheck(safe, False, None, "conn_refused"))
+        return store(SiteAliveCheck(safe, False, None, "conn_refused"))
+    except requests.exceptions.RequestException:
+        return store(SiteAliveCheck(safe, False, None, "bad_url"))
+
+    if 200 <= status_code < 400:
+        return store(SiteAliveCheck(safe, True, status_code, "ok"))
+    if 500 <= status_code < 600:
+        return store(SiteAliveCheck(safe, False, status_code, "5xx"))
+    if 400 <= status_code < 500:
+        return store(SiteAliveCheck(safe, False, status_code, "4xx_blocked"))
+    return store(SiteAliveCheck(safe, False, status_code, "bad_url"))
+
+
 # Базовые backoff'ы для retry-цикла. DNS-ошибки получают расширенную серию —
 # overloaded local resolver часто отдаёт ответ после большей паузы.
 _BASE_BACKOFF = (1.0, 2.0, 3.0)

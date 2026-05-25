@@ -27,6 +27,7 @@ from crm_company_enrich.config import (
     UF_BRAND_LEGACY_ENUM_FIELD,
 )
 from crm_company_enrich.stages import sync_deals
+from crm_company_enrich.stages.enrich_web import SiteAliveCheck
 
 ORIG_VERIFIED_SITE = sync_deals._verified_site
 
@@ -39,6 +40,11 @@ def no_live_rusprofile(monkeypatch):
         sync_deals,
         "_verified_site",
         lambda site, company, inn="": sync_deals.SiteVerification(site, True, True, ["test"]),
+    )
+    monkeypatch.setattr(
+        sync_deals,
+        "is_site_alive",
+        lambda url: SiteAliveCheck(url, True, 200, "ok"),
     )
 
 

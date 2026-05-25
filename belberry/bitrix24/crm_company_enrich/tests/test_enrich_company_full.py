@@ -8,6 +8,7 @@ import pytest
 from crm_company_enrich.config import COMPANY_UF_CITY, COMPANY_UF_ORGANIZATION_STATUS, COMPANY_UF_REGION
 from crm_company_enrich.stages import enrich_company_full as stage
 from crm_company_enrich.stages import rebind_orphan_deal
+from crm_company_enrich.stages.enrich_web import SiteAliveCheck
 
 
 class FakeBitrix:
@@ -168,6 +169,7 @@ def no_network(monkeypatch, tmp_path):
     monkeypatch.setattr(stage.sync_deals, "parse_organization_status", lambda html: "")
     monkeypatch.setattr(stage.enrich_web, "try_web", lambda *a, **k: (None, None))
     monkeypatch.setattr(stage.enrich_web, "try_rusprofile", lambda *a, **k: (None, None, []))
+    monkeypatch.setattr(stage.enrich_web, "is_site_alive", lambda url: SiteAliveCheck(url, True, 200, "ok"))
     monkeypatch.setattr(stage.sync_deals, "run_company", lambda *a, **k: {"failed": 0, "outcomes": [{"status": "DRY_RUN"}]})
     monkeypatch.setattr(stage.sync_deals, "run", lambda *a, **k: {"failed": 0, "outcomes": [{"status": "DRY_RUN"}]})
     monkeypatch.setattr(stage.dedupe_contacts, "run_company", lambda *a, **k: {"failed": 0, "outcomes": [{"status": "NO_DUPLICATES"}]})

@@ -182,6 +182,7 @@ def cmd_sync_deals(args: argparse.Namespace) -> int:
         telemarketing_workflow=args.telemarketing_workflow,
         rotation_index=args.rotation_index,
         dedupe_telemarketing=args.dedupe_telemarketing,
+        validate_uf_site=not args.skip_uf_site_validation,
     )
     print(json.dumps(summary, indent=2, ensure_ascii=False))
     return 1 if summary.get("failed") else 0
@@ -198,6 +199,7 @@ def cmd_sync_company(args: argparse.Namespace) -> int:
         dry_run=not args.live,
         overwrite=args.overwrite,
         dedupe_telemarketing=args.dedupe_telemarketing,
+        validate_uf_site=not args.skip_uf_site_validation,
     )
     print(json.dumps(summary, indent=2, ensure_ascii=False))
     return 1 if summary.get("failed") else 0
@@ -237,6 +239,7 @@ def cmd_enrich_company_full(args: argparse.Namespace) -> int:
         no_touch_existing_deals=args.no_touch_existing_deals,
         skip_cross_category_dup_check=args.skip_cross_category_dup_check,
         skip_on_closed_dup=args.skip_on_closed_dup,
+        skip_uf_site_validation=args.skip_uf_site_validation,
         bizproc_wait_s=args.bizproc_wait_s,
     )
     print(json.dumps(asdict(outcome), indent=2, ensure_ascii=False, default=str))
@@ -305,6 +308,7 @@ def cmd_enrich_from_sheet(args: argparse.Namespace) -> int:
         cron_mode=args.cron,
         skip_cross_category_dup_check=args.skip_cross_category_dup_check,
         skip_on_closed_dup=args.skip_on_closed_dup,
+        skip_uf_site_validation=args.skip_uf_site_validation,
     )
     print(json.dumps(summary, indent=2, ensure_ascii=False))
     return 0 if not summary.get("failed") else 1
@@ -332,9 +336,28 @@ def cmd_enrich_from_sheet_inplace(args: argparse.Namespace) -> int:
         skip_already_processed=not args.no_skip_processed,
         skip_cross_category_dup_check=args.skip_cross_category_dup_check,
         skip_on_closed_dup=args.skip_on_closed_dup,
+        skip_uf_site_validation=args.skip_uf_site_validation,
     )
     print(json.dumps(summary, indent=2, ensure_ascii=False))
     return 0 if not summary.get("failed") else 1
+
+
+def cmd_audit_uf_sites(args: argparse.Namespace) -> int:
+    from .stages import audit_uf_sites
+
+    if args.live and not args.rollback_to_vk:
+        print("Для live cleanup нужен --live --rollback-to-vk", file=sys.stderr)
+        return 2
+    bx, _ = _make_clients()
+    summary = audit_uf_sites.run(
+        bx,
+        dry_run=not args.live,
+        rollback_to_vk=args.rollback_to_vk,
+    )
+    printable = dict(summary)
+    printable["result_count"] = len(printable.pop("results", []) or [])
+    print(json.dumps(printable, indent=2, ensure_ascii=False, default=str))
+    return 0
 
 
 def cmd_telemarketing_dedupe(args: argparse.Namespace) -> int:
@@ -643,6 +666,7 @@ def main() -> None:
         action="store_true",
         help="После sync-deals запустить scoped dedupe для этой компании",
     )
+    sp.add_argument("--skip-uf-site-validation", action="store_true", help="Emergency-обход pre-validation UF site")
     sp.set_defaults(func=cmd_sync_deals)
 
     sp = sub.add_parser(
@@ -662,6 +686,7 @@ def main() -> None:
         action="store_true",
         help="После sync-company запустить scoped dedupe для этой компании",
     )
+    sp.add_argument("--skip-uf-site-validation", action="store_true", help="Emergency-обход pre-validation UF site")
     sp.set_defaults(func=cmd_sync_company)
 
     sp = sub.add_parser(
@@ -716,6 +741,7 @@ def main() -> None:
         help="Блокировать создание даже если найден только закрытый дубль C50/C10",
     )
     sp.add_argument("--bizproc-wait-s", type=int)
+    sp.add_argument("--skip-uf-site-validation", action="store_true", help="Emergency-обход pre-validation UF site")
     sp.set_defaults(func=cmd_enrich_company_full)
 
     sp = sub.add_parser(
@@ -768,6 +794,7 @@ def main() -> None:
         action="store_true",
         help="Блокировать создание даже если найден только закрытый дубль C50/C10",
     )
+    sp.add_argument("--skip-uf-site-validation", action="store_true", help="Emergency-обход pre-validation UF site")
     sp.set_defaults(func=cmd_enrich_from_sheet)
 
     sp = sub.add_parser(
@@ -798,7 +825,20 @@ def main() -> None:
         action="store_true",
         help="Блокировать создание даже если найден только закрытый дубль C50/C10",
     )
+    sp.add_argument("--skip-uf-site-validation", action="store_true", help="Emergency-обход pre-validation UF site")
     sp.set_defaults(func=cmd_enrich_from_sheet_inplace)
+
+    sp = sub.add_parser(
+        "audit-uf-sites",
+        help="READ/WRITE: проверить живость UF site; live cleanup только с --live --rollback-to-vk",
+    )
+    src = sp.add_mutually_exclusive_group()
+    src.add_argument("--from-sheet", action="store_true", help="Зарезервировано; сейчас audit идёт по Bitrix")
+    src.add_argument("--all", action="store_true", help="Проверить все компании с UF site (default)")
+    sp.add_argument("--rollback-to-vk", action="store_true", help="Для dead UF вернуть VK/2gis из WEB[] или очистить")
+    sp.add_argument("--dry-run", action="store_true", help="Явный read-only режим (default)")
+    sp.add_argument("--live", action="store_true", help="Реально обновить Bitrix; требует --rollback-to-vk")
+    sp.set_defaults(func=cmd_audit_uf_sites)
 
     sp = sub.add_parser(
         "telemarketing-dedupe",
