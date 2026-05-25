@@ -15,6 +15,7 @@ from __future__ import annotations
 import re
 import io
 import contextlib
+import os
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
@@ -52,6 +53,7 @@ from ..config import (
     TELEMARKETING_REFUSAL_SEMANTIC,
     TELEMARKETING_REFUSAL_STAGE_IDS,
     TELEMARKETING_SOURCE_ID,
+    CCE_VALIDATE_UF_SITE,
     UF_BRAND_FIELD,
     UF_BRAND_ACOOLA,
     UF_BRAND_BELBERRY,
@@ -60,6 +62,7 @@ from ..config import (
     UF_BRAND_LEGACY_ENUM_FIELD,
 )
 from ..models import is_medical_company, normalize_inn
+from .enrich_web import is_site_alive
 
 
 @dataclass
@@ -84,6 +87,7 @@ class CompanySyncOutcome:
     status: str
     fields: dict[str, Any]
     skipped: dict[str, str]
+    flags: list[str] | None = None
     error: str = ""
 
 
@@ -126,6 +130,7 @@ def run_company(
     dry_run: bool = True,
     overwrite: bool = False,
     dedupe_telemarketing: bool = False,
+    validate_uf_site: bool | None = None,
 ) -> dict:
     if not company_id:
         raise ValueError("Нужен company_id")
@@ -133,7 +138,7 @@ def run_company(
     company_id = str(company_id)
     company = bx.get_company(str(company_id))
     if not company:
-        outcome = CompanySyncOutcome(str(company_id), "COMPANY_NOT_FOUND", {}, {}, "company not found")
+        outcome = CompanySyncOutcome(str(company_id), "COMPANY_NOT_FOUND", {}, {}, error="company not found")
         return {
             "dry_run": dry_run,
             "overwrite": overwrite,
@@ -187,8 +192,17 @@ def run_company(
         desired,
         site_field="UF_CRM_5DEF838D882A2",
     )
+    flags: list[str] = []
+    uf_site_dead = 0
+    if _validate_uf_site_enabled(validate_uf_site) and "UF_CRM_5DEF838D882A2" in fields:
+        alive = is_site_alive(str(fields.get("UF_CRM_5DEF838D882A2") or ""))
+        if not alive.is_alive:
+            skipped["UF_CRM_5DEF838D882A2"] = f"dead_site:{alive.reason}"
+            fields.pop("UF_CRM_5DEF838D882A2", None)
+            flags.append("uf_site_dead_skipped")
+            uf_site_dead = 1
     if not fields:
-        outcome = CompanySyncOutcome(str(company_id), "NOOP", {}, skipped)
+        outcome = CompanySyncOutcome(str(company_id), "NOOP", {}, skipped, flags)
         summary = {
             "dry_run": dry_run,
             "overwrite": overwrite,
@@ -197,6 +211,7 @@ def run_company(
             "dry_run_updates": 0,
             "noop": 1,
             "failed": 0,
+            "uf_site_dead": uf_site_dead,
             "outcomes": [outcome.__dict__],
         }
         _attach_scoped_dedupe_summary(
@@ -209,7 +224,7 @@ def run_company(
         return summary
 
     if dry_run:
-        outcome = CompanySyncOutcome(str(company_id), "DRY_RUN", fields, skipped)
+        outcome = CompanySyncOutcome(str(company_id), "DRY_RUN", fields, skipped, flags)
         summary = {
             "dry_run": dry_run,
             "overwrite": overwrite,
@@ -218,6 +233,7 @@ def run_company(
             "dry_run_updates": 1,
             "noop": 0,
             "failed": 0,
+            "uf_site_dead": uf_site_dead,
             "outcomes": [outcome.__dict__],
         }
         _attach_scoped_dedupe_summary(
@@ -232,7 +248,7 @@ def run_company(
     try:
         bx.update_company(str(company_id), fields)
     except Exception as exc:  # noqa: BLE001
-        outcome = CompanySyncOutcome(str(company_id), "FAILED", fields, skipped, str(exc)[:300])
+        outcome = CompanySyncOutcome(str(company_id), "FAILED", fields, skipped, flags, str(exc)[:300])
         return {
             "dry_run": dry_run,
             "overwrite": overwrite,
@@ -241,10 +257,11 @@ def run_company(
             "dry_run_updates": 0,
             "noop": 0,
             "failed": 1,
+            "uf_site_dead": uf_site_dead,
             "outcomes": [outcome.__dict__],
         }
 
-    outcome = CompanySyncOutcome(str(company_id), "UPDATED", fields, skipped)
+    outcome = CompanySyncOutcome(str(company_id), "UPDATED", fields, skipped, flags)
     summary = {
         "dry_run": dry_run,
         "overwrite": overwrite,
@@ -253,6 +270,7 @@ def run_company(
         "dry_run_updates": 0,
         "noop": 0,
         "failed": 0,
+        "uf_site_dead": uf_site_dead,
         "outcomes": [outcome.__dict__],
     }
     _attach_scoped_dedupe_summary(
@@ -277,6 +295,7 @@ def run(
     telemarketing_workflow: bool = False,
     rotation_index: int = 0,
     dedupe_telemarketing: bool = False,
+    validate_uf_site: bool | None = False,
 ) -> dict:
     if not company_id and not deal_id:
         raise ValueError("Нужен company_id или deal_id")
@@ -299,6 +318,7 @@ def run(
     company_contacts_dry = 0
     contact_communications_updated = 0
     contact_communications_dry = 0
+    uf_site_dead = 0
     processed_company_ids: set[str] = set()
 
     for deal in deals:
@@ -340,6 +360,12 @@ def run(
             desired,
             site_field=DEAL_UF_SITE_PRIMARY,
         )
+        if _validate_uf_site_enabled(validate_uf_site) and DEAL_UF_SITE_PRIMARY in fields:
+            alive = is_site_alive(str(fields.get(DEAL_UF_SITE_PRIMARY) or ""))
+            if not alive.is_alive:
+                skipped[DEAL_UF_SITE_PRIMARY] = f"dead_site:{alive.reason}"
+                fields.pop(DEAL_UF_SITE_PRIMARY, None)
+                uf_site_dead += 1
         contacts_to_add, contacts_skipped = _missing_deal_contacts(bx, cid, did)
         contact_ids = _deal_company_contact_ids(
             bx,
@@ -415,6 +441,7 @@ def run(
         "company_contacts_dry_run_adds": company_contacts_dry,
         "contact_communications_updated": contact_communications_updated,
         "contact_communications_dry_run_updates": contact_communications_dry,
+        "uf_site_dead": uf_site_dead,
         "failed": failed,
         "outcomes": [o.__dict__ for o in outcomes],
     }
@@ -453,6 +480,15 @@ def _attach_scoped_dedupe_summary(
         summary["telemarketing_dedupe"] = next(iter(dedupe_by_company.values()))
     else:
         summary["telemarketing_dedupe"] = dedupe_by_company
+
+
+def _validate_uf_site_enabled(override: bool | None = None) -> bool:
+    if override is not None:
+        return bool(override)
+    raw = os.environ.get("CCE_VALIDATE_UF_SITE")
+    if raw is not None:
+        return raw.strip().lower() in {"1", "true", "yes", "on", "y"}
+    return CCE_VALIDATE_UF_SITE
 
 
 def telemarketing_assignee_for_new_deal(*, rotation_index: int = 0) -> str:

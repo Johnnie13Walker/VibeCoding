@@ -110,6 +110,7 @@ def run(
     no_touch_existing_deals: bool = False,
     skip_cross_category_dup_check: bool = False,
     skip_on_closed_dup: bool = False,
+    skip_uf_site_validation: bool = False,
     bizproc_wait_s: int | None = None,
 ) -> FullEnrichmentOutcome:
     """Главный orchestrator: resolve → enrich → deal workflow → audit."""
@@ -145,6 +146,7 @@ def run(
         "no_touch_existing_deals": no_touch_existing_deals,
         "skip_cross_category_dup_check": skip_cross_category_dup_check,
         "skip_on_closed_dup": skip_on_closed_dup,
+        "skip_uf_site_validation": skip_uf_site_validation,
         "bizproc_wait_s": CCE_BIZPROC_WAIT_S if bizproc_wait_s is None else bizproc_wait_s,
     }
 
@@ -255,6 +257,11 @@ def _step_resolve(bx: BitrixClient, outcome: FullEnrichmentOutcome, context: dic
             outcome.flags.append("would_create_company")
             return StepOutcome("RESOLVE", "DONE", {"created": "dry_run", "company_id": context["company_id"]})
         fields = _minimum_company_fields(context)
+        _drop_dead_uf_site(
+            fields,
+            outcome,
+            enabled=not flags["skip_uf_site_validation"],
+        )
         context["company_id"] = _add_company(bx, fields)
         context["created_company"] = True
         company = bx.get_company(context["company_id"]) or {"ID": context["company_id"], **fields}
@@ -406,7 +413,10 @@ def _step_sync_company(bx: BitrixClient, outcome: FullEnrichmentOutcome, context
         site=context.get("site", ""),
         dry_run=flags["dry_run"],
         overwrite=False,
+        validate_uf_site=not flags["skip_uf_site_validation"],
     )
+    if (summary.get("uf_site_dead") or 0) > 0 and "uf_site_dead_skipped" not in outcome.flags:
+        outcome.flags.append("uf_site_dead_skipped")
     if not flags["dry_run"]:
         context["company"] = bx.get_company(outcome.company_id) or context.get("company") or {}
     return StepOutcome("SYNC_COMPANY", "DONE" if not summary.get("failed") else "FAILED", {"summary": summary})
@@ -739,6 +749,19 @@ def _minimum_company_fields(context: dict[str, Any]) -> dict[str, Any]:
     if _looks_medical(title, context.get("url", "")):
         fields[UF_BRAND_FIELD] = UF_BRAND_BELBERRY
     return fields
+
+
+def _drop_dead_uf_site(fields: dict[str, Any], outcome: FullEnrichmentOutcome, *, enabled: bool) -> None:
+    if not enabled or "UF_CRM_5DEF838D882A2" not in fields:
+        return
+    from .enrich_web import is_site_alive
+
+    check = is_site_alive(str(fields.get("UF_CRM_5DEF838D882A2") or ""))
+    if check.is_alive:
+        return
+    fields.pop("UF_CRM_5DEF838D882A2", None)
+    if "uf_site_dead_skipped" not in outcome.flags:
+        outcome.flags.append("uf_site_dead_skipped")
 
 
 def _add_company(bx: BitrixClient, fields: dict[str, Any]) -> str:
