@@ -92,7 +92,13 @@ def _check_sites(rows: list[dict[str, Any]], *, workers: int = DEFAULT_WORKERS, 
         }
         for future in as_completed(future_by_company_id):
             company_id = future_by_company_id[future]
-            checks[company_id] = future.result()
+            try:
+                checks[company_id] = future.result()
+            except Exception:
+                # Worker exception (LocationParseError, UnicodeError и пр.)
+                # не валит весь audit — компания помечается как bad_url
+                from .enrich_web import SiteAliveCheck
+                checks[company_id] = SiteAliveCheck("", False, None, "bad_url")
     return checks
 
 
