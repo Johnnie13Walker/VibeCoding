@@ -132,13 +132,22 @@ def _normalize_for_http(url: str) -> str:
         return ""
     if not re.match(r"^https?://", raw, flags=re.IGNORECASE):
         raw = f"https://{raw}"
-    parsed = urllib.parse.urlsplit(raw)
-    host = parsed.hostname or ""
+    try:
+        parsed = urllib.parse.urlsplit(raw)
+        host = parsed.hostname or ""
+    except (ValueError, UnicodeError):
+        return ""
     if not host:
+        return ""
+    # Декодировать percent-encoded host (например percent-encoded кириллица
+    # «%d0%bf...рф» → «первыйэлемент.рф») перед IDNA-преобразованием.
+    try:
+        host = urllib.parse.unquote(host)
+    except Exception:
         return ""
     try:
         ascii_host = host.encode("idna").decode("ascii")
-    except UnicodeError:
+    except (UnicodeError, UnicodeDecodeError):
         return ""
     netloc = ascii_host
     if parsed.port:
@@ -187,6 +196,10 @@ def is_site_alive(url: str, *, timeout: float = 6.0, use_cache: bool = True) -> 
             return store(SiteAliveCheck(safe, False, None, "conn_refused"))
         return store(SiteAliveCheck(safe, False, None, "conn_refused"))
     except requests.exceptions.RequestException:
+        return store(SiteAliveCheck(safe, False, None, "bad_url"))
+    except Exception:
+        # Низкоуровневые исключения (urllib3.LocationParseError, UnicodeError,
+        # ValueError при парсинге URL и пр.) — не валим worker, помечаем bad_url.
         return store(SiteAliveCheck(safe, False, None, "bad_url"))
 
     if 200 <= status_code < 400:

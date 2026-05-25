@@ -99,3 +99,33 @@ def test_alive_check_caches_result(monkeypatch):
 
     assert first is second
     assert FakeSession.calls == [("HEAD", "https://example.ru/")]
+
+
+def test_alive_check_percent_encoded_cyrillic_host(monkeypatch):
+    """REGRESSION: url с percent-encoded кириллицей в host (`%d0%bf...рф`) не должен
+    валить is_site_alive с LocationParseError — должен корректно нормализоваться."""
+    monkeypatch.setattr(requests, "Session", FakeSession)
+    pct = "https://%d0%bf%d0%b5%d1%80%d0%b2%d1%8b%d0%b9%d1%8d%d0%bb%d0%b5%d0%bc%d0%b5%d0%bd%d1%82.%d1%80%d1%84"
+    result = enrich_web.is_site_alive(pct)
+    # IDNA host первыйэлемент.рф = xn--... .xn--p1ai
+    assert result.url.startswith("https://xn--")
+    assert result.reason == "ok"
+
+
+def test_alive_check_invalid_url_returns_bad_url(monkeypatch):
+    """Битые URL не валят is_site_alive — bad_url reason."""
+    monkeypatch.setattr(requests, "Session", FakeSession)
+    for bad in ("://broken", "//", "http://", "   ", ""):
+        result = enrich_web.is_site_alive(bad)
+        assert result.is_alive is False
+        assert result.reason == "bad_url"
+
+
+def test_alive_check_low_level_exception_does_not_propagate(monkeypatch):
+    """Низкоуровневые exception (urllib3 LocationParseError, UnicodeError, ValueError)
+    не должны propagate — заворачиваем в bad_url."""
+    monkeypatch.setattr(requests, "Session", FakeSession)
+    FakeSession.raise_exc = ValueError("malformed URL")
+    result = enrich_web.is_site_alive("https://broken.example")
+    assert result.is_alive is False
+    assert result.reason == "bad_url"
