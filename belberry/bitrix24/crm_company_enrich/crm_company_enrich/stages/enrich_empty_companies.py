@@ -30,6 +30,7 @@ from ..config import (
     CCE_COMPANY_TOUCH,
     CCE_PRESET_ID,
     COMPANY_REGION_ENUM_MAP,
+    COMPANY_UF_LEGAL_ADDRESS,
     COMPANY_UF_CITY,
     COMPANY_UF_REGION,
     ENTITY_TYPE_COMPANY,
@@ -1550,7 +1551,11 @@ def verify_with_retries(bx: BitrixClient, company_id: str) -> tuple[bool, dict |
 
 def _fill_company_address_fields(bx: BitrixClient, company_id: str, company: dict) -> dict[str, Any]:
     """Заполнить город/область компании из юридического адреса, не затирая ручной ввод."""
-    raw_address = _clean(company.get("REG_ADDRESS") or company.get("ADDRESS"))
+    raw_address = _clean(
+        company.get("REG_ADDRESS")
+        or company.get("ADDRESS")
+        or company.get(COMPANY_UF_LEGAL_ADDRESS)
+    )
     fallback_city, fallback_region = _city_region_from_address(raw_address)
     reg_city = _clean(company.get("REG_ADDRESS_CITY") or company.get("ADDRESS_CITY") or fallback_city)
     reg_region = _clean(company.get("REG_ADDRESS_REGION") or company.get("ADDRESS_REGION") or fallback_region)

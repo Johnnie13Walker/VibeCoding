@@ -18,7 +18,14 @@ from __future__ import annotations
 import pytest
 
 from crm_company_enrich.bitrix_client import BitrixError
-from crm_company_enrich.config import TAB_BACKUP, TAB_QUEUE, UF_BRAND_FIELD
+from crm_company_enrich.config import (
+    TAB_BACKUP,
+    TAB_QUEUE,
+    UF_BRAND_FIELD,
+    UF_BRAND_LEGACY_ENUM_ACOOLA,
+    UF_BRAND_LEGACY_ENUM_BELBERRY,
+    UF_BRAND_LEGACY_ENUM_FIELD,
+)
 from crm_company_enrich.models import QUEUE_HEADERS, QueueRow, TargetAction
 from crm_company_enrich.stages import apply
 from crm_company_enrich.stages.apply import BACKUP_HEADERS
@@ -733,7 +740,10 @@ def test_brand_set_belberry_for_medical_company(no_sleep):
     assert len(bx.update_company_calls) == 1
     cid, fields = bx.update_company_calls[0]
     assert cid == "20"
-    assert fields == {UF_BRAND_FIELD: "Belberry"}
+    assert fields == {
+        UF_BRAND_FIELD: "Belberry",
+        UF_BRAND_LEGACY_ENUM_FIELD: UF_BRAND_LEGACY_ENUM_BELBERRY,
+    }
 
     assert summary["brand"]["belberry"] == 1
     assert summary["brand"]["acoola"] == 0
@@ -775,7 +785,10 @@ def test_brand_set_acoola_for_non_medical_company(no_sleep):
     assert len(bx.update_company_calls) == 1
     cid, fields = bx.update_company_calls[0]
     assert cid == "21"
-    assert fields == {UF_BRAND_FIELD: "Acoola Team"}
+    assert fields == {
+        UF_BRAND_FIELD: "Acoola Team",
+        UF_BRAND_LEGACY_ENUM_FIELD: UF_BRAND_LEGACY_ENUM_ACOOLA,
+    }
 
     assert summary["brand"]["belberry"] == 0
     assert summary["brand"]["acoola"] == 1
