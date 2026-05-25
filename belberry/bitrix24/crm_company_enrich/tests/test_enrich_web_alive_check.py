@@ -129,3 +129,37 @@ def test_alive_check_low_level_exception_does_not_propagate(monkeypatch):
     result = enrich_web.is_site_alive("https://broken.example")
     assert result.is_alive is False
     assert result.reason == "bad_url"
+
+
+def test_alive_check_3xx_treated_as_alive(monkeypatch):
+    """REGRESSION: 3xx redirect = сервер ответил = сайт живой.
+
+    allow_redirects=False намеренно не идёт по Location, потому что
+    urllib3 валится на percent-encoded IDN host в Location-header
+    (firstel.ru → первыйэлемент.рф). Достаточно факта, что сервер ответил.
+    """
+    monkeypatch.setattr(requests, "Session", FakeSession)
+    for code in (301, 302, 307, 308):
+        FakeSession.calls = []
+        FakeSession.head_status = code
+        result = enrich_web.is_site_alive(f"https://r{code}.example", use_cache=False)
+        assert result.is_alive is True, f"status {code} should be alive"
+        assert result.status_code == code
+        assert result.reason == "redirect"
+
+
+def test_alive_check_does_not_follow_redirects(monkeypatch):
+    """REGRESSION: запрос идёт с allow_redirects=False — иначе urllib3
+    валится при попытке разрешить Location с percent-encoded кириллицей."""
+    monkeypatch.setattr(requests, "Session", FakeSession)
+    captured: dict = {}
+
+    original_head = FakeSession.head
+
+    def spy_head(self, url, **kwargs):
+        captured["allow_redirects"] = kwargs.get("allow_redirects")
+        return original_head(self, url, **kwargs)
+
+    monkeypatch.setattr(FakeSession, "head", spy_head)
+    enrich_web.is_site_alive("https://example.ru", use_cache=False)
+    assert captured.get("allow_redirects") is False
