@@ -200,9 +200,9 @@ def upload_no_inn(scored: list[ScoredCompany]) -> None:
         url = f"{PORTAL_BASE}/crm/company/details/{r.id}/"
         grid_rows.append({"values": [
             _cell(r.title or f"#{r.id}", link=url),
-            _num_cell(r.deals_count),
-            _num_cell(r.contacts_count),
-            _num_cell(r.leads_count),
+            _num_cell(r.n_deals),
+            _num_cell(r.n_contacts),
+            _num_cell(r.n_leads),
             _cell(r.uf_brand),
             _cell(r.uf_city),
             _cell(r.uf_site),
