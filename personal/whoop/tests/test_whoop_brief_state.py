@@ -41,3 +41,32 @@ def test_backfill_state_roundtrip(tmp_path):
     rows = metrics_from_state(load_state(str(path)))
     assert rows == [DailyMetrics(date="2026-05-26", recovery=88.0)]
 
+
+def test_baseline_marks_incomplete_when_fewer_than_30_days():
+    rows = [
+        DailyMetrics(
+            date=(dt.date(2026, 5, 1) + dt.timedelta(days=i)).isoformat(),
+            recovery=70 + i,
+        )
+        for i in range(5)
+    ]
+
+    baseline = baseline_30d(rows, "2026-05-05")
+
+    assert baseline.sample_count == 5
+    assert baseline.incomplete is True
+
+
+def test_baseline_takes_last_30_when_history_has_60_days():
+    rows = [
+        DailyMetrics(
+            date=(dt.date(2026, 3, 1) + dt.timedelta(days=i)).isoformat(),
+            recovery=i,
+        )
+        for i in range(60)
+    ]
+
+    baseline = baseline_30d(rows, "2026-04-29")
+
+    assert baseline.sample_count == 30
+    assert baseline.recovery in (44, 45, 44.5)

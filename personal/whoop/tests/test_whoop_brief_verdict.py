@@ -62,3 +62,62 @@ def test_sleep_below_77_percent_creates_flag():
 
     assert verdict.color == "green"
     assert any(flag.code == "sleep_low" for flag in verdict.flags)
+
+
+def test_verdict_yellow_when_recovery_between_34_and_67():
+    today = DailyMetrics(date="2026-05-26", recovery=50, hrv_ms=55, rhr_bpm=63, spo2_pct=98)
+
+    verdict = build_verdict(today, [today], Baseline30d(sample_count=30, hrv_ms=55, rhr_bpm=63))
+
+    assert verdict.color == "yellow"
+    assert "ЖЁЛТЫЙ" in verdict.headline
+
+
+def test_spo2_streak_3_is_orange_not_red():
+    history = _history(3, spo2_pct=92)
+
+    verdict = build_verdict(history[-1], history, Baseline30d(sample_count=30, hrv_ms=55, rhr_bpm=63))
+    spo2_flag = next(flag for flag in verdict.flags if flag.code == "spo2_low")
+
+    assert spo2_flag.severity == "orange"
+    assert spo2_flag.emoji == "🟠"
+    assert spo2_flag.doctor_hint is False
+
+
+def test_streak_resets_after_normal_day():
+    start = dt.date(2026, 5, 22)
+    values = [92, 92, 98, 92, 92]
+    history = [
+        DailyMetrics(
+            date=(start + dt.timedelta(days=offset)).isoformat(),
+            recovery=75,
+            hrv_ms=55,
+            rhr_bpm=63,
+            spo2_pct=spo2,
+        )
+        for offset, spo2 in enumerate(values)
+    ]
+
+    verdict = build_verdict(history[-1], history, Baseline30d(sample_count=30, hrv_ms=55, rhr_bpm=63))
+    spo2_flag = next(flag for flag in verdict.flags if flag.code == "spo2_low")
+
+    assert spo2_flag.streak_days == 2
+
+
+def test_hrv_below_baseline_by_30pct_creates_flag():
+    today = DailyMetrics(date="2026-05-26", recovery=75, hrv_ms=35, rhr_bpm=63, spo2_pct=98)
+
+    verdict = build_verdict(today, [today], Baseline30d(sample_count=30, hrv_ms=55, rhr_bpm=63))
+    hrv_flag = next(flag for flag in verdict.flags if flag.code == "hrv_low")
+
+    assert hrv_flag.severity == "orange"
+
+
+def test_green_with_spo2_streak_3_keeps_color_green_but_flag_present():
+    history = _history(3, recovery=78, spo2_pct=93)
+
+    verdict = build_verdict(history[-1], history, Baseline30d(sample_count=30, hrv_ms=55, rhr_bpm=63))
+
+    assert verdict.color == "green"
+    assert any(flag.code == "spo2_low" and flag.severity == "orange" for flag in verdict.flags)
+    assert "SpO₂" in verdict.top_flag
