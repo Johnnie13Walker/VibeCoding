@@ -1,0 +1,12 @@
+.env
+.env.*
+!.env.example
+.whoop_tokens.json
+whoop-state.json
+*.sqlite
+*.sqlite3
+*.db
+*.log
+.venv/
+__pycache__/
+*.pyc

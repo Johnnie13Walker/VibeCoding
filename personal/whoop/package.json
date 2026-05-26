@@ -1,0 +1,9 @@
+{
+  "name": "whoop-progress-tracker",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "selftest": "python3 ./scripts/progress_tracker_whoop.py selftest",
+    "scheduler": "python3 ./scripts/progress_tracker_whoop.py run-scheduler"
+  }
+}
