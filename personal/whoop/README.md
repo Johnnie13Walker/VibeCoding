@@ -5,6 +5,7 @@
 ## Что здесь лежит
 
 - `scripts/whoop_telegram_report.py` — актуальный source активного VPS-скрипта `/usr/local/bin/send_whoop_report.py`.
+- `whoop_brief/` — новый контур morning/weekly brief: 30-дневный baseline, verdict engine, шаблоны сообщений.
 - `scripts/progress_tracker_whoop.py` — standalone progress tracker.
 - `ops/` — вспомогательные server-check/repair scripts из старого `OpenClo/projects/engineer`.
 - `legacy/openclaw-extensions/` — старые JS-прототипы WHOOP-интеграции, только для reference.
@@ -12,6 +13,30 @@
 - `docs/` — контекстные заметки по live contour.
 
 Секреты, токены, sqlite/state и `.venv` не перенесены. Runtime-секреты держать вне repo, например в `/Users/pro2kuror/.config/vibecoding/whoop/` или на VPS в `/etc/openclaw/whoop.env`.
+
+## WHOOP Morning Brief
+
+Основная команда:
+```bash
+python3 scripts/whoop_telegram_report.py send-report --dry-run --force
+```
+
+Пилот нового формата включается переменной окружения:
+```bash
+LARISA_WHOOP_PILOT=true python3 scripts/whoop_telegram_report.py send-report --dry-run --force
+```
+
+В боевом режиме при `LARISA_WHOOP_PILOT=true` сначала отправляется старый отчёт, затем через `LARISA_WHOOP_PILOT_DELAY_SECONDS` секунд новый brief с пометкой пилота. По умолчанию пилот выключен.
+
+State нового контура хранит `daily_metrics` для 30-дневного baseline. Боевой путь:
+```bash
+WHOOP_STATE_FILE=/var/lib/cloudbot-larisa-whoop/whoop-state.json
+```
+
+Недельный вариант для команды `/whoop неделя` использует тот же renderer:
+```bash
+python3 scripts/whoop_telegram_report.py send-weekly --dry-run --force
+```
 
 ## WHOOP Progress Tracker (10 000/day logic)
 
