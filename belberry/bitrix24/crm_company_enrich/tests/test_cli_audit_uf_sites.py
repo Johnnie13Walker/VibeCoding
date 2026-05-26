@@ -68,6 +68,7 @@ def test_audit_uf_sites_live_rollback_writes_to_bitrix(monkeypatch, tmp_path):
             rollback_to_vk=True,
             clear_dead=False,
             clear_dead_reasons="",
+            force_with_deals=False,
             dry_run=False,
             from_sheet=False,
             all=True,
@@ -155,6 +156,7 @@ def test_audit_uf_sites_cli_rejects_clear_dead_without_live(monkeypatch):
             rollback_to_vk=False,
             clear_dead=True,
             clear_dead_reasons="",
+            force_with_deals=False,
             dry_run=True,
             from_sheet=False,
             all=True,
@@ -174,9 +176,80 @@ def test_audit_uf_sites_cli_live_requires_action(monkeypatch):
             rollback_to_vk=False,
             clear_dead=False,
             clear_dead_reasons="",
+            force_with_deals=False,
             dry_run=False,
             from_sheet=False,
             all=True,
         )
     )
     assert code == 2
+
+
+class FakeBitrixWithDeals(FakeBitrix):
+    """FakeBitrix с поддержкой batch + call (crm.company.list, crm.deal.list)."""
+
+    def __init__(self, deals_per_cid: dict[str, list] | None = None):
+        super().__init__()
+        self.deals_per_cid = deals_per_cid or {}
+
+    def call(self, method, params):
+        params = params or {}
+        if method == "crm.company.list":
+            start = int(params.get("start") or 0)
+            page = [dict(c) for c in self.companies[start:start + 50]]
+            return {"result": page, "total": len(self.companies)}
+        if method == "crm.deal.list":
+            cid = str(params.get("filter", {}).get("COMPANY_ID") or "")
+            return {"result": self.deals_per_cid.get(cid, [])}
+        return {"result": []}
+
+    def batch(self, commands):
+        result = {}
+        for key, (method, params) in commands.items():
+            resp = self.call(method, params)
+            result[key] = resp.get("result", [])
+        return result
+
+
+def test_audit_uf_sites_clear_dead_skips_company_with_deals(monkeypatch, tmp_path):
+    """По умолчанию clear_dead НЕ трогает компанию, у которой есть сделки."""
+    deals_per_cid = {"2": [{"ID": "100", "CATEGORY_ID": "10", "STAGE_ID": "C10:WON", "CLOSED": "Y"}]}
+    bx = FakeBitrixWithDeals(deals_per_cid=deals_per_cid)
+    bx.companies = [
+        {"ID": "1", "TITLE": "Alive", "UF_CRM_5DEF838D882A2": "https://alive.example", "WEB": []},
+        {"ID": "2", "TITLE": "Dead with WON", "UF_CRM_5DEF838D882A2": "https://dns.example", "WEB": []},
+        {"ID": "3", "TITLE": "Dead no deals", "UF_CRM_5DEF838D882A2": "https://other-dns.example", "WEB": []},
+    ]
+    monkeypatch.setattr(audit_uf_sites, "LOG_DIR", tmp_path)
+    monkeypatch.setattr(
+        audit_uf_sites, "is_site_alive",
+        lambda url, **kwargs: SiteAliveCheck(url, "alive" in url, 200 if "alive" in url else None, "ok" if "alive" in url else "dns"),
+    )
+    summary = audit_uf_sites.run(bx, dry_run=False, clear_dead=True)
+    assert summary["cleared"] == 1  # только #3 — без сделок
+    assert summary["skipped_has_deals"] == 1  # #2 пропущена защитой
+    assert bx.update_company_calls == [("3", {"UF_CRM_5DEF838D882A2": ""})]
+    actions_by_id = {r["company_id"]: r["action"] for r in summary["results"]}
+    assert actions_by_id["2"] == "skip_has_deals"
+    assert actions_by_id["3"] == "clear"
+
+
+def test_audit_uf_sites_clear_dead_force_with_deals_clears_anyway(monkeypatch, tmp_path):
+    """--force-with-deals выключает защиту и чистит UF даже у компаний со сделками."""
+    deals_per_cid = {"2": [{"ID": "100", "CATEGORY_ID": "10", "STAGE_ID": "C10:WON", "CLOSED": "Y"}]}
+    bx = FakeBitrixWithDeals(deals_per_cid=deals_per_cid)
+    bx.companies = [
+        {"ID": "2", "TITLE": "Dead with WON", "UF_CRM_5DEF838D882A2": "https://dns.example", "WEB": []},
+    ]
+    monkeypatch.setattr(audit_uf_sites, "LOG_DIR", tmp_path)
+    monkeypatch.setattr(
+        audit_uf_sites, "is_site_alive",
+        lambda url, **kwargs: SiteAliveCheck(url, False, None, "dns"),
+    )
+    summary = audit_uf_sites.run(
+        bx, dry_run=False, clear_dead=True,
+        skip_if_has_deals=False, force_with_deals=True,
+    )
+    assert summary["cleared"] == 1
+    assert summary["skipped_has_deals"] == 0
+    assert bx.update_company_calls == [("2", {"UF_CRM_5DEF838D882A2": ""})]

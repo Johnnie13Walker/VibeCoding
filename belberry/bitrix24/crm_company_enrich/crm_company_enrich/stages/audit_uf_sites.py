@@ -29,6 +29,11 @@ def run(
     rollback_to_vk: bool = False,
     clear_dead: bool = False,
     clear_dead_reasons: tuple[str, ...] = DEFAULT_CLEAR_DEAD_REASONS,
+    # Безопасный default: если у компании есть хотя бы одна сделка (любая стадия,
+    # любая воронка) — UF site НЕ чистим. Это защита от «домен умер, но компания
+    # реальный клиент с историей». Можно переопределить flag'ом force_with_deals.
+    skip_if_has_deals: bool = True,
+    force_with_deals: bool = False,
     report_path: Path = DEFAULT_REPORT_PATH,
     timeout: float = 6.0,
 ) -> dict[str, Any]:
@@ -38,13 +43,31 @@ def run(
         raise ValueError("--rollback-to-vk и --clear-dead взаимоисключающи")
 
     clear_reasons = tuple(clear_dead_reasons or ())
+    apply_skip_deals = bool(skip_if_has_deals and clear_dead and not force_with_deals)
+
     rows = _companies_with_uf_site(bx)
     checks = _check_sites(rows, timeout=timeout)
+
+    # Только для clear_dead режима подтягиваем сделки заранее (batch)
+    deals_by_cid: dict[str, list[dict[str, Any]]] = {}
+    if apply_skip_deals:
+        clear_candidates = [
+            str(company.get("ID") or "")
+            for company in rows
+            if (
+                not checks.get(str(company.get("ID") or ""), _UNKNOWN).is_alive
+                and checks.get(str(company.get("ID") or ""), _UNKNOWN).reason in clear_reasons
+                and str(company.get(UF_SITE_FIELD) or "").strip()
+            )
+        ]
+        deals_by_cid = _fetch_deals_for(bx, clear_candidates)
+
     results: list[dict[str, Any]] = []
     counts: Counter[str] = Counter()
     live_updates = 0
     cleared = 0
     rolled_back = 0
+    skipped_has_deals = 0
     backup_dir = LOG_DIR / ("uf_site_clear" if clear_dead else "uf_site_audit")
 
     for company in rows:
@@ -71,6 +94,12 @@ def run(
             target_value = ""
             action = ""
 
+        # Защита от сноса UF у компаний с активными/историческими сделками
+        deals_count = len(deals_by_cid.get(company_id, []))
+        if action == "clear" and apply_skip_deals and deals_count > 0:
+            action = "skip_has_deals"
+            skipped_has_deals += 1
+
         result = {
             "company_id": company_id,
             "title": str(company.get("TITLE") or ""),
@@ -80,10 +109,11 @@ def run(
             "reason": check.reason,
             "rollback_target": rollback_target,
             "action": action,
+            "deals_count": deals_count,
         }
         results.append(result)
 
-        if dry_run or check.is_alive or not action:
+        if dry_run or check.is_alive or action in ("", "skip_has_deals"):
             continue
         if action == "clear" and not uf_site:
             # нечего чистить — UF уже пустой
@@ -103,6 +133,7 @@ def run(
         "rollback_to_vk": rollback_to_vk,
         "clear_dead": clear_dead,
         "clear_dead_reasons": list(clear_reasons) if clear_dead else [],
+        "skip_if_has_deals": apply_skip_deals,
         "total": len(rows),
         "alive": counts.get("alive", 0),
         "dead": counts.get("dead", 0),
@@ -123,6 +154,7 @@ def run(
         "live_updates": live_updates,
         "rolled_back": rolled_back,
         "cleared": cleared,
+        "skipped_has_deals": skipped_has_deals,
         "report_path": str(report_path),
         "backup_dir": str(backup_dir),
         "results": results,
@@ -130,6 +162,44 @@ def run(
     if dry_run:
         report_path.write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
     return summary
+
+
+class _Unknown:
+    is_alive = False
+    reason = "unknown"
+
+
+_UNKNOWN = _Unknown()
+
+
+def _fetch_deals_for(bx, company_ids: list[str]) -> dict[str, list[dict[str, Any]]]:
+    """Подтянуть сделки для списка компаний через batch (по 50)."""
+    out: dict[str, list[dict[str, Any]]] = {cid: [] for cid in company_ids}
+    if not company_ids:
+        return out
+    if not hasattr(bx, "batch") or not hasattr(bx, "call"):
+        # Клиент без batch/call API — не можем проверить сделки. Возвращаем пусто,
+        # тогда skip_if_has_deals не сработает; это рассматривается как degraded
+        # mode (актуально для in-memory FakeBitrix в тестах).
+        return out
+
+    select = ["ID", "CATEGORY_ID", "STAGE_ID", "CLOSED"]
+    CHUNK = 50
+    for i in range(0, len(company_ids), CHUNK):
+        chunk = company_ids[i:i + CHUNK]
+        commands = {
+            f"d{idx}": ("crm.deal.list", {"filter": {"COMPANY_ID": cid}, "select": select, "start": 0})
+            for idx, cid in enumerate(chunk)
+        }
+        try:
+            result = bx.batch(commands)
+        except Exception:
+            continue
+        for idx, cid in enumerate(chunk):
+            payload = result.get(f"d{idx}") or []
+            if isinstance(payload, list):
+                out[cid] = payload
+    return out
 
 
 def _check_sites(rows: list[dict[str, Any]], *, workers: int = DEFAULT_WORKERS, timeout: float = 6.0) -> dict[str, Any]:
