@@ -94,6 +94,13 @@ def env(name: str, default: Optional[str] = None, required: bool = False) -> str
     return value or ""
 
 
+def env_bool(name: str, default: bool = False) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "y", "on", "да"}
+
+
 def to_float(value: Any) -> Optional[float]:
     try:
         if value is None:
@@ -1782,7 +1789,7 @@ def run_send_report(dry_run: bool = False, force: bool = False) -> int:
         f"steps_day={steps_day.isoformat()} current_day={current_day.isoformat()}"
     )
 
-    report = build_new_report_text(
+    new_report = build_new_report_text(
         tz_name=tz_name,
         report_date=target_day,
         recovery=recovery,
@@ -1794,12 +1801,36 @@ def run_send_report(dry_run: bool = False, force: bool = False) -> int:
         sleep_records=sleep_records,
         cycle_records=cycle_records,
     )
+    old_report = build_report_text(
+        tz_name=tz_name,
+        report_date=target_day,
+        activity_date=activity_day,
+        steps_date=steps_day,
+        current_date=current_day,
+        recovery=recovery,
+        sleep=sleep,
+        cycle=cycle,
+        workouts_payload=workouts_payload,
+        steps_count=steps_count,
+        steps_note=steps_note,
+        profile=profile,
+        lookback_days=lookback_days,
+        header_note=header_note,
+        recovery_records=recovery_records,
+        sleep_records=sleep_records,
+        cycle_records=cycle_records,
+    )
+    pilot_mode = env_bool("LARISA_WHOOP_PILOT", False)
+    report = old_report
     rec = extract_recovery_metrics(recovery or {})
     slp = extract_sleep_metrics(sleep or {})
     day_strain = extract_strain(cycle or {})
 
     if dry_run:
         print(report)
+        if pilot_mode:
+            print("\n\n--- PILOT: новый WHOOP brief ---\n")
+            print(new_report)
         return 0
 
     bot_token = env("TELEGRAM_BOT_TOKEN", required=True)
@@ -1816,6 +1847,11 @@ def run_send_report(dry_run: bool = False, force: bool = False) -> int:
         except Exception as exc:
             print(f"Предупреждение: не удалось отправить карточку: {exc}", file=sys.stderr)
     telegram_send(bot_token, chat_id, report)
+    if pilot_mode:
+        pilot_delay = max(0, to_int(env("LARISA_WHOOP_PILOT_DELAY_SECONDS", "30")) or 0)
+        if pilot_delay:
+            time.sleep(pilot_delay)
+        telegram_send(bot_token, chat_id, "🔬 Новый WHOOP brief (пилот, на сверку):\n\n" + new_report)
     fetched_history = _daily_history_from_records(target_day, tz, recovery_records, sleep_records, cycle_records)
     for item in fetched_history:
         brief_update_daily_metrics(state, item)

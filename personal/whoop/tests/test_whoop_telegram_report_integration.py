@@ -35,3 +35,9 @@ def test_build_new_report_text_uses_template_renderer(monkeypatch, tmp_path):
     assert "Профиль" not in text
     assert "План Б" not in text
 
+
+def test_env_bool_accepts_russian_yes(monkeypatch):
+    report = _load_report_module()
+    monkeypatch.setenv("LARISA_WHOOP_PILOT", "да")
+
+    assert report.env_bool("LARISA_WHOOP_PILOT") is True
