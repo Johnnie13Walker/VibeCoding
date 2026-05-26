@@ -41,3 +41,32 @@ def test_env_bool_accepts_russian_yes(monkeypatch):
     monkeypatch.setenv("LARISA_WHOOP_PILOT", "да")
 
     assert report.env_bool("LARISA_WHOOP_PILOT") is True
+
+
+def test_pilot_does_not_break_old_report_when_new_renderer_raises(monkeypatch, tmp_path, capsys):
+    report = _load_report_module()
+
+    class FakeWhoopClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def refresh_access_token(self):
+            return {"access_token": "test-access-token"}
+
+    monkeypatch.setenv("WHOOP_STATE_FILE", str(tmp_path / "state.json"))
+    monkeypatch.setenv("WHOOP_CLIENT_ID", "client")
+    monkeypatch.setenv("WHOOP_CLIENT_SECRET", "secret")
+    monkeypatch.setenv("WHOOP_REFRESH_TOKEN", "refresh")
+    monkeypatch.setenv("LARISA_WHOOP_PILOT", "true")
+    monkeypatch.setenv("WHOOP_REPORT_RETRY_ATTEMPTS", "0")
+    monkeypatch.setattr(report, "WhoopClient", FakeWhoopClient)
+    monkeypatch.setattr(report, "get_json_logged", lambda *args, **kwargs: [])
+    monkeypatch.setattr(report, "build_new_report_text", lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("renderer boom")))
+
+    rc = report.run_send_report(dry_run=True, force=True)
+
+    captured = capsys.readouterr()
+    assert rc == 0
+    assert "<b>WHOOP: отчёт за" in captured.out
+    assert "PILOT: новый brief не построился" in captured.err
+    assert "renderer boom" in captured.err
