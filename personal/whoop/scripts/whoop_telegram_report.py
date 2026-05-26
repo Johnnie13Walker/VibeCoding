@@ -7,12 +7,24 @@ import secrets
 import statistics
 import sys
 import time
+from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 from urllib.parse import urlencode, quote
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
 
 from zoneinfo import ZoneInfo
+
+WHOOP_ROOT = Path(__file__).resolve().parents[1]
+if str(WHOOP_ROOT) not in sys.path:
+    sys.path.insert(0, str(WHOOP_ROOT))
+
+from whoop_brief.models import DailyMetrics
+from whoop_brief.renderer import render_morning_brief, render_weekly_brief
+from whoop_brief.state import baseline_30d as brief_baseline_30d
+from whoop_brief.state import metrics_from_state as brief_metrics_from_state
+from whoop_brief.state import update_daily_metrics as brief_update_daily_metrics
+from whoop_brief.verdict import build_verdict as brief_build_verdict
 
 
 class HttpError(RuntimeError):
@@ -1043,6 +1055,81 @@ def build_new_report_text(
     )
 
 
+def _daily_metrics_from_records(
+    date_value: dt.date,
+    recovery: Optional[Dict[str, Any]],
+    sleep: Optional[Dict[str, Any]],
+    cycle: Optional[Dict[str, Any]],
+) -> DailyMetrics:
+    rec = extract_recovery_metrics(recovery or {})
+    slp = extract_sleep_metrics(sleep or {})
+    return DailyMetrics(
+        date=date_value.isoformat(),
+        recovery=rec.get("score"),
+        hrv_ms=rec.get("hrv"),
+        rhr_bpm=rec.get("rhr"),
+        spo2_pct=rec.get("spo2"),
+        sleep_minutes=to_int(slp.get("total_min")),
+        sleep_need_minutes=_sleep_need_minutes(slp),
+        sleep_performance_pct=slp.get("performance"),
+        sleep_efficiency_pct=slp.get("efficiency"),
+        strain=extract_strain(cycle or {}),
+    )
+
+
+def _daily_history_from_records(
+    report_date: dt.date,
+    tz: ZoneInfo,
+    recovery_records: List[Dict[str, Any]],
+    sleep_records: List[Dict[str, Any]],
+    cycle_records: List[Dict[str, Any]],
+) -> List[DailyMetrics]:
+    recovery_by_date = _records_by_date(recovery_records, tz, "recovery")
+    sleep_by_date = _records_by_date(sleep_records, tz, "sleep")
+    cycle_by_date = _records_by_date(cycle_records, tz, "cycle")
+    dates = sorted(set(recovery_by_date) | set(sleep_by_date) | set(cycle_by_date))
+    return [
+        _daily_metrics_from_records(
+            date_value,
+            recovery_by_date.get(date_value),
+            sleep_by_date.get(date_value),
+            cycle_by_date.get(date_value),
+        )
+        for date_value in dates
+        if date_value <= report_date
+    ]
+
+
+def _merged_brief_history(state: Dict[str, Any], fetched_history: List[DailyMetrics]) -> List[DailyMetrics]:
+    by_date = {item.date: item for item in brief_metrics_from_state(state)}
+    for item in fetched_history:
+        by_date[item.date] = item
+    return [by_date[key] for key in sorted(by_date)]
+
+
+def build_new_report_text(
+    tz_name: str,
+    report_date: dt.date,
+    recovery: Optional[Dict[str, Any]],
+    sleep: Optional[Dict[str, Any]],
+    cycle: Optional[Dict[str, Any]],
+    recovery_records: List[Dict[str, Any]],
+    sleep_records: List[Dict[str, Any]],
+    cycle_records: List[Dict[str, Any]],
+    profile: Optional[Dict[str, float]] = None,
+    header_note: Optional[str] = None,
+) -> str:
+    tz = ZoneInfo(tz_name)
+    fetched_history = _daily_history_from_records(report_date, tz, recovery_records, sleep_records, cycle_records)
+    today = _daily_metrics_from_records(report_date, recovery, sleep, cycle)
+    state = load_state()
+    history = _merged_brief_history(state, fetched_history + [today])
+    baseline = brief_baseline_30d(history, report_date.isoformat())
+    hr_max = int(profile["hr_max"]) if profile and profile.get("hr_max") else 177
+    verdict = brief_build_verdict(today, history, baseline, hr_max=hr_max)
+    return render_morning_brief(report_date, today, baseline, verdict, history, header_note=header_note)
+
+
 def extract_workout_count(workouts_payload: Any) -> int:
     if isinstance(workouts_payload, list):
         return len(workouts_payload)
@@ -1409,6 +1496,22 @@ def build_weekly_report_text(
     return "\n".join(lines)
 
 
+def build_weekly_report_text(
+    tz_name: str,
+    week_start: dt.date,
+    week_end: dt.date,
+    recovery_records: List[Dict[str, Any]],
+    sleep_records: List[Dict[str, Any]],
+    cycle_records: List[Dict[str, Any]],
+    workouts_count: int,
+) -> str:
+    tz = ZoneInfo(tz_name)
+    fetched_history = _daily_history_from_records(week_end, tz, recovery_records, sleep_records, cycle_records)
+    state = load_state()
+    history = _merged_brief_history(state, fetched_history)
+    return render_weekly_brief(week_start, week_end, history, workouts_count=workouts_count)
+
+
 def build_dashboard_chart_url(
     rec: Dict[str, Optional[float]],
     slp: Dict[str, Optional[float]],
@@ -1713,6 +1816,10 @@ def run_send_report(dry_run: bool = False, force: bool = False) -> int:
         except Exception as exc:
             print(f"Предупреждение: не удалось отправить карточку: {exc}", file=sys.stderr)
     telegram_send(bot_token, chat_id, report)
+    fetched_history = _daily_history_from_records(target_day, tz, recovery_records, sleep_records, cycle_records)
+    for item in fetched_history:
+        brief_update_daily_metrics(state, item)
+    brief_update_daily_metrics(state, _daily_metrics_from_records(target_day, recovery, sleep, cycle))
     state.setdefault("daily_sent", {})[day_key] = dt.datetime.now(dt.timezone.utc).isoformat()
     save_state(state)
     print("Отчёт отправлен в Telegram")
