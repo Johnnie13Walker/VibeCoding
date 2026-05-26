@@ -1,0 +1,20 @@
+<b>WHOOP · неделя</b>
+<i>$week_start — $week_end</i>
+
+<b>СРЕДНИЕ</b>
+Recovery: $recovery_avg
+HRV: $hrv_avg
+RHR: $rhr_avg
+Сон: $sleep_avg
+Strain: $strain_avg
+Тренировок: $workouts_count
+
+<b>ДИНАМИКА</b>
+Recovery: $recovery_spark
+Sleep: $sleep_spark
+Strain: $strain_spark
+
+<b>ЛУЧШИЙ / СЛОЖНЫЙ ДЕНЬ</b>
+Лучшее восстановление: $best_recovery
+Самый тяжёлый день: $worst_recovery
+
