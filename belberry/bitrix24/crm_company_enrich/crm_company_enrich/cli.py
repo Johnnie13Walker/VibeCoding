@@ -372,6 +372,8 @@ def cmd_audit_uf_sites(args: argparse.Namespace) -> int:
         rollback_to_vk=args.rollback_to_vk,
         clear_dead=args.clear_dead,
         clear_dead_reasons=clear_reasons,
+        skip_if_has_deals=not args.force_with_deals,
+        force_with_deals=args.force_with_deals,
     )
     printable = dict(summary)
     printable["result_count"] = len(printable.pop("results", []) or [])
@@ -870,6 +872,15 @@ def main() -> None:
             "Через запятую: какие reasons чистить в --clear-dead режиме. "
             "По умолчанию: dns,conn_refused (надёжно мёртвые). "
             "Допустимо: dns,conn_refused,5xx,timeout,ssl_error,bad_url,4xx_blocked"
+        ),
+    )
+    sp.add_argument(
+        "--force-with-deals",
+        action="store_true",
+        help=(
+            "ОПАСНО: чистить UF и у компаний, где есть сделки (любые, включая WON). "
+            "По умолчанию такие компании пропускаются — защита от потери истории "
+            "клиента, у которого просто умер домен. Используй только если ты уверен."
         ),
     )
     sp.add_argument("--dry-run", action="store_true", help="Явный read-only режим (default)")
