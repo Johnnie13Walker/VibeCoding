@@ -205,6 +205,24 @@ def cmd_sync_company(args: argparse.Namespace) -> int:
     return 1 if summary.get("failed") else 0
 
 
+def cmd_delete_sheet_row_guarded(args: argparse.Namespace) -> int:
+    from .stages import sheet_row_guard
+    bx, sheets = _make_clients()
+    summary = sheet_row_guard.delete_row_guarded(
+        bx,
+        sheets.service,
+        sheet_id=args.sheet_id,
+        tab_title=args.tab,
+        sheet_gid=args.gid,
+        row_number=args.row_number,
+        deal_id=args.deal_id or "",
+        company_id=args.company_id or "",
+        live=args.live,
+    )
+    print(json.dumps(summary, indent=2, ensure_ascii=False))
+    return 1 if summary.get("error") else 0
+
+
 def cmd_auto_reject_telemarketing(args: argparse.Namespace) -> int:
     from .stages import auto_reject_telemarketing
     bx, _ = _make_clients()
@@ -709,6 +727,19 @@ def main() -> None:
     )
     sp.add_argument("--skip-uf-site-validation", action="store_true", help="Emergency-обход pre-validation UF site")
     sp.set_defaults(func=cmd_sync_company)
+
+    sp = sub.add_parser(
+        "delete-sheet-row-guarded",
+        help="SHEETS/WRITE: удалить строку только после brand/industry parity read-back",
+    )
+    sp.add_argument("--row-number", type=int, required=True, help="1-based номер строки в Google Sheets")
+    sp.add_argument("--deal-id", help="Bitrix deal_id; если пусто, берётся из колонки I")
+    sp.add_argument("--company-id", help="Bitrix company_id; если пусто, берётся из колонки M или сделки")
+    sp.add_argument("--sheet-id", default="13L0gqwkNzrWacYeI5TzkOxZuRuXn5bBCtfxx-uzHH_4")
+    sp.add_argument("--tab", default="Телемаркетинг без реквизитов")
+    sp.add_argument("--gid", type=int, default=1318170868)
+    sp.add_argument("--live", action="store_true", help="Реально удалить строку; без флага только проверка")
+    sp.set_defaults(func=cmd_delete_sheet_row_guarded)
 
     sp = sub.add_parser(
         "auto-reject-telemarketing",

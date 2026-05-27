@@ -31,9 +31,11 @@ from ..config import (
     COMPANY_UF_REGION,
     COMPANY_ORGANIZATION_STATUS_ENUM,
     COMPANY_INDUSTRY_STATUS,
+    COMPANY_INDUSTRY_LEGACY_STATUS,
     DEAL_BRAND_ENUM,
     DEAL_REGION_ENUM_MAP,
     DEAL_INDUSTRY_ENUM,
+    DEAL_INDUSTRY_LEGACY_ENUM,
     DEAL_UF_BRAND_PROJECT,
     DEAL_UF_CITY,
     DEAL_UF_REGION,
@@ -171,11 +173,7 @@ def run_company(
     if site_verification.identity_verified:
         desired["UF_CRM_5DEF838D882A2"] = site_verification.site
 
-    existing_industry = _clean(company.get("INDUSTRY"))
-    if industry_override == "Медицина" or existing_industry == COMPANY_INDUSTRY_STATUS["Медицина"]:
-        brand = UF_BRAND_BELBERRY
-    else:
-        brand = _deal_brand_from_company(enriched_company)
+    brand = _brand_for_company_sync(enriched_company, industry_override or _industry_from_company(enriched_company))
     if brand:
         desired[UF_BRAND_FIELD] = brand
         desired[UF_BRAND_LEGACY_ENUM_FIELD] = (
@@ -807,12 +805,12 @@ def build_deal_fields_from_company(
         out[DEAL_UF_REVENUE_NUMBER] = _number_or_string(revenue)
         out[DEAL_UF_REVENUE_MONEY] = f"{revenue}|RUB"
 
-    brand = _deal_brand_from_company(company)
+    industry = industry_override or _industry_from_company(company)
+    brand = _brand_for_company_sync(company, industry)
     brand_id = DEAL_BRAND_ENUM.get(brand)
     if brand_id:
         out[DEAL_UF_BRAND_PROJECT] = brand_id
 
-    industry = industry_override or _industry_from_company(company)
     industry_id = DEAL_INDUSTRY_ENUM.get(industry, "")
     if industry_id:
         out[DEAL_UF_INDUSTRY] = industry_id
@@ -839,6 +837,35 @@ def build_company_fields_from_company(
     if organization_status_id:
         out[COMPANY_UF_ORGANIZATION_STATUS] = organization_status_id
     return out
+
+
+def brand_industry_parity_report(company: dict[str, Any], deal: dict[str, Any]) -> dict[str, Any]:
+    """Проверить, что бренд и сфера заполнены согласованно в company + deal."""
+    company_brand = _company_brand_label(company)
+    deal_brand = _deal_brand_label(deal)
+    company_industry = _company_industry_label(company)
+    deal_industry = _deal_industry_label(deal)
+    errors: list[str] = []
+    if not company_brand:
+        errors.append("company_brand_missing")
+    if not deal_brand:
+        errors.append("deal_brand_missing")
+    if company_brand and deal_brand and company_brand != deal_brand:
+        errors.append(f"brand_mismatch:{company_brand}!={deal_brand}")
+    if not company_industry:
+        errors.append("company_industry_missing")
+    if not deal_industry:
+        errors.append("deal_industry_missing")
+    if company_industry and deal_industry and company_industry != deal_industry:
+        errors.append(f"industry_mismatch:{company_industry}!={deal_industry}")
+    return {
+        "ok": not errors,
+        "errors": errors,
+        "company_brand": company_brand,
+        "deal_brand": deal_brand,
+        "company_industry": company_industry,
+        "deal_industry": deal_industry,
+    }
 
 
 def _company_region_for_deal(company: dict[str, Any]) -> str:
@@ -908,6 +935,56 @@ def _deal_brand_from_company(company: dict[str, Any]) -> str:
         domain=_clean(company.get("UF_CRM_1737098525088")),
     )
     return UF_BRAND_BELBERRY if is_med else UF_BRAND_ACOOLA
+
+
+def _company_brand_label(company: dict[str, Any]) -> str:
+    text_brand = _clean(company.get(UF_BRAND_FIELD))
+    if text_brand in DEAL_BRAND_ENUM:
+        return text_brand
+    legacy = _clean(company.get(UF_BRAND_LEGACY_ENUM_FIELD))
+    if legacy == UF_BRAND_LEGACY_ENUM_BELBERRY:
+        return UF_BRAND_BELBERRY
+    if legacy == UF_BRAND_LEGACY_ENUM_ACOOLA:
+        return UF_BRAND_ACOOLA
+    return ""
+
+
+def _deal_brand_label(deal: dict[str, Any]) -> str:
+    value = _clean(deal.get(DEAL_UF_BRAND_PROJECT))
+    for label, enum_id in DEAL_BRAND_ENUM.items():
+        if value == enum_id:
+            return label
+    return ""
+
+
+def _company_industry_label(company: dict[str, Any]) -> str:
+    value = _clean(company.get("INDUSTRY"))
+    for label, enum_id in COMPANY_INDUSTRY_STATUS.items():
+        if value == enum_id:
+            return label
+    for label, enum_ids in COMPANY_INDUSTRY_LEGACY_STATUS.items():
+        if value in enum_ids:
+            return label
+    return ""
+
+
+def _deal_industry_label(deal: dict[str, Any]) -> str:
+    value = _clean(deal.get(DEAL_UF_INDUSTRY))
+    for label, enum_id in DEAL_INDUSTRY_ENUM.items():
+        if value == enum_id:
+            return label
+    for label, enum_ids in DEAL_INDUSTRY_LEGACY_ENUM.items():
+        if value in enum_ids:
+            return label
+    return ""
+
+
+def _brand_for_company_sync(company: dict[str, Any], industry: str) -> str:
+    if industry == "Медицина":
+        return UF_BRAND_BELBERRY
+    if industry in {"Медицинские товары и оборудование", "Фармацевтика", "Оборудование"}:
+        return UF_BRAND_ACOOLA
+    return _deal_brand_from_company(company)
 
 
 def _resolve_deals(
@@ -1010,6 +1087,14 @@ def _company_fields(
         organization_status=organization_status,
         industry_override=industry_override,
     )
+    brand = _brand_for_company_sync(company, industry_override or _industry_from_company(company))
+    if brand:
+        desired[UF_BRAND_FIELD] = brand
+        desired[UF_BRAND_LEGACY_ENUM_FIELD] = (
+            UF_BRAND_LEGACY_ENUM_BELBERRY
+            if brand == UF_BRAND_BELBERRY
+            else UF_BRAND_LEGACY_ENUM_ACOOLA
+        )
     if not desired:
         return {}, {"company": "no_fields"}
     fields, skipped = _filter_existing_fields(company, desired, overwrite=True)
@@ -1057,6 +1142,27 @@ def _industry_from_text(text: str, *, fallback_other: bool = False) -> str:
     text = _clean(text).lower()
     if any(s in text for s in ("47.", "рознич", "магазин", "интернет-магаз", "e-commerce", "маркетплейс")):
         return "E-commerce"
+    if any(
+        s in text
+        for s in (
+            "медицинские товар",
+            "медицинское оборуд",
+            "медоборуд",
+            "стоматологическое оборуд",
+            "стоматологические материал",
+            "зуботехническ",
+            "расходные материал",
+            "медиздел",
+            "изделия медицинского",
+            "ортопедическ",
+            "реабилитацион",
+        )
+    ):
+        return "Медицинские товары и оборудование"
+    if any(s in text for s in ("фармацевт", "фармац", "лекарствен", "аптеч")):
+        return "Фармацевтика"
+    if any(s in text for s in ("оборудован", "инструмент")):
+        return "Оборудование"
     if any(s in text for s in ("86.", "клиник", "медицин", "медцентр", "медико", "стомат", "дент", "доктор", "doctor", "врач")):
         return "Медицина"
     if any(s in text for s in ("туризм", "турист", "турагент", "туроператор", "путешеств", "отдых")):
