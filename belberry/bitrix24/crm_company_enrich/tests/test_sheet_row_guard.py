@@ -71,6 +71,23 @@ def test_brand_industry_parity_report_accepts_company_and_deal_match():
     assert report["deal_industry"] == "Медицинские товары и оборудование"
 
 
+def test_brand_industry_parity_report_accepts_extended_company_industries():
+    report = sync_deals.brand_industry_parity_report(
+        {
+            "UF_CRM_684FE59BA3C8C": "2442",
+            "INDUSTRY": "UC_RETAIL_TRADE",
+        },
+        {
+            "UF_CRM_1721661506": "1820",
+            "UF_CRM_6179712C57A4D": "9524",
+        },
+    )
+
+    assert report["ok"] is True
+    assert report["company_industry"] == "Розничная торговля"
+    assert report["deal_industry"] == "Розничная торговля"
+
+
 def test_brand_industry_parity_report_rejects_missing_company_brand():
     report = sync_deals.brand_industry_parity_report(
         {"INDUSTRY": "UC_0M5893"},
