@@ -185,3 +185,166 @@ Tilda не является «плохой» платформой. Она хор
 
 **Вывод:** на Tilda можно подкрутить title, H1, alt, ссылки, sitemap и тексты. Но это косметика вокруг платформенного ограничения. Долгосрочно нужен сайт, где SEO-логика живёт в шаблонах, а не в ручной сборке страниц.
 
+\newpage
+
+## 4. Crawlability, indexability и карта индексации
+
+### 4.1. robots.txt
+
+Файл `https://panaceadoc.ru/robots.txt` доступен и содержит ссылку на sitemap. Базовых блокировок ключевых коммерческих URL не найдено.
+
+| Параметр | Статус | Комментарий |
+|---|---|---|
+| `User-Agent: *` | OK | Общие правила для всех роботов |
+| Закрыты служебные Tilda URL `/tilda/form*`, `/tilda/rec*`, `/tilda/cart*`, `/members/*` | OK | Это нормальная гигиена |
+| Закрыты отдельные `page*.html` | Partial | Закрыты не все мусорные `page*.html`, часть таких страниц найдена в sitemap/Google |
+| Sitemap | OK | Указаны `sitemap.xml` и `sitemap-feeds.xml` |
+| `sitemap-feeds.xml` | Confirmed issue | Fetch вернул `Feed not found`; ссылка в robots ведёт на несуществующую карту |
+
+**Рекомендация:** убрать из robots ссылку на несуществующий `sitemap-feeds.xml` либо восстановить файл, если он нужен. Расширить правила закрытия/удаления для всех старых служебных страниц не через robots, а через sitemap + canonical/noindex/301.
+
+Acceptance criteria:
+
+- `robots.txt` содержит только существующие sitemap;
+- важные коммерческие и блоговые URL не закрыты;
+- старые страницы не просто закрыты от сканирования, а корректно удалены из sitemap и переадресованы/закрыты `noindex`.
+
+### 4.2. sitemap.xml: что внутри
+
+В sitemap найдено 43 URL. Среди них есть ключевые страницы, блог и мусорные старые страницы.
+
+| Тип URL | Примеры | Оценка |
+|---|---|---|
+| Главная и коммерческие страницы | `/`, `/sppvr`, `/panaceaofai`, `/directory`, `/analytics`, `/panacea-dms-module` | Должны оставаться в sitemap |
+| Информационный блог | `/blog`, `/blog/clinicalexpertwork`, статьи про КЭР, МИС, клинреки, ДМС, выручку | Должны оставаться, но нужен кластерный порядок |
+| Контакты/о компании/сертификаты/отзывы | `/contacts`, `/aboutthecompany`, `/certificates`, `/reviews` | Допустимо, если страницы актуальны |
+| Старые страницы | `/oldsite`, `/aboutthecompany-old`, `/contacts-old`, `/blog-old`, `/panaceaofai-old`, `/directory-old`, `/certificates-old`, `/reviews-old` | Confirmed issue: убрать из sitemap |
+| Служебные Tilda URL | `/page30899540.html`, `/page120072266.html` | Confirmed issue: убрать из sitemap; решить 301/noindex |
+
+**Confirmed issue:** sitemap содержит не только canonical 200 URL, но и старые/служебные страницы. Это противоречит базовому требованию: sitemap должен помогать поисковику находить ценные канонические страницы, а не подсовывать архивы Tilda.
+
+### 4.3. Сопоставление sitemap → нужные коммерческие страницы → индекс
+
+| URL | Есть в sitemap | Нужен в индексе | Статус Google/ручная проверка | Решение |
+|---|---|---|---|---|
+| `/` | Да | Да | Найден в Google `site:` | Оставить |
+| `/sppvr` | Да | Да | В поиске найден редиректный вариант `www.panaceadoc.ru/panaceadoc` → `/sppvr` | Оставить canonical, проверить старые внешние ссылки и редиректы |
+| `/panaceaofai` | Да | Да | Найден в Google | Оставить, исправить H1/schema |
+| `/directory` | Да | Да | Needs data: нужен GSC/Яндекс.Вебмастер по индексированию | Оставить |
+| `/analytics` | Да | Да | Needs data | Оставить |
+| `/panacea-dms-module` | Да | Да | Needs data | Оставить |
+| `/blog` | Да | Да | Needs data | Оставить |
+| `/blog/clinicalexpertwork` | Да | Да | В Google также найден старый путь `/clinicalexpertwork`, который редиректит на canonical | Оставить canonical; исправить внутренние ссылки |
+| `/contacts-old` | Да | Нет | Найден в Google | Удалить из sitemap, поставить 301 на `/contacts` или `noindex` до удаления |
+| `/page30899540.html` | Да | Нет | Найден в Google | Удалить из sitemap; canonical сейчас на главную, но лучше 301 или 410 |
+| `/page39366392.html` | Нет/закрыт robots | Нет | Найден в Google как Alias | Проверить статус и удалить из индекса |
+
+Числа из исходного аудита: Google индексирует 41 страницу, Яндекс — 52. Ручная проверка Google подтвердила, что в индексе есть не только полезные страницы, но и мусорные старые/служебные URL. Точные списки 41/52 нужны из Google Search Console и Яндекс.Вебмастера.
+
+### 4.4. Что убрать из sitemap и индекса
+
+| URL/маска | Статус | Действие | Приоритет |
+|---|---|---|---|
+| `/*-old` | Confirmed issue | Удалить из sitemap. Если есть актуальный аналог — 301 на него; если нет — `noindex` и затем 410 после выпадения | P1 |
+| `/oldsite` | Confirmed issue | Удалить из sitemap, закрыть от индексации, решить 301/410 | P1 |
+| `/page*.html` | Confirmed issue | Инвентаризировать: нужные попапы не должны быть индексируемыми страницами; публичные старые страницы — 301/410 | P1 |
+| `/clinicalexpertwork` и другие статьи без `/blog/` | Confirmed issue | Оставить 301 на `/blog/...`, но исправить все внутренние ссылки сразу на canonical | P2 |
+| `sitemap-feeds.xml` | Confirmed issue | Убрать из robots или восстановить | P2 |
+
+### 4.5. Дубли и редиректы
+
+| Проверка | Результат | Оценка |
+|---|---|---|
+| Ключевые 8 URL | Все отдают 200 без редиректа | OK |
+| `/clinicalexpertwork` | 301/302 на `/blog/clinicalexpertwork` | OK как миграция, плохо как внутренняя ссылка |
+| `www.panaceadoc.ru/panaceadoc` | редирект на `/sppvr` | OK как наследие, проверить внешние ссылки |
+| `/page30899540.html` | 200, canonical на главную | Likely issue: лучше 301/410, а не индексируемый 200 |
+| `/contacts-old` | 200, canonical на себя | Confirmed issue: старая страница может конкурировать с `/contacts` |
+
+### 4.6. Orphan pages и внутренняя доступность
+
+В выборке 8 ключевых страниц:
+
+| URL | Входящие ссылки из выборки | Комментарий |
+|---|---:|---|
+| `/` | 37 | Сильная навигационная ссылка |
+| `/sppvr` | 15 | Нормально |
+| `/panaceaofai` | 22 | Нормально |
+| `/directory` | 22 | Нормально |
+| `/analytics` | 22 | Нормально |
+| `/panacea-dms-module` | 8 | Слабее остальных продуктов |
+| `/blog` | 23 | Нормально |
+| `/blog/clinicalexpertwork` | 0 | Проблема в выборке: canonical статьи не связан с продуктовыми страницами |
+
+**Рекомендация:** построить не только меню, но и контекстную перелинковку:
+
+- статьи про КЭР → `/panaceaofai` и `/sppvr`;
+- статьи про экономику клиники и средний чек → `/analytics` и `/panacea-dms-module`;
+- статьи про клинические рекомендации → `/directory` и `/sppvr`;
+- продуктовые страницы → 2–3 релевантные статьи как доказательная база.
+
+\newpage
+
+## 5. Core Web Vitals и скорость
+
+### 5.1. Что удалось измерить
+
+PageSpeed Insights API 27.05.2026 вернул `HTTP 429: Too Many Requests` на batch-запросы по ключевым URL. Поэтому LCP/CLS/INP не подставлены числом: это было бы выдумкой. Ниже — подтверждённые технические факты по `curl` и HTML.
+
+| URL | HTTP | Редиректы | TTFB, сек | Total, сек | Размер HTML | Оценка |
+|---|---:|---:|---:|---:|---:|---|
+| `/` | 200 | 0 | 0,298 | 1,045 | 2,08 МБ | Слишком тяжёлый HTML для главной |
+| `/sppvr` | 200 | 0 | 0,980 | 1,701 | 1,24 МБ | TTFB заметно выше остальных |
+| `/panaceaofai` | 200 | 0 | 0,373 | 0,984 | 1,25 МБ | Тяжёлая страница |
+| `/directory` | 200 | 0 | 0,318 | 0,856 | 0,58 МБ | Лучше, но всё ещё тяжело |
+| `/analytics` | 200 | 0 | 0,310 | 0,819 | 0,56 МБ | Лучше |
+| `/panacea-dms-module` | 200 | 0 | 0,313 | 0,761 | 0,56 МБ | Лучше |
+| `/blog` | 200 | 0 | 0,376 | 0,835 | 0,90 МБ | Тяжёлый список статей |
+| `/blog/clinicalexpertwork` | 200 | 0 | 0,312 | 0,773 | 0,56 МБ | Приемлемо по отдаче, CWV требует замера |
+
+### 5.2. Что почти наверняка влияет на CWV
+
+| Фактор | Статус | Доказательство | Влияние | Что лечится на Tilda |
+|---|---|---|---|---|
+| Большой HTML | Confirmed issue | Главная 2,08 МБ; продуктовые страницы до 1,25 МБ | Увеличивает время разбора HTML и память на мобильных | Частично: удалить лишние блоки/скрипты, упростить Zero Block |
+| Много Tilda-скриптов | Confirmed issue | В HTML главной строка `tilda` встречается 350 раз, на продуктах ~190 | Render-blocking/unused JS вероятны | Ограниченно: платформа сама добавляет часть ресурсов |
+| Изображения без alt и без явной SEO-гигиены | Confirmed issue | 100% изображений в выборке без alt | SEO + доступность; форматы/srcset требуют отдельного аудита | Частично |
+| LCP element не зафиксирован | Needs data | Нужен Lighthouse/CrUX | Без него нельзя точно сказать, что грузится первым | Да, если LCP — изображение/первый экран; ограниченно, если скрипты Tilda |
+| INP не измерен | Needs data | PSI API недоступен из-за 429 | Риск интерактивности на тяжёлых Tilda-страницах | Ограниченно |
+| CLS не измерен | Needs data | PSI API недоступен из-за 429 | Риск сдвигов из-за изображений/виджетов/попапов | Частично |
+
+### 5.3. Команда воспроизведения скорости
+
+Для ручного запуска без выдумывания метрик:
+
+```bash
+for u in https://panaceadoc.ru/ https://panaceadoc.ru/sppvr https://panaceadoc.ru/panaceaofai https://panaceadoc.ru/directory https://panaceadoc.ru/analytics https://panaceadoc.ru/panacea-dms-module https://panaceadoc.ru/blog https://panaceadoc.ru/blog/clinicalexpertwork; do
+  curl -L -sS -o /dev/null -A 'SEOAuditBot/1.0' \
+    -w "$u code=%{http_code} redirects=%{num_redirects} ttfb=%{time_starttransfer} total=%{time_total}\n" "$u"
+done
+```
+
+Для Lighthouse:
+
+```bash
+npx lighthouse https://panaceadoc.ru/ --preset=desktop --output=html --output-path=lh-home-desktop.html
+npx lighthouse https://panaceadoc.ru/ --form-factor=mobile --screenEmulation.mobile --output=html --output-path=lh-home-mobile.html
+```
+
+Для PageSpeed Insights:
+
+```bash
+curl "https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=https%3A%2F%2Fpanaceadoc.ru%2F&strategy=mobile&category=performance"
+curl "https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=https%3A%2F%2Fpanaceadoc.ru%2Fsppvr&strategy=desktop&category=performance"
+```
+
+### 5.4. Рекомендации по скорости
+
+| ID | Приоритет | Тип | Рекомендация | Acceptance criteria | Владелец |
+|---|---|---|---|---|---|
+| CWV-01 | P1 | Needs data → Dev task | Прогнать Lighthouse/PSI по 8 URL mobile+desktop и зафиксировать LCP/INP/CLS | Есть таблица LCP/INP/CLS/Performance score по каждому URL; отчёты сохранены | SEO / Dev |
+| CWV-02 | P1 | Confirmed issue | Уменьшить HTML и количество тяжёлых блоков на главной и продуктовых страницах | HTML главной < 1,2 МБ, продуктовых < 800 КБ без потери ключевого контента | Dev / Content |
+| CWV-03 | P1 | Likely issue | Оптимизировать первый экран: preload главного изображения/шрифта, убрать лишние анимации | LCP mobile проходит порог 2,5 сек в PSI/Lighthouse | Dev |
+| CWV-04 | P2 | Confirmed issue | Проверить размеры, форматы, lazy loading изображений | У всех изображений есть width/height, современные форматы где возможно, lazy для ниже первого экрана | Dev |
+| CWV-05 | P2 | Opportunity | Сократить сторонние скрипты до измеряемо нужных | Список third-party scripts документирован; лишние отключены; нет двойного трекинга | Analytics / Dev |
+
