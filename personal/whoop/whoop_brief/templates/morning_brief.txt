@@ -1,0 +1,14 @@
+WHOOP · $date_header
+
+$emoji $headline
+$top_flag
+
+ПЛАН: $training_duration ($modality), пульс $hr_zone, $steps_target
+СОН:  $sleep_action (вчера $sleep_last при норме $sleep_need)
+
+Метрики vs baseline 30д:$baseline_note
+$metrics
+
+Тренд недели (recovery):
+$trend_recovery
+Среднее 7д: $trend_summary
