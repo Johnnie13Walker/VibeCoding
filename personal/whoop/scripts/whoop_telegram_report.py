@@ -1809,33 +1809,29 @@ def run_send_report(dry_run: bool = False, force: bool = False) -> int:
         sleep_records=sleep_records,
         cycle_records=cycle_records,
     )
-    pilot_mode = env_bool("LARISA_WHOOP_PILOT", False)
-    report = old_report
+    try:
+        report = build_new_report_text(
+            tz_name=tz_name,
+            report_date=target_day,
+            recovery=recovery,
+            sleep=sleep,
+            cycle=cycle,
+            profile=profile,
+            header_note=header_note,
+            recovery_records=recovery_records,
+            sleep_records=sleep_records,
+            cycle_records=cycle_records,
+        )
+    except Exception as exc:
+        print(f"NEW renderer fail, fallback to OLD: {exc}", file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
+        report = old_report
     rec = extract_recovery_metrics(recovery or {})
     slp = extract_sleep_metrics(sleep or {})
     day_strain = extract_strain(cycle or {})
 
     if dry_run:
         print(report)
-        if pilot_mode:
-            try:
-                new_report = build_new_report_text(
-                    tz_name=tz_name,
-                    report_date=target_day,
-                    recovery=recovery,
-                    sleep=sleep,
-                    cycle=cycle,
-                    profile=profile,
-                    header_note=header_note,
-                    recovery_records=recovery_records,
-                    sleep_records=sleep_records,
-                    cycle_records=cycle_records,
-                )
-                print("\n\n--- PILOT: новый WHOOP brief ---\n")
-                print(new_report)
-            except Exception as exc:
-                print(f"PILOT: новый brief не построился — {exc}", file=sys.stderr)
-                traceback.print_exc(file=sys.stderr)
         return 0
 
     bot_token = env("TELEGRAM_BOT_TOKEN", required=True)
@@ -1852,27 +1848,6 @@ def run_send_report(dry_run: bool = False, force: bool = False) -> int:
         except Exception as exc:
             print(f"Предупреждение: не удалось отправить карточку: {exc}", file=sys.stderr)
     telegram_send(bot_token, chat_id, report)
-    if pilot_mode:
-        try:
-            new_report = build_new_report_text(
-                tz_name=tz_name,
-                report_date=target_day,
-                recovery=recovery,
-                sleep=sleep,
-                cycle=cycle,
-                profile=profile,
-                header_note=header_note,
-                recovery_records=recovery_records,
-                sleep_records=sleep_records,
-                cycle_records=cycle_records,
-            )
-            pilot_delay = max(0, to_int(env("LARISA_WHOOP_PILOT_DELAY_SECONDS", "30")) or 0)
-            if pilot_delay:
-                time.sleep(pilot_delay)
-            telegram_send(bot_token, chat_id, "🔬 Новый WHOOP brief (пилот, на сверку):\n\n" + new_report)
-        except Exception as exc:
-            print(f"PILOT: новый brief не построился — {exc}", file=sys.stderr)
-            traceback.print_exc(file=sys.stderr)
     fetched_history = _daily_history_from_records(target_day, tz, recovery_records, sleep_records, cycle_records)
     for item in fetched_history:
         brief_update_daily_metrics(state, item)

@@ -46,7 +46,8 @@ def test_env_bool_accepts_russian_yes(monkeypatch):
     assert report.env_bool("LARISA_WHOOP_PILOT") is True
 
 
-def test_pilot_does_not_break_old_report_when_new_renderer_raises(monkeypatch, tmp_path, capsys):
+def test_new_renderer_failure_falls_back_to_old(monkeypatch, tmp_path, capsys):
+    """Если новый renderer падает, dry-run печатает старый формат и возвращает 0."""
     report = _load_report_module()
 
     class FakeWhoopClient:
@@ -60,7 +61,6 @@ def test_pilot_does_not_break_old_report_when_new_renderer_raises(monkeypatch, t
     monkeypatch.setenv("WHOOP_CLIENT_ID", "client")
     monkeypatch.setenv("WHOOP_CLIENT_SECRET", "secret")
     monkeypatch.setenv("WHOOP_REFRESH_TOKEN", "refresh")
-    monkeypatch.setenv("LARISA_WHOOP_PILOT", "true")
     monkeypatch.setenv("WHOOP_REPORT_RETRY_ATTEMPTS", "0")
     monkeypatch.setattr(report, "WhoopClient", FakeWhoopClient)
     monkeypatch.setattr(report, "get_json_logged", lambda *args, **kwargs: [])
@@ -70,6 +70,6 @@ def test_pilot_does_not_break_old_report_when_new_renderer_raises(monkeypatch, t
 
     captured = capsys.readouterr()
     assert rc == 0
-    assert "<b>WHOOP: отчёт за" in captured.out
-    assert "PILOT: новый brief не построился" in captured.err
+    assert "<b>WHOOP: отчёт за" in captured.out  # старый формат в fallback
+    assert "NEW renderer fail, fallback to OLD" in captured.err
     assert "renderer boom" in captured.err
