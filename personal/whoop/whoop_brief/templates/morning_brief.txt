@@ -1,25 +1,14 @@
-<b>WHOOP · $date_header</b>
-$header_note
-<b>$emoji $headline</b>
-Единственный главный флаг: $top_flag
+WHOOP · $date_header
 
-────────────────────────
-<b>ПЛАН НА СЕГОДНЯ</b>
-Тренировка: $training_duration, зона $hr_zone
-            ($modality)
-Шаги: $steps_target
-Сон: $sleep_action (последний сон $sleep_last при потребности $sleep_need)
+$emoji $headline
+$top_flag
 
-────────────────────────
-<b>ПОЧЕМУ $headline</b>$baseline_note
-$why
+ПЛАН: $training_duration ($modality), пульс $hr_zone, $steps_target
+СОН:  $sleep_action (вчера $sleep_last при норме $sleep_need)
 
-────────────────────────
-<b>ФЛАГИ</b>
-$flags
+Метрики vs baseline 30д:$baseline_note
+$metrics
 
-────────────────────────
-<b>ТРЕНД 7Д (Пн → Вс, сегодня = $today_weekday)</b>
-Восстан.  $trend_recovery
-$trend_summary
-
+Тренд недели (recovery):
+$trend_recovery
+Среднее 7д: $trend_summary

@@ -34,19 +34,17 @@ def render_morning_brief(
     verdict: Verdict,
     history: Iterable[DailyMetrics],
     *,
-    header_note: Optional[str] = None,
+    header_note: Optional[str] = None,  # игнорируется в новом формате
 ) -> str:
     trend = trend_summary(list(history), report_date)
-    flags = "\n".join(f"{flag.emoji} {flag.text}" for flag in verdict.flags) or "✅ Активных флагов нет."
-    baseline_note = " <i>(baseline неполный)</i>" if baseline.incomplete else ""
+    baseline_note = " (baseline неполный)" if baseline.incomplete else ""
     sleep_need = format_minutes(today.sleep_need_minutes)
     sleep_last = format_minutes(today.sleep_minutes)
-    why = _why_block(today, baseline)
+    metrics = _metrics_block(today, baseline, verdict)
 
     template = _load_template("morning_brief.txt")
     return template.safe_substitute(
         date_header=_date_header(report_date),
-        header_note=f"<i>{header_note}</i>\n" if header_note else "",
         emoji=verdict.emoji,
         headline=verdict.headline,
         top_flag=verdict.top_flag,
@@ -58,9 +56,7 @@ def render_morning_brief(
         sleep_last=sleep_last,
         sleep_need=sleep_need,
         baseline_note=baseline_note,
-        why=why,
-        flags=flags,
-        today_weekday=WEEKDAY_SHORT[report_date.weekday()],
+        metrics=metrics,
         trend_recovery=trend["recovery"],
         trend_summary=trend["summary"],
     ).strip()
@@ -112,32 +108,122 @@ def trend_summary(history: list[DailyMetrics], report_date: dt.date) -> dict[str
     for offset in range(7):
         day = start + dt.timedelta(days=offset)
         item = by_date.get(day.isoformat())
-        rec_parts.append(f"{WEEKDAY_SHORT[day.weekday()]}{int(item.recovery):02d}" if item and item.recovery is not None else f"{WEEKDAY_SHORT[day.weekday()]}·")
+        weekday = WEEKDAY_SHORT[day.weekday()]
+        if item and item.recovery is not None:
+            rec_parts.append(f"{weekday} {int(item.recovery)}")
+        else:
+            rec_parts.append(f"{weekday} —")
         hrv_vals.append(item.hrv_ms if item else None)
         rhr_vals.append(item.rhr_bpm if item else None)
         sleep_vals.append(item.sleep_minutes if item else None)
         strain_vals.append(item.strain if item else None)
+
+    hrv_avg = _avg(hrv_vals)
+    rhr_avg = _avg(rhr_vals)
+    sleep_avg = _avg(sleep_vals)
+    strain_avg = _avg(strain_vals)
+    sleep_str = format_minutes(int(round(sleep_avg))) if sleep_avg is not None else "н/д"
+    strain_str = f"{strain_avg:.1f}" if strain_avg is not None else "н/д"
+    summary = (
+        f"HRV {_number(hrv_avg, 'ms')} · "
+        f"RHR {_number(rhr_avg)} · "
+        f"Сон {sleep_str} · "
+        f"Strain {strain_str}"
+    )
     return {
-        "recovery": " ".join(rec_parts),
-        "summary": (
-            f"HRV {_number(_avg(hrv_vals), 'ms')} ср · "
-            f"RHR {_number(_avg(rhr_vals))} ср · "
-            f"Сон {format_minutes(int(round(_avg(sleep_vals)))) if _avg(sleep_vals) is not None else 'н/д'} ср · "
-            f"Strain {(_avg(strain_vals)):.1f} ср" if _avg(strain_vals) is not None else
-            f"HRV {_number(_avg(hrv_vals), 'ms')} ср · RHR {_number(_avg(rhr_vals))} ср · Сон {format_minutes(int(round(_avg(sleep_vals)))) if _avg(sleep_vals) is not None else 'н/д'} ср · Strain н/д"
-        ),
+        "recovery": " · ".join(rec_parts),
+        "summary": summary,
     }
 
 
-def _why_block(today: DailyMetrics, baseline: Baseline30d) -> str:
-    rows = [
-        f"Восстановление  {_percent(today.recovery)}",
-        f"HRV             {_number(today.hrv_ms, 'ms')}  {_delta(today.hrv_ms, baseline.hrv_ms, 'ms')}",
-        f"RHR             {_number(today.rhr_bpm)}  {_delta(today.rhr_bpm, baseline.rhr_bpm, '', lower_is_better=True)}",
-        f"Сон-эффективн.  {_percent(today.sleep_efficiency_pct)}",
-        f"Baseline 30д: recovery {_percent(baseline.recovery)}, сон {format_minutes(baseline.sleep_minutes)}",
-    ]
-    return "\n".join(rows)
+def _metrics_block(today: DailyMetrics, baseline: Baseline30d, verdict: Verdict) -> str:
+    top_flag_code = verdict.flags[0].code if verdict.flags else None
+    other_flag_codes = {flag.code for flag in verdict.flags[1:]} if len(verdict.flags) > 1 else set()
+    lines: list[str] = []
+
+    _ = other_flag_codes  # зарезервировано для будущей фильтрации
+    rec_line = _metric_line_recovery(today, baseline, suppress=top_flag_code == "recovery_red")
+    if rec_line:
+        lines.append(rec_line)
+
+    hrv_line = _metric_line(
+        name="HRV",
+        value=today.hrv_ms,
+        baseline_value=baseline.hrv_ms,
+        unit="ms",
+        epsilon=2.0,
+        higher_is_better=True,
+        suppress=top_flag_code == "hrv_low",
+    )
+    if hrv_line:
+        lines.append(hrv_line)
+
+    rhr_line = _metric_line(
+        name="RHR",
+        value=today.rhr_bpm,
+        baseline_value=baseline.rhr_bpm,
+        unit="",
+        epsilon=2.0,
+        higher_is_better=False,
+        suppress=top_flag_code == "rhr_high",
+    )
+    if rhr_line:
+        lines.append(rhr_line)
+
+    if today.sleep_efficiency_pct is not None and top_flag_code != "sleep_low":
+        lines.append(f"✅ Сон-эффективность {_percent(today.sleep_efficiency_pct)}")
+
+    for flag in verdict.flags[1:]:
+        if flag.code in {"recovery_red", "hrv_low", "rhr_high", "sleep_low"}:
+            continue
+        lines.append(f"{flag.emoji} {flag.text}")
+
+    if not lines:
+        lines.append("✅ Все метрики в норме")
+    return "\n".join(lines)
+
+
+def _metric_line_recovery(today: DailyMetrics, baseline: Baseline30d, *, suppress: bool) -> Optional[str]:
+    if suppress or today.recovery is None:
+        return None
+    delta_baseline = _format_delta(today.recovery, baseline.recovery, unit=" п.п.", epsilon=3.0)
+    if delta_baseline is None:
+        return f"✅ Восстановление {_percent(today.recovery)} — как baseline"
+    diff = today.recovery - (baseline.recovery or 0)
+    good = diff > 0
+    marker = "✅" if good else "⚠️"
+    return f"{marker} Восстановление {_percent(today.recovery)} ({delta_baseline})"
+
+
+def _metric_line(
+    *,
+    name: str,
+    value: Optional[float],
+    baseline_value: Optional[float],
+    unit: str,
+    epsilon: float,
+    higher_is_better: bool,
+    suppress: bool,
+) -> Optional[str]:
+    if suppress or value is None:
+        return None
+    if baseline_value is None:
+        return f"✅ {name} {_number(value, unit)}"
+    delta = _format_delta(value, baseline_value, unit=unit, epsilon=epsilon)
+    if delta is None:
+        return f"✅ {name} {_number(value, unit)} — как baseline"
+    diff = value - baseline_value
+    good = (diff > 0) if higher_is_better else (diff < 0)
+    marker = "✅" if good else "⚠️"
+    return f"{marker} {name} {_number(value, unit)} ({delta} к baseline {_number(baseline_value, unit)})"
+
+
+def _format_delta(value: float, baseline: float, *, unit: str, epsilon: float) -> Optional[str]:
+    diff = value - baseline
+    if abs(diff) <= epsilon:
+        return None
+    sign = "+" if diff > 0 else "−"
+    return f"{sign}{abs(diff):.0f}{unit}"
 
 
 def _date_header(value: dt.date) -> str:
@@ -165,16 +251,6 @@ def _percent(value: Optional[float]) -> str:
     if value is None:
         return "н/д"
     return f"{value:.0f}%"
-
-
-def _delta(value: Optional[float], baseline: Optional[float], unit: str = "", *, lower_is_better: bool = False) -> str:
-    if value is None or baseline is None:
-        return "н/д"
-    diff = value - baseline
-    improved = diff < 0 if lower_is_better else diff > 0
-    arrow = "▲" if improved else ("▬" if abs(diff) < 0.5 else "▼")
-    sign = "+" if diff > 0 else ""
-    return f"{arrow} {sign}{diff:.0f}{unit} к baseline {baseline:.0f}{unit}"
 
 
 def _spark(values: Iterable[Optional[float]]) -> str:

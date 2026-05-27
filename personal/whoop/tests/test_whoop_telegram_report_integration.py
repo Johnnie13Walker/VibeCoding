@@ -30,10 +30,13 @@ def test_build_new_report_text_uses_template_renderer(monkeypatch, tmp_path):
         cycle_records=[],
     )
 
-    assert "<b>WHOOP · 26 мая · вт</b>" in text
-    assert "ПЛАН НА СЕГОДНЯ" in text
+    assert "WHOOP · 26 мая · вт" in text
+    assert "ПЛАН:" in text
+    assert "Метрики vs baseline 30д:" in text
+    assert "<b>" not in text
     assert "Профиль" not in text
     assert "План Б" not in text
+    assert "____" not in text
 
 
 def test_env_bool_accepts_russian_yes(monkeypatch):

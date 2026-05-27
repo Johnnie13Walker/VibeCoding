@@ -46,15 +46,16 @@ def build_flags(today: DailyMetrics, history: Iterable[DailyMetrics], baseline: 
     if today.recovery is not None and today.recovery < 34:
         flags.append(Flag("recovery_red", "critical", "🔴", f"Recovery {today.recovery:.0f}% — критически низкое восстановление."))
 
-    spo2_streak = _streak_days(history, today.date, lambda item: item.spo2_pct is not None and item.spo2_pct < 94)
-    if today.spo2_pct is not None and today.spo2_pct < 94:
+    spo2_streak = _streak_days(history, today.date, lambda item: item.spo2_pct is not None and item.spo2_pct < 94.0)
+    if today.spo2_pct is not None and today.spo2_pct < 94.0:
+        spo2_text = _format_spo2(today.spo2_pct)
         if spo2_streak >= SPO2_DOCTOR_HINT_DAYS:
             flags.append(
                 Flag(
                     "spo2_low",
                     "critical",
                     "🔴",
-                    f"SpO₂ {today.spo2_pct:.0f}% — {spo2_streak}-й день подряд <94%. Обсуди с терапевтом, возможен вопрос сна/апноэ.",
+                    f"SpO₂ {spo2_text} — {spo2_streak}-й день <94%, обсуди с терапевтом (возможен вопрос апноэ)",
                     streak_days=spo2_streak,
                     doctor_hint=True,
                 )
@@ -65,12 +66,13 @@ def build_flags(today: DailyMetrics, history: Iterable[DailyMetrics], baseline: 
                     "spo2_low",
                     "orange",
                     "🟠",
-                    f"SpO₂ {today.spo2_pct:.0f}% — {spo2_streak}-й день подряд <94%. Проверь нос/позу и самочувствие.",
+                    f"SpO₂ {spo2_text} — {spo2_streak}-й день <94%, проверь нос/позу",
                     streak_days=spo2_streak,
                 )
             )
         else:
-            flags.append(Flag("spo2_low", "yellow", "🟡", f"SpO₂ {today.spo2_pct:.0f}% — ниже 94%, пока наблюдаем.", streak_days=spo2_streak))
+            day_word = "первый" if spo2_streak <= 1 else f"{spo2_streak}-й"
+            flags.append(Flag("spo2_low", "yellow", "🟡", f"SpO₂ {spo2_text} — {day_word} день <94%, наблюдаем", streak_days=spo2_streak))
 
     sleep_ratio = _sleep_ratio(today)
     sleep_streak = _streak_days(history, today.date, lambda item: (_sleep_ratio(item) or 1.0) < 0.77)
@@ -130,7 +132,9 @@ def format_minutes(value: Optional[int]) -> str:
         return "н/д"
     hours = value // 60
     minutes = value % 60
-    return f"{hours}ч {minutes:02d}м"
+    if minutes == 0:
+        return f"{hours}ч"
+    return f"{hours}ч{minutes:02d}"
 
 
 def _streak_days(history: Iterable[DailyMetrics], report_date: str, predicate) -> int:
@@ -143,6 +147,13 @@ def _streak_days(history: Iterable[DailyMetrics], report_date: str, predicate) -
             return days
         days += 1
         cursor -= dt.timedelta(days=1)
+
+
+def _format_spo2(value: float) -> str:
+    rounded = round(value, 1)
+    if rounded == int(rounded):
+        return f"{int(rounded)}%"
+    return f"{rounded:.1f}%"
 
 
 def _sleep_ratio(item: DailyMetrics) -> Optional[float]:
