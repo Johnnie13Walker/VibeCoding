@@ -37,10 +37,14 @@ def test_render_morning_brief_snapshot():
     assert "ПЛАН: 40-50 мин" in text
     assert "Метрики vs baseline 30д:" in text
     assert "Тренд недели (recovery):" in text
-    assert "Ср 72 · Чт 70 · Пт 69 · Сб 66 · Вс 64 · Пн 68 · Вт 78" in text
+    # bold для сегодняшнего значения в тренде (вт 78):
+    assert "Вт <b>78</b>" in text
+    # historic дни без bold:
+    assert "Ср 72 · Чт 70 · Пт 69 · Сб 66 · Вс 64 · Пн 68" in text
     assert "Среднее 7д:" in text
+    # bold для сегодняшних значений в блоке метрик:
+    assert "<b>78%</b>" in text  # recovery
     # выпиленные элементы старого формата:
-    assert "<b>" not in text
     assert "____" not in text
     assert "ПОЧЕМУ" not in text
     assert "ФЛАГИ" not in text
@@ -84,8 +88,8 @@ def test_zero_delta_renders_as_baseline_phrase():
 
     text = render_morning_brief(dt.date(2026, 5, 26), today, baseline, verdict, [today])
 
-    assert "HRV 57ms — как baseline" in text
-    assert "RHR 64 — как baseline" in text
+    assert "HRV <b>57ms</b> — как baseline" in text
+    assert "RHR <b>64</b> — как baseline" in text
     # никаких "+0ms" / "▬ +0":
     assert "+0ms" not in text
     assert "▬" not in text

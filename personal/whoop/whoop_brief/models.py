@@ -46,6 +46,7 @@ class Flag:
     text: str
     streak_days: int = 0
     doctor_hint: bool = False
+    value: Optional[str] = None  # подстрока в text для bold-выделения в renderer
 
 
 @dataclass(frozen=True)

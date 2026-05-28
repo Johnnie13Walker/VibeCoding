@@ -1,12 +1,28 @@
 from __future__ import annotations
 
 import datetime as dt
+from html import escape as _esc
 from pathlib import Path
 from string import Template
 from typing import Iterable, Optional
 
 from .models import Baseline30d, DailyMetrics, Verdict
 from .verdict import format_minutes
+
+
+def _bold(value: str) -> str:
+    """Жирное выделение для сегодняшних значений (Telegram HTML)."""
+    return f"<b>{_esc(value)}</b>"
+
+
+def _bold_top_flag(verdict: Verdict) -> str:
+    """top_flag.text + замена value на <b>value</b> один раз, если value известно."""
+    if not verdict.flags:
+        return verdict.top_flag
+    top = verdict.flags[0]
+    if top.value and top.value in top.text:
+        return top.text.replace(top.value, _bold(top.value), 1)
+    return top.text
 
 WEEKDAY_SHORT = ("Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс")
 MONTH_RU = {
@@ -39,15 +55,16 @@ def render_morning_brief(
     trend = trend_summary(list(history), report_date)
     baseline_note = " (baseline неполный)" if baseline.incomplete else ""
     sleep_need = format_minutes(today.sleep_need_minutes)
-    sleep_last = format_minutes(today.sleep_minutes)
+    sleep_last = _bold(format_minutes(today.sleep_minutes)) if today.sleep_minutes is not None else "н/д"
     metrics = _metrics_block(today, baseline, verdict)
+    top_flag = _bold_top_flag(verdict)
 
     template = _load_template("morning_brief.txt")
     return template.safe_substitute(
         date_header=_date_header(report_date),
         emoji=verdict.emoji,
         headline=verdict.headline,
-        top_flag=verdict.top_flag,
+        top_flag=top_flag,
         training_duration=verdict.plan.duration,
         hr_zone=verdict.plan.hr_zone,
         modality=verdict.plan.modality,
@@ -109,8 +126,13 @@ def trend_summary(history: list[DailyMetrics], report_date: dt.date) -> dict[str
         day = start + dt.timedelta(days=offset)
         item = by_date.get(day.isoformat())
         weekday = WEEKDAY_SHORT[day.weekday()]
+        is_today = day == report_date
         if item and item.recovery is not None:
-            rec_parts.append(f"{weekday} {int(item.recovery)}")
+            value_str = f"{int(item.recovery)}"
+            if is_today:
+                rec_parts.append(f"{weekday} {_bold(value_str)}")
+            else:
+                rec_parts.append(f"{weekday} {value_str}")
         else:
             rec_parts.append(f"{weekday} —")
         hrv_vals.append(item.hrv_ms if item else None)
@@ -171,7 +193,7 @@ def _metrics_block(today: DailyMetrics, baseline: Baseline30d, verdict: Verdict)
         lines.append(rhr_line)
 
     if today.sleep_efficiency_pct is not None and top_flag_code != "sleep_low":
-        lines.append(f"✅ Сон-эффективность {_percent(today.sleep_efficiency_pct)}")
+        lines.append(f"✅ Сон-эффективность {_bold(_percent(today.sleep_efficiency_pct))}")
 
     for flag in verdict.flags[1:]:
         if flag.code in {"recovery_red", "hrv_low", "rhr_high", "sleep_low"}:
@@ -186,13 +208,14 @@ def _metrics_block(today: DailyMetrics, baseline: Baseline30d, verdict: Verdict)
 def _metric_line_recovery(today: DailyMetrics, baseline: Baseline30d, *, suppress: bool) -> Optional[str]:
     if suppress or today.recovery is None:
         return None
+    today_str = _bold(_percent(today.recovery))
     delta_baseline = _format_delta(today.recovery, baseline.recovery, unit=" п.п.", epsilon=3.0)
     if delta_baseline is None:
-        return f"✅ Восстановление {_percent(today.recovery)} — как baseline"
+        return f"✅ Восстановление {today_str} — как baseline"
     diff = today.recovery - (baseline.recovery or 0)
     good = diff > 0
     marker = "✅" if good else "⚠️"
-    return f"{marker} Восстановление {_percent(today.recovery)} ({delta_baseline})"
+    return f"{marker} Восстановление {today_str} ({delta_baseline})"
 
 
 def _metric_line(
@@ -207,15 +230,16 @@ def _metric_line(
 ) -> Optional[str]:
     if suppress or value is None:
         return None
+    today_str = _bold(_number(value, unit))
     if baseline_value is None:
-        return f"✅ {name} {_number(value, unit)}"
+        return f"✅ {name} {today_str}"
     delta = _format_delta(value, baseline_value, unit=unit, epsilon=epsilon)
     if delta is None:
-        return f"✅ {name} {_number(value, unit)} — как baseline"
+        return f"✅ {name} {today_str} — как baseline"
     diff = value - baseline_value
     good = (diff > 0) if higher_is_better else (diff < 0)
     marker = "✅" if good else "⚠️"
-    return f"{marker} {name} {_number(value, unit)} ({delta} к baseline {_number(baseline_value, unit)})"
+    return f"{marker} {name} {today_str} ({delta} к baseline {_number(baseline_value, unit)})"
 
 
 def _format_delta(value: float, baseline: float, *, unit: str, epsilon: float) -> Optional[str]:

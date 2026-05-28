@@ -33,7 +33,7 @@ def test_build_new_report_text_uses_template_renderer(monkeypatch, tmp_path):
     assert "WHOOP · 26 мая · вт" in text
     assert "ПЛАН:" in text
     assert "Метрики vs baseline 30д:" in text
-    assert "<b>" not in text
+    assert "<b>78%</b>" in text  # bold для сегодняшнего recovery
     assert "Профиль" not in text
     assert "План Б" not in text
     assert "____" not in text
