@@ -1073,7 +1073,9 @@ def _daily_metrics_from_records(
     slp = extract_sleep_metrics(sleep or {})
     try:
         from whoop_brief.state import read_health_steps
-        steps_value = read_health_steps(date_value.isoformat())
+        # «Шаги вчера» — за предыдущий день (Shortcut утром POSTит закрытый прошедший день).
+        yesterday = date_value - dt.timedelta(days=1)
+        steps_value = read_health_steps(yesterday.isoformat())
     except Exception:
         steps_value = None
     return DailyMetrics(
