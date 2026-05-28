@@ -1,11 +1,16 @@
-# Карта системы OpenClo / Cloudbot
+# Карта системы Cloudbot
 
 Этот документ дополняет `ARCHITECTURE.md` и `docs/ARCHITECTURE.md` и фиксирует не только логическую схему, но и стартовую операционную реальность текущего runtime-репозитория.
 
+## История миграции 2026-05-28
+
+Runtime-код Cloudbot перенесён из `~/Desktop/OpenClo/projects/engineer/` в монорепо `~/Desktop/VibeCoding/`, в подпапку `cloudbot/`. Перенос сделан через `git subtree add --prefix=cloudbot codex-base/dev` — история коммитов engineer-репо (`codex-base.git`) сохранена в git log VibeCoding. Старая папка `OpenClo/projects/engineer/` остаётся на диске до полного удаления (после переписи deploy-bundle под новый путь).
+
 ## Канонический репозиторий
 
-- Локальный runtime-репозиторий: `/Users/pro2kuror/Desktop/OpenClo/projects/engineer`
-- Git remote: `origin -> https://github.com/Johnnie13Walker/codex-base.git`
+- **Локальный runtime-репозиторий:** `/Users/pro2kuror/Desktop/VibeCoding/cloudbot`
+- **Внутри монорепо:** `VibeCoding/` (origin `github.com/Johnnie13Walker/VibeCoding`)
+- **Историческое происхождение subtree:** `github.com/Johnnie13Walker/codex-base.git` (после миграции 2026-05-28 этот репо к боевой работе не используется, push идёт в VibeCoding)
 - Боевая работа должна вестись в этом репозитории, если отдельно не подтвержден другой канонический runtime.
 
 ## Смежные контуры на текущей машине

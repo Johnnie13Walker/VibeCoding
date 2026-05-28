@@ -27,4 +27,5 @@
 - Нельзя считать интеграцию рабочей только по наличию файла/переменной; нужна проверка вызова.
 - Нельзя считать задачу закрытой без smoke/логов/результата доставки.
 - Все временные метки, расписания и отчеты только в Europe/Moscow.
-- После объединения рабочих папок `Cloudbot` считается удобной точкой входа через symlink, но канонические runtime-пути остаются `/Users/pro2kuror/Desktop/architect` и `/Users/pro2kuror/Desktop/OpenClo/projects/engineer`, пока cron и deploy-контракты явно не мигрированы.
+- **Канонический runtime-путь:** `/Users/pro2kuror/Desktop/VibeCoding/cloudbot` (с 2026-05-28; ранее был `/Users/pro2kuror/Desktop/OpenClo/projects/engineer/`). Контур `architect` (`/Users/pro2kuror/Desktop/architect`) отретайрен 2026-04-28, control-plane роль ушла внутрь `cloudbot/agents/architect/`.
+- **VPS deploy-bundle** пока берёт код из исторического `codex-base.git`. Перепись `infra/orchestrator/workflows/larisa_agent_deploy.sh` и `sales_agent_deploy.sh` под новый путь — открытая задача (не блокер: на VPS Лариса работает с release.tgz, последняя сборка живёт независимо от локальных правок).
