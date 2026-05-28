@@ -1081,8 +1081,21 @@ def _daily_metrics_from_records(
         sleep_need_minutes=_sleep_need_minutes(slp),
         sleep_performance_pct=slp.get("performance"),
         sleep_efficiency_pct=slp.get("efficiency"),
+        sleep_debt_minutes=_sleep_debt_minutes(sleep or {}),
+        respiratory_rate=slp.get("respiratory_rate"),
         strain=extract_strain(cycle or {}),
     )
+
+
+def _sleep_debt_minutes(sleep: Dict[str, Any]) -> Optional[int]:
+    """Накопленный долг сна из WHOOP score.sleep_needed.need_from_sleep_debt_milli."""
+    score_block = sleep.get("score") if isinstance(sleep.get("score"), dict) else {}
+    needed = score_block.get("sleep_needed") if isinstance(score_block.get("sleep_needed"), dict) else {}
+    for key in ("need_from_sleep_debt_milli", "sleep_debt_milli", "debt_milli"):
+        ms = to_int(needed.get(key))
+        if ms is not None:
+            return max(0, int(round(ms / 60000)))
+    return None
 
 
 def _daily_history_from_records(

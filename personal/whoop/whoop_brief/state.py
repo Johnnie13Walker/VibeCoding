@@ -83,6 +83,8 @@ def metrics_from_state(data: dict[str, Any]) -> list[DailyMetrics]:
                 sleep_need_minutes=_to_int(row.get("sleep_need_minutes")),
                 sleep_performance_pct=_to_float(row.get("sleep_performance_pct")),
                 sleep_efficiency_pct=_to_float(row.get("sleep_efficiency_pct")),
+                sleep_debt_minutes=_to_int(row.get("sleep_debt_minutes")),
+                respiratory_rate=_to_float(row.get("respiratory_rate")),
                 strain=_to_float(row.get("strain")),
             )
         )
