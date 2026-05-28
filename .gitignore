@@ -134,3 +134,4 @@ keys/
 # Archive (runtime артефакты), но shared/archive/ — наш канонический архив bundle'ов
 archive/
 !shared/archive/
+!shared/archive/**
