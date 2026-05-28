@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Sales-отчёт Льва Петровича — v1 vs v2 (redesign)</title>
+<style>
+  :root {
+    --tg-bg: #0e1621;
+    --tg-bg-pattern: #17212b;
+    --tg-bubble-bg: #182533;
+    --tg-bubble-text: #ffffff;
+    --tg-secondary: #8b9aaa;
+    --tg-link: #62a8d6;
+    --tg-time: #6a7c8e;
+    --tg-header: #17212b;
+    --tg-good: #4ec57b;
+    --tg-warn: #f2c94c;
+    --tg-bad: #ed6a5e;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: #07090d;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: #e5ecf4;
+    line-height: 1.4;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page {
+    padding: 24px;
+    display: flex; flex-direction: column; align-items: center; gap: 20px;
+  }
+  .intro {
+    max-width: 1080px;
+    color: #b6c2d2;
+    font-size: 14px;
+    line-height: 1.55;
+  }
+  .intro h1 { color: #fff; font-size: 22px; margin: 0 0 8px; }
+  .intro b { color: #fff; }
+  .intro code {
+    background: #1a2533; padding: 1px 6px; border-radius: 4px;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+    font-size: 13px;
+  }
+  .goal {
+    margin-top: 10px; padding: 10px 14px;
+    background: #102036; border-left: 3px solid #4a90d6;
+    border-radius: 6px;
+    color: #d4dff0;
+  }
+
+  .compare {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    width: 100%;
+    max-width: 1080px;
+  }
+  .col h2 {
+    font-size: 14px; font-weight: 600;
+    color: #a3b3c7; letter-spacing: 0.5px; text-transform: uppercase;
+    margin: 0 0 10px;
+    padding: 0 4px;
+  }
+  .col h2 .tag {
+    display: inline-block;
+    padding: 2px 8px; border-radius: 10px;
+    font-size: 11px; letter-spacing: 0;
+    margin-left: 6px; text-transform: none;
+  }
+  .tag-now { background: #3d2226; color: #ed8478; }
+  .tag-new { background: #1d3a26; color: #6dd692; }
+
+  .phone {
+    background: var(--tg-bg);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 12px 36px rgba(0,0,0,0.55);
+    display: flex; flex-direction: column;
+    min-height: 700px;
+  }
+  .header {
+    background: var(--tg-header);
+    padding: 10px 14px;
+    display: flex; align-items: center; gap: 10px;
+    border-bottom: 1px solid #0a1218;
+  }
+  .avatar {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: linear-gradient(135deg, #4a7ab3, #2b5278);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 600; font-size: 13px; color: #fff;
+  }
+  .title { font-size: 14px; font-weight: 600; }
+  .subtitle { font-size: 11px; color: var(--tg-secondary); }
+  .chat {
+    flex: 1;
+    background:
+      radial-gradient(circle at 25% 20%, #1b2a3d 0%, transparent 35%),
+      radial-gradient(circle at 75% 60%, #18283b 0%, transparent 40%),
+      var(--tg-bg-pattern);
+    padding: 14px 10px 24px;
+  }
+  .day-divider { text-align: center; margin: 12px 0; }
+  .day-divider span {
+    background: rgba(36, 60, 88, 0.7);
+    color: #cfd9e6;
+    padding: 3px 11px;
+    border-radius: 11px;
+    font-size: 11.5px; font-weight: 500;
+  }
+  .bubble {
+    background: var(--tg-bubble-bg);
+    color: var(--tg-bubble-text);
+    border-radius: 12px 12px 12px 4px;
+    padding: 10px 12px 18px;
+    margin: 6px 0;
+    max-width: 95%;
+    position: relative;
+    font-size: 13.5px;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+  }
+  .bubble.followup { border-radius: 4px 12px 12px 4px; }
+  .bubble b { color: #ffffff; font-weight: 600; }
+  .bubble i { font-style: italic; color: #cfd9e6; }
+  .bubble a {
+    color: var(--tg-link);
+    text-decoration: none;
+  }
+  .bubble pre {
+    background: rgba(0,0,0,0.18);
+    color: #d6e0ec;
+    padding: 7px 9px;
+    border-radius: 6px;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+    font-size: 11.5px;
+    line-height: 1.35;
+    overflow-x: auto;
+    margin: 6px 0;
+    white-space: pre;
+  }
+  .bubble .time {
+    position: absolute; right: 10px; bottom: 4px;
+    color: var(--tg-time); font-size: 10.5px;
+  }
+  /* highlights in v2 to show what's new */
+  .hl-new {
+    background: rgba(110, 230, 145, 0.10);
+    border-left: 2px solid #5dd07f;
+    padding: 4px 8px;
+    margin: 2px -8px;
+    border-radius: 0 4px 4px 0;
+  }
+  .hl-changed {
+    background: rgba(242, 201, 76, 0.10);
+    border-left: 2px solid #e0b94e;
+    padding: 4px 8px;
+    margin: 2px -8px;
+    border-radius: 0 4px 4px 0;
+  }
+
+  /* annotations panel under each column */
+  .notes {
+    margin-top: 12px;
+    padding: 14px 16px;
+    background: #11181f;
+    border: 1px solid #1d2733;
+    border-radius: 10px;
+    color: #b6c2d2;
+    font-size: 12.5px;
+    line-height: 1.55;
+  }
+  .notes h3 {
+    margin: 0 0 8px; font-size: 13px; color: #e6efff;
+  }
+  .notes ul { margin: 0; padding-left: 18px; }
+  .notes li { margin: 4px 0; }
+  .notes .pill {
+    display: inline-block; padding: 1px 6px; border-radius: 6px;
+    font-size: 11px; margin-right: 4px;
+  }
+  .pill-new { background: #1d3a26; color: #6dd692; }
+  .pill-changed { background: #3a311d; color: #e6c065; }
+  .pill-removed { background: #3a1d1d; color: #e08383; }
+  .pill-moved { background: #1d2c3a; color: #74b3e3; }
+
+  @media (max-width: 980px) {
+    .compare { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <div class="intro">
+    <h1>Sales-отчёт Льва Петровича — v1 (текущий) vs v2 (redesign)</h1>
+    <div class="goal">
+      <b>Цель отчёта:</b> утром в 09:30 РОП за 30 секунд понимает —
+      (1) <b>как отдел отработал вчера</b> и (2) <b>куда ему лично подключиться сегодня</b>.
+      Всё остальное — на втором плане или по ссылке.
+    </div>
+    <p>Слева — фактический рендер, который улетает в Telegram сейчас.
+    Справа — переработка под цель.
+    Зелёные блоки = новое, жёлтые = переделано, аннотации под каждой колонкой.</p>
+  </div>
+
+  <div class="compare">
+
+    <!-- ====================== LEFT: CURRENT ====================== -->
+    <div class="col">
+      <h2>v1 — Текущий отчёт <span class="tag tag-now">сейчас в проде</span></h2>
+      <div class="phone">
+        <div class="header">
+          <div class="avatar">ЛП</div>
+          <div>
+            <div class="title">Лев Петрович</div>
+            <div class="subtitle">@icom_dir_Belberry_bot · 3 сообщения</div>
+          </div>
+        </div>
+        <div class="chat">
+
+          <div class="day-divider"><span>12 мая, 09:30</span></div>
+
+          <div class="bubble"><b>📊 Сводка по продажам</b>
+<b>Лев Петрович</b>
+
+Срез: 12.05 09:30 МСК
+
+<b>Итоги за прошлый рабочий день, 11.05</b>
+• Новые сделки: 0 (0 к прошлому дню)
+• Встречи: 0 (-4 к прошлому дню)
+• Брифы: 0 (-4 к прошлому дню)
+• Отложенные сделки: 0 / <b>0 ₽</b> (-1 к прошлому дню)
+• Отказы: 1 / <b>0 ₽</b> (0 к прошлому дню)
+
+<b>Воронка</b>
+• Активные сделки: 66 / <b>7 704 041 ₽</b> (-2 к прошлому дню)
+• С движением: 57 (+1 к прошлому дню)
+• Без движения: 9 (-3 к прошлому дню)
+• В отложке: 31 (+2 к прошлому дню)
+• Этап договора: 2 / <b>263 434 ₽</b> (+1 к прошлому дню)
+
+<b>На стадии договора</b>
+• <a href="#">mitekpumps.ru</a> - <b>Семенихин Егор</b> - <b>263 434 ₽</b>
+ORM - <b>109 934 ₽</b>, SEO - <b>153 500 ₽</b>
+• <a href="#">echo-service.ru</a> - <b>Деговцова Елизавета</b> - <b>0 ₽</b>
+
+<b>Источники новых сделок</b>
+Новых сделок за прошлый рабочий день не было.
+
+<b>📞 Коммуникации за предыдущий рабочий день</b>
+<pre>Статус Менеджер            Роль  Наб Дзв Конв Чаты Встр Опер
+СТОП   Исаева Дарья        TM     3   1  33%   0   -  0.5
+СТОП   Деговцова Елизавета SM     1   0   0%   0   0  0.1
+СТОП   Вострецов Аркадий   TM     0   0   0%   0   -  0.0
+СТОП   Семенихин Егор      SM     0   0   0%   0   0  0.0
+СТОП   Смирнов Илья        SM     0   0   0%   0   0  0.0</pre>
+
+Итого по отделу:
+<pre>Наб  4 | Дзв  1 | Конв 25% | Чаты 0 | Встр 0 | Опер 0.1</pre>
+
+Чистой клиентской активности по команде ниже целевого уровня
+
+<b>🆕 Новые сделки</b>
+Новых сделок нет.
+
+<b>🤝 Встречи</b>
+Проведённых встреч нет.
+
+<b>📝 Брифы</b>
+Принятых брифов нет.
+
+<b>⏸ Отложенные сделки</b>
+Отложенных сделок нет.
+
+<b>📉 Отказы</b>
+• <a href="#">jivo.ru (скорее всего спам)</a> — <b>Деговцова Елизавета</b>
+сумма: <b>0 ₽</b>; причина: СПАМ<span class="time">09:30</span></div>
+
+          <div class="bubble followup"><b>⚠️ Риски по сделкам</b>
+<b>Лев Петрович</b>
+
+<b>Сводка</b>
+• Уникальные риск-сделки: 17 / <b>1 670 632 ₽</b> (+4)
+• Без движения > 14 дн.: 9 / <b>1 500 632 ₽</b> (-2)
+• Без следующего шага: 3 / <b>0 ₽</b> (+1)
+• Без коммуникации > 14 дн.: 11 / <b>1 670 632 ₽</b> (-1)
+• Сделки с просрочками: 3 / <b>0 ₽</b> (+3)
+
+<b>Без движения > 14 дн.</b>
+Всего: 9 / <b>1 500 632 ₽</b>
+• <a href="#">f-p-m.ru</a> — Деговцова — 75k ₽ · Подготовка КП · 41 дн.
+• <a href="#">trusha-k.ru</a> — Деговцова — 384k ₽ · Догрев · 34 дн.
+• <a href="#">pro.market</a> — Деговцова — 382k ₽ · Догрев · 33 дн.
+• <a href="#">velesclub.ru</a> — Деговцова — 295k ₽ · Догрев · 29 дн.
+<i>…ещё 5 сделок</i>
+
+<b>Без следующего шага</b>
+Всего: 3 / <b>0 ₽</b>
+• <a href="#">+7 861 228-11-90</a> — Деговцова
+• <a href="#">dinastia-s.ru</a> — Семенихин
+• <a href="#">Турецкая компания</a> — Деговцова
+
+<b>Без коммуникации > 14 дн.</b>
+Всего: 11 / <b>1 670 632 ₽</b>
+• <a href="#">f-p-m.ru</a> — Деговцова — 75k ₽ · 41 дн.
+• <a href="#">trusha-k.ru</a> — Деговцова — 384k ₽ · 34 дн.
+<i>…ещё 9 сделок</i>
+
+<b>Сделки с просрочками</b>
+Всего: 3 / <b>0 ₽</b>
+• <a href="#">+7 978 341-62-89</a> — Семенихин
+• <a href="#">Belberry/Максим</a> — Смирнов
+• <a href="#">Руфина</a> — Смирнов<span class="time">09:30</span></div>
+
+          <div class="bubble followup"><b>🎯 Фокус РОПа</b>
+
+<b>☎️ Где РОПу самому связаться с клиентом:</b>
+• <a href="#">trusha-k.ru</a> — <b>384 467 ₽</b> — 34 дн. без контакта, сумма значимая, менеджер не довёл сделку до управляемого статуса.
+• <a href="#">pro.market</a> — <b>381 600 ₽</b> — 33 дн. без контакта, сумма значимая.
+
+<b>🕳 Упущенные возможности:</b>
+• <a href="#">blumaq.com</a> — после брифа 98 дн., встречи нет.
+• <a href="#">sporttravma.org</a> — после брифа 66 дн., встречи нет.
+• <a href="#">mitekpumps.ru</a> — после брифа 49 дн., встречи нет.
+
+<b>Что РОП обязан сделать сегодня:</b>
+• До 13:00 получить от Деговцовой и Смирнова обновлённые шаги.
+• До конца дня войти в trusha-k.ru, pro.market.
+• Закрыть 3 провала между брифом и защитой КП.
+
+<b>🔥 Молодцы за вчера</b>
+• Лидеров с 9+/10 за вчера нет.<span class="time">09:30</span></div>
+
+        </div>
+      </div>
+
+      <div class="notes">
+        <h3>Что не работает в v1</h3>
+        <ul>
+          <li><span class="pill pill-removed">главное</span><b>Action-list зарыт в третьем сообщении.</b> РОП открывает чат, читает 60+ строк цифр, и только в самом низу третьего пузыря находит «что делать сегодня».</li>
+          <li><span class="pill pill-removed">главное</span><b>Главный sales-пузырь не отвечает на «куда подключиться».</b> Он отвечает на «какие у нас цифры». Это разная задача.</li>
+          <li>Сводка отдела за вчера размазана: «Итоги» сверху + полная коммуникация-таблица + 5 пустых блоков-заглушек («Новых сделок нет», «Встреч нет», «Брифов нет»).</li>
+          <li>Дельты «-4 к прошлому дню» без бенчмарка: что норма? 4 — это плохо, или 11 мая был выходной?</li>
+          <li>3 отдельных сообщения в Telegram = 3 пузыря, между которыми теряется навигация на мобиле.</li>
+          <li>SM (чаты) и TM (звонки) в одной таблице с общей метрикой «Опер» — некорректно сравнивать.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ====================== RIGHT: REDESIGN V2 ====================== -->
+    <div class="col">
+      <h2>v2 — Под цель «вчера + куда подключиться» <span class="tag tag-new">предложение</span></h2>
+      <div class="phone">
+        <div class="header">
+          <div class="avatar">ЛП</div>
+          <div>
+            <div class="title">Лев Петрович</div>
+            <div class="subtitle">@icom_dir_Belberry_bot · 1 сообщение + детали по ссылке</div>
+          </div>
+        </div>
+        <div class="chat">
+
+          <div class="day-divider"><span>12 мая, 09:30</span></div>
+
+          <div class="bubble"><b>🎯 Куда подключиться сегодня · 3 точки</b>
+<i>Лев Петрович · 12.05 09:30 МСК</i>
+
+<div class="hl-new"><b>1. ☎️ Позвонить лично</b>
+<a href="#">trusha-k.ru</a> · <b>384k ₽</b> · Деговцова
+└ Догрев и переговоры · <b>34 дня молчания</b> · риск потери высокий
+
+<b>2. ☎️ Позвонить лично</b>
+<a href="#">pro.market</a> · <b>382k ₽</b> · Деговцова
+└ Догрев и переговоры · <b>33 дня молчания</b> · риск потери высокий
+
+<b>3. 📅 Поставить встречу или закрыть</b>
+<a href="#">blumaq.com</a> · после брифа <b>98 дней</b> без защиты КП
+└ деньги зависли между этапами</div>
+
+<b>📊 Отдел вчера, пн 11.05</b> <i>(норма = ср за 4 нед)</i>
+<div class="hl-changed"><pre>Активность     Факт   Норма   Статус
+Наборы           4    ~150     ❌ −97%
+Дозвоны          1     ~30     ❌ −97%
+Конверсия       25%    ~22%    ✅
+Чаты             0      ~40    ❌ −100%
+Встречи          0       4     ❌
+Брифы            0       4     ❌</pre>
+⚠️ Понедельник после длинных выходных — но всё равно требует разговора с командой</div>
+
+<b>💰 Деньги вчера</b>
+• Новые сделки: <b>0</b>
+• Отказы: 1 · 0 ₽ (СПАМ)
+• На этапе договора: 2 / <b>263k ₽</b>
+  └ <a href="#">mitekpumps.ru</a> · Семенихин · 263k ₽
+  └ <a href="#">echo-service.ru</a> · Деговцова · 0 ₽
+
+<b>📈 Воронка</b>
+<div class="hl-changed">Активные: <b>66</b> / <b>7.7M ₽</b> (-2)
+С движением: 57 (+1) · Без движения: 9 (-3) ✅</div>
+
+<b>⚠️ Тревоги в воронке</b>
+<div class="hl-changed">• Без движения &gt;14 дн: <b>9</b> / 1.5M ₽
+• Без коммуникации &gt;14 дн: <b>11</b> / 1.67M ₽
+• Без следующего шага: <b>3</b>
+• С просрочками: <b>3</b>
+<a href="#">→ Открыть полный список рисков</a></div>
+
+<b>👥 По менеджерам вчера</b>
+<div class="hl-new"><pre>SM (чаты+встречи)        Факт  Норма  ⚑
+Деговцова Елизавета      0/0    8/2   ❌
+Семенихин Егор           0/0    6/2   ❌
+Смирнов Илья             0/0    6/2   ❌
+─────────────────────────────────────
+TM (звонки)              Наб   Норма  ⚑
+Исаева Дарья              3    ~80    ❌
+Вострецов Аркадий         0    ~70    ❌</pre>
+SM и TM с разной нормой, чтобы чатовик не сравнивался со звонящим</div>
+
+<b>🔥 Молодцы за вчера</b>
+— никого с 9+/10 за 11.05
+
+<a href="#"><b>↗ Полный отчёт в Bitrix</b></a><span class="time">09:30</span></div>
+
+        </div>
+      </div>
+
+      <div class="notes">
+        <h3>Что изменилось и почему</h3>
+        <ul>
+          <li><span class="pill pill-new">NEW</span><b>«Куда подключиться · 3 точки» — в самой шапке.</b> РОП видит action-list первым, до любых цифр. Каждая точка: deal-link + сумма + причина + конкретное действие («позвонить» / «поставить встречу»).</li>
+          <li><span class="pill pill-changed">CHG</span><b>Сводка отдела за вчера = таблица «Факт vs Норма».</b> Норма — скользящее среднее за 4 недели. Цифра без бенчмарка превращается в сигнал «❌ −97%».</li>
+          <li><span class="pill pill-changed">CHG</span><b>SM и TM разделены.</b> У SM норма по чатам и встречам, у TM — по звонкам. Один общий показатель «Опер» убран, он сравнивал несравнимое.</li>
+          <li><span class="pill pill-changed">CHG</span><b>Воронка свёрнута до одной строки + delta-индикатор.</b> Детали по «Без движения 9» — клик в развёрнутый отчёт. В пузыре только число + дельта + «✅/❌».</li>
+          <li><span class="pill pill-changed">CHG</span><b>Риски — только сводные числа.</b> Детальные списки (9 + 11 + 3 + 3 сделок) переехали по ссылке в Bitrix. Это сэкономило ~100 строк и помещает всё в один пузырь.</li>
+          <li><span class="pill pill-removed">DEL</span><b>5 пустых блоков-заглушек убраны.</b> «Новых сделок нет», «Встреч нет», «Брифов нет» — занимали место и не несли смысла. Если ноль, об этом уже сказала верхняя сводка.</li>
+          <li><span class="pill pill-moved">MV</span><b>Action-list мёрджнут в основное сообщение.</b> Был отдельным третьим пузырём — терялся. Теперь это шапка.</li>
+          <li><span class="pill pill-removed">DEL</span><b>3 сообщения → 1.</b> Сводка влезает в один Telegram-пузырь (≤4096 символов). Если рисков много — отдельный пузырь только с ними, после основного.</li>
+          <li><span class="pill pill-new">NEW</span><b>Контекстная подсказка</b> «Понедельник после выходных» рядом с провалом активности — снимает ложную тревогу или подтверждает реальный системный сбой.</li>
+        </ul>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="intro" style="max-width: 1080px;">
+    <h2 style="font-size:16px; margin: 16px 0 6px; color: #fff;">Что нужно для реализации v2</h2>
+    <ol style="padding-left: 18px; color: #b6c2d2;">
+      <li><b>Скользящее среднее за 4 недели</b> по 6 метрикам (наборы, дозвоны, конверсия, чаты, встречи, брифы) — считаем поверх существующих snapshot'ов. Хранить в <code>sales_daily_history.json</code> (он уже есть).</li>
+      <li><b>Roles split SM/TM</b> — уже размечено в Bitrix (поле position), формattеру нужно просто разделить таблицу.</li>
+      <li><b>Top-3 action engine</b> — комбинирует «крупная сделка × долго без контакта» + «бриф без КП» + «просрочки на крупных». Логика частично уже в <code>format_focus_sales_report</code>, надо вынести в shared scorer и дать ему 3 слота.</li>
+      <li><b>Контекстные подсказки</b> по «выходной/праздник/первый день недели» — отдельный helper, тянет календарь рабочих дней.</li>
+      <li><b>Свёртка детальных списков по ссылкам</b> — нужен endpoint dashboard'а в Bitrix (или просто <code>crm.deal.list</code> с фильтром по smart filter URL). Уже есть как ссылки на конкретные сделки, нужно ещё «открыть список рисков целиком».</li>
+    </ol>
+    <p style="color:#8a98a8; margin-top:14px; font-size:12.5px;">
+      Объём работ: ~1-2 дня на скользящую норму + 6 формат-блоков, ~0.5 дня на разделение SM/TM, ~1 день на shared action-scorer. Итого ~3-4 дня одной фазой.
+    </p>
+  </div>
+
+</div>
+
+</body>
+</html>

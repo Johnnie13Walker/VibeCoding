@@ -1,0 +1,51 @@
+- generic [ref=e1]:
+  - group [ref=e2]:
+    - generic "Перейти к разделу" [ref=e3] [cursor=pointer]
+  - dialog [active] [ref=e582]:
+    - iframe [ref=e585]:
+      - generic [ref=f3e3]:
+        - generic [ref=f3e6]
+        - generic [ref=f3e39]
+    - generic:
+      - button "Закрыть" [ref=e586] [cursor=pointer]:
+        - generic "Закрыть" [ref=e587]
+      - generic:
+        - button "Скопировать ссылку" [ref=e589] [cursor=pointer]
+        - button "Свернуть" [ref=e592] [cursor=pointer]
+        - button "Открыть в новом окне" [ref=e595] [cursor=pointer]
+        - button "Печать" [ref=e598] [cursor=pointer]
+  - generic [ref=e4]:
+    - navigation "Главное меню" [ref=e6]:
+      - generic [ref=e7]:
+        - button "Свернуть меню" [expanded] [ref=e9] [cursor=pointer]
+        - link "Битрикс 24" [ref=e11] [cursor=pointer]:
+          - /url: /
+      - generic [ref=e14]:
+        - generic [ref=e15]
+        - button "Показать все" [ref=e509]
+      - generic [ref=e515]:
+        - button "Настройки" [ref=e516]
+        - button "Расширить тариф" [ref=e522] [cursor=pointer]
+    - button [ref=e628] [cursor=pointer]
+    - banner [ref=e526]:
+      - generic [ref=e527]:
+        - navigation [ref=e631]
+        - generic [ref=e529]
+    - button "Профиль" [ref=e552] [cursor=pointer]
+    - main [ref=e559]:
+      - generic [ref=e652]:
+        - generic [ref=e653]: Сделки
+        - button "Добавить текущую страницу в левое меню" [ref=e654] [cursor=pointer]
+    - contentinfo [ref=e564]:
+      - generic [ref=e565]:
+        - generic [ref=e566]
+        - generic [ref=e574]: © «Битрикс», 2026
+        - generic [ref=e575]
+    - region "Панель чатов" [ref=e658]:
+      - generic [ref=e660]:
+        - generic [ref=e665] [cursor=pointer]: "61"
+        - generic [ref=e672]
+  - generic:
+    - generic:
+      - generic:
+        - generic: Соединение с сервером установлено

@@ -1,0 +1,2 @@
+[console_scripts]
+sales-dashboard = sales_dashboard.cli:main

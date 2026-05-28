@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Утренний sales-отчёт Льва Петровича — превью</title>
+<style>
+  :root {
+    --tg-bg: #0e1621;
+    --tg-bg-pattern: #17212b;
+    --tg-bubble-bg: #182533;
+    --tg-bubble-text: #ffffff;
+    --tg-secondary: #8b9aaa;
+    --tg-link: #62a8d6;
+    --tg-divider: #1f2c3a;
+    --tg-time: #6a7c8e;
+    --tg-header: #17212b;
+    --tg-accent: #2b5278;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: #0a0f17;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: var(--tg-bubble-text);
+    line-height: 1.4;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page {
+    display: flex; flex-direction: column; align-items: center;
+    min-height: 100vh; padding: 24px 16px;
+  }
+  .meta {
+    width: 420px; max-width: 100%;
+    color: #93a4b8; font-size: 13px; margin-bottom: 12px;
+  }
+  .meta a { color: var(--tg-link); text-decoration: none; }
+  .phone {
+    width: 420px; max-width: 100%;
+    background: var(--tg-bg);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.6);
+    display: flex; flex-direction: column;
+  }
+  .header {
+    background: var(--tg-header);
+    padding: 10px 14px;
+    display: flex; align-items: center; gap: 10px;
+    border-bottom: 1px solid #0a1218;
+  }
+  .avatar {
+    width: 38px; height: 38px; border-radius: 50%;
+    background: linear-gradient(135deg, #4a7ab3, #2b5278);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 600; font-size: 14px;
+    color: #fff;
+  }
+  .title { font-size: 15px; font-weight: 600; }
+  .subtitle { font-size: 12px; color: var(--tg-secondary); }
+  .chat {
+    flex: 1;
+    background:
+      radial-gradient(circle at 25% 20%, #1b2a3d 0%, transparent 35%),
+      radial-gradient(circle at 75% 60%, #18283b 0%, transparent 40%),
+      var(--tg-bg-pattern);
+    padding: 16px 12px 80px;
+    overflow-y: auto;
+  }
+  .day-divider {
+    text-align: center; margin: 16px 0 12px;
+  }
+  .day-divider span {
+    background: rgba(36, 60, 88, 0.7);
+    color: #cfd9e6;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+  .bubble {
+    background: var(--tg-bubble-bg);
+    color: var(--tg-bubble-text);
+    border-radius: 12px 12px 12px 4px;
+    padding: 10px 12px 18px;
+    margin: 8px 0;
+    max-width: 92%;
+    position: relative;
+    font-size: 14px;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+  }
+  .bubble.first { border-radius: 12px 12px 12px 4px; }
+  .bubble.followup { border-radius: 4px 12px 12px 4px; margin-top: 4px; }
+  .bubble b { color: #ffffff; font-weight: 600; }
+  .bubble i { font-style: italic; color: #cfd9e6; }
+  .bubble a {
+    color: var(--tg-link);
+    text-decoration: none;
+  }
+  .bubble a:hover { text-decoration: underline; }
+  .bubble pre {
+    background: rgba(0,0,0,0.18);
+    color: #d6e0ec;
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12px;
+    line-height: 1.35;
+    overflow-x: auto;
+    margin: 6px 0;
+    white-space: pre;
+  }
+  .bubble code {
+    background: rgba(0,0,0,0.18);
+    padding: 1px 5px; border-radius: 4px;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12.5px;
+  }
+  .bubble .time {
+    position: absolute; right: 10px; bottom: 4px;
+    color: var(--tg-time); font-size: 11px;
+  }
+  .legend {
+    width: 420px; max-width: 100%;
+    margin-top: 16px;
+    padding: 12px 14px;
+    background: #11181f;
+    border: 1px solid #1d2733;
+    border-radius: 10px;
+    color: #9aacbf;
+    font-size: 12.5px;
+  }
+  .legend b { color: #cad6e3; }
+  .legend ul { margin: 6px 0 0 0; padding-left: 18px; }
+  .legend li { margin: 2px 0; }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <div class="meta">
+    Превью утреннего sales-dispatch'а Льва Петровича в Telegram. Контент собран на проде
+    <code>python3 -m agents.lev_petrovich --report {sales,risks,focus}</code>
+    без <code>--send</code>, дата: 12.05.2026 20:51 МСК.
+    Источники: <a href="samples/sales_20260512.html">samples/sales_20260512.html</a> ·
+    <a href="samples/risks_20260512.html">samples/risks_20260512.html</a> ·
+    <a href="samples/focus_20260512.html">samples/focus_20260512.html</a>
+  </div>
+
+  <div class="phone">
+    <div class="header">
+      <div class="avatar">ЛП</div>
+      <div>
+        <div class="title">Лев Петрович</div>
+        <div class="subtitle">@icom_dir_Belberry_bot · бот</div>
+      </div>
+    </div>
+
+    <div class="chat">
+
+      <div class="day-divider"><span>12 мая, 09:30</span></div>
+
+      <!-- BUBBLE 1: SALES PRIMARY -->
+      <div class="bubble first"><b>📊 Сводка по продажам</b>
+<b>Лев Петрович</b>
+
+Срез: 12.05 09:30 МСК
+
+<b>Итоги за прошлый рабочий день, 11.05</b>
+• Новые сделки: 0 (0 к прошлому дню)
+• Встречи: 0 (-4 к прошлому дню)
+• Брифы: 0 (-4 к прошлому дню)
+• Отложенные сделки: 0 / <b>0 ₽</b> (-1 к прошлому дню)
+• Отказы: 1 / <b>0 ₽</b> (0 к прошлому дню)
+
+<b>Воронка</b>
+• Активные сделки: 66 / <b>7 704 041 ₽</b> (-2 к прошлому дню)
+• С движением: 57 (+1 к прошлому дню)
+• Без движения: 9 (-3 к прошлому дню)
+• В отложке: 31 (+2 к прошлому дню)
+• Этап договора: 2 / <b>263 434 ₽</b> (+1 к прошлому дню)
+
+<b>На стадии договора</b>
+• <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/18412/">mitekpumps.ru</a> - <b>Семенихин Егор</b> - <b>263 434 ₽</b>
+ORM - <b>109 934 ₽</b>, SEO - <b>153 500 ₽</b>
+• <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/15550/">echo-service.ru</a> - <b>Деговцова Елизавета</b> - <b>0 ₽</b>
+WD - <b>0 ₽</b>, WDT - <b>0 ₽</b>
+
+<b>Источники новых сделок</b>
+Новых сделок за прошлый рабочий день не было.
+
+<b>📞 Коммуникации за предыдущий рабочий день</b>
+Статус: 🔥 НОРМ | ⚠️ РИСК | ❌ СТОП
+<pre>Статус Менеджер            Роль  Наб  Дзв  Конв Чаты Встр Опер
+СТОП   Исаева Дарья        TM      3    1   33%    0    -  0.5
+СТОП   Деговцова Елизавета SM      1    0    0%    0    0  0.1
+СТОП   Вострецов Аркадий   TM      0    0    0%    0    -  0.0
+СТОП   Семенихин Егор      SM      0    0    0%    0    0  0.0
+СТОП   Смирнов Илья        SM      0    0    0%    0    0  0.0</pre>
+
+Итого по отделу:
+<pre>Наб    4 | Дзв    1 | Конв   25% | Чаты    0 | Встр    0 | Опер  0.1</pre>
+
+Чистой клиентской активности по команде ниже целевого уровня
+
+<b>🆕 Новые сделки за предыдущий рабочий день</b>
+Новых сделок за предыдущий рабочий день нет.
+
+<b>🤝 Встречи за предыдущий рабочий день</b>
+Проведённых встреч за предыдущий рабочий день нет.
+
+<b>📝 Брифы за предыдущий рабочий день</b>
+Принятых брифов за предыдущий рабочий день нет.
+
+<b>⏸ Отложенные сделки за предыдущий рабочий день</b>
+Отложенных сделок за предыдущий рабочий день нет.
+
+<b>📉 Отказы за предыдущий рабочий день</b>
+• <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/24118/">jivo.ru (скорее всего спам)</a> — <b>Деговцова Елизавета</b>
+сумма: <b>0 ₽</b>; причина: СПАМ<span class="time">09:30</span></div>
+
+      <!-- BUBBLE 2: RISKS -->
+      <div class="bubble followup"><b>⚠️ Риски по сделкам</b>
+<b>Лев Петрович</b>
+
+Срез: 12.05 09:30 МСК
+
+<b>Сводка</b>
+• Уникальные риск-сделки: 17 / <b>1 670 632 ₽</b> (+4 к прошлому дню)
+• Без движения &gt; 14 дн.: 9 / <b>1 500 632 ₽</b> (-2 к прошлому дню)
+• Без следующего шага: 3 / <b>0 ₽</b> (+1 к прошлому дню)
+• Без коммуникации &gt; 14 дн.: 11 / <b>1 670 632 ₽</b> (-1 к прошлому дню)
+• Сделки с просрочками: 3 / <b>0 ₽</b> (+3 к прошлому дню)
+
+<b>Без движения &gt; 14 дн.</b>
+Всего: 9 / <b>1 500 632 ₽</b>
+• <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/17256/">f-p-m.ru</a> — <b>Деговцова Елизавета</b>
+сумма: <b>75 000 ₽</b>; стадия: Подготовка КП; без движения: 41 дн.
+• <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/16268/">trusha-k.ru</a> — <b>Деговцова Елизавета</b>
+сумма: <b>384 467 ₽</b>; стадия: Догрев и переговоры; без движения: 34 дн.
+• <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/10844/">pro.market</a> — <b>Деговцова Елизавета</b>
+сумма: <b>381 600 ₽</b>; стадия: Догрев и переговоры; без движения: 33 дн.
+• <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/16324/">velesclub.ru</a> — <b>Деговцова Елизавета</b>
+сумма: <b>294 716 ₽</b>; стадия: Догрев и переговоры; без движения: 29 дн.
+• <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/17466/">masterbeton-mb.ru</a> — <b>Смирнов Илья</b>
+сумма: <b>0 ₽</b>; стадия: Подготовка КП; без движения: 19 дн.
+• <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/23428/">knauf.ru</a> — <b>Деговцова Елизавета</b>
+сумма: <b>75 000 ₽</b>; стадия: Подготовка КП; без движения: 15 дн.
+• <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/18074/">neo-classica.ru</a> — <b>Смирнов Илья</b>
+сумма: <b>0 ₽</b>; стадия: Подготовка КП; без движения: 15 дн.
+• <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/18538/">sinai-clinic.ru</a> — <b>Смирнов Илья</b>
+сумма: <b>0 ₽</b>; стадия: Подготовка БРИФа; без движения: 15 дн.
+• <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/16338/">grismarket.ru</a> — <b>Деговцова Елизавета</b>
+сумма: <b>289 849 ₽</b>; стадия: Догрев и переговоры; без движения: 14 дн.
+
+<b>Без следующего шага</b>
+Всего: 3 / <b>0 ₽</b>
+• <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/24172/">7 861 228-11-90 - Входящий звонок</a> — <b>Деговцова Елизавета</b>
+сумма: <b>0 ₽</b>; стадия: Квалификация; следующего шага нет
+• <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/24170/">dinastia-s.ru</a> — <b>Семенихин Егор</b>
+сумма: <b>0 ₽</b>; стадия: Квалификация; следующего шага нет
+• <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/23162/">Интернет-магазин для Турецкой компании</a> — <b>Деговцова Елизавета</b>
+сумма: <b>0 ₽</b>; стадия: Квалификация; следующего шага нет
+
+<b>Без коммуникации &gt; 14 дн.</b>
+Всего: 11 / <b>1 670 632 ₽</b>
+• <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/17256/">f-p-m.ru</a> — <b>Деговцова Елизавета</b>
+сумма: <b>75 000 ₽</b>; стадия: Подготовка КП; без коммуникации: 41 дн.
+• <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/16268/">trusha-k.ru</a> — <b>Деговцова Елизавета</b>
+сумма: <b>384 467 ₽</b>; стадия: Догрев и переговоры; без коммуникации: 34 дн.
+• <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/10844/">pro.market</a> — <b>Деговцова Елизавета</b>
+сумма: <b>381 600 ₽</b>; стадия: Догрев и переговоры; без коммуникации: 33 дн.
+• <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/16324/">velesclub.ru</a> — <b>Деговцова Елизавета</b>
+сумма: <b>294 716 ₽</b>; стадия: Догрев и переговоры; без коммуникации: 29 дн.
+<i>… ещё 7 сделок (см. полный sample)</i>
+
+<b>Сделки с просрочками</b>
+Всего: 3 / <b>0 ₽</b>
+• <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/24182/">+79783416289 - Входящий звонок</a> — <b>Семенихин Егор</b>
+сумма: <b>0 ₽</b>; стадия: Квалификация; просрочка: 0 дн.; задача: Квалифицировать лид
+• <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/24164/">Заявка с сайта Belberry от Максим 79025552391</a> — <b>Смирнов Илья</b>
+сумма: <b>0 ₽</b>; стадия: Квалификация; просрочка: 0 дн.; задача: Провести первый контакт повторно
+• <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/24166/">Руфина</a> — <b>Смирнов Илья</b>
+сумма: <b>0 ₽</b>; стадия: Квалификация; просрочка: 0 дн.; задача: Провести первый контакт<span class="time">09:30</span></div>
+
+      <!-- BUBBLE 3: FOCUS -->
+      <div class="bubble followup"><b>🎯 Фокус РОПа</b>
+
+<b>☎️ Где РОПу самому связаться с клиентом:</b>
+• <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/16268/">trusha-k.ru</a> — <b>384 467 ₽</b> — 34 дн. без контакта, сумма значимая, менеджер не довёл сделку до управляемого статуса, риск потери уже высокий — нужен личный контакт РОПа.
+• <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/10844/">pro.market</a> — <b>381 600 ₽</b> — 33 дн. без контакта, сумма значимая, менеджер не довёл сделку до управляемого статуса, риск потери уже высокий — нужен личный контакт РОПа.
+
+<b>🕳 Упущенные возможности:</b>
+• <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/16184/">blumaq.com/rus/</a> — после брифа прошло 98 дн., а встречи по защите КП нет — обязательный переход к защите КП сорван, деньги зависли между этапами продажи.
+• <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/10938/">sporttravma.org</a> — после брифа прошло 66 дн., а встречи по защите КП нет — обязательный переход к защите КП сорван, деньги зависли между этапами продажи.
+• <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/18412/">mitekpumps.ru</a> — после брифа прошло 49 дн., а встречи по защите КП нет — обязательный переход к защите КП сорван, деньги зависли между этапами продажи.
+
+<b>Что РОП обязан сделать сегодня:</b>
+• До 13:00 получить от <b>Деговцова Елизавета</b> и <b>Смирнов Илья</b> обновлённые шаги по зависшим сделкам без очередного переноса.
+• До конца дня лично войти в <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/16268/">trusha-k.ru</a>, <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/10844/">pro.market</a>.
+• До конца дня закрыть 3 провала между брифом и защитой КП: либо поставить встречу, либо снять ложное ожидание.
+
+<b>🔥 Молодцы за вчера</b>
+• Лидеров с 9+/10 по операционной вовлечённости за вчера нет.<span class="time">09:30</span></div>
+
+    </div>
+  </div>
+
+  <div class="legend">
+    <b>Что нужно знать о превью</b>
+    <ul>
+      <li>Три отдельных сообщения за один dispatch: <b>📊 Sales</b>, <b>⚠️ Риски</b>, <b>🎯 Фокус</b>.</li>
+      <li>Рендер аутентичный — это HTML, который реально получает Telegram (parse_mode=HTML).</li>
+      <li>Sales-bubble сокращён в одном месте: блок «Без коммуникации» в риск-сообщении показывает 4 из 11 строк (полный список — в <code>samples/risks_20260512.html</code>).</li>
+      <li>Данные тянуты сегодня в 20:51 МСК с продового pipeline без <code>--send</code>, поэтому коммуникации показывают «СТОП» по всем — рабочий день ещё не закрыт.</li>
+    </ul>
+  </div>
+
+</div>
+
+</body>
+</html>

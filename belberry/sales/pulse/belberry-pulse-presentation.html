@@ -1,0 +1,1613 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Belberry Pulse — Внутренняя презентация продукта</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg-dark-1: #0a0420;
+    --bg-dark-2: #1a0a3e;
+    --bg-dark-3: #2a1560;
+    --accent-purple: #8b6df0;
+    --accent-light: #c4b5e8;
+    --accent-bright: #b8a3ff;
+    --accent-coral: #ff8a65;
+    --accent-pink: #ff5ec4;
+    --accent-mint: #6bdf9e;
+    --accent-gold: #ffd166;
+    --accent-cyan: #5eead4;
+    --accent-warn: #ffb86b;
+    --text-white: #ffffff;
+    --text-muted: #8a7ba8;
+  }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #050116;
+    color: var(--text-white);
+    -webkit-font-smoothing: antialiased;
+  }
+  .slide {
+    width: 1440px;
+    height: 810px;
+    margin: 24px auto;
+    padding: 60px 80px;
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(135deg, #0a0420 0%, #1a0a3e 60%, #2a1560 100%);
+    page-break-after: always;
+    break-after: page;
+    border-radius: 4px;
+  }
+
+  /* Decorative blobs */
+  .blob {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.4;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .blob-purple { background: var(--accent-purple); }
+  .blob-pink { background: var(--accent-pink); }
+  .blob-coral { background: var(--accent-coral); }
+  .blob-cyan { background: var(--accent-cyan); }
+  .blob-gold { background: var(--accent-gold); }
+  .blob-mint { background: var(--accent-mint); }
+
+  /* Mesh background pattern */
+  .mesh-bg {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(circle at 15% 20%, rgba(255, 138, 101, 0.18) 0%, transparent 35%),
+      radial-gradient(circle at 85% 75%, rgba(139, 109, 240, 0.35) 0%, transparent 40%),
+      radial-gradient(circle at 50% 100%, rgba(94, 234, 212, 0.12) 0%, transparent 45%);
+    z-index: 0;
+    pointer-events: none;
+  }
+  .mesh-cover {
+    background:
+      radial-gradient(circle at 20% 30%, rgba(255, 94, 196, 0.4) 0%, transparent 40%),
+      radial-gradient(circle at 80% 20%, rgba(184, 163, 255, 0.5) 0%, transparent 45%),
+      radial-gradient(circle at 70% 90%, rgba(94, 234, 212, 0.3) 0%, transparent 50%),
+      radial-gradient(circle at 10% 80%, rgba(255, 138, 101, 0.35) 0%, transparent 40%);
+  }
+  .dot-pattern {
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(circle, rgba(184,163,255,0.15) 1px, transparent 1px);
+    background-size: 24px 24px;
+    opacity: 0.5;
+    z-index: 0;
+    pointer-events: none;
+  }
+  .grid-pattern {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(184,163,255,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(184,163,255,0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  /* Z-stack helpers */
+  .content { position: relative; z-index: 2; }
+
+  /* Header */
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 36px;
+    position: relative;
+    z-index: 5;
+  }
+  .logo {
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .logo::before {
+    content: '';
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--accent-bright);
+    box-shadow: 0 0 16px var(--accent-bright);
+  }
+  .domain {
+    font-size: 15px;
+    opacity: 0.85;
+  }
+  .domain::after { content: ' ↗'; }
+  .internal-tag {
+    display: inline-block;
+    padding: 5px 14px;
+    background: linear-gradient(90deg, var(--accent-pink), var(--accent-coral));
+    border-radius: 100px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: white;
+    margin-left: 14px;
+    vertical-align: middle;
+    text-transform: uppercase;
+  }
+  .slide-num {
+    position: absolute;
+    bottom: 30px;
+    right: 80px;
+    font-size: 12px;
+    color: var(--text-muted);
+    letter-spacing: 0.15em;
+    font-weight: 600;
+    z-index: 5;
+  }
+
+  /* ============= COVER ============= */
+  .cover {
+    background:
+      radial-gradient(circle at 30% 50%, #4a2a8e 0%, transparent 60%),
+      linear-gradient(135deg, #1a0a3e 0%, #2a1560 50%, #4a2a8e 100%);
+  }
+  .cover-content {
+    position: absolute;
+    top: 50%;
+    left: 80px;
+    transform: translateY(-50%);
+    max-width: 800px;
+    z-index: 3;
+  }
+  .cover-eyebrow {
+    display: inline-block;
+    padding: 8px 18px;
+    background: rgba(255,255,255,0.12);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 100px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 30px;
+  }
+  .cover-title {
+    font-size: 96px;
+    font-weight: 900;
+    line-height: 0.95;
+    letter-spacing: -0.04em;
+    margin-bottom: 30px;
+    background: linear-gradient(180deg, #ffffff 30%, #c4b5e8 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .cover-sub {
+    font-size: 28px;
+    font-weight: 400;
+    line-height: 1.3;
+    opacity: 0.92;
+    margin-bottom: 36px;
+    max-width: 700px;
+  }
+  .cover-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 28px;
+    background: linear-gradient(90deg, var(--accent-pink), var(--accent-coral));
+    border-radius: 100px;
+    font-size: 18px;
+    font-weight: 700;
+    box-shadow: 0 20px 60px rgba(255,94,196,0.4);
+  }
+  .cover-pulse {
+    position: absolute;
+    right: 0; top: 50%;
+    transform: translateY(-50%);
+    width: 600px;
+    height: 600px;
+    opacity: 0.95;
+    z-index: 2;
+  }
+  .cover-footer {
+    position: absolute;
+    bottom: 50px;
+    left: 80px;
+    right: 80px;
+    display: flex;
+    justify-content: space-between;
+    border-top: 1px solid rgba(255,255,255,0.15);
+    padding-top: 18px;
+    z-index: 5;
+    font-size: 14px;
+    opacity: 0.7;
+  }
+
+  /* Section */
+  .section-eyebrow {
+    display: inline-block;
+    padding: 6px 14px;
+    border-radius: 100px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 14px;
+  }
+  .eb-pink { background: rgba(255,94,196,0.18); color: var(--accent-pink); border: 1px solid rgba(255,94,196,0.35); }
+  .eb-cyan { background: rgba(94,234,212,0.15); color: var(--accent-cyan); border: 1px solid rgba(94,234,212,0.35); }
+  .eb-gold { background: rgba(255,209,102,0.15); color: var(--accent-gold); border: 1px solid rgba(255,209,102,0.4); }
+  .eb-coral { background: rgba(255,138,101,0.15); color: var(--accent-coral); border: 1px solid rgba(255,138,101,0.4); }
+  .eb-purple { background: rgba(184,163,255,0.15); color: var(--accent-bright); border: 1px solid rgba(184,163,255,0.4); }
+  .eb-mint { background: rgba(107,223,158,0.15); color: var(--accent-mint); border: 1px solid rgba(107,223,158,0.4); }
+
+  .section-title {
+    font-size: 56px;
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -0.03em;
+    margin-bottom: 20px;
+  }
+  .section-title .accent {
+    background: linear-gradient(90deg, var(--accent-bright), var(--accent-pink));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .section-subtitle {
+    font-size: 19px;
+    line-height: 1.5;
+    color: var(--accent-light);
+    max-width: 1000px;
+    margin-bottom: 36px;
+    font-weight: 400;
+  }
+
+  /* Cards */
+  .card {
+    padding: 28px 26px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(184,163,255,0.18);
+    border-radius: 18px;
+    backdrop-filter: blur(8px);
+    position: relative;
+    overflow: hidden;
+  }
+  .card.with-accent::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--accent-bright), var(--accent-pink));
+  }
+  .card-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 18px;
+    font-size: 26px;
+  }
+  .icon-pink { background: linear-gradient(135deg, var(--accent-pink), var(--accent-coral)); }
+  .icon-cyan { background: linear-gradient(135deg, var(--accent-cyan), var(--accent-mint)); }
+  .icon-gold { background: linear-gradient(135deg, var(--accent-gold), var(--accent-coral)); }
+  .icon-purple { background: linear-gradient(135deg, var(--accent-purple), var(--accent-bright)); }
+  .icon-mint { background: linear-gradient(135deg, var(--accent-mint), var(--accent-cyan)); }
+
+  .card-label {
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    font-weight: 700;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    color: var(--accent-bright);
+  }
+  .card-title {
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 12px;
+    line-height: 1.2;
+  }
+  .card-text {
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--accent-light);
+  }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+
+  /* Quote */
+  .quote-card {
+    padding: 28px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 18px;
+    border-left: 4px solid var(--accent-pink);
+    position: relative;
+    overflow: hidden;
+  }
+  .quote-mark {
+    position: absolute;
+    top: -10px;
+    right: 20px;
+    font-size: 100px;
+    font-weight: 900;
+    line-height: 1;
+    color: var(--accent-pink);
+    opacity: 0.25;
+  }
+  .quote-text {
+    font-size: 18px;
+    line-height: 1.45;
+    margin-bottom: 14px;
+    font-weight: 500;
+  }
+  .quote-author {
+    font-size: 13px;
+    color: var(--accent-light);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .quote-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent-pink), var(--accent-purple));
+    flex-shrink: 0;
+  }
+
+  /* Definition block */
+  .def-block {
+    padding: 36px 44px;
+    background: linear-gradient(135deg, rgba(255,94,196,0.12), rgba(184,163,255,0.08));
+    border: 1px solid rgba(184,163,255,0.3);
+    border-radius: 18px;
+    position: relative;
+    overflow: hidden;
+  }
+  .def-block::before {
+    content: '';
+    position: absolute;
+    top: -50px; right: -50px;
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,94,196,0.3) 0%, transparent 70%);
+  }
+  .def-text {
+    font-size: 26px;
+    line-height: 1.4;
+    font-weight: 500;
+    position: relative;
+    z-index: 2;
+  }
+  .def-text strong {
+    background: linear-gradient(90deg, var(--accent-pink), var(--accent-coral));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    font-weight: 700;
+  }
+
+  /* Matrix */
+  .matrix-map {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 18px;
+    margin-top: 24px;
+  }
+  .matrix-col {
+    padding: 24px 22px;
+    background: rgba(255,255,255,0.03);
+    border-radius: 18px;
+    min-height: 420px;
+    position: relative;
+  }
+  .matrix-col.center {
+    background: linear-gradient(160deg, rgba(255,94,196,0.18), rgba(184,163,255,0.12));
+    border: 2px solid var(--accent-pink);
+    box-shadow: 0 20px 60px rgba(255,94,196,0.2);
+    transform: scale(1.04);
+  }
+  .matrix-head {
+    font-size: 13px;
+    color: var(--accent-bright);
+    letter-spacing: 0.12em;
+    font-weight: 700;
+    margin-bottom: 18px;
+    text-transform: uppercase;
+  }
+  .matrix-prod {
+    padding: 14px 16px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 12px;
+    margin-bottom: 10px;
+    font-size: 13px;
+  }
+  .matrix-prod.pulse {
+    background: linear-gradient(135deg, var(--accent-pink), var(--accent-coral));
+    color: white;
+    font-weight: 700;
+    box-shadow: 0 10px 30px rgba(255,94,196,0.4);
+  }
+  .matrix-prod .name { font-weight: 700; display: block; margin-bottom: 4px; font-size: 14px; }
+  .matrix-prod .meta { font-size: 11px; opacity: 0.7; }
+  .matrix-prod.pulse .meta { opacity: 0.95; }
+
+  /* Compare */
+  .compare-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 12px;
+  }
+  .compare-table th, .compare-table td {
+    padding: 14px 18px;
+    text-align: left;
+    border-bottom: 1px solid rgba(184,163,255,0.12);
+    font-size: 14px;
+    line-height: 1.45;
+    vertical-align: top;
+  }
+  .compare-table th {
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    font-weight: 700;
+    text-transform: uppercase;
+    border-bottom: 2px solid var(--accent-bright);
+  }
+  .compare-table th:nth-child(2) { color: var(--text-muted); }
+  .compare-table th:nth-child(3) { color: var(--accent-mint); }
+  .compare-table .old { color: var(--text-muted); text-decoration: line-through; text-decoration-color: rgba(255,255,255,0.2); }
+  .compare-table .new { color: var(--text-white); font-weight: 500; }
+  .compare-table td:first-child { color: var(--accent-light); width: 26%; font-weight: 500; }
+  .compare-table .arrow {
+    display: inline-block;
+    color: var(--accent-pink);
+    margin: 0 6px;
+  }
+
+  /* Team cards */
+  .team-card {
+    padding: 24px 22px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 18px;
+    border: 1px solid rgba(184,163,255,0.18);
+    position: relative;
+    overflow: hidden;
+  }
+  .team-card.highlight {
+    background: linear-gradient(160deg, rgba(255,94,196,0.15), rgba(184,163,255,0.05));
+    border-color: var(--accent-pink);
+  }
+  .team-avatar {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    font-weight: 800;
+    color: white;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  }
+  .av-pink { background: linear-gradient(135deg, var(--accent-pink), var(--accent-coral)); }
+  .av-cyan { background: linear-gradient(135deg, var(--accent-cyan), var(--accent-mint)); }
+  .av-gold { background: linear-gradient(135deg, var(--accent-gold), var(--accent-coral)); }
+  .av-purple { background: linear-gradient(135deg, var(--accent-purple), var(--accent-bright)); }
+  .team-role-label {
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    font-weight: 700;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    color: var(--accent-light);
+  }
+  .team-name {
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 12px;
+  }
+  .team-desc {
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--accent-light);
+    margin-bottom: 16px;
+  }
+  .team-stats {
+    padding-top: 14px;
+    border-top: 1px solid rgba(184,163,255,0.2);
+  }
+  .team-stat-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    margin-bottom: 5px;
+  }
+  .team-stat-row .v { font-weight: 700; }
+  .team-stat-row.warn .v { color: var(--accent-warn); }
+
+  /* Sprint */
+  .sprint-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-top: 20px;
+  }
+  .sprint-week {
+    padding: 22px 20px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 16px;
+    min-height: 380px;
+    position: relative;
+    overflow: hidden;
+  }
+  .sprint-week::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 4px;
+  }
+  .sprint-week.w1::before { background: linear-gradient(90deg, var(--accent-pink), var(--accent-coral)); }
+  .sprint-week.w2::before { background: linear-gradient(90deg, var(--accent-coral), var(--accent-gold)); }
+  .sprint-week.w3::before { background: linear-gradient(90deg, var(--accent-gold), var(--accent-mint)); }
+  .sprint-week.w4::before { background: linear-gradient(90deg, var(--accent-mint), var(--accent-cyan)); }
+  .sprint-num {
+    font-size: 56px;
+    font-weight: 900;
+    line-height: 1;
+    margin-bottom: 8px;
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .sprint-week.w1 .sprint-num { background-image: linear-gradient(135deg, var(--accent-pink), var(--accent-coral)); }
+  .sprint-week.w2 .sprint-num { background-image: linear-gradient(135deg, var(--accent-coral), var(--accent-gold)); }
+  .sprint-week.w3 .sprint-num { background-image: linear-gradient(135deg, var(--accent-gold), var(--accent-mint)); }
+  .sprint-week.w4 .sprint-num { background-image: linear-gradient(135deg, var(--accent-mint), var(--accent-cyan)); }
+  .sprint-label {
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    font-weight: 700;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    color: var(--accent-light);
+  }
+  .sprint-title {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 14px;
+  }
+  .sprint-list { list-style: none; font-size: 12px; line-height: 1.55; }
+  .sprint-list li {
+    padding: 5px 0 5px 16px;
+    position: relative;
+    opacity: 0.9;
+  }
+  .sprint-list li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 9px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent-bright);
+  }
+  .sprint-owner {
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(184,163,255,0.15);
+    font-size: 10px;
+    color: var(--accent-light);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+
+  /* Pricing */
+  .pricing-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+    margin-top: 18px;
+  }
+  .price-card {
+    padding: 26px 22px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(184,163,255,0.2);
+    border-radius: 18px;
+    position: relative;
+    overflow: hidden;
+  }
+  .price-card.recommended {
+    background: linear-gradient(160deg, rgba(255,94,196,0.2), rgba(184,163,255,0.08));
+    border-color: var(--accent-pink);
+    transform: scale(1.04);
+    box-shadow: 0 20px 50px rgba(255,94,196,0.2);
+  }
+  .price-badge {
+    position: absolute;
+    top: -10px;
+    right: 20px;
+    background: linear-gradient(90deg, var(--accent-pink), var(--accent-coral));
+    color: white;
+    padding: 5px 14px;
+    border-radius: 100px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    box-shadow: 0 8px 24px rgba(255,94,196,0.4);
+  }
+  .price-name {
+    font-size: 12px;
+    color: var(--accent-light);
+    letter-spacing: 0.12em;
+    font-weight: 700;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+  }
+  .price-value {
+    font-size: 38px;
+    font-weight: 900;
+    line-height: 1;
+    margin-bottom: 4px;
+    letter-spacing: -0.02em;
+  }
+  .price-period {
+    font-size: 11px;
+    color: var(--accent-light);
+    margin-bottom: 18px;
+  }
+  .price-details {
+    list-style: none;
+    border-top: 1px solid rgba(184,163,255,0.18);
+    padding-top: 12px;
+  }
+  .price-details li {
+    display: flex;
+    justify-content: space-between;
+    padding: 5px 0;
+    font-size: 12px;
+  }
+  .price-details .label { color: var(--accent-light); }
+  .price-details .value { font-weight: 600; }
+  .price-econ {
+    margin-top: 12px;
+    padding: 10px 14px;
+    background: rgba(255,209,102,0.12);
+    border-radius: 8px;
+    font-size: 11px;
+    color: var(--accent-gold);
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-align: center;
+  }
+
+  /* Metric row */
+  .metric-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 20px; }
+  .metric-card {
+    padding: 22px 20px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 14px;
+    border-top: 3px solid;
+  }
+  .metric-card.c1 { border-color: var(--accent-pink); }
+  .metric-card.c2 { border-color: var(--accent-coral); }
+  .metric-card.c3 { border-color: var(--accent-gold); }
+  .metric-card.c4 { border-color: var(--accent-mint); }
+  .metric-big {
+    font-size: 44px;
+    font-weight: 900;
+    line-height: 1;
+    margin-bottom: 6px;
+    letter-spacing: -0.02em;
+  }
+  .metric-card.c1 .metric-big { color: var(--accent-pink); }
+  .metric-card.c2 .metric-big { color: var(--accent-coral); }
+  .metric-card.c3 .metric-big { color: var(--accent-gold); }
+  .metric-card.c4 .metric-big { color: var(--accent-mint); }
+  .metric-label { font-size: 12px; color: var(--accent-light); }
+
+  /* Roadmap */
+  .roadmap-row {
+    display: grid;
+    grid-template-columns: 100px 1fr 200px 130px;
+    gap: 18px;
+    padding: 14px 20px;
+    background: rgba(255,255,255,0.03);
+    border-radius: 12px;
+    margin-bottom: 7px;
+    align-items: center;
+    font-size: 13px;
+    position: relative;
+  }
+  .roadmap-row.done { opacity: 0.45; }
+  .roadmap-row::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    border-radius: 12px 0 0 12px;
+  }
+  .roadmap-row.done::before { background: var(--accent-mint); }
+  .roadmap-row.next::before { background: var(--accent-coral); }
+  .roadmap-row.todo::before { background: var(--accent-gold); }
+  .roadmap-row .date {
+    font-weight: 800;
+    color: var(--accent-bright);
+    letter-spacing: 0.05em;
+    font-size: 13px;
+  }
+  .roadmap-row .who {
+    color: var(--accent-light);
+    font-size: 12px;
+  }
+  .roadmap-row strong { font-size: 14px; }
+  .roadmap-row .status {
+    font-size: 10px;
+    padding: 5px 12px;
+    border-radius: 100px;
+    text-align: center;
+    letter-spacing: 0.1em;
+    font-weight: 700;
+  }
+  .roadmap-row .status.todo {
+    background: rgba(255,209,102,0.15);
+    color: var(--accent-gold);
+  }
+  .roadmap-row .status.done {
+    background: rgba(107,223,158,0.15);
+    color: var(--accent-mint);
+  }
+  .roadmap-row .status.next {
+    background: rgba(255,138,101,0.15);
+    color: var(--accent-coral);
+  }
+
+  /* Questions */
+  .q-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-top: 24px;
+  }
+  .q-card {
+    padding: 20px 22px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 14px;
+    position: relative;
+    padding-left: 64px;
+  }
+  .q-card::before {
+    content: '?';
+    position: absolute;
+    top: 18px;
+    left: 18px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent-gold), var(--accent-coral));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 900;
+    color: var(--bg-dark-1);
+  }
+  .q-num {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--accent-coral);
+    letter-spacing: 0.15em;
+    margin-bottom: 4px;
+  }
+  .q-title {
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.3;
+    margin-bottom: 6px;
+  }
+  .q-text { font-size: 11px; color: var(--accent-light); line-height: 1.4; }
+
+  /* CTA */
+  .cta-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-top: 24px;
+  }
+  .cta-card {
+    padding: 22px 18px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 16px;
+    min-height: 250px;
+    position: relative;
+    overflow: hidden;
+  }
+  .cta-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 4px;
+  }
+  .cta-card.c1::before { background: linear-gradient(90deg, var(--accent-pink), var(--accent-coral)); }
+  .cta-card.c2::before { background: linear-gradient(90deg, var(--accent-coral), var(--accent-gold)); }
+  .cta-card.c3::before { background: linear-gradient(90deg, var(--accent-gold), var(--accent-mint)); }
+  .cta-card.c4::before { background: linear-gradient(90deg, var(--accent-mint), var(--accent-cyan)); }
+  .cta-card.c5::before { background: linear-gradient(90deg, var(--accent-cyan), var(--accent-bright)); }
+  .cta-card.c6::before { background: linear-gradient(90deg, var(--accent-bright), var(--accent-pink)); }
+  .cta-card.c7::before { background: linear-gradient(90deg, var(--accent-pink), var(--accent-gold)); }
+  .cta-card.c8::before { background: linear-gradient(90deg, var(--accent-mint), var(--accent-pink)); }
+  .cta-who {
+    font-size: 13px;
+    letter-spacing: 0.1em;
+    font-weight: 800;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+  }
+  .cta-card.c1 .cta-who { color: var(--accent-pink); }
+  .cta-card.c2 .cta-who { color: var(--accent-coral); }
+  .cta-card.c3 .cta-who { color: var(--accent-gold); }
+  .cta-card.c4 .cta-who { color: var(--accent-mint); }
+  .cta-card.c5 .cta-who { color: var(--accent-cyan); }
+  .cta-card.c6 .cta-who { color: var(--accent-bright); }
+  .cta-card.c7 .cta-who { color: var(--accent-pink); }
+  .cta-card.c8 .cta-who { color: var(--accent-mint); }
+  .cta-task {
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.35;
+    margin-bottom: 14px;
+  }
+  .cta-when {
+    font-size: 11px;
+    color: var(--accent-light);
+    padding-top: 10px;
+    border-top: 1px solid rgba(184,163,255,0.18);
+    letter-spacing: 0.05em;
+    font-weight: 600;
+  }
+
+  /* Big numbers showcase */
+  .showcase-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    margin-top: 36px;
+  }
+  .showcase {
+    text-align: center;
+    padding: 30px 20px;
+    background: rgba(255,255,255,0.03);
+    border-radius: 18px;
+  }
+  .showcase-big {
+    font-size: 72px;
+    font-weight: 900;
+    line-height: 1;
+    margin-bottom: 10px;
+    letter-spacing: -0.03em;
+  }
+  .sc-pink { color: var(--accent-pink); }
+  .sc-cyan { color: var(--accent-cyan); }
+  .sc-gold { color: var(--accent-gold); }
+  .showcase-label {
+    font-size: 14px;
+    color: var(--accent-light);
+    line-height: 1.4;
+  }
+
+  @media print {
+    body { background: white; }
+    .slide { margin: 0; box-shadow: none; border-radius: 0; }
+    @page { size: 1440px 810px; margin: 0; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ============= 1. COVER ============= -->
+<section class="slide cover">
+  <div class="mesh-bg mesh-cover"></div>
+  <div class="blob blob-pink" style="width: 400px; height: 400px; top: -100px; right: -100px;"></div>
+  <div class="blob blob-cyan" style="width: 300px; height: 300px; bottom: -50px; left: 200px;"></div>
+  <div class="header">
+    <div><span class="logo">Belberry</span><span class="internal-tag">Internal</span></div>
+    <div class="domain">belberry.net</div>
+  </div>
+  <!-- Hero pulse SVG -->
+  <svg class="cover-pulse" viewBox="0 0 600 600" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="pulseGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="#ff5ec4" stop-opacity="0"/>
+        <stop offset="30%" stop-color="#ff5ec4" stop-opacity="1"/>
+        <stop offset="70%" stop-color="#5eead4" stop-opacity="1"/>
+        <stop offset="100%" stop-color="#5eead4" stop-opacity="0"/>
+      </linearGradient>
+      <filter id="glow">
+        <feGaussianBlur stdDeviation="6" result="b"/>
+        <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+    </defs>
+    <circle cx="300" cy="300" r="280" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="2"/>
+    <circle cx="300" cy="300" r="220" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="2"/>
+    <circle cx="300" cy="300" r="160" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="2"/>
+    <path d="M40,300 L160,300 L180,200 L210,420 L240,180 L260,300 L350,300 L380,240 L410,360 L440,300 L560,300"
+          stroke="url(#pulseGrad)" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"
+          filter="url(#glow)"/>
+    <circle cx="220" cy="300" r="6" fill="#ff5ec4" filter="url(#glow)"/>
+    <circle cx="395" cy="300" r="6" fill="#5eead4" filter="url(#glow)"/>
+  </svg>
+  <div class="cover-content">
+    <div class="cover-eyebrow">Презентация команде · v1.0</div>
+    <h1 class="cover-title">Belberry<br>Pulse.</h1>
+    <div class="cover-sub">Новый продукт для медицинских клиник<br>без in-house команды.</div>
+    <div class="cover-pill">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M2,10 L5,10 L7,4 L10,16 L12,7 L14,12 L18,10" stroke="white" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Держим руку на пульсе сайта
+    </div>
+  </div>
+  <div class="cover-footer">
+    <div>Отдел продаж · Производство · Маркетинг</div>
+    <div>18.05.2026 · Москва</div>
+  </div>
+</section>
+
+<!-- ============= 2. WHY ============= -->
+<section class="slide">
+  <div class="mesh-bg"></div>
+  <div class="dot-pattern"></div>
+  <div class="blob blob-coral" style="width: 350px; height: 350px; top: 100px; right: -100px; opacity: 0.25;"></div>
+  <div class="content">
+    <div class="header">
+      <div><span class="logo">Belberry</span><span class="internal-tag">01 · Зачем</span></div>
+      <div class="domain">belberry.net</div>
+    </div>
+    <div class="section-eyebrow eb-coral">Стратегический сдвиг</div>
+    <h2 class="section-title">Из потока задач — <span class="accent">в продукт</span></h2>
+    <p class="section-subtitle">Рынок клиник массово запрашивает комплексное обслуживание под ключ. Чтобы это закрыть и поднять средний чек, нам нужно выйти из текущей парадигмы «дайте ТЗ — сделаем» и упаковать команду в один продукт.</p>
+    <div class="grid-3">
+      <div class="card with-accent">
+        <div class="card-icon icon-pink">
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M14,2 L17,10 L26,10 L19,16 L22,24 L14,19 L6,24 L9,16 L2,10 L11,10 Z" fill="white"/></svg>
+        </div>
+        <div class="card-label">РЫНОК ХОЧЕТ</div>
+        <div class="card-title">Максимум под ключ</div>
+        <div class="card-text">Клиники в основной массе хотят не точечные услуги, а единое решение. Готовы платить премию за то, чтобы не собирать подрядчиков самостоятельно и получать готовый результат, а не ТЗ.</div>
+      </div>
+      <div class="card with-accent">
+        <div class="card-icon icon-gold">
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M4,14 L24,14 M16,6 L24,14 L16,22" stroke="white" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div class="card-label">МЫ МЕНЯЕМ МОДЕЛЬ</div>
+        <div class="card-title">Команда → как продукт</div>
+        <div class="card-text">Выходим из парадигмы потока задач. Упаковываем проджекта, SEO-стратега, копирайтера и дизайнера в единую команду, которая назначается на клиента и работает проактивно — как in-house.</div>
+      </div>
+      <div class="card with-accent">
+        <div class="card-icon icon-cyan">
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M4,22 L4,18 M10,22 L10,12 M16,22 L16,8 M22,22 L22,4" stroke="white" stroke-width="3" stroke-linecap="round"/></svg>
+        </div>
+        <div class="card-label">ПОЛУЧАЕМ</div>
+        <div class="card-title">Чек в 2-3× выше</div>
+        <div class="card-text">Pulse увеличивает выручку с клиента в 2-3 раза vs SEO Основное. Меньше клиентов на одного аккаунта, выше LTV, лучше юнит-экономика и retention.</div>
+      </div>
+    </div>
+    <div class="def-block" style="margin-top: 26px;">
+      <div class="def-text">Pulse — это <strong>комплексный продукт с назначенной командой</strong>: проджект, SEO, копирайтер, дизайнер. Клиент получает <strong>максимум под ключ</strong>, мы — <strong>выше средний чек</strong> и новую модель работы.</div>
+    </div>
+  </div>
+  <div class="slide-num">02 / 12</div>
+</section>
+
+<!-- ============= 3. VOICE OF CUSTOMER ============= -->
+<section class="slide">
+  <div class="mesh-bg"></div>
+  <div class="blob blob-pink" style="width: 400px; height: 400px; top: -150px; left: -100px;"></div>
+  <div class="blob blob-cyan" style="width: 300px; height: 300px; bottom: -50px; right: -50px;"></div>
+  <div class="content">
+    <div class="header">
+      <div><span class="logo">Belberry</span><span class="internal-tag">02 · Голос клиента</span></div>
+      <div class="domain">belberry.net</div>
+    </div>
+    <div class="section-eyebrow eb-pink">Voice of customer</div>
+    <h2 class="section-title">Что клиники <span class="accent">говорят дословно</span></h2>
+    <p class="section-subtitle">Со встречи 14.05.2026. Это не догадки — прямые цитаты из переговоров.</p>
+    <div class="grid-2">
+      <div class="quote-card" style="border-left-color: var(--accent-pink);">
+        <div class="quote-mark">"</div>
+        <div class="quote-text">У вас слишком много аудитов. Их некому реализовывать у нас — нет команды.</div>
+        <div class="quote-author"><div class="quote-avatar" style="background: linear-gradient(135deg, var(--accent-pink), var(--accent-coral));"></div>Одна из московских клиник</div>
+      </div>
+      <div class="quote-card" style="border-left-color: var(--accent-cyan);">
+        <div class="quote-mark" style="color: var(--accent-cyan);">"</div>
+        <div class="quote-text">Нам нужен наставник, который скажет — сейчас надо заходить в нейропоиск.</div>
+        <div class="quote-author"><div class="quote-avatar" style="background: linear-gradient(135deg, var(--accent-cyan), var(--accent-mint));"></div>Сеть клиник, региональная</div>
+      </div>
+      <div class="quote-card" style="border-left-color: var(--accent-gold);">
+        <div class="quote-mark" style="color: var(--accent-gold);">"</div>
+        <div class="quote-text">Бутиковый формат команды — одни и те же люди, знающие наш проект.</div>
+        <div class="quote-author"><div class="quote-avatar" style="background: linear-gradient(135deg, var(--accent-gold), var(--accent-coral));"></div>Клиника эстетической медицины</div>
+      </div>
+      <div class="quote-card" style="border-left-color: var(--accent-mint);">
+        <div class="quote-mark" style="color: var(--accent-mint);">"</div>
+        <div class="quote-text">Маркетолог один, перегружен. SEO-агентство выдаёт ТЗ — некому внедрять.</div>
+        <div class="quote-author"><div class="quote-avatar" style="background: linear-gradient(135deg, var(--accent-mint), var(--accent-cyan));"></div>Стоматологическая сеть</div>
+      </div>
+    </div>
+    <div class="showcase-row" style="margin-top: 24px; grid-template-columns: repeat(3, 1fr);">
+      <div class="showcase"><div class="showcase-big sc-pink">3</div><div class="showcase-label">клиники с одинаковым запросом</div></div>
+      <div class="showcase"><div class="showcase-big sc-cyan">200-250к</div><div class="showcase-label">привычный месячный чек</div></div>
+      <div class="showcase"><div class="showcase-big sc-gold">100%</div><div class="showcase-label">говорят «нет своей команды»</div></div>
+    </div>
+  </div>
+  <div class="slide-num">03 / 12</div>
+</section>
+
+<!-- ============= 4. WHAT IS PULSE ============= -->
+<section class="slide">
+  <div class="mesh-bg"></div>
+  <div class="grid-pattern"></div>
+  <div class="blob blob-purple" style="width: 500px; height: 500px; top: -100px; right: -150px; opacity: 0.3;"></div>
+  <div class="content">
+    <div class="header">
+      <div><span class="logo">Belberry</span><span class="internal-tag">03 · Что это</span></div>
+      <div class="domain">belberry.net</div>
+    </div>
+    <div class="section-eyebrow eb-purple">Определение продукта</div>
+    <h2 class="section-title">Pulse — это <span class="accent">подрядчик подрядчиков</span></h2>
+    <p class="section-subtitle" style="margin-bottom: 18px;">У клиента уже есть подрядчики на все направления — SEO-агентство, дизайнер, копирайтер, разработчик. Чего у клиента нет — координатора-эксперта, который держит всё это в едином ритме. Эту роль закрываем мы.</p>
+    <!-- Pulse line SVG -->
+    <div style="margin: 4px 0 14px 0; height: 50px; position: relative;">
+      <svg viewBox="0 0 1280 100" preserveAspectRatio="none" style="width: 100%; height: 100%;">
+        <defs>
+          <linearGradient id="pulseLine" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#ff5ec4"/>
+            <stop offset="50%" stop-color="#b8a3ff"/>
+            <stop offset="100%" stop-color="#5eead4"/>
+          </linearGradient>
+        </defs>
+        <path d="M0,50 L200,50 L240,15 L280,85 L320,50 L500,50 L540,30 L580,70 L620,50 L800,50 L840,5 L880,95 L920,50 L1100,50 L1140,30 L1180,70 L1280,50"
+              stroke="url(#pulseLine)" stroke-width="3" fill="none" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <div class="def-block" style="padding: 24px 36px;">
+      <div class="def-text" style="font-size: 22px;">Мы забираем работу у <strong>ленивого маркетолога</strong>, становимся <strong>экспертом для подрядчиков</strong> и <strong>стратегом для клиента</strong>. Один человек координирует SEO, копирайт, дизайн и разработку — и приносит результат каждый месяц.</div>
+    </div>
+    <div class="grid-3" style="margin-top: 16px;">
+      <div class="card" style="padding: 20px 22px;">
+        <div class="card-icon icon-pink" style="width: 44px; height: 44px; margin-bottom: 12px; font-size: 22px;">🎯</div>
+        <div class="card-label">ЗАМЕНЯЕМ МАРКЕТОЛОГА</div>
+        <div class="card-title" style="font-size: 19px; margin-bottom: 8px;">Берём координацию</div>
+        <div class="card-text">Маркетолог клиента перегружен или не успевает. Мы забираем постановку задач, контроль подрядчиков и отчётность — всё, что должен делать он.</div>
+      </div>
+      <div class="card" style="padding: 20px 22px;">
+        <div class="card-icon icon-cyan" style="width: 44px; height: 44px; margin-bottom: 12px; font-size: 22px;">🔍</div>
+        <div class="card-label">ЭКСПЕРТ ДЛЯ ПОДРЯДЧИКОВ</div>
+        <div class="card-title" style="font-size: 19px; margin-bottom: 8px;">Не даём халтурить</div>
+        <div class="card-text">Знаем как работают SEO, дизайн, контент, разработка. Ставим ТЗ подрядчикам клиента и валидируем их результат — или делаем сами, если так быстрее.</div>
+      </div>
+      <div class="card" style="padding: 20px 22px;">
+        <div class="card-icon icon-gold" style="width: 44px; height: 44px; margin-bottom: 12px; font-size: 22px;">🧭</div>
+        <div class="card-label">СТРАТЕГ ДЛЯ КЛИЕНТА</div>
+        <div class="card-title" style="font-size: 19px; margin-bottom: 8px;">Приносим направление</div>
+        <div class="card-text">Тренды отрасли, нейропоиск, EEAT, юридические изменения — наша зона. Клиент покупает экспертность и стратегию, а не часы исполнителей.</div>
+      </div>
+    </div>
+  </div>
+  <div class="slide-num">04 / 12</div>
+</section>
+
+<!-- ============= 5. MATRIX ============= -->
+<section class="slide">
+  <div class="mesh-bg"></div>
+  <div class="blob blob-pink" style="width: 400px; height: 400px; top: 200px; left: 40%; opacity: 0.25;"></div>
+  <div class="content">
+    <div class="header">
+      <div><span class="logo">Belberry</span><span class="internal-tag">04 · Место в матрице</span></div>
+      <div class="domain">belberry.net</div>
+    </div>
+    <div class="section-eyebrow eb-pink">Продуктовая линейка</div>
+    <h2 class="section-title">Где Pulse <span class="accent">в матрице</span></h2>
+    <p class="section-subtitle">Pulse не заменяет существующие продукты — он закрывает гэп между SEO Основное и WD. Это апсейл для клиентов, у которых есть подрядчики, но нет координатора-эксперта.</p>
+    <div class="matrix-map">
+      <div class="matrix-col">
+        <div class="matrix-head" style="color: var(--accent-cyan);">Клиент сам ставит задачи</div>
+        <div class="matrix-prod">
+          <span class="name">SEO Основное</span>
+          <span class="meta">от 78 600 ₽/мес · мы выдаём ТЗ, клиент реализует</span>
+        </div>
+        <div class="matrix-prod">
+          <span class="name">Аудиты</span>
+          <span class="meta">60/36/48к разово · ТЗ на доработки</span>
+        </div>
+        <div class="matrix-prod">
+          <span class="name">Program (ТП)</span>
+          <span class="meta">от 28к/мес · реактивная техподдержка</span>
+        </div>
+      </div>
+      <div class="matrix-col center">
+        <div class="matrix-head" style="color: white;">Нужен координатор-эксперт</div>
+        <div class="matrix-prod pulse">
+          <span class="name">⚡ Belberry Pulse</span>
+          <span class="meta">от 138 600 ₽/мес · подрядчик подрядчиков</span>
+        </div>
+        <div style="font-size: 12px; color: white; line-height: 1.5; margin-top: 18px; padding: 16px; background: rgba(0,0,0,0.3); border-radius: 10px; backdrop-filter: blur(10px);">
+          Координируем <strong>SEO, копирайтеров, дизайнеров, разработчиков</strong> — своих или клиентских. Забираем работу маркетолога, ставим ТЗ, валидируем результат.
+        </div>
+      </div>
+      <div class="matrix-col">
+        <div class="matrix-head" style="color: var(--accent-gold);">Нужен новый сайт</div>
+        <div class="matrix-prod">
+          <span class="name">WD Individual</span>
+          <span class="meta">от 900к разово · с нуля</span>
+        </div>
+        <div class="matrix-prod">
+          <span class="name">WD шаблон 1С-Битрикс</span>
+          <span class="meta">от 300к разово</span>
+        </div>
+        <div class="matrix-prod">
+          <span class="name">Landing Page</span>
+          <span class="meta">от 120к разово</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="slide-num">05 / 12</div>
+</section>
+
+<!-- ============= 6. WHAT CHANGES ============= -->
+<section class="slide">
+  <div class="mesh-bg"></div>
+  <div class="blob blob-coral" style="width: 300px; height: 300px; top: -50px; right: 100px; opacity: 0.2;"></div>
+  <div class="blob blob-mint" style="width: 300px; height: 300px; bottom: -50px; left: 100px; opacity: 0.15;"></div>
+  <div class="content">
+    <div class="header">
+      <div><span class="logo">Belberry</span><span class="internal-tag">05 · Что меняется</span></div>
+      <div class="domain">belberry.net</div>
+    </div>
+    <div class="section-eyebrow eb-coral">До и после</div>
+    <h2 class="section-title">Что меняется в <span class="accent">нашей работе</span></h2>
+    <p class="section-subtitle">Pulse — это не «продаём другие услуги под новым именем». Это другая модель работы, к которой команде нужно адаптироваться.</p>
+    <table class="compare-table">
+      <thead>
+        <tr>
+          <th>Параметр</th>
+          <th>Как было (SEO Основное · Program)</th>
+          <th>Как в Pulse</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Кто инициирует работы</td>
+          <td class="old">Клиент даёт задачу → мы исполняем</td>
+          <td class="new">⚡ Команда приносит roadmap → клиент согласует</td>
+        </tr>
+        <tr>
+          <td>Состав команды</td>
+          <td class="old">Один SEO-спец + подключения по запросу</td>
+          <td class="new">🤝 4 dedicated роли: Проджект, SEO, копирайтер, дизайнер</td>
+        </tr>
+        <tr>
+          <td>Кто общается с клиентом</td>
+          <td class="old">Аккаунт + SEO + иногда исполнители</td>
+          <td class="new">📞 Только Проджект — single point of contact</td>
+        </tr>
+        <tr>
+          <td>Ритм работы</td>
+          <td class="old">Поток задач, без зашитых дедлайнов</td>
+          <td class="new">🔁 Месячный sprint с контрольными точками</td>
+        </tr>
+        <tr>
+          <td>Отчётность</td>
+          <td class="old">Отчёт раз в месяц</td>
+          <td class="new">📊 QBR-встреча 30-го числа + roadmap на следующий месяц</td>
+        </tr>
+        <tr>
+          <td>Мотивация</td>
+          <td class="old">Фикс</td>
+          <td class="new">💎 Фикс + бонусы Проджекту за продление и SEO за апгрейд</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="slide-num">06 / 12</div>
+</section>
+
+<!-- ============= 7. TEAM ============= -->
+<section class="slide">
+  <div class="mesh-bg"></div>
+  <div class="dot-pattern"></div>
+  <div class="content">
+    <div class="header">
+      <div><span class="logo">Belberry</span><span class="internal-tag">06 · Команда</span></div>
+      <div class="domain">belberry.net</div>
+    </div>
+    <div class="section-eyebrow eb-gold">Роли и нагрузка</div>
+    <h2 class="section-title">Команда: <span class="accent">4 роли</span> на каждом проекте</h2>
+    <p class="section-subtitle">Каждая роль с фиксированной долей часов тарифа. Это позволяет планировать загрузку и не перегружать senior-специалистов.</p>
+    <div class="grid-4">
+      <div class="team-card highlight">
+        <div class="team-avatar av-pink">PM</div>
+        <div class="team-role-label">Новая роль</div>
+        <div class="team-name">Проджект</div>
+        <div class="team-desc">Roadmap, QBR, коммуникация с клиентом, контроль сроков, инициатива по трендам.</div>
+        <div class="team-stats">
+          <div class="team-stat-row"><span>Часов</span><span class="v">20% тарифа</span></div>
+          <div class="team-stat-row warn"><span>Назначает</span><span class="v">Маша</span></div>
+          <div class="team-stat-row"><span>Лимит</span><span class="v">3-4 проекта</span></div>
+        </div>
+      </div>
+      <div class="team-card">
+        <div class="team-avatar av-cyan">SEO</div>
+        <div class="team-role-label">Senior+</div>
+        <div class="team-name">SEO-стратег</div>
+        <div class="team-desc">Семантика, ТЗ страниц, аудиты, EEAT, контроль SEO-результата.</div>
+        <div class="team-stats">
+          <div class="team-stat-row"><span>Часов</span><span class="v">30% тарифа</span></div>
+          <div class="team-stat-row"><span>Откуда</span><span class="v">Текущий отдел</span></div>
+          <div class="team-stat-row warn"><span>Лимит</span><span class="v">3 проекта</span></div>
+        </div>
+      </div>
+      <div class="team-card">
+        <div class="team-avatar av-gold">CP</div>
+        <div class="team-role-label">Медспециализация</div>
+        <div class="team-name">Копирайтер</div>
+        <div class="team-desc">Тексты, согласование, SEO-рерайт через нейросеть, медэкспертиза.</div>
+        <div class="team-stats">
+          <div class="team-stat-row"><span>Часов</span><span class="v">20% тарифа</span></div>
+          <div class="team-stat-row"><span>Откуда</span><span class="v">Пул медкопов</span></div>
+          <div class="team-stat-row"><span>Лимит</span><span class="v">4 проекта</span></div>
+        </div>
+      </div>
+      <div class="team-card">
+        <div class="team-avatar av-purple">UX</div>
+        <div class="team-role-label">Прототип + макет</div>
+        <div class="team-name">Дизайнер</div>
+        <div class="team-desc">Прототипы, макеты Figma, десктоп + мобильная адаптация.</div>
+        <div class="team-stats">
+          <div class="team-stat-row"><span>Часов</span><span class="v">20% тарифа</span></div>
+          <div class="team-stat-row"><span>Откуда</span><span class="v">Дизайн-команда</span></div>
+          <div class="team-stat-row"><span>Лимит</span><span class="v">4 проекта</span></div>
+        </div>
+      </div>
+    </div>
+    <div style="margin-top: 20px; padding: 16px 24px; background: linear-gradient(90deg, rgba(255,209,102,0.12), rgba(255,138,101,0.08)); border-left: 3px solid var(--accent-gold); border-radius: 10px; font-size: 13px;">
+      <strong style="color: var(--accent-gold);">⚠ Узкое место:</strong> на старте — Проджект (роли нет, нужен человек). На скейле — SEO-стратеги (senior, ограничены 3 проектами каждый). При &gt; 5 одновременных Pulse-клиентов — найм или отказ.
+    </div>
+  </div>
+  <div class="slide-num">07 / 12</div>
+</section>
+
+<!-- ============= 8. SPRINT ============= -->
+<section class="slide">
+  <div class="mesh-bg"></div>
+  <div class="content">
+    <div class="header">
+      <div><span class="logo">Belberry</span><span class="internal-tag">07 · Sprint</span></div>
+      <div class="domain">belberry.net</div>
+    </div>
+    <div class="section-eyebrow eb-mint">Месячный ритм</div>
+    <h2 class="section-title">Внутренний <span class="accent">sprint</span></h2>
+    <p class="section-subtitle">Жёсткий ритм с зашитыми контрольными точками. Это снимает «бесконечные итерации» — главный риск в multi-component услугах.</p>
+    <div class="sprint-grid">
+      <div class="sprint-week w1">
+        <div class="sprint-num">01</div>
+        <div class="sprint-label">Неделя 1</div>
+        <div class="sprint-title">Стратегия и бриф</div>
+        <ul class="sprint-list">
+          <li>Внутренний кикофф (Пн)</li>
+          <li>Проджект делает page brief</li>
+          <li>SEO: семантика и структура</li>
+          <li>Постановка задач в Bitrix</li>
+        </ul>
+        <div class="sprint-owner">Проджект + SEO</div>
+      </div>
+      <div class="sprint-week w2">
+        <div class="sprint-num">02</div>
+        <div class="sprint-label">Неделя 2</div>
+        <div class="sprint-title">Контент и прототип</div>
+        <ul class="sprint-list">
+          <li>Копирайтер пишет тексты</li>
+          <li>Дизайнер делает wireframe</li>
+          <li>Внутреннее ревью (Пт)</li>
+          <li>SEO-аттестация контента</li>
+        </ul>
+        <div class="sprint-owner">Копирайтер + Дизайнер</div>
+      </div>
+      <div class="sprint-week w3">
+        <div class="sprint-num">03</div>
+        <div class="sprint-label">Неделя 3</div>
+        <div class="sprint-title">Согласование</div>
+        <ul class="sprint-list">
+          <li>Проджект ведёт согласование</li>
+          <li>Итерации правок (2 или 3)</li>
+          <li>Финальный макет в Figma</li>
+          <li>Старт страницы №2</li>
+        </ul>
+        <div class="sprint-owner">Проджект</div>
+      </div>
+      <div class="sprint-week w4">
+        <div class="sprint-num">04</div>
+        <div class="sprint-label">Неделя 4</div>
+        <div class="sprint-title">Сдача и QBR</div>
+        <ul class="sprint-list">
+          <li>Передача макета клиенту</li>
+          <li>SEO-аттестация после релиза</li>
+          <li>QBR-отчёт 30-го числа</li>
+          <li>Roadmap на след. месяц</li>
+        </ul>
+        <div class="sprint-owner">Проджект + SEO</div>
+      </div>
+    </div>
+    <div style="margin-top: 18px; padding: 14px 22px; background: rgba(94,234,212,0.08); border-radius: 10px; font-size: 13px; color: var(--accent-cyan); display: flex; align-items: center; gap: 12px;">
+      <span style="font-size: 18px;">🛠</span>
+      <span><strong>Инструменты:</strong> <span style="color: var(--accent-light);">Bitrix24 (Smart-process «Pulse»), Figma (read-only клиенту), Google Docs (тексты), Notion (knowledge base), Calltouch + Метрика (аналитика).</span></span>
+    </div>
+  </div>
+  <div class="slide-num">08 / 12</div>
+</section>
+
+<!-- ============= 9. PRICING ============= -->
+<section class="slide">
+  <div class="mesh-bg"></div>
+  <div class="blob blob-gold" style="width: 350px; height: 350px; top: -50px; right: 50px; opacity: 0.2;"></div>
+  <div class="content">
+    <div class="header">
+      <div><span class="logo">Belberry</span><span class="internal-tag">08 · Деньги</span></div>
+      <div class="domain">belberry.net</div>
+    </div>
+    <div class="section-eyebrow eb-gold">Цена и юнит-экономика</div>
+    <h2 class="section-title">Тарифы и <span class="accent">unit-экономика</span></h2>
+    <p class="section-subtitle">Три тарифа, НДС 5%, никаких скидок. Чем больше часов клиент покупает — тем меньше ставка и выше наша маржа.</p>
+    <div class="pricing-grid">
+      <div class="price-card">
+        <div class="price-name">Базовый</div>
+        <div class="price-value">138 600 ₽</div>
+        <div class="price-period">в месяц с НДС 5%</div>
+        <ul class="price-details">
+          <li><span class="label">Часов</span><span class="value">40</span></li>
+          <li><span class="label">Ставка часа</span><span class="value">3 300 ₽</span></li>
+          <li><span class="label">Доп. час</span><span class="value">3 500 ₽</span></li>
+          <li><span class="label">Глубина</span><span class="value">≈ 2 стр</span></li>
+          <li><span class="label">Итераций</span><span class="value">1</span></li>
+        </ul>
+        <div class="price-econ">МАРЖА ≈ 22% · entry-point</div>
+      </div>
+      <div class="price-card recommended">
+        <div class="price-badge">⚡ SWEET SPOT</div>
+        <div class="price-name">Оптимальный</div>
+        <div class="price-value">220 500 ₽</div>
+        <div class="price-period">в месяц с НДС 5%</div>
+        <ul class="price-details">
+          <li><span class="label">Часов</span><span class="value">70</span></li>
+          <li><span class="label">Ставка часа</span><span class="value">3 000 ₽</span></li>
+          <li><span class="label">Доп. час</span><span class="value">3 200 ₽</span></li>
+          <li><span class="label">Глубина</span><span class="value">≈ 4 стр</span></li>
+          <li><span class="label">Итераций</span><span class="value">2</span></li>
+        </ul>
+        <div class="price-econ" style="background: rgba(255,94,196,0.15); color: var(--accent-pink);">МАРЖА ≈ 30% · default продажа</div>
+      </div>
+      <div class="price-card">
+        <div class="price-name">Максимальный</div>
+        <div class="price-value">283 500 ₽</div>
+        <div class="price-period">в месяц с НДС 5%</div>
+        <ul class="price-details">
+          <li><span class="label">Часов</span><span class="value">100</span></li>
+          <li><span class="label">Ставка часа</span><span class="value">2 700 ₽</span></li>
+          <li><span class="label">Доп. час</span><span class="value">2 700 ₽</span></li>
+          <li><span class="label">Глубина</span><span class="value">≈ 6 стр</span></li>
+          <li><span class="label">Итераций</span><span class="value">3</span></li>
+        </ul>
+        <div class="price-econ" style="background: rgba(107,223,158,0.15); color: var(--accent-mint);">МАРЖА ≈ 35% · максимум LTV</div>
+      </div>
+    </div>
+    <div class="metric-row">
+      <div class="metric-card c1"><div class="metric-big">5</div><div class="metric-label">макс. одновременных клиентов</div></div>
+      <div class="metric-card c2"><div class="metric-big">215к</div><div class="metric-label">avg revenue per account / мес</div></div>
+      <div class="metric-card c3"><div class="metric-big">3 мес</div><div class="metric-label">минимальный срок договора</div></div>
+      <div class="metric-card c4"><div class="metric-big">75%</div><div class="metric-label">целевой 6-мес retention</div></div>
+    </div>
+  </div>
+  <div class="slide-num">09 / 12</div>
+</section>
+
+<!-- ============= 10. ROADMAP ============= -->
+<section class="slide">
+  <div class="mesh-bg"></div>
+  <div class="content">
+    <div class="header">
+      <div><span class="logo">Belberry</span><span class="internal-tag">09 · Запуск</span></div>
+      <div class="domain">belberry.net</div>
+    </div>
+    <div class="section-eyebrow eb-mint">Timeline до запуска</div>
+    <h2 class="section-title">Roadmap <span class="accent">запуска</span></h2>
+    <p class="section-subtitle">От сегодня до открытия Pulse для общей воронки — около 7 недель. Pilot на СМ-Клиника параллельно.</p>
+    <div style="margin-top: 12px;">
+      <div class="roadmap-row done">
+        <div class="date">18.05</div>
+        <div><strong>Согласован продукт</strong><br><span class="who">Имя, ставка, скидки, проджект, 3 мес — зафиксировано</span></div>
+        <div class="who">Женя</div>
+        <div class="status done">DONE</div>
+      </div>
+      <div class="roadmap-row next">
+        <div class="date">до 26.05</div>
+        <div><strong>Закрыть СМ-Клиника</strong><br><span class="who">По текущему КП (старая ставка), Pulse-условия со 2-го контракта</span></div>
+        <div class="who">Лиза</div>
+        <div class="status next">В РАБОТЕ</div>
+      </div>
+      <div class="roadmap-row todo">
+        <div class="date">до 02.06</div>
+        <div><strong>Должностная Проджекта + первый назначен</strong><br><span class="who">Описать функции, выбрать кандидата на pilot</span></div>
+        <div class="who">Маша</div>
+        <div class="status todo">TODO</div>
+      </div>
+      <div class="roadmap-row todo">
+        <div class="date">до 02.06</div>
+        <div><strong>Схема процесса Pulse + чек-листы sprint'а</strong><br><span class="who">Карта процесса, артефакты, шаблоны задач в Bitrix</span></div>
+        <div class="who">Маша</div>
+        <div class="status todo">TODO</div>
+      </div>
+      <div class="roadmap-row todo">
+        <div class="date">до 02.06</div>
+        <div><strong>Договор-приложения для Pulse</strong><br><span class="who">Рамочный_РК + приложения по часам, итерациям, паузам</span></div>
+        <div class="who">Юрист</div>
+        <div class="status todo">TODO</div>
+      </div>
+      <div class="roadmap-row todo">
+        <div class="date">до 09.06</div>
+        <div><strong>КП-презентация Pulse + battle-card</strong><br><span class="who">Адаптация для внешних продаж, FAQ для аккаунтов</span></div>
+        <div class="who">Лиза + дизайнер</div>
+        <div class="status todo">TODO</div>
+      </div>
+      <div class="roadmap-row todo">
+        <div class="date">июнь</div>
+        <div><strong>Pilot месяц с СМ-Клиника</strong><br><span class="who">Полный цикл sprint'а, проверка процесса в боевых условиях</span></div>
+        <div class="who">Команда</div>
+        <div class="status todo">TODO</div>
+      </div>
+      <div class="roadmap-row todo">
+        <div class="date">01.07</div>
+        <div><strong>Retrospective + открытие для воронки</strong><br><span class="who">Корректировки процесса, запуск продаж новым клиентам</span></div>
+        <div class="who">Все</div>
+        <div class="status todo">TODO</div>
+      </div>
+    </div>
+  </div>
+  <div class="slide-num">10 / 12</div>
+</section>
+
+<!-- ============= 11. OPEN QUESTIONS ============= -->
+<section class="slide">
+  <div class="mesh-bg"></div>
+  <div class="blob blob-gold" style="width: 300px; height: 300px; top: 100px; right: -100px; opacity: 0.2;"></div>
+  <div class="content">
+    <div class="header">
+      <div><span class="logo">Belberry</span><span class="internal-tag">10 · Открытое</span></div>
+      <div class="domain">belberry.net</div>
+    </div>
+    <div class="section-eyebrow eb-gold">Open questions</div>
+    <h2 class="section-title">Что ещё <span class="accent">нужно решить</span></h2>
+    <p class="section-subtitle">Не блокирует запуск pilot'а, но требует ответа до открытия Pulse для общей воронки.</p>
+    <div class="q-grid">
+      <div class="q-card">
+        <div class="q-num">Q1 · ПРОДУКТ</div>
+        <div class="q-title">Внедрение макетов на бой — внутри Pulse или строго опцией Program?</div>
+        <div class="q-text">Решили — отдельной опцией. Проверяем на pilot'е.</div>
+      </div>
+      <div class="q-card">
+        <div class="q-num">Q2 · ОПЕРАЦИИ</div>
+        <div class="q-title">Hand-off аккаунт → Проджект</div>
+        <div class="q-text">Как передаём проект после подписания? Кикофф-встреча, бриф, документация.</div>
+      </div>
+      <div class="q-card">
+        <div class="q-num">Q3 · ДОГОВОР</div>
+        <div class="q-title">Гарантии и KPI</div>
+        <div class="q-text">Гарантируем процесс. Формулировка для клиента, чтобы не воспринял как «вы не отвечаете за результат».</div>
+      </div>
+      <div class="q-card">
+        <div class="q-num">Q4 · ПРАВА</div>
+        <div class="q-title">IP на материалы</div>
+        <div class="q-text">Макеты и тексты — клиенту. Право показа в кейсе — Belberry. Зашить в договор.</div>
+      </div>
+      <div class="q-card">
+        <div class="q-num">Q5 · РИСК</div>
+        <div class="q-title">Конкурентные ограничения</div>
+        <div class="q-text">Берём ли двух клиентов одной специализации в одном регионе? Сейчас — нет.</div>
+      </div>
+      <div class="q-card">
+        <div class="q-num">Q6 · МОТИВАЦИЯ</div>
+        <div class="q-title">Привязка к retention</div>
+        <div class="q-text">Бонус Проджекту 3–5к за каждое продление, SEO 3к за upgrade тарифа. Утвердить размеры.</div>
+      </div>
+      <div class="q-card">
+        <div class="q-num">Q7 · SALES</div>
+        <div class="q-title">Каннибализация SEO Основное</div>
+        <div class="q-text">Как не потерять клиентов на 78к/мес при апсейле в Pulse. Сценарий обработки возражений.</div>
+      </div>
+      <div class="q-card">
+        <div class="q-num">Q8 · BACKSTAGE</div>
+        <div class="q-title">Шаблоны типовых медстраниц</div>
+        <div class="q-text">Услуга, врач, филиал, акция, статья-эксперт. Готовим библиотеку — ускорит работу в 2 раза.</div>
+      </div>
+    </div>
+  </div>
+  <div class="slide-num">11 / 12</div>
+</section>
+
+<!-- ============= 12. CTA ============= -->
+<section class="slide">
+  <div class="mesh-bg mesh-cover"></div>
+  <div class="blob blob-pink" style="width: 400px; height: 400px; top: -100px; right: -100px; opacity: 0.3;"></div>
+  <div class="blob blob-cyan" style="width: 300px; height: 300px; bottom: -50px; left: -50px; opacity: 0.25;"></div>
+  <div class="content">
+    <div class="header">
+      <div><span class="logo">Belberry</span><span class="internal-tag">11 · Сейчас</span></div>
+      <div class="domain">belberry.net</div>
+    </div>
+    <div class="section-eyebrow eb-pink">Call to action</div>
+    <h2 class="section-title">Что от каждого <span class="accent">нужно сейчас</span></h2>
+    <p class="section-subtitle">Чтобы запустить pilot в июне — от каждого направления одна конкретная задача в течение следующих двух недель.</p>
+    <div class="cta-grid">
+      <div class="cta-card c1">
+        <div class="cta-who">МАША</div>
+        <div class="cta-task">Описать роль Проджекта и назначить первого человека под pilot</div>
+        <div class="cta-when">До 02.06.2026</div>
+      </div>
+      <div class="cta-card c2">
+        <div class="cta-who">МАША</div>
+        <div class="cta-task">Схема процесса Pulse, чек-листы sprint'а, шаблоны задач в Bitrix</div>
+        <div class="cta-when">До 02.06.2026</div>
+      </div>
+      <div class="cta-card c3">
+        <div class="cta-who">ЛИЗА</div>
+        <div class="cta-task">Закрыть СМ-Клиника по текущему КП, передать в производство как pilot</div>
+        <div class="cta-when">До 26.05.2026</div>
+      </div>
+      <div class="cta-card c4">
+        <div class="cta-who">ЛИЗА + ДИЗАЙНЕР</div>
+        <div class="cta-task">КП-презентация Pulse + battle-card для отдела продаж</div>
+        <div class="cta-when">До 09.06.2026</div>
+      </div>
+      <div class="cta-card c5">
+        <div class="cta-who">ДИМА</div>
+        <div class="cta-task">Калькулятор оценки часов под бриф клиента (backstage)</div>
+        <div class="cta-when">До 09.06.2026</div>
+      </div>
+      <div class="cta-card c6">
+        <div class="cta-who">SEO-ТИМЛИД</div>
+        <div class="cta-task">Выделить 1 senior-спеца под pilot Pulse, согласовать загрузку</div>
+        <div class="cta-when">До 26.05.2026</div>
+      </div>
+      <div class="cta-card c7">
+        <div class="cta-who">ЮРИСТ</div>
+        <div class="cta-task">Приложения к рамочному договору — часы, итерации, паузы, IP</div>
+        <div class="cta-when">До 02.06.2026</div>
+      </div>
+      <div class="cta-card c8">
+        <div class="cta-who">ВСЕ</div>
+        <div class="cta-task">Retrospective pilot'а с СМ-Клиника — что менять перед открытием воронки</div>
+        <div class="cta-when">01.07.2026</div>
+      </div>
+    </div>
+  </div>
+  <div class="slide-num">12 / 12</div>
+</section>
+
+</body>
+</html>

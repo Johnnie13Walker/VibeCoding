@@ -1,0 +1,8 @@
+{
+  "whitelist_emails": [
+    "eshchemelev@gmail.com",
+    "finance-director-sheets-bot@finance-director-sheets.iam.gserviceaccount.com"
+  ],
+  "looker_report_ids": [],
+  "last_run": ""
+}

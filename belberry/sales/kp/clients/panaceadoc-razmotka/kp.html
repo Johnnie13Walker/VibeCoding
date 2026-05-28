@@ -1,0 +1,730 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Belberry × Панацея · Куда ушёл год SEO</title>
+<style>
+  @page { size: 1280px 800px; margin: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  html, body { background: #ffffff; }
+  body {
+    font-family: -apple-system, "Helvetica Neue", "Inter", "Segoe UI", Arial, sans-serif;
+    color: #1a1f3a;
+    font-feature-settings: "tnum" 1, "lnum" 1;
+  }
+  .slide {
+    width: 1280px;
+    height: 800px;
+    page-break-after: always;
+    position: relative;
+    padding: 44px 64px 26px 64px;
+    overflow: hidden;
+    background: #faf8f5;
+    display: flex;
+    flex-direction: column;
+  }
+  .slide:last-child { page-break-after: auto; }
+  .slide-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+
+  /* TITLE SLIDE */
+  .slide.title {
+    background: linear-gradient(135deg, #1f1547 0%, #2b1f5e 45%, #3a2a7a 100%);
+    color: #fff;
+    padding: 80px 96px;
+  }
+  .title .eyebrow {
+    font-size: 14px;
+    letter-spacing: 0.32em;
+    color: #cdc5ee;
+    text-transform: uppercase;
+    font-weight: 500;
+    margin-bottom: 96px;
+  }
+  .title h1 {
+    font-size: 64px;
+    line-height: 1.05;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: 28px;
+    max-width: 1000px;
+  }
+  .title .lead {
+    font-size: 22px;
+    color: #d9d3ee;
+    font-weight: 400;
+    max-width: 900px;
+    line-height: 1.45;
+    margin-bottom: 96px;
+  }
+  .title .divider {
+    height: 1px;
+    background: rgba(255,255,255,0.18);
+    margin-bottom: 36px;
+  }
+  .title-meta {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 32px;
+  }
+  .title-meta .cell .label {
+    font-size: 11px;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: #b6abe6;
+    font-weight: 500;
+    margin-bottom: 12px;
+  }
+  .title-meta .cell .value {
+    font-size: 20px;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 4px;
+  }
+  .title-meta .cell .note {
+    font-size: 13px;
+    color: #cdc5ee;
+  }
+
+  /* CONTENT SLIDE — HEADER */
+  .slide-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 8px;
+  }
+  .slide-header h2 {
+    font-size: 34px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: #1a1f3a;
+    line-height: 1.1;
+  }
+  .slide-header .pagenum {
+    font-size: 12px;
+    letter-spacing: 0.18em;
+    color: #5b50d6;
+    font-weight: 700;
+    margin-top: 14px;
+  }
+  .slide-subheader {
+    font-size: 14px;
+    color: #6b6f88;
+    margin-bottom: 16px;
+  }
+  .slide-rule {
+    height: 3px;
+    background: #1a1f3a;
+    margin-bottom: 20px;
+    width: 100%;
+  }
+
+  /* CARDS GRID */
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+
+  .card {
+    background: #ffffff;
+    border-radius: 8px;
+    padding: 18px 20px;
+    position: relative;
+    box-shadow: 0 1px 0 rgba(26,31,58,0.04);
+  }
+  .card .bar {
+    position: absolute; top: 0; left: 0;
+    width: 56px; height: 3px;
+    background: #5b50d6;
+    border-radius: 2px;
+  }
+  .card .tag {
+    display: inline-block;
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    background: #ece9f9;
+    color: #5b50d6;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    margin-bottom: 9px;
+  }
+  .card h3 {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1a1f3a;
+    margin-bottom: 8px;
+    line-height: 1.2;
+  }
+  .card .kpi-label {
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    color: #6b6f88;
+    text-transform: uppercase;
+    font-weight: 500;
+    margin-top: 8px;
+    margin-bottom: 2px;
+  }
+  .card .kpi-value {
+    font-size: 21px;
+    font-weight: 700;
+    color: #1a1f3a;
+    line-height: 1.1;
+  }
+  .card .kpi-value.purple { color: #5b50d6; }
+  .card .desc {
+    font-size: 11.5px;
+    line-height: 1.5;
+    color: #4a4f6a;
+    margin-top: 9px;
+    border-top: 1px dashed #d8d3e6;
+    padding-top: 9px;
+  }
+  .card .desc-tight {
+    font-size: 11.5px;
+    line-height: 1.55;
+    color: #4a4f6a;
+    margin-top: 6px;
+  }
+  .card .price-line {
+    margin-top: 10px;
+    font-size: 14px;
+    color: #4a4f6a;
+  }
+  .card .price-line strong { color: #1a1f3a; }
+  .card .price-line .strike { color: #b8bccd; text-decoration: line-through; margin-right: 8px; }
+
+  /* HIGHLIGHT BLOCK */
+  .highlight {
+    background: linear-gradient(135deg, #5b50d6 0%, #4a3fc5 100%);
+    color: #fff;
+    border-radius: 8px;
+    padding: 18px 24px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .highlight .cell .label {
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #d9d3ee;
+    font-weight: 600;
+    margin-bottom: 5px;
+  }
+  .highlight .cell .value {
+    font-size: 26px;
+    font-weight: 700;
+    line-height: 1.05;
+  }
+  .highlight .cell .note {
+    font-size: 11px;
+    color: #d9d3ee;
+    margin-top: 3px;
+  }
+
+  /* TABLE */
+  table.belb {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+  }
+  table.belb th {
+    text-align: left;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #6b6f88;
+    font-weight: 600;
+    padding: 7px 10px;
+    border-bottom: 1px solid #d8d3e6;
+  }
+  table.belb th.right, table.belb td.right { text-align: right; }
+  table.belb td {
+    padding: 7px 10px;
+    border-bottom: 1px solid #ece9f3;
+    color: #1a1f3a;
+  }
+  table.belb td.metric { color: #4a4f6a; }
+  table.belb td.num { font-variant-numeric: tabular-nums; font-weight: 600; }
+  table.belb tr.totalrow td { font-weight: 700; background: #f3effc; border-bottom: none; }
+  table.belb tr.totalrow td:first-child { color: #5b50d6; }
+  table.belb .now { color: #6b6f88; }
+  table.belb .future { color: #5b50d6; font-weight: 700; }
+
+  /* DISCLAIMER */
+  .disclaimer {
+    background: #fff4ec;
+    border-left: 4px solid #e88a3b;
+    border-radius: 4px;
+    padding: 10px 14px;
+    font-size: 10.5px;
+    line-height: 1.45;
+    color: #5b3a1a;
+    flex-shrink: 0;
+  }
+  .disclaimer .d-title {
+    font-weight: 700;
+    color: #b86420;
+    font-size: 9.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin-bottom: 3px;
+  }
+
+  /* QUOTES */
+  .quote-card {
+    background: #fff;
+    border-radius: 8px;
+    padding: 26px 28px;
+    position: relative;
+    border-left: 4px solid #5b50d6;
+  }
+  .quote-card .qmark {
+    font-size: 56px;
+    color: #ece9f9;
+    line-height: 0.6;
+    position: absolute;
+    top: 22px;
+    right: 22px;
+    font-weight: 700;
+  }
+  .quote-card .qtext {
+    font-size: 16px;
+    line-height: 1.5;
+    color: #1a1f3a;
+    font-weight: 500;
+    margin-bottom: 12px;
+    font-style: italic;
+  }
+  .quote-card .qauth {
+    font-size: 12px;
+    color: #6b6f88;
+    letter-spacing: 0.04em;
+  }
+
+  /* FOOTER */
+  .slide-footer {
+    margin-top: auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid #e7e3d8;
+    padding-top: 12px;
+    font-size: 10.5px;
+    color: #6b6f88;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+  }
+  .slide-footer .belb-mark {
+    font-weight: 700;
+    color: #1a1f3a;
+    letter-spacing: 0.04em;
+  }
+
+  /* ROADMAP */
+  .roadmap-list { display: flex; flex-direction: column; gap: 14px; }
+  .roadmap-step { display: flex; gap: 18px; align-items: flex-start; }
+  .roadmap-num {
+    background: #5b50d6;
+    color: #fff;
+    font-weight: 700;
+    width: 32px; height: 32px;
+    border-radius: 16px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    font-size: 14px;
+  }
+  .roadmap-step .body { flex: 1; }
+  .roadmap-step .body .title-line { font-weight: 700; color: #1a1f3a; font-size: 14px; margin-bottom: 4px; }
+  .roadmap-step .body .desc-line { font-size: 13px; color: #4a4f6a; line-height: 1.5; }
+  .roadmap-divider { height: 1px; background: #e3dfee; margin-left: 50px; }
+
+  /* SMALL UTILITY */
+  .pill {
+    display: inline-block;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    padding: 4px 9px;
+    border-radius: 4px;
+    background: #ece9f9;
+    color: #5b50d6;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  .pill.warn { background: #fde3d2; color: #b86420; }
+  .pill.ok { background: #d8efe0; color: #2c7a4a; }
+  .pill.bad { background: #fadcde; color: #a13442; }
+
+  .two-col-block { display: grid; grid-template-columns: 1.4fr 1fr; gap: 22px; }
+
+  /* large number */
+  .megalarge { font-size: 64px; font-weight: 700; color: #fff; line-height: 1; letter-spacing: -0.02em; }
+  .megalarge-sub { font-size: 13px; color: #d9d3ee; margin-top: 6px; }
+
+  .checkmark {
+    display: inline-block;
+    width: 16px; height: 16px;
+    background: #5b50d6;
+    color: #fff;
+    border-radius: 8px;
+    font-size: 10px;
+    text-align: center;
+    line-height: 16px;
+    margin-right: 8px;
+    vertical-align: middle;
+  }
+
+  .footer-line-section {
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    color: #6b6f88;
+    text-transform: uppercase;
+    font-weight: 600;
+    margin-bottom: 10px;
+  }
+
+  /* CLOSING SLIDE */
+  .slide.closing {
+    background: linear-gradient(135deg, #1f1547 0%, #2b1f5e 48%, #3a2a7a 100%);
+    color: #fff;
+    padding: 56px 72px 40px 72px;
+    justify-content: space-between;
+  }
+  .closing-eyebrow {
+    font-size: 13px;
+    letter-spacing: 0.3em;
+    color: #b6abe6;
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+  .closing-quote {
+    font-size: 42px;
+    font-weight: 700;
+    line-height: 1.12;
+    letter-spacing: -0.015em;
+    color: #fff;
+    margin: 8px 0 4px;
+    max-width: 1050px;
+  }
+  .rr-title {
+    font-size: 12px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #cdc5ee;
+    font-weight: 600;
+    margin-bottom: 12px;
+  }
+  .rr-certs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; align-items: stretch; margin-bottom: 16px; }
+
+  /* Карточка-сертификат Рейтинга Рунета — красная */
+  .rr-cert {
+    background: linear-gradient(160deg, #d4202e 0%, #a8121d 100%);
+    border-radius: 16px;
+    padding: 22px 22px 18px;
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 8px 24px rgba(168,18,29,0.4);
+  }
+  .rr-cert-top { display: flex; align-items: center; gap: 11px; margin-bottom: 16px; }
+  .rr-mark {
+    width: 34px; height: 34px;
+    display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr;
+    gap: 3px;
+  }
+  .rr-mark span { background: #fff; border-radius: 2px; }
+  .rr-mark span:nth-child(2) { border-radius: 2px 8px 2px 2px; }
+  .rr-mark-text {
+    font-size: 11px; font-weight: 700; line-height: 1.05;
+    letter-spacing: 0.12em; color: #fff;
+  }
+  .rr-cert-place { font-size: 34px; font-weight: 800; line-height: 1; margin-bottom: 14px; }
+  .rr-cert-cap { font-size: 10.5px; color: rgba(255,255,255,0.7); margin-bottom: 3px; }
+  .rr-cert-cat { font-size: 13px; font-weight: 700; line-height: 1.3; margin-bottom: 12px; }
+  .rr-cert-brand { font-size: 17px; font-weight: 700; margin-bottom: auto; }
+  .rr-cert-foot {
+    display: flex; justify-content: space-between; align-items: flex-end;
+    margin-top: 16px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.2);
+  }
+  .rr-sign { font-size: 8px; color: rgba(255,255,255,0.65); line-height: 1.5; font-style: italic; }
+  .rr-year { font-size: 22px; font-weight: 800; }
+
+  /* Горизонтальная полоса фактов */
+  .closing-strip {
+    display: flex; flex-wrap: wrap; gap: 24px;
+    padding: 14px 0;
+    border-top: 1px solid rgba(255,255,255,0.14);
+    border-bottom: 1px solid rgba(255,255,255,0.14);
+    align-items: center;
+  }
+  .cs-item { font-size: 12.5px; color: #d9d3ee; display: flex; align-items: center; gap: 8px; }
+  .cs-num { font-size: 20px; font-weight: 700; color: #fff; }
+  .cs-badge {
+    width: 22px; height: 22px; border-radius: 6px;
+    background: rgba(255,255,255,0.14); color: #ffd96b;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700;
+  }
+  .closing-contacts {
+    display: flex; flex-wrap: wrap; gap: 24px; align-items: baseline;
+    font-size: 13px; color: #cdc5ee;
+  }
+  .closing-contacts .cc-brand {
+    font-size: 24px; font-weight: 700; color: #fff; letter-spacing: -0.01em;
+    margin-right: 8px;
+  }
+</style>
+</head>
+<body>
+<section class="slide title">
+  <div class="eyebrow">BELBERRY · РАЗБОР ДЛЯ ПЕРВОГО ЛИЦА · ДАННЫЕ ЯНДЕКС.МЕТРИКИ</div>
+  <h1>Куда ушёл год SEO —<br>и какое решение принять</h1>
+  <div class="lead">Разговор не про позиции и ключевые слова, а про деньги. Каждая цифра — из вашей Яндекс.Метрики (счётчик 100600199) за 12 месяцев: май 2025 — апрель 2026.</div>
+  <div class="divider"></div>
+  <div class="title-meta">
+    <div class="cell"><div class="label">ДЛЯ</div><div class="value">Панацея</div><div class="note">panaceadoc.ru · ООО «Ариадна»</div></div>
+    <div class="cell"><div class="label">ПЕРИОД</div><div class="value">12 месяцев</div><div class="note">май 2025 — апрель 2026</div></div>
+    <div class="cell"><div class="label">ЗАЯВОК ИЗУЧЕНО</div><div class="value">276</div><div class="note">каждая разложена по источнику</div></div>
+    <div class="cell"><div class="label">ВОПРОС</div><div class="value">Оптимизировать<br>или строить</div><div class="note">бизнес-решение, не SEO</div></div>
+  </div>
+</section>
+<section class="slide">
+  <div class="slide-header"><h2>На первый взгляд — год успешный</h2><div class="pagenum">02 / 17</div></div>
+  <div class="slide-subheader">Динамика из вашей Метрики: посещаемость и органика выросли ~втрое, заявок стало больше. И это правда.</div>
+  <div class="slide-rule"></div>
+  <div style="background:#fff;border-radius:8px;padding:16px 18px 6px;margin-bottom:12px;box-shadow:0 1px 0 rgba(26,31,58,0.04);"><svg viewBox="0 0 1150 340" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="Helvetica,Arial,sans-serif"><line x1="55" y1="300" x2="1120" y2="300" stroke="#e3dfee"/><text x="47" y="304" font-size="11" fill="#6b6f88" text-anchor="end">0</text><line x1="55" y1="230" x2="1120" y2="230" stroke="#e3dfee"/><text x="47" y="234" font-size="11" fill="#6b6f88" text-anchor="end">500</text><line x1="55" y1="160" x2="1120" y2="160" stroke="#e3dfee"/><text x="47" y="164" font-size="11" fill="#6b6f88" text-anchor="end">1000</text><line x1="55" y1="90" x2="1120" y2="90" stroke="#e3dfee"/><text x="47" y="94" font-size="11" fill="#6b6f88" text-anchor="end">1500</text><rect x="88.4" y="212.6" width="22" height="87.4" rx="3" fill="#cdc5ee"/><rect x="88.4" y="267.4" width="22" height="32.6" rx="3" fill="#5b50d6"/><text x="99.4" y="318" font-size="11" fill="#6b6f88" text-anchor="middle">май</text><rect x="177.1" y="194.4" width="22" height="105.6" rx="3" fill="#cdc5ee"/><rect x="177.1" y="261.9" width="22" height="38.1" rx="3" fill="#5b50d6"/><text x="188.1" y="318" font-size="11" fill="#6b6f88" text-anchor="middle">июн</text><rect x="265.9" y="143.2" width="22" height="156.8" rx="3" fill="#cdc5ee"/><rect x="265.9" y="247.6" width="22" height="52.4" rx="3" fill="#5b50d6"/><text x="276.9" y="318" font-size="11" fill="#6b6f88" text-anchor="middle">июл</text><rect x="354.6" y="135.5" width="22" height="164.5" rx="3" fill="#cdc5ee"/><rect x="354.6" y="235.7" width="22" height="64.3" rx="3" fill="#5b50d6"/><text x="365.6" y="318" font-size="11" fill="#6b6f88" text-anchor="middle">авг</text><rect x="443.4" y="135.6" width="22" height="164.4" rx="3" fill="#cdc5ee"/><rect x="443.4" y="221.6" width="22" height="78.4" rx="3" fill="#5b50d6"/><text x="454.4" y="318" font-size="11" fill="#6b6f88" text-anchor="middle">сен</text><rect x="532.1" y="86.2" width="22" height="213.8" rx="3" fill="#cdc5ee"/><rect x="532.1" y="198.1" width="22" height="101.9" rx="3" fill="#5b50d6"/><text x="543.1" y="318" font-size="11" fill="#6b6f88" text-anchor="middle">окт</text><rect x="620.9" y="111.8" width="22" height="188.2" rx="3" fill="#cdc5ee"/><rect x="620.9" y="210.7" width="22" height="89.3" rx="3" fill="#5b50d6"/><text x="631.9" y="318" font-size="11" fill="#6b6f88" text-anchor="middle">ноя</text><rect x="709.6" y="60.3" width="22" height="239.7" rx="3" fill="#cdc5ee"/><rect x="709.6" y="195.6" width="22" height="104.4" rx="3" fill="#5b50d6"/><text x="720.6" y="318" font-size="11" fill="#6b6f88" text-anchor="middle">дек</text><rect x="798.4" y="128.4" width="22" height="171.6" rx="3" fill="#cdc5ee"/><rect x="798.4" y="211.8" width="22" height="88.2" rx="3" fill="#5b50d6"/><text x="809.4" y="318" font-size="11" fill="#6b6f88" text-anchor="middle">янв</text><rect x="887.1" y="100.2" width="22" height="199.8" rx="3" fill="#cdc5ee"/><rect x="887.1" y="193.9" width="22" height="106.1" rx="3" fill="#5b50d6"/><text x="898.1" y="318" font-size="11" fill="#6b6f88" text-anchor="middle">фев</text><rect x="975.9" y="63.0" width="22" height="237.0" rx="3" fill="#cdc5ee"/><rect x="975.9" y="175.0" width="22" height="125.0" rx="3" fill="#5b50d6"/><text x="986.9" y="318" font-size="11" fill="#6b6f88" text-anchor="middle">мар</text><rect x="1064.6" y="47.7" width="22" height="252.3" rx="3" fill="#cdc5ee"/><rect x="1064.6" y="184.5" width="22" height="115.5" rx="3" fill="#5b50d6"/><text x="1075.6" y="318" font-size="11" fill="#6b6f88" text-anchor="middle">апр</text><polyline points="99.4,233.5 188.1,233.5 276.9,147.1 365.6,120.4 454.4,147.1 543.1,93.8 631.9,206.9 720.6,153.7 809.4,153.7 898.1,133.8 986.9,80.6 1075.6,60.6" fill="none" stroke="#d4202e" stroke-width="3"/><circle cx="99.4" cy="233.5" r="3.5" fill="#d4202e"/><circle cx="188.1" cy="233.5" r="3.5" fill="#d4202e"/><circle cx="276.9" cy="147.1" r="3.5" fill="#d4202e"/><circle cx="365.6" cy="120.4" r="3.5" fill="#d4202e"/><circle cx="454.4" cy="147.1" r="3.5" fill="#d4202e"/><circle cx="543.1" cy="93.8" r="3.5" fill="#d4202e"/><circle cx="631.9" cy="206.9" r="3.5" fill="#d4202e"/><circle cx="720.6" cy="153.7" r="3.5" fill="#d4202e"/><circle cx="809.4" cy="153.7" r="3.5" fill="#d4202e"/><circle cx="898.1" cy="133.8" r="3.5" fill="#d4202e"/><circle cx="986.9" cy="80.6" r="3.5" fill="#d4202e"/><circle cx="1075.6" cy="60.6" r="3.5" fill="#d4202e"/><text x="99" y="224" font-size="11" fill="#d4202e" text-anchor="middle">10</text><text x="1076" y="51" font-size="11" fill="#d4202e" text-anchor="middle">36</text><rect x="55" y="10" width="13" height="13" rx="2" fill="#cdc5ee"/><text x="73" y="21" font-size="12" fill="#1a1f3a">визиты</text><rect x="165" y="10" width="13" height="13" rx="2" fill="#5b50d6"/><text x="183" y="21" font-size="12" fill="#1a1f3a">органика</text><line x1="305" y1="17" x2="330" y2="17" stroke="#d4202e" stroke-width="3"/><text x="337" y="21" font-size="12" fill="#1a1f3a">заявки (формы)</text></svg></div>
+  <div class="grid-3">
+    <div class="card"><div class="bar"></div><div class="kpi-label">ПОСЕЩАЕМОСТЬ</div><div class="kpi-value purple">624 → 1 802</div><div class="desc-tight">визитов/мес · ×2,9</div></div>
+    <div class="card"><div class="bar"></div><div class="kpi-label">ОРГАНИКА</div><div class="kpi-value purple">233 → 825</div><div class="desc-tight">визитов/мес · ×3,5</div></div>
+    <div class="card"><div class="bar"></div><div class="kpi-label">ЗАЯВКИ (ФОРМЫ)</div><div class="kpi-value purple">10 → 36</div><div class="desc-tight">в месяц · ×3,6</div></div>
+  </div>
+  <div class="slide-footer"><span class="belb-mark">BELBERRY</span><span>Разбор продвижения · Панацея · panaceadoc.ru · источник: Яндекс.Метрика 100600199</span><span>27.05.2026</span></div>
+</section>
+<section class="slide">
+  <div class="slide-header"><h2>За что вы платите SEO-подрядчику</h2><div class="pagenum">03 / 17</div></div>
+  <div class="slide-subheader">Рост трафика — ещё не рост бизнеса. Чтобы судить о работе, разделим два принципиально разных типа спроса</div>
+  <div class="slide-rule"></div>
+  <div class="grid-2" style="margin-bottom:14px;">
+    <div class="card"><div class="bar" style="background:#6b6f88;"></div><span class="tag" style="background:#eceef3;color:#6b6f88;">ЗА ЭТО SEO НЕ ОТВЕЧАЕТ</span><h3>Брендовый спрос</h3><div class="desc-tight">Человек уже знает «Панацею» — узнал от ваших продавцов, на конференции, по сарафану — и набирает ваше имя. Он бы вас и так нашёл. SEO лишь «подаёт» то, что создали ваш бренд и отдел продаж. Это не новые клиенты.</div></div>
+    <div class="card"><div class="bar"></div><span class="tag">ЗА ЭТО И ПЛАТЯТ SEO</span><h3>Новый небрендовый спрос</h3><div class="desc-tight">Человек НЕ знает «Панацею», но ищет решение проблемы: «ии для проверки медкарт», «контроль качества медпомощи». Привести таких — это и есть работа SEO. Это клиенты, которых без продвижения у вас бы не было.</div></div>
+  </div>
+  <div class="highlight" style="grid-template-columns:1fr;text-align:center;padding:22px;">
+    <div class="cell"><div class="label">ЕДИНСТВЕННЫЙ ЧЕСТНЫЙ КРИТЕРИЙ ОЦЕНКИ ПОДРЯДЧИКА</div><div class="value" style="font-size:22px;">Сколько заявок пришло от людей, которые вас раньше не знали?</div><div class="note">ответ — на следующих двух слайдах, по вашим данным</div></div>
+  </div>
+  <div class="slide-footer"><span class="belb-mark">BELBERRY</span><span>Разбор продвижения · Панацея · panaceadoc.ru · источник: Яндекс.Метрика 100600199</span><span>27.05.2026</span></div>
+</section>
+<section class="slide">
+  <div class="slide-header"><h2>Откуда пришли 276 заявок за год</h2><div class="pagenum">04 / 17</div></div>
+  <div class="slide-subheader">Все отправки формы за 12 месяцев по источнику · Яндекс.Метрика, цель «Отправка формы»</div>
+  <div class="slide-rule"></div>
+  <div style="background:#fff;border-radius:8px;padding:20px 22px;margin-bottom:14px;box-shadow:0 1px 0 rgba(26,31,58,0.04);"><svg viewBox="0 0 1120 186" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="Helvetica,Arial,sans-serif"><text x="0" y="24" font-size="14" fill="#1a1f3a" font-weight="600">Поиск (органика)</text><rect x="300" y="6" width="605" height="26" rx="5" fill="#efecf9"/><rect x="300" y="6" width="605" height="26" rx="5" fill="#5b50d6"/><text x="1114" y="24" font-size="15" fill="#1a1f3a" font-weight="700" text-anchor="end">130 заявки · 47%</text><text x="0" y="68" font-size="14" fill="#1a1f3a" font-weight="600">Прямые заходы</text><rect x="300" y="50" width="605" height="26" rx="5" fill="#efecf9"/><rect x="300" y="50" width="442" height="26" rx="5" fill="#6b6f88"/><text x="1114" y="68" font-size="15" fill="#1a1f3a" font-weight="700" text-anchor="end">95 · 34%</text><text x="0" y="112" font-size="14" fill="#1a1f3a" font-weight="600">Переходы по ссылкам</text><rect x="300" y="94" width="605" height="26" rx="5" fill="#efecf9"/><rect x="300" y="94" width="209" height="26" rx="5" fill="#8b83e0"/><text x="1114" y="112" font-size="15" fill="#1a1f3a" font-weight="700" text-anchor="end">45 · 16%</text><text x="0" y="156" font-size="14" fill="#1a1f3a" font-weight="600">Соцсети / прочее</text><rect x="300" y="138" width="605" height="26" rx="5" fill="#efecf9"/><rect x="300" y="138" width="28" height="26" rx="5" fill="#c7c2e8"/><text x="1114" y="156" font-size="15" fill="#1a1f3a" font-weight="700" text-anchor="end">6 · 3%</text></svg></div>
+  <div class="disclaimer"><div class="d-title">ПОКА ВСЁ ВЫГЛЯДИТ НОРМАЛЬНО</div>Поиск — крупнейший источник заявок (47%), кажется, SEO работает. Но «поиск» — это бренд и небренд вместе. Разделим их — и картина переворачивается.</div>
+  <div class="slide-footer"><span class="belb-mark">BELBERRY</span><span>Разбор продвижения · Панацея · panaceadoc.ru · источник: Яндекс.Метрика 100600199</span><span>27.05.2026</span></div>
+</section>
+<section class="slide">
+  <div class="slide-header"><h2>Главная цифра всего разбора</h2><div class="pagenum">05 / 17</div></div>
+  <div class="slide-subheader">Поисковые заявки за год, у которых видна фраза — разделены на «искали по имени» и «новый спрос»</div>
+  <div class="slide-rule"></div>
+  <div style="background:#fff;border-radius:8px;padding:24px 26px;margin-bottom:14px;box-shadow:0 1px 0 rgba(26,31,58,0.04);">
+    <svg viewBox="0 0 1120 150" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="Helvetica,Arial,sans-serif"><text x="0" y="37" font-size="14" fill="#1a1f3a" font-weight="600">Искали «Панацею» по имени (бренд)</text><rect x="300" y="6" width="605" height="52" rx="5" fill="#efecf9"/><rect x="300" y="6" width="605" height="52" rx="5" fill="#5b50d6"/><text x="1114" y="37" font-size="15" fill="#1a1f3a" font-weight="700" text-anchor="end">61 заявка</text><text x="0" y="107" font-size="14" fill="#1a1f3a" font-weight="600">Новый небрендовый спрос</text><rect x="300" y="76" width="605" height="52" rx="5" fill="#efecf9"/><rect x="300" y="76" width="30" height="52" rx="5" fill="#d4202e"/><text x="1114" y="107" font-size="15" fill="#1a1f3a" font-weight="700" text-anchor="end">3 заявки за год</text></svg>
+  </div>
+  <div class="quote-card"><div class="qmark">”</div><div class="qtext">За целый год небрендовое SEO — то, ради чего нанимают подрядчика — принесло <strong style="color:#d4202e;">три заявки</strong>. Остальные поисковые заявки — от людей, которые уже знали «Панацею» и набирали ваше имя.</div><div class="qauth">Фразы заявок: «панацея клинические рекомендации», «панацея ии», «панацея программа для врачей»… · небренд: «ии для проверки медкарт», «кэр больница»</div></div>
+  <div class="slide-footer"><span class="belb-mark">BELBERRY</span><span>Разбор продвижения · Панацея · panaceadoc.ru · источник: Яндекс.Метрика 100600199</span><span>27.05.2026</span></div>
+</section>
+<section class="slide">
+  <div class="slide-header"><h2>Что это значит на языке денег</h2><div class="pagenum">06 / 17</div></div>
+  <div class="slide-subheader">Перевод цифры 61 / 3 в деньги · при вашем бюджете 60 000 ₽/мес</div>
+  <div class="slide-rule"></div>
+  <div class="grid-3" style="margin-bottom:14px;">
+    <div class="card"><div class="bar"></div><h3>Вы платили за привлечение</h3><div class="desc-tight">Нанимая SEO, вы покупали поток новых клиентов, которые вас ещё не знают. Это его единственная задача.</div></div>
+    <div class="card"><div class="bar"></div><h3>А получили перехват</h3><div class="desc-tight">Подрядчик «ловил» тех, кого уже привели ваш отдел продаж, бренд и сарафан. За эту аудиторию вы заплатили дважды.</div></div>
+    <div class="card" style="background:#fadcde;"><div class="bar" style="background:#d4202e;"></div><h3 style="color:#a13442;">Новых — почти ноль</h3><div class="desc-tight" style="border-color:#e7b3b8;">3 небрендовых заявки за год. Канал нового спроса фактически не построен.</div></div>
+  </div>
+  <div class="highlight">
+    <div class="cell"><div class="label">ЗАПЛАЧЕНО ЗА ГОД SEO</div><div class="value">720 000 ₽</div><div class="note">60 000 ₽/мес × 12 месяцев</div></div>
+    <div class="cell"><div class="label">НОВЫХ НЕБРЕНДОВЫХ ЗАЯВОК</div><div class="value">3</div><div class="note">за весь год (см. слайд 5)</div></div>
+    <div class="cell"><div class="label">ЦЕНА ОДНОЙ ТАКОЙ ЗАЯВКИ</div><div class="value" style="color:#ffd2d2;">240 000 ₽</div><div class="note">720 000 ÷ 3 — и это ещё заявка, не договор</div></div>
+  </div>
+  <div class="slide-footer"><span class="belb-mark">BELBERRY</span><span>Разбор продвижения · Панацея · panaceadoc.ru · источник: Яндекс.Метрика 100600199</span><span>27.05.2026</span></div>
+</section>
+<section class="slide">
+  <div class="slide-header"><h2>Ещё одно подтверждение</h2><div class="pagenum">07 / 17</div></div>
+  <div class="slide-subheader">На каких страницах оставляли заявки — снова виден бренд, а не воронка спроса</div>
+  <div class="slide-rule"></div>
+  <div style="background:#fff;border-radius:8px;padding:20px 22px;margin-bottom:14px;box-shadow:0 1px 0 rgba(26,31,58,0.04);"><svg viewBox="0 0 1120 230" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="Helvetica,Arial,sans-serif"><text x="0" y="24" font-size="14" fill="#1a1f3a" font-weight="600">Главная «/»</text><rect x="340" y="6" width="565" height="26" rx="5" fill="#efecf9"/><rect x="340" y="6" width="565" height="26" rx="5" fill="#5b50d6"/><text x="1114" y="24" font-size="15" fill="#1a1f3a" font-weight="700" text-anchor="end">151 · 55%</text><text x="0" y="68" font-size="14" fill="#1a1f3a" font-weight="600">/panaceaofai (ИИ-проверка)</text><rect x="340" y="50" width="565" height="26" rx="5" fill="#efecf9"/><rect x="340" y="50" width="109" height="26" rx="5" fill="#6b6f88"/><text x="1114" y="68" font-size="15" fill="#1a1f3a" font-weight="700" text-anchor="end">29</text><text x="0" y="112" font-size="14" fill="#1a1f3a" font-weight="600">/directory (Справочник)</text><rect x="340" y="94" width="565" height="26" rx="5" fill="#efecf9"/><rect x="340" y="94" width="67" height="26" rx="5" fill="#8b83e0"/><text x="1114" y="112" font-size="15" fill="#1a1f3a" font-weight="700" text-anchor="end">18</text><text x="0" y="156" font-size="14" fill="#1a1f3a" font-weight="600">«О нас», контакты, отзывы</text><rect x="340" y="138" width="565" height="26" rx="5" fill="#efecf9"/><rect x="340" y="138" width="120" height="26" rx="5" fill="#6b6f88"/><text x="1114" y="156" font-size="15" fill="#1a1f3a" font-weight="700" text-anchor="end">32</text><text x="0" y="200" font-size="14" fill="#1a1f3a" font-weight="600">/sppvr (СППВР)</text><rect x="340" y="182" width="565" height="26" rx="5" fill="#efecf9"/><rect x="340" y="182" width="22" height="26" rx="5" fill="#c7c2e8"/><text x="1114" y="200" font-size="15" fill="#1a1f3a" font-weight="700" text-anchor="end">6</text></svg></div>
+  <div class="disclaimer"><div class="d-title">ВЫВОД</div>Больше половины заявок (151 из 276) — с главной страницы. Так ведут себя люди, которые шли именно к вам по имени. Полноценной воронки «проблема → решение → продукт → заявка» под новый спрос не построено.</div>
+  <div class="slide-footer"><span class="belb-mark">BELBERRY</span><span>Разбор продвижения · Панацея · panaceadoc.ru · источник: Яндекс.Метрика 100600199</span><span>27.05.2026</span></div>
+</section>
+<section class="slide">
+  <div class="slide-header"><h2>Часть «трафика» — это вообще не вы</h2><div class="pagenum">08 / 17</div></div>
+  <div class="slide-subheader">«Панацея» — одно из самых частых имён в медицине. Сайт собирает запросы про чужие компании</div>
+  <div class="slide-rule"></div>
+  <div class="grid-4" style="margin-bottom:14px;">
+    <div class="card"><div class="bar" style="background:#6b6f88;"></div><h3>Клиники «Панацея»</h3><div class="desc-tight">Самара, Волгоград, Тольятти, Нижний Новгород, СПб — десятки клиник с этим именем. Люди ищут запись к врачу, а не SaaS.</div></div>
+    <div class="card"><div class="bar" style="background:#6b6f88;"></div><h3>Страховая «Панацея»</h3><div class="desc-tight">«панацея страховая компания», «реестровый номер» — ищут полис, не систему для клиник.</div></div>
+    <div class="card"><div class="bar" style="background:#6b6f88;"></div><h3>Аптечка / магазин</h3><div class="desc-tight">«аптечка панацея», «магазин панацея» — бытовой спрос, нулевая ценность.</div></div>
+    <div class="card"><div class="bar" style="background:#6b6f88;"></div><h3>Энергостимулятор</h3><div class="desc-tight">«энергостимулятор панацея отзывы» — медицинский прибор другого производителя.</div></div>
+  </div>
+  <div class="disclaimer"><div class="d-title">ПОЧЕМУ ЭТО ВАЖНО</div>Эти посетители никогда не станут вашими клиентами — они искали совсем другое. Но они раздувают цифру «посещаемости» в отчёте подрядчика. Ещё одна причина, почему рост визитов ≠ рост бизнеса: часть роста — это чужой брендовый шум.</div>
+  <div class="slide-footer"><span class="belb-mark">BELBERRY</span><span>Разбор продвижения · Панацея · panaceadoc.ru · источник: Яндекс.Метрика 100600199</span><span>27.05.2026</span></div>
+</section>
+<section class="slide">
+  <div class="slide-header"><h2>Техническая диагностика сайта</h2><div class="pagenum">09 / 17</div></div>
+  <div class="slide-subheader">Проверили вручную 8 ключевых страниц, robots, sitemap, разметку. Вот что нашли — это факты, а не мнения</div>
+  <div class="slide-rule"></div>
+  <table class="belb" style="margin-bottom:12px;">
+    <thead><tr><th>Проблема</th><th>Что именно</th><th>Чем это бьёт по бизнесу</th></tr></thead>
+    <tbody>
+      <tr><td>Заголовки страниц не о продукте</td><td class="metric">H1 на странице ИИ-проверки = «ИИ», на модуле ДМС = «ДМС», на Справочнике = «Справочник»</td><td>Поиск не понимает, о чём страница → не показывает её по нужным запросам</td></tr>
+      <tr><td>Нет разметки для Google и ИИ</td><td class="metric">JSON-LD на всех 8 страницах — пустая Tilda-заглушка без содержимого</td><td>Сайт невидим для расширенных сниппетов и для ответов нейросетей</td></tr>
+      <tr><td>Изображения без подписей</td><td class="metric">На главной 77 из 77 картинок без alt-описания</td><td>Потерян трафик из картинок и часть смысловых сигналов</td></tr>
+      <tr><td>Мусор в карте сайта</td><td class="metric">В sitemap.xml — старые и технические URL: <code>old</code>, <code>oldsite</code>, <code>page…html</code></td><td>Поисковик тратит ресурс на хлам вместо продуктовых страниц</td></tr>
+      <tr><td>Описания обрезаются</td><td class="metric">Description на /sppvr — 255 символов (норма до 160)</td><td>В выдаче текст режется, ниже кликабельность</td></tr>
+      <tr><td>Не настроен учёт качества лида</td><td class="metric">Нет GA4, нет коллтрекинга, нет связки «заявка → демо → договор»</td><td>Невозможно понять, какой канал приносит платящих → нельзя усиливать нужное</td></tr>
+    </tbody>
+  </table>
+  <div class="disclaimer"><div class="d-title">ВАЖНО</div>Часть проблем поправима за дни. Но они — следствие платформы: на конструкторе-лендинге нет полного контроля над заголовками, разметкой, скоростью и структурой. Полировка не отменяет потолок.</div>
+  <div class="slide-footer"><span class="belb-mark">BELBERRY</span><span>Разбор продвижения · Панацея · panaceadoc.ru · источник: Яндекс.Метрика 100600199</span><span>27.05.2026</span></div>
+</section>
+<section class="slide">
+  <div class="slide-header"><h2>Почему так вышло — две причины</h2><div class="pagenum">10 / 17</div></div>
+  <div class="slide-subheader">Это не только про подрядчика. Есть структурная причина, которая важнее для решения</div>
+  <div class="slide-rule"></div>
+  <div class="grid-2" style="margin-bottom:14px;">
+    <div class="card"><div class="bar"></div><span class="tag">ПРИЧИНА 1 · РЫНОК</span><h3>Спрос не сформирован</h3><div class="desc-tight">Ваш продукт — новая категория. Главврачи и ЛПР пока не ищут «ии для проверки медкарт» массово. Готового спроса в поиске мало — ловить почти нечего, спрос надо формировать.</div></div>
+    <div class="card"><div class="bar"></div><span class="tag">ПРИЧИНА 2 · ПЛАТФОРМА</span><h3>Сайт не приспособлен</h3><div class="desc-tight">Сайт на Tilda — конструктор лендингов. На нём нельзя построить структуру, которая захватывает новый спрос: десятки посадочных под задачи, контент-систему, личный кабинет, продукт, который продаёт себя.</div></div>
+  </div>
+  <div class="two-col-block">
+    <div class="card"><div class="bar"></div><h3>Кто к вам заходит</h3><div class="desc-tight">68% визитов — с компьютеров (10 656 из 15 578), это рабочее место ЛПР. Аудитория правильная — но сайт не превращает её в новые заявки.</div></div>
+    <div class="card"><div class="bar"></div><h3>Поиск делится поровну</h3><div class="desc-tight">Яндекс ≈3 150 и Google ≈2 440 органических визитов за год. Рынок РФ требует работать с обоими — на Tilda тонкий контроль обеих систем недоступен.</div></div>
+  </div>
+  <div class="slide-footer"><span class="belb-mark">BELBERRY</span><span>Разбор продвижения · Панацея · panaceadoc.ru · источник: Яндекс.Метрика 100600199</span><span>27.05.2026</span></div>
+</section>
+<section class="slide">
+  <div class="slide-header"><h2>Почему «ещё SEO» это не починит</h2><div class="pagenum">11 / 17</div></div>
+  <div class="slide-subheader">Оптимизировать можно только то, что есть. Площади под воронку нового спроса на лендинге нет</div>
+  <div class="slide-rule"></div>
+  <div class="two-col-block">
+    <div>
+      <div class="quote-card" style="margin-bottom:12px;"><div class="qtext">Просить «ещё SEO» для лендинга на Tilda — это нанимать лучшего управляющего для палатки и ждать оборот супермаркета. Дело не в управляющем. У палатки нет полок, складов и касс.</div></div>
+      <div class="card"><div class="bar"></div><div class="desc-tight" style="margin-top:0;">Можно бесконечно полировать заголовки и метатеги. Но если негде разместить десятки страниц под задачи клиник, контент, кейсы, расчёты эффекта и личный кабинет — новый спрос ловить нечем. Это потолок инструмента, а не усердия.</div></div>
+    </div>
+    <table class="belb">
+      <thead><tr><th>Что нужно для нового спроса</th><th>На Tilda</th></tr></thead>
+      <tbody>
+        <tr><td>Десятки посадочных под задачи/сегменты</td><td class="now">нельзя</td></tr>
+        <tr><td>Контент-система «статья → продукт»</td><td class="now">примитивно</td></tr>
+        <tr><td>Разметка для Google и ИИ-выдачи</td><td class="now">пусто</td></tr>
+        <tr><td>Полный контроль скорости и техники</td><td class="now">потолок</td></tr>
+        <tr><td>Личный кабинет, демо-доступ, счёт</td><td class="now">нет</td></tr>
+        <tr><td>Сквозная аналитика до договора</td><td class="now">нет</td></tr>
+        <tr><td>Сайт как ваша собственность</td><td class="now">аренда</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="slide-footer"><span class="belb-mark">BELBERRY</span><span>Разбор продвижения · Панацея · panaceadoc.ru · источник: Яндекс.Метрика 100600199</span><span>27.05.2026</span></div>
+</section>
+<section class="slide">
+  <div class="slide-header"><h2>Что нейросети говорят о вас — решает конкурент</h2><div class="pagenum">12 / 17</div></div>
+  <div class="slide-subheader">Покупатели всё чаще выбирают через ИИ: «какую СППВР выбрать для клиники». А ИИ цитирует обзоры</div>
+  <div class="slide-rule"></div>
+  <div class="two-col-block" style="margin-bottom:14px;">
+    <div class="card"><div class="bar" style="background:#d4202e;"></div><h3>Главный обзор «Российские СППВР» написал Webiomed — ваш конкурент</h3>
+      <div class="desc-tight">В обзоре 9 систем. Конкуренты (Webiomed, MedicBK, Galenos AI…) — в группе <strong>«зарегистрированные»</strong>. «Панацея» — в группе <strong style="color:#d4202e;">«без государственной регистрации»</strong>.</div>
+      <div class="desc">Когда клиент спрашивает ChatGPT, Алису или Perplexity «какую систему выбрать» — нейросеть цитирует этот обзор и транслирует чужую рамку, где вы — нерегистрированная система. Вашу категорийную репутацию формирует конкурент.</div>
+    </div>
+    <div class="card"><div class="bar"></div><h3>Протокол замера (10 промптов)</h3>
+      <div style="font-size:11.5px;line-height:1.6;color:#4a4f6a;margin-top:6px;">
+      «российские СППВР для частной клиники» · «ИИ для проверки медкарт» · «система контроля качества медпомощи» · «автоматизация клинико-экспертной работы» · «лучшая система поддержки врачебных решений» · «контроль назначений по клиническим рекомендациям» …<br><br>
+      По каждому фиксируем: упоминается ли «Панацея», кто из конкурентов, в какой формулировке. Это входит в стартовый аудит.</div></div>
+  </div>
+  <div class="disclaimer"><div class="d-title">СВЯЗЬ С ПЛАТФОРМОЙ</div>Чтобы перебить обзор конкурента в ИИ-выдаче, нужен собственный контентный авторитет: статьи, кейсы, доказательная база, разметка. На Tilda-лендинге это построить нельзя — снова упираемся в платформу.</div>
+  <div class="slide-footer"><span class="belb-mark">BELBERRY</span><span>Разбор продвижения · Панацея · panaceadoc.ru · источник: Яндекс.Метрика 100600199</span><span>27.05.2026</span></div>
+</section>
+<section class="slide">
+  <div class="slide-header"><h2>Развилка как бизнес-решение</h2><div class="pagenum">13 / 17</div></div>
+  <div class="slide-subheader">Два пути. Один — расход без актива, другой — вложение в собственность</div>
+  <div class="slide-rule"></div>
+  <div class="grid-2" style="margin-bottom:14px;">
+    <div class="card" style="background:#fadcde;"><div class="bar" style="background:#a13442;"></div><span class="tag bad">ПУТЬ А</span><h3>Платить дальше за оптимизацию лендинга</h3><div class="desc-tight" style="border-color:#e7b3b8;">Ежемесячный расход. Упирается в потолок платформы. Актив не растёт — вы арендуете конструктор. Через год — тот же разговор: деньги ушли, собственности не осталось.</div></div>
+    <div class="card" style="background:#d8efe0;"><div class="bar" style="background:#2c7a4a;"></div><span class="tag ok">ПУТЬ Б</span><h3>Построить собственный сайт-актив</h3><div class="desc-tight" style="border-color:#a9d8bd;">Разовое вложение в актив, которым вы <strong>владеете</strong>. На нём строится воронка нового спроса, продукт и аналитика. Работает годами и растёт в цене как часть бизнеса.</div></div>
+  </div>
+  <div class="disclaimer"><div class="d-title">ЛОГИКА ПЕРВОГО ЛИЦА</div>Это выбор «операционный расход против капитального вложения». Полировать арендованную витрину можно бесконечно — актива это не создаёт. Для растущего IT-продукта сайт — не страница, а рабочий инструмент привлечения и продажи.</div>
+  <div class="slide-footer"><span class="belb-mark">BELBERRY</span><span>Разбор продвижения · Панацея · panaceadoc.ru · источник: Яндекс.Метрика 100600199</span><span>27.05.2026</span></div>
+</section>
+<section class="slide">
+  <div class="slide-header"><h2>Что даёт полноценный сайт</h2><div class="pagenum">14 / 17</div></div>
+  <div class="slide-subheader">Не «красивее», а то, чего физически нет сейчас и что нужно SaaS для роста</div>
+  <div class="slide-rule"></div>
+  <div class="grid-3" style="margin-bottom:14px;">
+    <div class="card"><div class="bar"></div><h3>Воронка нового спроса</h3><div class="desc-tight">Десятки посадочных под задачи клиник, регионы и сегменты — то, чем ловят небрендовые запросы. Плюс готовность к выдаче нейросетей.</div></div>
+    <div class="card"><div class="bar"></div><h3>Продукт продаёт себя</h3><div class="desc-tight">Личный кабинет, демо-доступ, бесплатный триал, выставление счёта — путь от интереса к оплате без ручного догрева каждого лида.</div></div>
+    <div class="card"><div class="bar"></div><h3>Видно каждый рубль</h3><div class="desc-tight">Сквозная аналитика «запрос → заявка → демо → договор». Понятно, какой канал приносит платящих, и можно усиливать именно его.</div></div>
+  </div>
+  <div class="highlight">
+    <div class="cell"><div class="label">ПЛАТФОРМА</div><div class="value">1С-Битрикс</div><div class="note">или сопоставимая полноценная CMS</div></div>
+    <div class="cell"><div class="label">КТО ДЕЛАЕТ</div><div class="value">Belberry</div><div class="note">золотой партнёр · «Решения для медицины»</div></div>
+    <div class="cell"><div class="label">ГОРИЗОНТ</div><div class="value">Актив на годы</div><div class="note">сайт и продвижение — одна команда</div></div>
+  </div>
+  <div class="slide-footer"><span class="belb-mark">BELBERRY</span><span>Разбор продвижения · Панацея · panaceadoc.ru · источник: Яндекс.Метрика 100600199</span><span>27.05.2026</span></div>
+</section>
+<section class="slide">
+  <div class="slide-header"><h2>Как принять решение без риска</h2><div class="pagenum">15 / 17</div></div>
+  <div class="slide-subheader">Не строить вслепую и не вкладывать в дорогое, пока не подтверждён спрос</div>
+  <div class="slide-rule"></div>
+  <div class="roadmap-list">
+    <div class="roadmap-step"><div class="roadmap-num">1</div><div class="body"><div class="title-line">Сначала — измерить спрос (дёшево и быстро)</div><div class="desc-line">Исследование ёмкости рынка: сколько реально ищут решение в двух разрезах — клиники (B2B) и врачи (B2C). Ответ «есть ли рынок» до того, как тратить на стройку.</div></div></div>
+    <div class="roadmap-divider"></div>
+    <div class="roadmap-step"><div class="roadmap-num">2</div><div class="body"><div class="title-line">Навести порядок в учёте</div><div class="desc-line">Сквозная аналитика и коллтрекинг — чтобы каждый следующий рубль был виден до договора. Это нужно при любом сценарии.</div></div></div>
+    <div class="roadmap-divider"></div>
+    <div class="roadmap-step"><div class="roadmap-num">3</div><div class="body"><div class="title-line">Построить сайт-актив под подтверждённый спрос</div><div class="desc-line">Полноценный сайт на 1С-Битрикс с воронкой, продуктом и аналитикой. Вкладываем в актив, когда данные говорят «рынок есть».</div></div></div>
+    <div class="roadmap-divider"></div>
+    <div class="roadmap-step"><div class="roadmap-num">4</div><div class="body"><div class="title-line">Системное продвижение на новой базе</div><div class="desc-line">Только теперь SEO и продвижение в ИИ-выдаче работают на новый спрос, а не перехватывают ваш же бренд.</div></div></div>
+  </div>
+  <div class="slide-footer"><span class="belb-mark">BELBERRY</span><span>Разбор продвижения · Панацея · panaceadoc.ru · источник: Яндекс.Метрика 100600199</span><span>27.05.2026</span></div>
+</section>
+<section class="slide">
+  <div class="slide-header"><h2>Что нужно, чтобы начать</h2><div class="pagenum">16 / 17</div></div>
+  <div class="slide-subheader">Доступ к вашей Метрике у нас уже есть — этот разбор сделан на нём. Для следующего шага нужно немного</div>
+  <div class="slide-rule"></div>
+  <div class="grid-2" style="margin-bottom:14px;">
+    <div class="card"><div class="bar"></div><h3>От вас</h3>
+      <div style="font-size:12.5px;line-height:1.8;color:#4a4f6a;margin-top:8px;">
+      <span class="checkmark">✓</span>Список ссылок, купленных прошлым подрядчиком<br>
+      <span class="checkmark">✓</span>Сумма, которую платили за SEO (для честного расчёта цены клиента)<br>
+      <span class="checkmark">✓</span>Портрет приоритетных клиник и лиц, принимающих решение<br>
+      <span class="checkmark">✓</span>Доступ к Яндекс.Вебмастеру (позиции и запросы)</div></div>
+    <div class="card"><div class="bar"></div><h3>От нас</h3>
+      <div style="font-size:12.5px;line-height:1.8;color:#4a4f6a;margin-top:8px;">
+      <span class="checkmark">✓</span>Исследование ёмкости рынка с маркером «идти / нет»<br>
+      <span class="checkmark">✓</span>Настройка сквозной аналитики до договора<br>
+      <span class="checkmark">✓</span>Концепция и смета сайта-актива на 1С-Битрикс<br>
+      <span class="checkmark">✓</span>План продвижения под новый спрос</div></div>
+  </div>
+  <div class="highlight">
+    <div class="cell"><div class="label">ШАГ 1 · СЕЙЧАС</div><div class="value">Исследование спроса</div><div class="note">дёшево, быстро, снимает главный риск</div></div>
+    <div class="cell"><div class="label">ШАГ 2</div><div class="value">Учёт + концепция сайта</div><div class="note">видно каждый рубль</div></div>
+    <div class="cell"><div class="label">ШАГ 3</div><div class="value">Сайт-актив</div><div class="note">вложение в собственность</div></div>
+  </div>
+  <div class="slide-footer"><span class="belb-mark">BELBERRY</span><span>Разбор продвижения · Панацея · panaceadoc.ru · источник: Яндекс.Метрика 100600199</span><span>27.05.2026</span></div>
+</section>
+<section class="slide closing">
+  <div class="closing-eyebrow">BELBERRY · МЕДИЦИНСКИЙ DIGITAL С 2015 ГОДА</div>
+  <div class="closing-quote">«Вы создаёте технологии&nbsp;для&nbsp;врачей —<br>а мы построим канал, который&nbsp;приводит&nbsp;клиники»</div>
+  <div class="rr-title">Победитель Рейтинга Рунета 2025</div>
+  <div class="rr-certs">
+    <div class="rr-cert"><div class="rr-cert-top"><div class="rr-mark"><span></span><span></span><span></span><span></span></div><div class="rr-mark-text">РЕЙТИНГ<br>РУНЕТА</div></div><div class="rr-cert-place">1 место</div><div class="rr-cert-cap">В рейтинге:</div><div class="rr-cert-cat">Поддержка и развитие сайтов / Медицина: поликлиники, больницы</div><div class="rr-cert-cap">Поздравляем:</div><div class="rr-cert-brand">Belberry</div><div class="rr-cert-foot"><div class="rr-sign">Рук. проекта: Сергей Бесшабашнов<br>Гл. редактор: Анатолий Денисов</div><div class="rr-year">2025</div></div></div>
+    <div class="rr-cert"><div class="rr-cert-top"><div class="rr-mark"><span></span><span></span><span></span><span></span></div><div class="rr-mark-text">РЕЙТИНГ<br>РУНЕТА</div></div><div class="rr-cert-place">3 место</div><div class="rr-cert-cap">В рейтинге:</div><div class="rr-cert-cat">Репутация / Медицина, здоровье: Услуги</div><div class="rr-cert-cap">Поздравляем:</div><div class="rr-cert-brand">Belberry</div><div class="rr-cert-foot"><div class="rr-sign">Рук. проекта: Сергей Бесшабашнов<br>Гл. редактор: Анатолий Денисов</div><div class="rr-year">2025</div></div></div>
+    <div class="rr-cert"><div class="rr-cert-top"><div class="rr-mark"><span></span><span></span><span></span><span></span></div><div class="rr-mark-text">РЕЙТИНГ<br>РУНЕТА</div></div><div class="rr-cert-place">1 место</div><div class="rr-cert-cap">В рейтинге:</div><div class="rr-cert-cat">Комплексные разработчики / Красота, уход: Косметология</div><div class="rr-cert-cap">Поздравляем:</div><div class="rr-cert-brand">Belberry</div><div class="rr-cert-foot"><div class="rr-sign">Рук. проекта: Сергей Бесшабашнов<br>Гл. редактор: Анатолий Денисов</div><div class="rr-year">2025</div></div></div>
+  </div>
+  <div class="closing-strip">
+    <div class="cs-item"><span class="cs-num">11</span> лет в медицинском digital</div>
+    <div class="cs-item"><span class="cs-num">700+</span> проектов в медицине</div>
+    <div class="cs-item"><span class="cs-num">5,0</span> рейтинг по отзывам</div>
+    <div class="cs-item"><span class="cs-badge">★</span> Золотой партнёр Битрикс</div>
+  </div>
+  <div class="closing-contacts"><span class="cc-brand">Belberry</span><span>belberry.net</span><span>hello@belberry.net</span><span>+7 (495) 845-37-89</span><span>Москва, Варшавское ш. 118, к. 1</span></div>
+</section>
+</body>
+</html>
