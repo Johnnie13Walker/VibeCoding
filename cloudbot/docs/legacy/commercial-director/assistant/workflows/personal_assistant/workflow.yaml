@@ -1,0 +1,55 @@
+id: personal_assistant
+agent: larisa_assistant
+status: legacy_bridge
+delegates_to_agent: larisa-ivanovna
+source_of_truth: agents/larisa-ivanovna
+timezone: Europe/Moscow
+disable_scheduler: true
+disable_direct_telegram_dispatch: true
+scenarios:
+  day_briefing:
+    delegates_to_command: get_day_brief
+    delegates_to_workflow: daily_brief
+    route_key: larisa-ivanovna
+    providers:
+      - calendar
+      - todo
+      - weather
+      - news
+    output_template: templates/day-brief.md
+  add_calendar_event:
+    delegates_to_command: create_event
+    delegates_to_workflow: create_event
+    route_key: larisa-ivanovna
+    providers:
+      - calendar
+    required_fields:
+      - title
+      - start_at
+    confirmation: true
+  search_request:
+    delegates_to_command: search
+    delegates_to_workflow: search
+    route_key: larisa-ivanovna
+    providers:
+      - search
+    confirmation: false
+  organize_day:
+    delegates_to_command: plan_day
+    delegates_to_workflow: plan_day
+    route_key: larisa-ivanovna
+    providers:
+      - calendar
+      - todo
+      - weather
+      - news
+    confirmation: false
+commands:
+  - "/brief"
+  - "/day"
+  - "/add-meeting"
+  - "/search"
+guardrails:
+  - "Не использовать CRM и sales-контур"
+  - "Все даты и время только Europe/Moscow"
+  - "Неподтвержденные данные помечать явно"

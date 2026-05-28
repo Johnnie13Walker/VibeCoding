@@ -1,0 +1,12 @@
+[Unit]
+Description=Discord daily KPI digest sender
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/Users/pro2kuror/Desktop/OpenClo/incubator/openclaw-extensions/discord-hub
+EnvironmentFile=/Users/pro2kuror/Desktop/OpenClo/incubator/openclaw-extensions/discord-hub/.env
+ExecStart=/Users/pro2kuror/Desktop/OpenClo/incubator/openclaw-extensions/discord-hub/.venv/bin/python /Users/pro2kuror/Desktop/OpenClo/incubator/openclaw-extensions/discord-hub/src/send_digest.py
+
+[Install]
+WantedBy=multi-user.target

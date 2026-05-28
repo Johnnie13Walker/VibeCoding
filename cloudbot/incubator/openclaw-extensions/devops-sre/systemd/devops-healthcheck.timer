@@ -1,0 +1,10 @@
+[Unit]
+Description=Run DevOps daily health check every day
+
+[Timer]
+OnCalendar=*-*-* 08:00:00 Europe/Moscow
+Persistent=true
+Unit=devops-healthcheck.service
+
+[Install]
+WantedBy=timers.target

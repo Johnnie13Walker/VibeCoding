@@ -1,0 +1,9 @@
+[Unit]
+Description=Monitor Pobeda Telegram channel for promo codes
+After=network.target
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/opt/devops-sre
+ExecStart=/usr/bin/env python3 /opt/devops-sre/checks/pobeda_promocode_watch.py --channel PobedaAirlines

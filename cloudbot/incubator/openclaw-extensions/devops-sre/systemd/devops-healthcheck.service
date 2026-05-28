@@ -1,0 +1,9 @@
+[Unit]
+Description=DevOps daily health check
+After=network.target
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/opt/devops-sre
+ExecStart=/opt/devops-sre/checks/daily_check.sh --services "nginx docker postgresql redis-server"
