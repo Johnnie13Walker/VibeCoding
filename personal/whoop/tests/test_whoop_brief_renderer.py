@@ -37,10 +37,11 @@ def test_render_morning_brief_snapshot():
     assert "ПЛАН: 40-50 мин" in text
     assert "Метрики vs baseline 30д:" in text
     assert "Тренд недели (recovery):" in text
-    # bold для сегодняшнего значения в тренде (вт 78):
+    # bold для всех дней в тренде:
+    assert "Ср <b>72</b>" in text
     assert "Вт <b>78</b>" in text
-    # historic дни без bold:
-    assert "Ср 72 · Чт 70 · Пт 69 · Сб 66 · Вс 64 · Пн 68" in text
+    # bold для средних 7д:
+    assert "HRV <b>58ms</b>" in text or "HRV <b>57ms</b>" in text
     assert "Среднее 7д:" in text
     # bold для сегодняшних значений в блоке метрик:
     assert "<b>78%</b>" in text  # recovery

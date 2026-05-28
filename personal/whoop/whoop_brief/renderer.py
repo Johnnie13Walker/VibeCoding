@@ -126,13 +126,9 @@ def trend_summary(history: list[DailyMetrics], report_date: dt.date) -> dict[str
         day = start + dt.timedelta(days=offset)
         item = by_date.get(day.isoformat())
         weekday = WEEKDAY_SHORT[day.weekday()]
-        is_today = day == report_date
         if item and item.recovery is not None:
             value_str = f"{int(item.recovery)}"
-            if is_today:
-                rec_parts.append(f"{weekday} {_bold(value_str)}")
-            else:
-                rec_parts.append(f"{weekday} {value_str}")
+            rec_parts.append(f"{weekday} {_bold(value_str)}")
         else:
             rec_parts.append(f"{weekday} —")
         hrv_vals.append(item.hrv_ms if item else None)
@@ -147,10 +143,10 @@ def trend_summary(history: list[DailyMetrics], report_date: dt.date) -> dict[str
     sleep_str = format_minutes(int(round(sleep_avg))) if sleep_avg is not None else "н/д"
     strain_str = f"{strain_avg:.1f}" if strain_avg is not None else "н/д"
     summary = (
-        f"HRV {_number(hrv_avg, 'ms')} · "
-        f"RHR {_number(rhr_avg)} · "
-        f"Сон {sleep_str} · "
-        f"Strain {strain_str}"
+        f"HRV {_bold(_number(hrv_avg, 'ms'))} · "
+        f"RHR {_bold(_number(rhr_avg))} · "
+        f"Сон {_bold(sleep_str)} · "
+        f"Strain {_bold(strain_str)}"
     )
     return {
         "recovery": " · ".join(rec_parts),
