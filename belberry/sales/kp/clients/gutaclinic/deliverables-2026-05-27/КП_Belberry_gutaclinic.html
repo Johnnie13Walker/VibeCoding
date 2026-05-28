@@ -1,0 +1,1460 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Belberry × Гута-Клиник · Сводное КП</title>
+<style>
+  @page { size: 1280px 800px; margin: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  html, body { background: #ffffff; }
+  body {
+    font-family: -apple-system, "Helvetica Neue", "Inter", "Segoe UI", Arial, sans-serif;
+    color: #1a1f3a;
+    font-feature-settings: "tnum" 1, "lnum" 1;
+  }
+  .slide {
+    width: 1280px;
+    height: 800px;
+    page-break-after: always;
+    position: relative;
+    padding: 44px 64px 26px 64px;
+    overflow: hidden;
+    background: #faf8f5;
+    display: flex;
+    flex-direction: column;
+  }
+  .slide:last-child { page-break-after: auto; }
+  .slide-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+
+  /* TITLE SLIDE */
+  .slide.title {
+    background: linear-gradient(135deg, #1f1547 0%, #2b1f5e 45%, #3a2a7a 100%);
+    color: #fff;
+    padding: 80px 96px;
+  }
+  .title .eyebrow {
+    font-size: 14px;
+    letter-spacing: 0.32em;
+    color: #cdc5ee;
+    text-transform: uppercase;
+    font-weight: 500;
+    margin-bottom: 96px;
+  }
+  .title h1 {
+    font-size: 64px;
+    line-height: 1.05;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: 28px;
+    max-width: 1000px;
+  }
+  .title .lead {
+    font-size: 22px;
+    color: #d9d3ee;
+    font-weight: 400;
+    max-width: 900px;
+    line-height: 1.45;
+    margin-bottom: 96px;
+  }
+  .title .divider {
+    height: 1px;
+    background: rgba(255,255,255,0.18);
+    margin-bottom: 36px;
+  }
+  .title-meta {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 32px;
+  }
+  .title-meta .cell .label {
+    font-size: 11px;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: #b6abe6;
+    font-weight: 500;
+    margin-bottom: 12px;
+  }
+  .title-meta .cell .value {
+    font-size: 20px;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 4px;
+  }
+  .title-meta .cell .note {
+    font-size: 13px;
+    color: #cdc5ee;
+  }
+
+  /* CONTENT SLIDE — HEADER */
+  .slide-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 8px;
+  }
+  .slide-header h2 {
+    font-size: 34px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: #1a1f3a;
+    line-height: 1.1;
+  }
+  .slide-header .pagenum {
+    font-size: 12px;
+    letter-spacing: 0.18em;
+    color: #5b50d6;
+    font-weight: 700;
+    margin-top: 14px;
+  }
+  .slide-subheader {
+    font-size: 14px;
+    color: #6b6f88;
+    margin-bottom: 16px;
+  }
+  .slide-rule {
+    height: 3px;
+    background: #1a1f3a;
+    margin-bottom: 20px;
+    width: 100%;
+  }
+
+  /* CARDS GRID */
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+
+  .card {
+    background: #ffffff;
+    border-radius: 8px;
+    padding: 18px 20px;
+    position: relative;
+    box-shadow: 0 1px 0 rgba(26,31,58,0.04);
+  }
+  .card .bar {
+    position: absolute; top: 0; left: 0;
+    width: 56px; height: 3px;
+    background: #5b50d6;
+    border-radius: 2px;
+  }
+  .card .tag {
+    display: inline-block;
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    background: #ece9f9;
+    color: #5b50d6;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    margin-bottom: 9px;
+  }
+  .card h3 {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1a1f3a;
+    margin-bottom: 8px;
+    line-height: 1.2;
+  }
+  .card .kpi-label {
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    color: #6b6f88;
+    text-transform: uppercase;
+    font-weight: 500;
+    margin-top: 8px;
+    margin-bottom: 2px;
+  }
+  .card .kpi-value {
+    font-size: 21px;
+    font-weight: 700;
+    color: #1a1f3a;
+    line-height: 1.1;
+  }
+  .card .kpi-value.purple { color: #5b50d6; }
+  .card .desc {
+    font-size: 11.5px;
+    line-height: 1.5;
+    color: #4a4f6a;
+    margin-top: 9px;
+    border-top: 1px dashed #d8d3e6;
+    padding-top: 9px;
+  }
+  .card .desc-tight {
+    font-size: 11.5px;
+    line-height: 1.55;
+    color: #4a4f6a;
+    margin-top: 6px;
+  }
+  .card .price-line {
+    margin-top: 10px;
+    font-size: 14px;
+    color: #4a4f6a;
+  }
+  .card .price-line strong { color: #1a1f3a; }
+  .card .price-line .strike { color: #b8bccd; text-decoration: line-through; margin-right: 8px; }
+
+  /* HIGHLIGHT BLOCK */
+  .highlight {
+    background: linear-gradient(135deg, #5b50d6 0%, #4a3fc5 100%);
+    color: #fff;
+    border-radius: 8px;
+    padding: 18px 24px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .highlight .cell .label {
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #d9d3ee;
+    font-weight: 600;
+    margin-bottom: 5px;
+  }
+  .highlight .cell .value {
+    font-size: 26px;
+    font-weight: 700;
+    line-height: 1.05;
+  }
+  .highlight .cell .note {
+    font-size: 11px;
+    color: #d9d3ee;
+    margin-top: 3px;
+  }
+
+  /* TABLE */
+  table.belb {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+  }
+  table.belb th {
+    text-align: left;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #6b6f88;
+    font-weight: 600;
+    padding: 7px 10px;
+    border-bottom: 1px solid #d8d3e6;
+  }
+  table.belb th.right, table.belb td.right { text-align: right; }
+  table.belb td {
+    padding: 7px 10px;
+    border-bottom: 1px solid #ece9f3;
+    color: #1a1f3a;
+  }
+  table.belb td.metric { color: #4a4f6a; }
+  table.belb td.num { font-variant-numeric: tabular-nums; font-weight: 600; }
+  table.belb tr.totalrow td { font-weight: 700; background: #f3effc; border-bottom: none; }
+  table.belb tr.totalrow td:first-child { color: #5b50d6; }
+  table.belb .now { color: #6b6f88; }
+  table.belb .future { color: #5b50d6; font-weight: 700; }
+
+  /* DISCLAIMER */
+  .disclaimer {
+    background: #fff4ec;
+    border-left: 4px solid #e88a3b;
+    border-radius: 4px;
+    padding: 10px 14px;
+    font-size: 10.5px;
+    line-height: 1.45;
+    color: #5b3a1a;
+    flex-shrink: 0;
+  }
+  .disclaimer .d-title {
+    font-weight: 700;
+    color: #b86420;
+    font-size: 9.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin-bottom: 3px;
+  }
+
+  /* QUOTES */
+  .quote-card {
+    background: #fff;
+    border-radius: 8px;
+    padding: 26px 28px;
+    position: relative;
+    border-left: 4px solid #5b50d6;
+  }
+  .quote-card .qmark {
+    font-size: 56px;
+    color: #ece9f9;
+    line-height: 0.6;
+    position: absolute;
+    top: 22px;
+    right: 22px;
+    font-weight: 700;
+  }
+  .quote-card .qtext {
+    font-size: 16px;
+    line-height: 1.5;
+    color: #1a1f3a;
+    font-weight: 500;
+    margin-bottom: 12px;
+    font-style: italic;
+  }
+  .quote-card .qauth {
+    font-size: 12px;
+    color: #6b6f88;
+    letter-spacing: 0.04em;
+  }
+
+  /* FOOTER */
+  .slide-footer {
+    margin-top: auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid #e7e3d8;
+    padding-top: 12px;
+    font-size: 10.5px;
+    color: #6b6f88;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+  }
+  .slide-footer .belb-mark {
+    font-weight: 700;
+    color: #1a1f3a;
+    letter-spacing: 0.04em;
+  }
+
+  /* ROADMAP */
+  .roadmap-list { display: flex; flex-direction: column; gap: 14px; }
+  .roadmap-step { display: flex; gap: 18px; align-items: flex-start; }
+  .roadmap-num {
+    background: #5b50d6;
+    color: #fff;
+    font-weight: 700;
+    width: 32px; height: 32px;
+    border-radius: 16px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    font-size: 14px;
+  }
+  .roadmap-step .body { flex: 1; }
+  .roadmap-step .body .title-line { font-weight: 700; color: #1a1f3a; font-size: 14px; margin-bottom: 4px; }
+  .roadmap-step .body .desc-line { font-size: 13px; color: #4a4f6a; line-height: 1.5; }
+  .roadmap-divider { height: 1px; background: #e3dfee; margin-left: 50px; }
+
+  /* SMALL UTILITY */
+  .pill {
+    display: inline-block;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    padding: 4px 9px;
+    border-radius: 4px;
+    background: #ece9f9;
+    color: #5b50d6;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  .pill.warn { background: #fde3d2; color: #b86420; }
+  .pill.ok { background: #d8efe0; color: #2c7a4a; }
+  .pill.bad { background: #fadcde; color: #a13442; }
+
+  .two-col-block { display: grid; grid-template-columns: 1.4fr 1fr; gap: 22px; }
+
+  /* large number */
+  .megalarge { font-size: 64px; font-weight: 700; color: #fff; line-height: 1; letter-spacing: -0.02em; }
+  .megalarge-sub { font-size: 13px; color: #d9d3ee; margin-top: 6px; }
+
+  .checkmark {
+    display: inline-block;
+    width: 16px; height: 16px;
+    background: #5b50d6;
+    color: #fff;
+    border-radius: 8px;
+    font-size: 10px;
+    text-align: center;
+    line-height: 16px;
+    margin-right: 8px;
+    vertical-align: middle;
+  }
+
+  .footer-line-section {
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    color: #6b6f88;
+    text-transform: uppercase;
+    font-weight: 600;
+    margin-bottom: 10px;
+  }
+
+  /* CLOSING SLIDE */
+  .slide.closing {
+    background: linear-gradient(135deg, #1f1547 0%, #2b1f5e 48%, #3a2a7a 100%);
+    color: #fff;
+    padding: 56px 72px 40px 72px;
+    justify-content: space-between;
+  }
+  .closing-eyebrow {
+    font-size: 13px;
+    letter-spacing: 0.3em;
+    color: #b6abe6;
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+  .closing-quote {
+    font-size: 42px;
+    font-weight: 700;
+    line-height: 1.12;
+    letter-spacing: -0.015em;
+    color: #fff;
+    margin: 8px 0 4px;
+    max-width: 1050px;
+  }
+  .rr-title {
+    font-size: 12px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #cdc5ee;
+    font-weight: 600;
+    margin-bottom: 12px;
+  }
+  .rr-certs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; align-items: stretch; margin-bottom: 16px; }
+
+  /* Карточка-сертификат Рейтинга Рунета — красная */
+  .rr-cert {
+    background: linear-gradient(160deg, #d4202e 0%, #a8121d 100%);
+    border-radius: 16px;
+    padding: 22px 22px 18px;
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 8px 24px rgba(168,18,29,0.4);
+  }
+  .rr-cert-top { display: flex; align-items: center; gap: 11px; margin-bottom: 16px; }
+  .rr-mark {
+    width: 34px; height: 34px;
+    display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr;
+    gap: 3px;
+  }
+  .rr-mark span { background: #fff; border-radius: 2px; }
+  .rr-mark span:nth-child(2) { border-radius: 2px 8px 2px 2px; }
+  .rr-mark-text {
+    font-size: 11px; font-weight: 700; line-height: 1.05;
+    letter-spacing: 0.12em; color: #fff;
+  }
+  .rr-cert-place { font-size: 34px; font-weight: 800; line-height: 1; margin-bottom: 14px; }
+  .rr-cert-cap { font-size: 10.5px; color: rgba(255,255,255,0.7); margin-bottom: 3px; }
+  .rr-cert-cat { font-size: 13px; font-weight: 700; line-height: 1.3; margin-bottom: 12px; }
+  .rr-cert-brand { font-size: 17px; font-weight: 700; margin-bottom: auto; }
+  .rr-cert-foot {
+    display: flex; justify-content: space-between; align-items: flex-end;
+    margin-top: 16px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.2);
+  }
+  .rr-sign { font-size: 8px; color: rgba(255,255,255,0.65); line-height: 1.5; font-style: italic; }
+  .rr-year { font-size: 22px; font-weight: 800; }
+
+  /* Горизонтальная полоса фактов */
+  .closing-strip {
+    display: flex; flex-wrap: wrap; gap: 24px;
+    padding: 14px 0;
+    border-top: 1px solid rgba(255,255,255,0.14);
+    border-bottom: 1px solid rgba(255,255,255,0.14);
+    align-items: center;
+  }
+  .cs-item { font-size: 12.5px; color: #d9d3ee; display: flex; align-items: center; gap: 8px; }
+  .cs-num { font-size: 20px; font-weight: 700; color: #fff; }
+  .cs-badge {
+    width: 22px; height: 22px; border-radius: 6px;
+    background: rgba(255,255,255,0.14); color: #ffd96b;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700;
+  }
+  .closing-contacts {
+    display: flex; flex-wrap: wrap; gap: 24px; align-items: baseline;
+    font-size: 13px; color: #cdc5ee;
+  }
+  .closing-contacts .cc-brand {
+    font-size: 24px; font-weight: 700; color: #fff; letter-spacing: -0.01em;
+    margin-right: 8px;
+  }
+</style>
+</head>
+<body>
+
+<!-- SLIDE 1: TITLE -->
+<section class="slide title">
+  <div class="eyebrow">BELBERRY · СТРАТЕГИЧЕСКИЙ ОТДЕЛ</div>
+  <h1>Сводное коммерческое<br>предложение для Гута-Клиник</h1>
+  <div class="lead">Перенос сайта · Управление репутацией с ГЕО · Продвижение в нейровыдаче.</div>
+  <div class="divider"></div>
+  <div class="title-meta">
+    <div class="cell">
+      <div class="label">ДЛЯ</div>
+      <div class="value">Гута-Клиник</div>
+      <div class="note">gutaclinic.ru</div>
+    </div>
+    <div class="cell">
+      <div class="label">КОМПЛЕКС</div>
+      <div class="value">Перенос + ORM + Нейровыдача</div>
+      <div class="note">состав согласован на встрече 27.05</div>
+    </div>
+    <div class="cell">
+      <div class="label">ПОДГОТОВЛЕНО</div>
+      <div class="value">27.05.2026</div>
+      <div class="note">Гордиенко Евгения · РОП</div>
+    </div>
+    <div class="cell">
+      <div class="label">СКИДКА 5%</div>
+      <div class="value">до 05.06.2026</div>
+      <div class="note">экономия 179 942 ₽ за 12 мес</div>
+    </div>
+  </div>
+</section>
+
+<!-- SLIDE 2: СОСТАВ КОМПЛЕКСА -->
+<section class="slide">
+  <div class="slide-header">
+    <h2>Состав комплекса</h2>
+    <div class="pagenum">02 / 10</div>
+  </div>
+  <div class="slide-subheader">Все цены с НДС 5%. Справа — со скидкой 5% при оплате до 05.06.2026</div>
+  <div class="slide-rule"></div>
+
+  <div class="grid-3" style="margin-bottom: 14px;">
+    <div class="card">
+      <div class="bar"></div>
+      <span class="tag">РАЗОВО</span>
+      <h3>Перенос сайта</h3>
+      <div class="desc" style="border-top: none; padding-top: 0; margin-top: 0;">61 час · до конца июня. Сохранение SEO-данных, карта редиректов, микроразметка, постпереносный аудит. Страховка от потери органического трафика при переезде на новый сайт.</div>
+      <div class="kpi-label">С НДС</div>
+      <div class="kpi-value">277 477,20 ₽</div>
+      <div class="kpi-label">СО СКИДКОЙ ДО 05.06</div>
+      <div class="kpi-value purple">263 603,34 ₽</div>
+    </div>
+    <div class="card">
+      <div class="bar"></div>
+      <span class="tag">ЕЖЕМЕСЯЧНО</span>
+      <h3>ORM + ГЕО</h3>
+      <div class="desc" style="border-top: none; padding-top: 0; margin-top: 0;">1 мега-отзыв · 7 ГЕО-отзывов на Картах · 26 отзывов на отзовиках · 12 партизан · 5 ответов от лица бренда · 5 обжалований · ведение РК на Яндекс.Картах · отчётность.</div>
+      <div class="kpi-label">С НДС / МЕС</div>
+      <div class="kpi-value">159 035,63 ₽</div>
+      <div class="kpi-label">СО СКИДКОЙ ДО 05.06</div>
+      <div class="kpi-value purple">151 083,84 ₽</div>
+    </div>
+    <div class="card">
+      <div class="bar"></div>
+      <span class="tag">ЕЖЕМЕСЯЧНО</span>
+      <h3>Нейровыдача (GEO)</h3>
+      <div class="desc" style="border-top: none; padding-top: 0; margin-top: 0;">53 часа · 50 промптов на старте. Контент под ИИ-выдачу, 3 рерайта каждой статьи в тематические СМИ, ссылочная масса 25% бюджета без доплат, анализ E-E-A-T и графа знаний.</div>
+      <div class="kpi-label">С НДС / МЕС</div>
+      <div class="kpi-value">117 744,90 ₽</div>
+      <div class="kpi-label">СО СКИДКОЙ ДО 05.06</div>
+      <div class="kpi-value purple">111 857,65 ₽</div>
+    </div>
+  </div>
+
+  <div class="highlight">
+    <div class="cell">
+      <div class="label">1-Й МЕСЯЦ (СТАРТ)</div>
+      <div class="value">526 544,83 ₽</div>
+      <div class="note">перенос 263 603 + ORM+ГЕО 151 084 + нейро 111 858</div>
+    </div>
+    <div class="cell">
+      <div class="label">2-Й МЕСЯЦ И ДАЛЕЕ</div>
+      <div class="value">262 941,50 ₽/мес</div>
+      <div class="note">ORM+ГЕО 151 084 + нейровыдача 111 858</div>
+    </div>
+    <div class="cell">
+      <div class="label">ВСЕГО ЗА 12 МЕСЯЦЕВ</div>
+      <div class="value">3 418 901 ₽</div>
+      <div class="note">1-й мес + 11 × 262 942 · экономия 179 942</div>
+    </div>
+  </div>
+
+  <div class="slide-footer">
+    <span class="belb-mark">BELBERRY</span>
+    <span>Сводное КП · Гута-Клиник · gutaclinic.ru</span>
+    <span>27.05.2026</span>
+  </div>
+</section>
+
+<!-- SLIDE 3: ДЕТАЛЬНО — ПЕРЕНОС САЙТА -->
+<section class="slide">
+  <div class="slide-header">
+    <h2>Перенос сайта · детальный состав</h2>
+    <div class="pagenum">03 / 10</div>
+  </div>
+  <div class="slide-subheader">61 час работы · разово · сохранение трафика при переезде на новый сайт</div>
+  <div class="slide-rule"></div>
+
+  <div class="grid-3" style="margin-bottom: 12px;">
+    <div class="card">
+      <div class="bar"></div>
+      <span class="tag">ЭТАП 1 · 4 ч</span>
+      <h3>Настройка панелей и аналитики</h3>
+      <div style="font-size:11px;line-height:1.5;color:#4a4f6a;margin-top:6px;">
+        · Яндекс Вебмастер: диагностика, региональная привязка, sitemap, обход страниц, рендеринг JS, быстрые ссылки<br>
+        · Яндекс Метрика: проверка счётчика, Вебвизор, сегментированные отчёты по брендовому и коммерческому трафику<br>
+        · Google Search Console: индексация, Core Web Vitals, микроразметка, отчёты об ошибках
+      </div>
+    </div>
+    <div class="card">
+      <div class="bar"></div>
+      <span class="tag">ЭТАП 2 · 16,5 ч</span>
+      <h3>Семантическое ядро</h3>
+      <div style="font-size:11px;line-height:1.5;color:#4a4f6a;margin-top:6px;">
+        · Определение всех услуг и неочевидных запросов<br>
+        · Парсинг поисковых подсказок<br>
+        · Коммерческие, гео-вхождения и «хвосты»<br>
+        · Чистка: дубли, нерелевант, нулевики, пустышки<br>
+        · Кластеризация и итоговая частотность<br>
+        · Карта «запрос → страница» с параметрами
+      </div>
+    </div>
+    <div class="card">
+      <div class="bar"></div>
+      <span class="tag">ЭТАП 3 · 7,3 ч</span>
+      <h3>Структура сайта</h3>
+      <div style="font-size:11px;line-height:1.5;color:#4a4f6a;margin-top:6px;">
+        · Грамотная структура на основе семантики<br>
+        · Конкурентный анализ структур (Медси, СМ-Клиника, ЕМЦ, К+31)<br>
+        · Карта посадочных страниц для нового сайта<br>
+        · Внутренняя перелинковка с распределением веса
+      </div>
+    </div>
+  </div>
+
+  <div class="grid-3" style="margin-bottom: 12px;">
+    <div class="card">
+      <div class="bar"></div>
+      <span class="tag">ЭТАП 4 · 12 ч</span>
+      <h3>Технические проверки</h3>
+      <div style="font-size:11px;line-height:1.5;color:#4a4f6a;margin-top:6px;">
+        · Ответ сервера: www/без www, http/https, слеши, регистр, 404, дубли<br>
+        · Анализ дублей и аффилиатов · история домена<br>
+        · Парсинг сайта: 404, 3xx, 5xx, метатеги, H1, исходящие ссылки<br>
+        · robots.txt: user-agent, директивы, индексация служебных страниц
+      </div>
+    </div>
+    <div class="card">
+      <div class="bar"></div>
+      <span class="tag">ЭТАП 5 · 12 ч</span>
+      <h3>Сопровождение переезда</h3>
+      <div style="font-size:11px;line-height:1.5;color:#4a4f6a;margin-top:6px;">
+        · Выгрузка всех SEO-данных текущего сайта<br>
+        · Закрытый тестовый домен для прогона<br>
+        · Карта 301-редиректов со старых URL на новые<br>
+        · Сохранение микроразметки: «Хлебные крошки», организации, услуг, статей<br>
+        · Сохранение внутренней перелинковки и веса
+      </div>
+    </div>
+    <div class="card">
+      <div class="bar"></div>
+      <span class="tag">ЭТАП 6 · 10 ч</span>
+      <h3>Аудит юзабилити и E-E-A-T</h3>
+      <div style="font-size:11px;line-height:1.5;color:#4a4f6a;margin-top:6px;">
+        · Коммерческий аудит сайта (CTA, контакты, формы)<br>
+        · Юзабилити: путь пользователя, удобство записи<br>
+        · E-E-A-T для медицины: экспертиза врачей, лицензии, сертификаты, отзывы независимых рейтингов<br>
+        · Постпереносный аудит индексации
+      </div>
+    </div>
+  </div>
+
+  <div class="highlight">
+    <div class="cell">
+      <div class="label">ОБЪЁМ РАБОТ</div>
+      <div class="value">61 час</div>
+      <div class="note">разово · до конца июня 2026</div>
+    </div>
+    <div class="cell">
+      <div class="label">С НДС 5%</div>
+      <div class="value">277 477,20 ₽</div>
+      <div class="note">базовая стоимость</div>
+    </div>
+    <div class="cell">
+      <div class="label">СО СКИДКОЙ 5%</div>
+      <div class="value">263 603,34 ₽</div>
+      <div class="note">при оплате до 05.06.2026</div>
+    </div>
+  </div>
+
+  <div class="slide-footer">
+    <span class="belb-mark">BELBERRY</span>
+    <span>Сводное КП · Гута-Клиник · gutaclinic.ru</span>
+    <span>27.05.2026</span>
+  </div>
+</section>
+
+<!-- SLIDE 4: ДЕТАЛЬНО — ORM + ГЕО -->
+<section class="slide">
+  <div class="slide-header">
+    <h2>ORM + ГЕО · детальный состав</h2>
+    <div class="pagenum">04 / 10</div>
+  </div>
+  <div class="slide-subheader">Ежемесячный цикл работ по 39 площадкам · из них 15 отрицательных, 5 с низким рейтингом</div>
+  <div class="slide-rule"></div>
+
+  <div class="grid-3" style="margin-bottom: 12px;">
+    <div class="card">
+      <div class="bar"></div>
+      <span class="tag">БЛОК 1</span>
+      <h3>Аналитика и стратегия</h3>
+      <div style="font-size:11px;line-height:1.5;color:#4a4f6a;margin-top:6px;">
+        · Формирование и корректировка стратегии<br>
+        · Еженедельный ручной мониторинг ТОП-20 выдачи поисковых систем<br>
+        · Формирование дайджеста упоминаний (где, что, тональность)<br>
+        · Сегментация по площадкам с приоритетом
+      </div>
+    </div>
+    <div class="card">
+      <div class="bar"></div>
+      <span class="tag">БЛОК 2 · ОТЗЫВЫ</span>
+      <h3>Публикация контента</h3>
+      <div style="font-size:11px;line-height:1.5;color:#4a4f6a;margin-top:6px;">
+        · <strong>1 мега-отзыв</strong> в месяц на крупных отзовиках (Отзовик, Irecommend, otzyvy.pro, vseotzyvy) ~1000 знаков<br>
+        · <strong>7 ГЕО-отзывов</strong> на Яндекс.Картах, Google Maps, 2ГИС ~300 знаков<br>
+        · <strong>26 отзывов</strong> на отзовиках (Zoon, ProDoctorov, NaPopravku и др.) ~300 знаков<br>
+        · <strong>12 партизанских обсуждений</strong> на форумах и Q&amp;A-сайтах ~100 знаков
+      </div>
+    </div>
+    <div class="card">
+      <div class="bar"></div>
+      <span class="tag">БЛОК 3 · БРЕНД</span>
+      <h3>Работы от лица бренда</h3>
+      <div style="font-size:11px;line-height:1.5;color:#4a4f6a;margin-top:6px;">
+        · <strong>5 ответов</strong> от официального представителя бренда на отзывы пациентов<br>
+        · <strong>5 обжалований</strong> в месяц — нивелирование отрицательных и нарушающих правила площадок отзывов через службы поддержки<br>
+        · Шаблоны ответов согласуются с клиникой заранее<br>
+        · Нестандартные ситуации — индивидуально с вами
+      </div>
+    </div>
+  </div>
+
+  <div class="grid-3" style="margin-bottom: 12px;">
+    <div class="card">
+      <div class="bar"></div>
+      <span class="tag">БЛОК 4 · ГЕО</span>
+      <h3>Платное продвижение на Картах</h3>
+      <div style="font-size:11px;line-height:1.5;color:#4a4f6a;margin-top:6px;">
+        · Ведение и корректировка рекламной кампании на Яндекс.Картах (без учёта бюджета РК)<br>
+        · Актуализация прайс-листа<br>
+        · Актуализация информации об организации в Яндекс.Картах, Google Business, 2ГИС<br>
+        · 1 новость в месяц на Яндекс.Картах
+      </div>
+    </div>
+    <div class="card">
+      <div class="bar"></div>
+      <span class="tag">БЛОК 5 · ОТЧЁТНОСТЬ</span>
+      <h3>Прозрачность и безопасность</h3>
+      <div style="font-size:11px;line-height:1.5;color:#4a4f6a;margin-top:6px;">
+        · Ежемесячный отчёт о выполненных работах и достигнутых результатах<br>
+        · Менеджмент проекта: отдельный аккаунт-менеджер на связи<br>
+        · Техническое сопровождение: база прогретых аккаунтов, привязка к мобильным номерам, ПО для смены IP — отзывы неотличимы от пациентских
+      </div>
+    </div>
+    <div class="card" style="background: #f3effc;">
+      <div class="bar"></div>
+      <span class="tag">ИТОГО ЗА МЕСЯЦ</span>
+      <h3>Объём публикаций</h3>
+      <div style="font-size:11px;line-height:1.5;color:#4a4f6a;margin-top:6px;">
+        · <strong>46 отзывов и упоминаний</strong> в месяц по 39 площадкам<br>
+        · <strong>10 коммуникаций</strong> от лица бренда (ответы + обжалования)<br>
+        · <strong>1 рекламная кампания</strong> на Яндекс.Картах<br>
+        · <strong>1 новость</strong><br>
+        · <strong>1 ежемесячный отчёт</strong>
+      </div>
+    </div>
+  </div>
+
+  <div class="highlight">
+    <div class="cell">
+      <div class="label">ЕЖЕМЕСЯЧНО · С НДС</div>
+      <div class="value">159 035,63 ₽</div>
+      <div class="note">базовая стоимость</div>
+    </div>
+    <div class="cell">
+      <div class="label">СО СКИДКОЙ ДО 05.06</div>
+      <div class="value">151 083,84 ₽</div>
+      <div class="note">экономия 7 951,79 ₽ в месяц</div>
+    </div>
+    <div class="cell">
+      <div class="label">ЗА 12 МЕС СО СКИДКОЙ</div>
+      <div class="value">1 813 006 ₽</div>
+      <div class="note">~ 95 410 ₽ в эквиваленте экономии</div>
+    </div>
+  </div>
+
+  <div class="slide-footer">
+    <span class="belb-mark">BELBERRY</span>
+    <span>Сводное КП · Гута-Клиник · gutaclinic.ru</span>
+    <span>27.05.2026</span>
+  </div>
+</section>
+
+<!-- SLIDE 5: ДЕТАЛЬНО — НЕЙРОВЫДАЧА -->
+<section class="slide">
+  <div class="slide-header">
+    <h2>Нейровыдача · детальный состав</h2>
+    <div class="pagenum">05 / 10</div>
+  </div>
+  <div class="slide-subheader">53 часа в месяц · 50 промптов на старте · контент под ИИ + ссылочная масса</div>
+  <div class="slide-rule"></div>
+
+  <div class="grid-3" style="margin-bottom: 10px;">
+    <div class="card">
+      <div class="bar"></div>
+      <span class="tag">БЛОК 1</span>
+      <h3>Подготовка и аналитика</h3>
+      <div style="font-size:11px;line-height:1.5;color:#4a4f6a;margin-top:6px;">
+        · Сбор доступов: CMS, Метрика, Яндекс.Бизнес, Google Business<br>
+        · Установка счётчиков и систем аналитики<br>
+        · Регистрация в панелях вебмастеров: Search Console, Яндекс.Вебмастер, Bing Webmaster Tools<br>
+        · Менеджмент проекта<br>
+        · Аналитика трафика из ИИ-выдач (Метрика как источник)
+      </div>
+    </div>
+    <div class="card">
+      <div class="bar"></div>
+      <span class="tag">БЛОК 2</span>
+      <h3>Базовая SEO/GEO-оптимизация</h3>
+      <div style="font-size:11px;line-height:1.5;color:#4a4f6a;margin-top:6px;">
+        · Проверка доступности контента для ИИ-агентов<br>
+        · Оптимизация Core Web Vitals (скорость загрузки)<br>
+        · Адаптация контента для мобильных<br>
+        · Оптимизация микроразметок (Schema.org)<br>
+        · Семантическая вёрстка<br>
+        · Аудит чанкирования страниц<br>
+        · Анализ и корректировка сниппетов
+      </div>
+    </div>
+    <div class="card">
+      <div class="bar"></div>
+      <span class="tag">БЛОК 3</span>
+      <h3>Внутренняя оптимизация и UX</h3>
+      <div style="font-size:11px;line-height:1.5;color:#4a4f6a;margin-top:6px;">
+        · Тематический охват ресурса<br>
+        · Контент-хабы и перелинковка<br>
+        · Расширенный аудит E-E-A-T (медицина)<br>
+        · Принцип «Ответ-прежде-всего»<br>
+        · Обогащение контента (добавочная ценность)<br>
+        · Проверка представленности бренда в «Графе знаний» Google
+      </div>
+    </div>
+  </div>
+
+  <div class="grid-3" style="margin-bottom: 10px;">
+    <div class="card">
+      <div class="bar"></div>
+      <span class="tag">БЛОК 4 · ПРОМПТЫ</span>
+      <h3>Контент под нейровыдачу</h3>
+      <div style="font-size:11px;line-height:1.5;color:#4a4f6a;margin-top:6px;">
+        · Сбор <strong>50 промптов</strong> в стартовом цикле под приоритетные направления (стоматология, дерматология, пластическая хирургия, урология, чек-апы)<br>
+        · Анализ объёма вхождений и доли упоминаний в ИИ-ответах<br>
+        · Съём показателей по GEO-ядру<br>
+        · Расширение пула промптов в следующих циклах
+      </div>
+    </div>
+    <div class="card">
+      <div class="bar"></div>
+      <span class="tag">БЛОК 5 · ТЕКСТЫ</span>
+      <h3>Копирайтинг и рерайт</h3>
+      <div style="font-size:11px;line-height:1.5;color:#4a4f6a;margin-top:6px;">
+        · Составление ТЗ на статьи под промпты<br>
+        · Копирайтинг оптимизированных статей для сайта<br>
+        · <strong>3 рерайта</strong> каждой статьи для уникализации<br>
+        · Размещение рерайтов в тематических ресурсах и СМИ<br>
+        · Размещение основной статьи в блоге сайта<br>
+        · Копирайтеры с медицинским образованием
+      </div>
+    </div>
+    <div class="card">
+      <div class="bar"></div>
+      <span class="tag">БЛОК 6 · ССЫЛКИ</span>
+      <h3>Внешняя оптимизация</h3>
+      <div style="font-size:11px;line-height:1.5;color:#4a4f6a;margin-top:6px;">
+        · Анализ ссылочного профиля<br>
+        · Деактивация токсичных ссылок<br>
+        · Поиск и оценка релевантных площадок<br>
+        · Регистрация на авторитетных ресурсах<br>
+        · <strong>25% бюджета</strong> внутри сметы тратится на закупку ссылок — без доплат<br>
+        · Анализ упоминаний бренда (без ссылок, в списках, на форумах, Q&amp;A)
+      </div>
+    </div>
+  </div>
+
+  <div class="highlight">
+    <div class="cell">
+      <div class="label">ОБЪЁМ В МЕСЯЦ</div>
+      <div class="value">53 часа</div>
+      <div class="note">+ 25% бюджета на ссылки внутри</div>
+    </div>
+    <div class="cell">
+      <div class="label">ЕЖЕМЕСЯЧНО С НДС</div>
+      <div class="value">117 744,90 ₽</div>
+      <div class="note">базовая стоимость</div>
+    </div>
+    <div class="cell">
+      <div class="label">СО СКИДКОЙ ДО 05.06</div>
+      <div class="value">111 857,65 ₽</div>
+      <div class="note">экономия 5 887,25 ₽ в месяц</div>
+    </div>
+  </div>
+
+  <div class="slide-footer">
+    <span class="belb-mark">BELBERRY</span>
+    <span>Сводное КП · Гута-Клиник · gutaclinic.ru</span>
+    <span>27.05.2026</span>
+  </div>
+</section>
+
+<!-- SLIDE 6: ПРОГНОЗ ORM (щадящий) -->
+<section class="slide">
+  <div class="slide-header">
+    <h2>Прогноз по репутации — что вы получите</h2>
+    <div class="pagenum">06 / 10</div>
+  </div>
+  <div class="slide-subheader">Консервативная оценка на 6 и 12 месяцев · отдельный честный дисклеймер ниже</div>
+  <div class="slide-rule"></div>
+
+  <div class="two-col-block" style="margin-bottom: 12px;">
+    <div class="card">
+      <div class="bar"></div>
+      <h3 style="margin-bottom: 14px;">Рейтинги по приоритетным площадкам</h3>
+      <table class="belb">
+        <thead>
+          <tr>
+            <th>Площадка</th>
+            <th class="right">Сейчас</th>
+            <th class="right">6 мес</th>
+            <th class="right">12 мес</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Yandex (38 млн)</td><td class="right num now">4,50</td><td class="right num">4,60</td><td class="right num future">4,70</td></tr>
+          <tr><td>Google (26 млн)</td><td class="right num now">3,90</td><td class="right num">4,15</td><td class="right num future">4,40</td></tr>
+          <tr><td>2GIS (25 млн)</td><td class="right num now">4,75</td><td class="right num">4,80</td><td class="right num future">4,85</td></tr>
+          <tr><td>Otzovik.com (25 млн)</td><td class="right num now">3,30</td><td class="right num">3,70</td><td class="right num future">4,00</td></tr>
+          <tr><td>ProDoctorov (28 млн)</td><td class="right num now">4,70</td><td class="right num">4,75</td><td class="right num future">4,80</td></tr>
+          <tr><td>Zoon.ru (24 млн)</td><td class="right num now">4,00</td><td class="right num">4,30</td><td class="right num future">4,55</td></tr>
+          <tr><td>Flamp.ru</td><td class="right num now">4,90</td><td class="right num">4,90</td><td class="right num future">4,90</td></tr>
+          <tr><td>Doctu.ru (13 млн)</td><td class="right num now">4,60</td><td class="right num">4,70</td><td class="right num future">4,75</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 16px;">
+      <div class="card">
+        <div class="bar"></div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px;">
+          <div>
+            <div class="kpi-label">СЕЙЧАС</div>
+            <div class="kpi-value" style="color:#6b6f88">15</div>
+            <div style="font-size:11px;color:#6b6f88;margin-top:2px;">площадок с отрицательной тональностью</div>
+          </div>
+          <div>
+            <div class="kpi-label">6 МЕС</div>
+            <div class="kpi-value">5–7</div>
+            <div style="font-size:11px;color:#6b6f88;margin-top:2px;">после первичной нормализации</div>
+          </div>
+          <div>
+            <div class="kpi-label">12 МЕС</div>
+            <div class="kpi-value purple">1–2</div>
+            <div style="font-size:11px;color:#6b6f88;margin-top:2px;">в режиме поддержания</div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="bar"></div>
+        <h3 style="font-size:14px;margin-bottom:6px">Доля положительной тональности новых отзывов</h3>
+        <table class="belb">
+          <tbody>
+            <tr><td class="metric">Сейчас (по аудиту 27.05)</td><td class="right num now">41%</td></tr>
+            <tr><td class="metric">К 6-му месяцу работы</td><td class="right num">60–65%</td></tr>
+            <tr><td class="metric">К 12-му месяцу работы</td><td class="right num future">72–78%</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card">
+        <div class="bar"></div>
+        <h3 style="font-size:14px;margin-bottom:6px">Средний рейтинг на приоритетных карточках</h3>
+        <table class="belb">
+          <tbody>
+            <tr><td class="metric">Сейчас</td><td class="right num now">4,29</td></tr>
+            <tr><td class="metric">К 6-му месяцу</td><td class="right num">4,45</td></tr>
+            <tr><td class="metric">К 12-му месяцу</td><td class="right num future">4,60</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="disclaimer">
+    <div class="d-title">ВАЖНО — ОЦЕНКА НА ТЕКУЩИЙ МОМЕНТ</div>
+    Прогноз — <strong>оценка на 27.05.2026</strong> по аудиту gutaclinic за 21–27.05 и нашей базе по 100+ мед-клиентам РФ. Может корректироваться: новый резонансный негатив, изменения модерации Яндекс/Google/2ГИС/отзовиков, активность конкурентов. Пересматриваем ежемесячно в отчётах.
+  </div>
+
+  <div class="slide-footer">
+    <span class="belb-mark">BELBERRY</span>
+    <span>Сводное КП · Гута-Клиник · gutaclinic.ru</span>
+    <span>27.05.2026</span>
+  </div>
+</section>
+
+<!-- SLIDE 7: ПРОГНОЗ НЕЙРОВЫДАЧИ -->
+<section class="slide">
+  <div class="slide-header">
+    <h2>Прогноз по нейровыдаче</h2>
+    <div class="pagenum">07 / 10</div>
+  </div>
+  <div class="slide-subheader">Диапазоны на 3 / 6 / 12 мес — потому что ИИ-канал ещё непредсказуем точечно</div>
+  <div class="slide-rule"></div>
+
+  <div class="two-col-block" style="margin-bottom: 12px;">
+    <div class="card">
+      <div class="bar"></div>
+      <h3 style="margin-bottom: 14px;">Видимость в нейросетях</h3>
+      <table class="belb">
+        <thead>
+          <tr>
+            <th>Метрика</th>
+            <th class="right">Сейчас</th>
+            <th class="right">3 мес</th>
+            <th class="right">6 мес</th>
+            <th class="right">12 мес</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Общая видимость</td><td class="right num now">6,15%</td><td class="right num">8–10%</td><td class="right num">11–14%</td><td class="right num future">16–20%</td></tr>
+          <tr><td>Доля голоса (SoV)</td><td class="right num now">2,45%</td><td class="right num">3,2–3,8%</td><td class="right num">4,5–5,5%</td><td class="right num future">6,5–8%</td></tr>
+          <tr><td>ChatGPT</td><td class="right num now">0%</td><td class="right num">1–2%</td><td class="right num">3–5%</td><td class="right num future">7–10%</td></tr>
+          <tr><td>Google AI Overview</td><td class="right num now">3,85%</td><td class="right num">5–7%</td><td class="right num">8–11%</td><td class="right num future">12–16%</td></tr>
+          <tr><td>Поиск с Алисой</td><td class="right num now">11,54%</td><td class="right num">13–15%</td><td class="right num">16–20%</td><td class="right num future">22–28%</td></tr>
+          <tr><td>Тональность бренда</td><td class="right now">Негативная</td><td class="right">Смешанная</td><td class="right">Нейтральная</td><td class="right future">Нейтр.-полож.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 16px;">
+      <div class="card">
+        <div class="bar"></div>
+        <h3 style="font-size:14px;margin-bottom:6px">Позиция среди мед-брендов в нейровыдаче</h3>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+          <div>
+            <div class="kpi-label">СЕЙЧАС</div>
+            <div class="kpi-value" style="color:#6b6f88">8-е место</div>
+            <div style="font-size:11px;color:#6b6f88;margin-top:2px;">паритет с Frau Klinik (6,15%)</div>
+          </div>
+          <div>
+            <div class="kpi-label">К 12 МЕС</div>
+            <div class="kpi-value purple">3–5-е</div>
+            <div style="font-size:11px;color:#6b6f88;margin-top:2px;">между ЕМЦ и СМ-Клиникой</div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="bar"></div>
+        <h3 style="font-size:14px;margin-bottom:6px">Косвенный эффект на выручку</h3>
+        <div style="font-size:13px;line-height:1.5;color:#4a4f6a;">Пользователь, пришедший по рекомендации ИИ, конвертируется на <strong style="color:#1a1f3a;">15–25% выше</strong> обычного. При доле голоса 4,5–5,5% к 6-му месяцу нейровыдача добавляет <strong style="color:#5b50d6;">+30…60 заявок в месяц</strong> через рост узнаваемости бренда.</div>
+      </div>
+      <div class="card">
+        <div class="bar"></div>
+        <h3 style="font-size:14px;margin-bottom:6px">Что отличает от точечного прогноза</h3>
+        <div style="font-size:13px;line-height:1.5;color:#4a4f6a;">ИИ-выдача переобучается несколько раз в год. Точное число «через X мес — Y%» не даёт ни одно агентство добросовестно. Диапазоны построены на 8 медицинских клиентах Belberry с похожим стартовым профилем.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="disclaimer">
+    <div class="d-title">ВАЖНО — ОЦЕНКА НА ТЕКУЩИЙ МОМЕНТ</div>
+    Прогноз — базовый сценарий при стабильной работе ИИ-алгоритмов. Корректировки возможны при обновлениях моделей (GPT, Алиса, Google AI), активности конкурентов или новом негативе. Сверяем факт vs прогноз ежемесячно.
+  </div>
+
+  <div class="slide-footer">
+    <span class="belb-mark">BELBERRY</span>
+    <span>Сводное КП · Гута-Клиник · gutaclinic.ru</span>
+    <span>27.05.2026</span>
+  </div>
+</section>
+
+<!-- SLIDE 8: СВОДНЫЙ ТОТАЛ + риск переноса -->
+<section class="slide">
+  <div class="slide-header">
+    <h2>Сводный тотал + риск без переноса</h2>
+    <div class="pagenum">08 / 10</div>
+  </div>
+  <div class="slide-subheader">Главное число и обоснование каждой строки</div>
+  <div class="slide-rule"></div>
+
+  <div class="two-col-block" style="margin-bottom: 12px;">
+    <div class="card">
+      <div class="bar"></div>
+      <h3 style="margin-bottom: 14px;">Сводная таблица</h3>
+      <table class="belb">
+        <thead>
+          <tr>
+            <th>Строка</th>
+            <th class="right">С НДС 5%</th>
+            <th class="right">Со скидкой 5%<br>(оплата до 05.06)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Перенос сайта <span class="pill">разово</span></td><td class="right num">277 477,20 ₽</td><td class="right num future">263 603,34 ₽</td></tr>
+          <tr><td>ORM + ГЕО <span class="pill">ежемес</span></td><td class="right num">159 035,63 ₽</td><td class="right num future">151 083,84 ₽</td></tr>
+          <tr><td>Нейровыдача <span class="pill">ежемес</span></td><td class="right num">117 744,90 ₽</td><td class="right num future">111 857,65 ₽</td></tr>
+          <tr class="totalrow"><td>1-й месяц = перенос + ORM+ГЕО + нейро</td><td class="right num">554 257,73 ₽</td><td class="right num">526 544,83 ₽</td></tr>
+          <tr class="totalrow"><td>2-й месяц и далее (× 11)</td><td class="right num">276 780,53 ₽</td><td class="right num">262 941,50 ₽</td></tr>
+          <tr class="totalrow"><td>Всего за 12 месяцев</td><td class="right num">3 598 843,50 ₽</td><td class="right num">3 418 901,33 ₽</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 16px;">
+      <div class="card" style="background: #fff4ec; border-left: 4px solid #e88a3b;">
+        <h3 style="font-size:14px;margin-bottom:6px">Что произойдёт без сопровождения переноса</h3>
+        <table class="belb" style="margin-top: 8px;">
+          <thead><tr><th></th><th class="right">3 мес</th><th class="right">6 мес</th></tr></thead>
+          <tbody>
+            <tr><td class="metric">С сопровождением</td><td class="right num">~540К</td><td class="right num">~750К</td></tr>
+            <tr><td class="metric">Без сопровождения</td><td class="right num" style="color:#a13442">~270К</td><td class="right num" style="color:#a13442">~330К</td></tr>
+          </tbody>
+        </table>
+        <div style="font-size:12px;color:#5b3a1a;margin-top:10px;line-height:1.5;">При среднем чеке 12 000 ₽ и конверсии 23% потеря трафика без переноса = <strong>~13,5 млн ₽ упущенной выручки за 6 месяцев</strong>. Стоимость переноса 277 477 ₽ — страховка с потенциальным ROI ×50.</div>
+      </div>
+
+      <div class="highlight" style="grid-template-columns: 1fr; gap: 8px;">
+        <div class="label">ИТОГ ЗА 12 МЕС СО СКИДКОЙ</div>
+        <div class="megalarge">3 418 901,33 ₽</div>
+        <div class="megalarge-sub">экономия <strong style="color:#fff">179 942 ₽</strong> при оплате до 05.06.2026</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;">
+    <div class="card">
+      <div class="bar"></div>
+      <div class="kpi-label">СТАРТ РАБОТ</div>
+      <div class="kpi-value">48 ч</div>
+      <div style="font-size:12px;color:#6b6f88;margin-top:4px;">после оплаты</div>
+    </div>
+    <div class="card">
+      <div class="bar"></div>
+      <div class="kpi-label">ПЕРВЫЙ ОТЧЁТ</div>
+      <div class="kpi-value">30 дней</div>
+      <div style="font-size:12px;color:#6b6f88;margin-top:4px;">с фактом vs прогноз</div>
+    </div>
+    <div class="card">
+      <div class="bar"></div>
+      <div class="kpi-label">ПЕРЕНОС САЙТА</div>
+      <div class="kpi-value">до 30.06</div>
+      <div style="font-size:12px;color:#6b6f88;margin-top:4px;">в ваш срок</div>
+    </div>
+  </div>
+
+  <div class="slide-footer">
+    <span class="belb-mark">BELBERRY</span>
+    <span>Сводное КП · Гута-Клиник · gutaclinic.ru</span>
+    <span>27.05.2026</span>
+  </div>
+</section>
+
+<!-- SLIDE 9: КАЛЕНДАРНЫЙ ПЛАН ПЛАТЕЖЕЙ -->
+<section class="slide">
+  <div class="slide-header">
+    <h2>Календарный план — медиаплан по месяцам</h2>
+    <div class="pagenum">09 / 10</div>
+  </div>
+  <div class="slide-subheader">Услуги по строкам, месяцы по столбцам · все цены с НДС 5%, в ₽</div>
+  <div class="slide-rule"></div>
+
+  <style>
+    table.mediaplan { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 10.5px; font-variant-numeric: tabular-nums; border-radius: 8px; overflow: hidden; }
+    table.mediaplan th, table.mediaplan td { padding: 6px 5px; border-bottom: 1px solid #ece8f5; text-align: right; white-space: nowrap; }
+    /* шапка */
+    table.mediaplan th { background: #2b2150; color: #fff; font-weight: 700; font-size: 9.5px; letter-spacing: 0.04em; text-transform: uppercase; text-align: center; border-bottom: none; }
+    table.mediaplan th.svc { text-align: left; padding-left: 12px; }
+    table.mediaplan th.total-col { background: #1a1340; }
+    /* колонка услуг */
+    table.mediaplan td.svc { text-align: left; font-weight: 600; color: #1a1f3a; padding-left: 12px; }
+    /* строки услуг — мягкие пастельные с цветным маркером слева */
+    table.mediaplan tr.row-transfer td { background: #f2f8f4; }
+    table.mediaplan tr.row-transfer td.svc { background: #e6f2ea; border-left: 3px solid #54b889; }
+    table.mediaplan tr.row-orm td { background: #f8f6fd; }
+    table.mediaplan tr.row-orm td.svc { background: #ece9f9; border-left: 3px solid #8478dd; }
+    table.mediaplan tr.row-neuro td { background: #f3f6fc; }
+    table.mediaplan tr.row-neuro td.svc { background: #e4ecf9; border-left: 3px solid #5b8def; }
+    /* столбец ИТОГО для строк услуг — светлый, тёмный жирный текст (читаемо) */
+    table.mediaplan td.total-col { background: #e7e3f7; color: #3a2f6e; font-weight: 700; }
+    /* строка СУММА с НДС — приглушённая справочная */
+    table.mediaplan tr.total td { background: #6b6494; color: #fff; font-weight: 700; font-size: 11px; }
+    table.mediaplan tr.total td.total-col { background: #574f7e; color: #fff; }
+    /* строка К ОПЛАТЕ со скидкой — яркий бренд-акцент */
+    table.mediaplan tr.total-discount td { background: #5b50d6; color: #fff; font-weight: 700; font-size: 11px; }
+    table.mediaplan tr.total-discount td.total-col { background: #4339b5; color: #fff; }
+    table.mediaplan td.dash { color: #c5c1d4; }
+    table.mediaplan tr.note-row td { background: #faf8f5; border-bottom: none; }
+    table.mediaplan tr.note-row td.total-col { background: #2b2150; color: #fff; font-weight: 700; }
+  </style>
+
+  <div class="card" style="padding: 14px 16px;">
+    <div class="bar"></div>
+    <table class="mediaplan">
+      <thead>
+        <tr>
+          <th class="svc" style="width: 170px;">Услуга</th>
+          <th>июн&nbsp;26</th>
+          <th>июл&nbsp;26</th>
+          <th>авг&nbsp;26</th>
+          <th>сен&nbsp;26</th>
+          <th>окт&nbsp;26</th>
+          <th>ноя&nbsp;26</th>
+          <th>дек&nbsp;26</th>
+          <th>янв&nbsp;27</th>
+          <th>фев&nbsp;27</th>
+          <th>мар&nbsp;27</th>
+          <th>апр&nbsp;27</th>
+          <th>май&nbsp;27</th>
+          <th class="total-col">Итого</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="row-transfer">
+          <td class="svc">Перенос сайта <span style="font-weight:400;color:#6b6f88;">(разово)</span></td>
+          <td>277&nbsp;477</td>
+          <td class="dash">—</td><td class="dash">—</td><td class="dash">—</td><td class="dash">—</td><td class="dash">—</td><td class="dash">—</td><td class="dash">—</td><td class="dash">—</td><td class="dash">—</td><td class="dash">—</td><td class="dash">—</td>
+          <td class="total-col">277&nbsp;477</td>
+        </tr>
+        <tr class="row-orm">
+          <td class="svc">ORM + ГЕО</td>
+          <td>159&nbsp;036</td><td>159&nbsp;036</td><td>159&nbsp;036</td><td>159&nbsp;036</td><td>159&nbsp;036</td><td>159&nbsp;036</td><td>159&nbsp;036</td><td>159&nbsp;036</td><td>159&nbsp;036</td><td>159&nbsp;036</td><td>159&nbsp;036</td><td>159&nbsp;036</td>
+          <td class="total-col">1&nbsp;908&nbsp;428</td>
+        </tr>
+        <tr class="row-neuro">
+          <td class="svc">Нейровыдача (GEO)</td>
+          <td>117&nbsp;745</td><td>117&nbsp;745</td><td>117&nbsp;745</td><td>117&nbsp;745</td><td>117&nbsp;745</td><td>117&nbsp;745</td><td>117&nbsp;745</td><td>117&nbsp;745</td><td>117&nbsp;745</td><td>117&nbsp;745</td><td>117&nbsp;745</td><td>117&nbsp;745</td>
+          <td class="total-col">1&nbsp;412&nbsp;939</td>
+        </tr>
+        <tr class="total">
+          <td class="svc">СУММА с НДС 5%</td>
+          <td>554&nbsp;258</td><td>276&nbsp;781</td><td>276&nbsp;781</td><td>276&nbsp;781</td><td>276&nbsp;781</td><td>276&nbsp;781</td><td>276&nbsp;781</td><td>276&nbsp;781</td><td>276&nbsp;781</td><td>276&nbsp;781</td><td>276&nbsp;781</td><td>276&nbsp;781</td>
+          <td class="total-col">3&nbsp;598&nbsp;844</td>
+        </tr>
+        <tr class="total-discount">
+          <td class="svc">К ОПЛАТЕ со скидкой&nbsp;5%</td>
+          <td>526&nbsp;545</td><td>262&nbsp;942</td><td>262&nbsp;942</td><td>262&nbsp;942</td><td>262&nbsp;942</td><td>262&nbsp;942</td><td>262&nbsp;942</td><td>262&nbsp;942</td><td>262&nbsp;942</td><td>262&nbsp;942</td><td>262&nbsp;942</td><td>262&nbsp;942</td>
+          <td class="total-col">3&nbsp;418&nbsp;901</td>
+        </tr>
+        <tr class="note-row">
+          <td class="svc" style="font-size:9.5px;color:#6b6f88;">Срок оплаты</td>
+          <td colspan="12" style="text-align:left;padding-left:8px;font-size:10px;color:#4a4f6a;">До 5 числа каждого месяца. Стартовый платёж — до <strong>05.06.2026</strong> (зашита скидка 5% на все платежи). Цены округлены до целых ₽; точные суммы — на стр. 8.</td>
+          <td class="total-col" style="font-size:9.5px;">12 мес</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="highlight" style="margin-top: 12px;">
+    <div class="cell">
+      <div class="label">СТАРТОВЫЙ ПЛАТЁЖ (ИЮН 26)</div>
+      <div class="value">526 545 ₽</div>
+      <div class="note">перенос + ORM+ГЕО + нейровыдача · до 05.06</div>
+    </div>
+    <div class="cell">
+      <div class="label">11 РЕГУЛЯРНЫХ ПЛАТЕЖЕЙ</div>
+      <div class="value">262 942 ₽</div>
+      <div class="note">июл 26 → май 27 · до 5 числа</div>
+    </div>
+    <div class="cell">
+      <div class="label">ИТОГО ЗА 12 МЕС</div>
+      <div class="value">3 418 901 ₽</div>
+      <div class="note">экономия 179 942 ₽ vs. без скидки</div>
+    </div>
+  </div>
+
+  <div class="slide-footer">
+    <span class="belb-mark">BELBERRY</span>
+    <span>Сводное КП · Гута-Клиник · gutaclinic.ru</span>
+    <span>27.05.2026</span>
+  </div>
+</section>
+
+<!-- SLIDE 10: ДОРОЖНАЯ КАРТА -->
+<section class="slide">
+  <div class="slide-header">
+    <h2>Дорожная карта и что дальше</h2>
+    <div class="pagenum">10 / 11</div>
+  </div>
+  <div class="slide-subheader">5 шагов до старта · ваш дедлайн решения 03.06.2026</div>
+  <div class="slide-rule"></div>
+
+  <div class="two-col-block" style="margin-bottom: 12px;">
+    <div class="card">
+      <div class="bar"></div>
+      <h3 style="margin-bottom: 16px;">Шаги до запуска</h3>
+      <div class="roadmap-list">
+        <div class="roadmap-step">
+          <div class="roadmap-num">1</div>
+          <div class="body">
+            <div class="title-line">До 03.06.2026 · решение</div>
+            <div class="desc-line">Согласуете состав комплекса (можно как есть или с уточнениями) и подтвердите выход на договор.</div>
+          </div>
+        </div>
+        <div class="roadmap-divider"></div>
+        <div class="roadmap-step">
+          <div class="roadmap-num">2</div>
+          <div class="body">
+            <div class="title-line">До 05.06.2026 · договор и оплата</div>
+            <div class="desc-line">Действует скидка 5%. Договор готовим в течение 24 часов после согласования.</div>
+          </div>
+        </div>
+        <div class="roadmap-divider"></div>
+        <div class="roadmap-step">
+          <div class="roadmap-num">3</div>
+          <div class="body">
+            <div class="title-line">07–08.06 · kick-off за 48 часов</div>
+            <div class="desc-line">Сбор доступов, подключение аналитики, знакомство с командой проекта (30 мин в Телемосте).</div>
+          </div>
+        </div>
+        <div class="roadmap-divider"></div>
+        <div class="roadmap-step">
+          <div class="roadmap-num">4</div>
+          <div class="body">
+            <div class="title-line">10.06–30.06 · перенос сайта</div>
+            <div class="desc-line">Сопровождение переезда совместно с вашим разработчиком. Карта редиректов, сохранение микроразметки, постпереносный аудит.</div>
+          </div>
+        </div>
+        <div class="roadmap-divider"></div>
+        <div class="roadmap-step">
+          <div class="roadmap-num">5</div>
+          <div class="body">
+            <div class="title-line">С 1-й недели · ORM и нейровыдача в работе</div>
+            <div class="desc-line">Старт регулярных циклов. Первый отчёт «факт vs прогноз» — через 30 дней.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 16px;">
+      <div class="card">
+        <div class="bar"></div>
+        <h3 style="font-size:16px;margin-bottom:12px;">Что от вас</h3>
+        <div style="font-size:13px;line-height:1.8;color:#4a4f6a;">
+          <div><span class="checkmark">✓</span> Доступы: CMS, Метрика, Яндекс.Бизнес, Search Console</div>
+          <div><span class="checkmark">✓</span> Список приоритетных услуг и врачей</div>
+          <div><span class="checkmark">✓</span> Логин в новый сайт (когда будет готов)</div>
+          <div><span class="checkmark">✓</span> Контакты вашего технаря</div>
+          <div><span class="checkmark">✓</span> 30 мин на согласование шаблонов ответов</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="bar"></div>
+        <h3 style="font-size:16px;margin-bottom:12px;">Что от нас</h3>
+        <div style="font-size:13px;line-height:1.8;color:#4a4f6a;">
+          <div><span class="checkmark">✓</span> Ведущий SEO + контент-менеджер + копирайтер мед-профиля</div>
+          <div><span class="checkmark">✓</span> Руководитель ORM и линкбилдер</div>
+          <div><span class="checkmark">✓</span> Аккаунт-менеджер на связи 5/7</div>
+          <div><span class="checkmark">✓</span> Ежемесячный отчёт факт vs прогноз</div>
+          <div><span class="checkmark">✓</span> Корректировка стратегии при изменении условий</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="highlight">
+    <div class="cell">
+      <div class="label">КОНТАКТ</div>
+      <div class="value" style="font-size:22px">Гордиенко Евгения</div>
+      <div class="note">Руководитель отдела продаж Belberry</div>
+    </div>
+    <div class="cell">
+      <div class="label">EMAIL · ТЕЛЕФОН</div>
+      <div class="value" style="font-size:18px">hello@belberry.net</div>
+      <div class="note">+7 (495) 845-37-89</div>
+    </div>
+    <div class="cell">
+      <div class="label">АДРЕС</div>
+      <div class="value" style="font-size:16px">belberry.net</div>
+      <div class="note">Москва, Варшавское ш. 118, к. 1, эт. 13, оф. 22</div>
+    </div>
+  </div>
+
+  <div class="slide-footer">
+    <span class="belb-mark">BELBERRY</span>
+    <span>Сводное КП · Гута-Клиник · gutaclinic.ru</span>
+    <span>Гордиенко Евгения · РОП · belberry.net</span>
+  </div>
+</section>
+
+<!-- SLIDE 11: ФИНАЛЬНЫЙ — О BELBERRY -->
+<section class="slide closing">
+  <div class="closing-eyebrow">BELBERRY · МЕДИЦИНСКИЙ DIGITAL С 2015 ГОДА</div>
+
+  <div class="closing-quote">
+    «Мы заботимся о вашем&nbsp;маркетинге —<br>а вы о&nbsp;пациентах»
+  </div>
+
+  <div class="rr-title">Победитель Рейтинга Рунета 2025</div>
+  <div class="rr-certs">
+    <div class="rr-cert">
+      <div class="rr-cert-top">
+        <div class="rr-mark"><span></span><span></span><span></span><span></span></div>
+        <div class="rr-mark-text">РЕЙТИНГ<br>РУНЕТА</div>
+      </div>
+      <div class="rr-cert-place">1 место</div>
+      <div class="rr-cert-cap">В рейтинге:</div>
+      <div class="rr-cert-cat">Поддержка и развитие сайтов / Медицина, здоровье: поликлиники, больницы и т.п.</div>
+      <div class="rr-cert-cap">Поздравляем:</div>
+      <div class="rr-cert-brand">Belberry</div>
+      <div class="rr-cert-foot">
+        <div class="rr-sign">Рук. проекта: Сергей Бесшабашнов<br>Гл. редактор: Анатолий Денисов</div>
+        <div class="rr-year">2025</div>
+      </div>
+    </div>
+    <div class="rr-cert">
+      <div class="rr-cert-top">
+        <div class="rr-mark"><span></span><span></span><span></span><span></span></div>
+        <div class="rr-mark-text">РЕЙТИНГ<br>РУНЕТА</div>
+      </div>
+      <div class="rr-cert-place">3 место</div>
+      <div class="rr-cert-cap">В рейтинге:</div>
+      <div class="rr-cert-cat">Репутация / Медицина, здоровье: Услуги</div>
+      <div class="rr-cert-cap">Поздравляем:</div>
+      <div class="rr-cert-brand">Belberry</div>
+      <div class="rr-cert-foot">
+        <div class="rr-sign">Рук. проекта: Сергей Бесшабашнов<br>Гл. редактор: Анатолий Денисов</div>
+        <div class="rr-year">2025</div>
+      </div>
+    </div>
+    <div class="rr-cert">
+      <div class="rr-cert-top">
+        <div class="rr-mark"><span></span><span></span><span></span><span></span></div>
+        <div class="rr-mark-text">РЕЙТИНГ<br>РУНЕТА</div>
+      </div>
+      <div class="rr-cert-place">1 место</div>
+      <div class="rr-cert-cap">В рейтинге:</div>
+      <div class="rr-cert-cat">Комплексные разработчики / Красота, парфюмерия, уход: Косметология</div>
+      <div class="rr-cert-cap">Поздравляем:</div>
+      <div class="rr-cert-brand">Belberry</div>
+      <div class="rr-cert-foot">
+        <div class="rr-sign">Рук. проекта: Сергей Бесшабашнов<br>Гл. редактор: Анатолий Денисов</div>
+        <div class="rr-year">2025</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="closing-strip">
+    <div class="cs-item"><span class="cs-num">11</span> лет в медицинском digital (с 2015)</div>
+    <div class="cs-item"><span class="cs-num">700+</span> реализованных проектов в медицине</div>
+    <div class="cs-item"><span class="cs-num">5,0</span> рейтинг по отзывам клиентов</div>
+    <div class="cs-item"><span class="cs-badge">★</span> Золотой партнёр Битрикс</div>
+    <div class="cs-item"><span class="cs-badge">+</span> 1С-Битрикс: Решения для медицины</div>
+  </div>
+
+  <div class="closing-contacts">
+    <span class="cc-brand">Belberry</span>
+    <span>belberry.net</span>
+    <span>hello@belberry.net</span>
+    <span>+7 (495) 845-37-89</span>
+    <span>Москва, Варшавское ш. 118, к. 1, эт. 13, оф. 22</span>
+  </div>
+</section>
+
+</body>
+</html>

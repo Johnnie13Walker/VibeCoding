@@ -1,0 +1,87 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #0a0a0b;
+  --surface: #111114;
+  --accent: #00e5c7;
+  --accent-strong: #00c2a8;
+  --text: #ffffff;
+  --muted: #7a7a85;
+  --border: rgba(255, 255, 255, 0.08);
+}
+
+html,
+body {
+  background-color: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: var(--font-inter), system-ui, sans-serif;
+  font-size: 17px;
+  line-height: 1.6;
+}
+
+::selection {
+  background: var(--accent);
+  color: #001613;
+}
+
+@layer base {
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-manrope), system-ui, sans-serif;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
+  *:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
+}
+
+@layer components {
+  .section {
+    @apply py-20 md:py-28 lg:py-32;
+  }
+
+  .section-tight {
+    @apply py-16 md:py-20 lg:py-24;
+  }
+
+  .eyebrow {
+    @apply inline-flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-muted;
+  }
+
+  .surface-card {
+    @apply rounded-2xl border border-border bg-surface transition-colors duration-300;
+  }
+
+  .surface-card:hover {
+    border-color: rgba(0, 229, 199, 0.45);
+  }
+
+  .gradient-radial-accent {
+    background: radial-gradient(60% 60% at 50% 0%, rgba(0, 229, 199, 0.18) 0%, transparent 70%);
+  }
+
+  .gradient-radial-cta {
+    background: radial-gradient(70% 70% at 50% 100%, rgba(0, 229, 199, 0.22) 0%, transparent 70%);
+  }
+
+  .grid-bg {
+    background-image:
+      linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+    background-size: 64px 64px;
+    mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 30%, transparent 80%);
+  }
+}
