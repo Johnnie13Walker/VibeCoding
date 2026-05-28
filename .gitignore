@@ -131,5 +131,6 @@ keys/
 *.pem
 *.crt
 
-# Archive
+# Archive (runtime артефакты), но shared/archive/ — наш канонический архив bundle'ов
 archive/
+!shared/archive/
