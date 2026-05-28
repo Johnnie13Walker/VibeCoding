@@ -1,0 +1,1293 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Отдел продаж — четверг, 21 мая 2026</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --card: #ffffff;
+    --text: #14171c;
+    --text-secondary: #525a6b;
+    --text-muted: #8a93a3;
+    --border: #e7eaf0;
+    --border-strong: #d4d9e2;
+    --green: #15803d;
+    --green-light: #16a34a;
+    --green-soft: #dcfce7;
+    --green-bg: #f0fdf4;
+    --amber: #b45309;
+    --amber-light: #d97706;
+    --amber-soft: #fef3c7;
+    --amber-bg: #fffbeb;
+    --red: #b91c1c;
+    --red-light: #dc2626;
+    --red-soft: #fee2e2;
+    --red-bg: #fef2f2;
+    --blue: #1d4ed8;
+    --blue-light: #2563eb;
+    --blue-soft: #dbeafe;
+    --blue-bg: #eff6ff;
+    --purple: #6d28d9;
+    --purple-soft: #ede9fe;
+    --shadow-sm: 0 1px 2px rgba(15,23,42,0.04), 0 1px 3px rgba(15,23,42,0.06);
+    --shadow-md: 0 4px 6px -1px rgba(15,23,42,0.07), 0 2px 4px -2px rgba(15,23,42,0.05);
+    --shadow-lg: 0 10px 15px -3px rgba(15,23,42,0.08), 0 4px 6px -4px rgba(15,23,42,0.05);
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    margin: 0;
+    padding: 0;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 0 20px; }
+
+  /* HERO */
+  .hero {
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    color: #fff;
+    padding: 56px 0 64px;
+    margin-bottom: 32px;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -120px; right: -120px;
+    width: 400px; height: 400px;
+    background: radial-gradient(circle, rgba(59,130,246,0.2) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .hero-label {
+    display: inline-block;
+    padding: 6px 14px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+  .hero h1 {
+    font-size: 44px;
+    font-weight: 800;
+    letter-spacing: -1.5px;
+    margin: 0 0 12px;
+    line-height: 1.1;
+  }
+  .hero-subtitle {
+    font-size: 18px;
+    color: rgba(255,255,255,0.75);
+    max-width: 720px;
+    line-height: 1.5;
+  }
+  .hero-meta {
+    margin-top: 24px;
+    display: flex;
+    gap: 32px;
+    flex-wrap: wrap;
+    font-size: 14px;
+    color: rgba(255,255,255,0.6);
+  }
+  .hero-meta strong { color: #fff; font-weight: 600; }
+
+  /* SECTIONS */
+  section {
+    background: var(--card);
+    border-radius: 20px;
+    padding: 32px 36px;
+    margin-bottom: 24px;
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--border);
+  }
+  section.tinted-green { background: var(--green-bg); border-color: #bbf7d0; }
+  section.tinted-amber { background: var(--amber-bg); border-color: #fde68a; }
+
+  .section-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .section-icon {
+    width: 36px; height: 36px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 10px;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+  .section-icon.blue { background: var(--blue-soft); color: var(--blue); }
+  .section-icon.green { background: var(--green-soft); color: var(--green); }
+  .section-icon.amber { background: var(--amber-soft); color: var(--amber); }
+  .section-icon.red { background: var(--red-soft); color: var(--red); }
+  .section-icon.purple { background: var(--purple-soft); color: var(--purple); }
+
+  h2 {
+    font-size: 22px;
+    font-weight: 700;
+    margin: 0;
+    letter-spacing: -0.4px;
+  }
+  h3 {
+    font-size: 17px;
+    font-weight: 700;
+    margin: 28px 0 12px;
+    letter-spacing: -0.2px;
+  }
+  h3:first-child { margin-top: 0; }
+  h4 {
+    font-size: 14px;
+    font-weight: 700;
+    margin: 16px 0 8px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  p { margin: 0 0 12px; color: var(--text-secondary); }
+
+  /* STAT CARDS */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+  }
+  .stat {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 22px 24px;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .stat:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+  .stat.accent-green { background: linear-gradient(135deg, #dcfce7 0%, #f0fdf4 100%); border-color: #bbf7d0; }
+  .stat.accent-amber { background: linear-gradient(135deg, #fef3c7 0%, #fffbeb 100%); border-color: #fde68a; }
+  .stat.accent-red { background: linear-gradient(135deg, #fee2e2 0%, #fef2f2 100%); border-color: #fecaca; }
+  .stat.accent-blue { background: linear-gradient(135deg, #dbeafe 0%, #eff6ff 100%); border-color: #bfdbfe; }
+  .stat-value {
+    font-size: 36px;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -1.5px;
+  }
+  .stat-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    margin-top: 8px;
+  }
+  .stat-sub {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 4px;
+  }
+
+  /* MANAGER GRID */
+  .managers {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 16px;
+  }
+  .mgr {
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px 22px;
+    background: var(--card);
+    transition: box-shadow 0.15s ease;
+  }
+  .mgr:hover { box-shadow: var(--shadow-md); }
+  .mgr-name {
+    font-weight: 700;
+    font-size: 16px;
+    letter-spacing: -0.2px;
+  }
+  .mgr-role {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 14px;
+  }
+  .mgr-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    font-size: 13px;
+    border-bottom: 1px dashed var(--border);
+  }
+  .mgr-row:last-child { border-bottom: none; }
+  .mgr-row-label { color: var(--text-secondary); }
+  .mgr-row-value { font-weight: 700; font-size: 15px; }
+  .mgr-note {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+
+  /* TABLE */
+  .tbl-wrap {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+  th, td {
+    text-align: left;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  th {
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    background: #fafbfc;
+  }
+  tr:last-child td { border-bottom: none; }
+  tbody tr { transition: background 0.1s; }
+  tbody tr:hover { background: #fafbfc; }
+
+  /* BADGES */
+  .badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .b-green { background: var(--green-soft); color: var(--green); }
+  .b-amber { background: var(--amber-soft); color: var(--amber); }
+  .b-red { background: var(--red-soft); color: var(--red); }
+  .b-blue { background: var(--blue-soft); color: var(--blue); }
+  .b-purple { background: var(--purple-soft); color: var(--purple); }
+  .b-gray { background: #f1f3f5; color: var(--text-secondary); }
+
+  /* STARS */
+  .stars {
+    display: inline-flex;
+    gap: 1px;
+    align-items: center;
+    font-size: 14px;
+    line-height: 1;
+  }
+  .star { color: #f59e0b; }
+  .star-empty { color: #e5e7eb; }
+  .stars-na { color: var(--text-muted); font-size: 12px; font-style: italic; }
+  .score-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-left: 4px;
+  }
+
+  /* QUOTES */
+  .quote {
+    background: #fafbfc;
+    border-left: 3px solid var(--blue);
+    padding: 14px 18px;
+    border-radius: 0 8px 8px 0;
+    margin: 12px 0;
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--text);
+  }
+  .quote-author {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 6px;
+    font-weight: 500;
+  }
+  .quote.client { border-left-color: var(--amber); background: #fffbeb; }
+  .quote.client-bad { border-left-color: var(--red); background: #fef2f2; }
+  .quote.client-good { border-left-color: var(--green); background: #f0fdf4; }
+
+  /* MEETING CARDS */
+  .meeting-block {
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 22px 26px;
+    margin-bottom: 16px;
+    background: var(--card);
+  }
+  .meeting-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  .meeting-title {
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.2px;
+  }
+  .meeting-meta {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+  .meeting-score-block {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  /* CALLOUT */
+  .callout {
+    padding: 18px 22px;
+    border-radius: 12px;
+    margin: 16px 0;
+    border: 1px solid;
+  }
+  .callout-amber {
+    background: var(--amber-bg);
+    border-color: #fde68a;
+  }
+  .callout-red {
+    background: var(--red-bg);
+    border-color: #fecaca;
+  }
+  .callout-blue {
+    background: var(--blue-bg);
+    border-color: #bfdbfe;
+  }
+  .callout-label {
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    margin-bottom: 6px;
+  }
+  .callout-amber .callout-label { color: var(--amber); }
+  .callout-red .callout-label { color: var(--red); }
+  .callout-blue .callout-label { color: var(--blue); }
+  .callout-body { color: var(--text); font-size: 14px; line-height: 1.55; }
+
+  /* HIGHLIGHT BOXES */
+  .hilight-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 14px;
+  }
+  .hilight {
+    padding: 18px 22px;
+    border-radius: 12px;
+    border: 1px solid;
+    background: var(--card);
+  }
+  .hilight.good {
+    border-color: #bbf7d0;
+    background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%);
+  }
+  .hilight.miss {
+    border-color: #fde68a;
+    background: linear-gradient(135deg, #fffbeb 0%, #ffffff 100%);
+  }
+  .hilight.risk {
+    border-color: #fecaca;
+    background: linear-gradient(135deg, #fef2f2 0%, #ffffff 100%);
+    border-left: 4px solid var(--red);
+  }
+  .hilight.risk-medium {
+    border-color: #fde68a;
+    background: linear-gradient(135deg, #fffbeb 0%, #ffffff 100%);
+    border-left: 4px solid var(--amber);
+  }
+  .hilight-title {
+    font-weight: 700;
+    font-size: 14px;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .hilight-deal {
+    font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+  }
+  .hilight-body {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+  .hilight-tag {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 2px 8px;
+    border-radius: 999px;
+  }
+  .tag-good { background: var(--green-soft); color: var(--green); }
+  .tag-miss { background: var(--amber-soft); color: var(--amber); }
+
+  /* CASE TABLE */
+  .case-row {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 16px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 14px;
+  }
+  .case-row:last-child { border-bottom: none; }
+  .case-meet {
+    font-weight: 700;
+  }
+  .case-status {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 2px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+
+  /* LINKS */
+  a { color: var(--blue-light); text-decoration: none; font-weight: 500; }
+  a:hover { text-decoration: underline; }
+
+  /* UTIL */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  @media (max-width: 760px) { .grid-2 { grid-template-columns: 1fr; } }
+  ul { padding-left: 22px; color: var(--text-secondary); margin: 8px 0 12px; }
+  ul li { margin-bottom: 8px; line-height: 1.55; }
+  .small { font-size: 12px; color: var(--text-muted); }
+  .mt-0 { margin-top: 0; }
+  .nowrap { white-space: nowrap; }
+
+  /* FOOTER */
+  footer {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 12px;
+    padding: 32px 16px 48px;
+    line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="wrap">
+    <div class="hero-label">Сводка отдела продаж</div>
+    <h1>Четверг, 21 мая 2026</h1>
+    <div class="hero-subtitle">
+      Содержательный разбор дня: что сделано, как прошли встречи и защиты коммерческих предложений, какие кейсы упоминались, что осталось незакрытым.
+    </div>
+    <div class="hero-meta">
+      <div><strong>280</strong> завершённых действий</div>
+      <div><strong>10</strong> встреч в плане · <strong>6</strong> проведено</div>
+      <div><strong>3</strong> менеджера + <strong>2</strong> в холодных звонках</div>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <!-- ГЛАВНЫЕ ЦИФРЫ -->
+  <section>
+    <div class="section-head">
+      <div class="section-icon blue">◆</div>
+      <h2>Главные цифры дня</h2>
+    </div>
+    <div class="stats">
+      <div class="stat accent-blue">
+        <div class="stat-value">280</div>
+        <div class="stat-label">Действий всего</div>
+        <div class="stat-sub">201 звонок · 22 письма · 57 авто</div>
+      </div>
+      <div class="stat accent-green">
+        <div class="stat-value">6</div>
+        <div class="stat-label">Встреч проведено</div>
+        <div class="stat-sub">из 10 запланированных</div>
+      </div>
+      <div class="stat accent-red">
+        <div class="stat-value">2</div>
+        <div class="stat-label">Провалено</div>
+        <div class="stat-sub">galaktika.clinic · sporttravma.org</div>
+      </div>
+      <div class="stat accent-amber">
+        <div class="stat-value">2</div>
+        <div class="stat-label">Висят без закрытия</div>
+        <div class="stat-sub">sovcomlife.ru · kvent.ru</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">4</div>
+        <div class="stat-label">Защит КП успешно</div>
+        <div class="stat-sub">renewal · primyase · packplace · t-doc</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">7</div>
+        <div class="stat-label">Брифов обновлено</div>
+        <div class="stat-sub">из них 3 — лишние дубли</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- МЕНЕДЖЕРЫ -->
+  <section>
+    <div class="section-head">
+      <div class="section-icon blue">●</div>
+      <h2>Активность менеджеров</h2>
+    </div>
+    <div class="managers">
+      <div class="mgr">
+        <div class="mgr-name">Гордиенко Евгения</div>
+        <div class="mgr-role">Руководитель отдела продаж</div>
+        <div class="mgr-row"><span class="mgr-row-label">Звонки</span><span class="mgr-row-value">9</span></div>
+        <div class="mgr-row"><span class="mgr-row-label">Письма</span><span class="mgr-row-value">2</span></div>
+        <div class="mgr-row"><span class="mgr-row-label">Встречи провела</span><span class="mgr-row-value">3</span></div>
+        <div class="mgr-row"><span class="mgr-row-label">Брифы заполнила</span><span class="mgr-row-value">4</span></div>
+        <div class="mgr-note">Встречи: renewal (Защита КП), primyase (Защита КП), spasgan (Брифинг). Перехватила сделку spasgan после увольнения менеджера за 5 дней.</div>
+      </div>
+      <div class="mgr">
+        <div class="mgr-name">Деговцова Елизавета</div>
+        <div class="mgr-role">Менеджер по продажам</div>
+        <div class="mgr-row"><span class="mgr-row-label">Звонки</span><span class="mgr-row-value">15</span></div>
+        <div class="mgr-row"><span class="mgr-row-label">Письма</span><span class="mgr-row-value">1</span></div>
+        <div class="mgr-row"><span class="mgr-row-label">Встречи провела</span><span class="mgr-row-value">2</span></div>
+        <div class="mgr-row"><span class="mgr-row-label">Брифы</span><span class="mgr-row-value">—</span></div>
+        <div class="mgr-note">Встречи: packplace (Защита КП), metriks (Брифинг). Ночью закрыла 15 старых карточек встреч — навела порядок в хвостах.</div>
+      </div>
+      <div class="mgr">
+        <div class="mgr-name">Семенихин Егор</div>
+        <div class="mgr-role">Менеджер по продажам</div>
+        <div class="mgr-row"><span class="mgr-row-label">Звонки</span><span class="mgr-row-value">11</span></div>
+        <div class="mgr-row"><span class="mgr-row-label">Письма</span><span class="mgr-row-value">2</span></div>
+        <div class="mgr-row"><span class="mgr-row-label">Встречи провёл</span><span class="mgr-row-value">3</span></div>
+        <div class="mgr-row"><span class="mgr-row-label">Брифы</span><span class="mgr-row-value">1</span></div>
+        <div class="mgr-note">Встречи: t-doc Защита (успешно), galaktika.clinic Защита (провал), sporttravma Брифинг (клиент не дозвонился). На всех трёх встречах записи нет — критический пробел.</div>
+      </div>
+      <div class="mgr">
+        <div class="mgr-name">Вострецов Аркадий</div>
+        <div class="mgr-role">Телемаркетолог</div>
+        <div class="mgr-row"><span class="mgr-row-label">Звонки</span><span class="mgr-row-value">89</span></div>
+        <div class="mgr-row"><span class="mgr-row-label">Письма</span><span class="mgr-row-value">2</span></div>
+        <div class="mgr-row"><span class="mgr-row-label">Встречи</span><span class="mgr-row-value">—</span></div>
+        <div class="mgr-row"><span class="mgr-row-label">Холодный обзвон</span><span class="mgr-row-value">да</span></div>
+        <div class="mgr-note">Один из самых результативных дней по объёму холодного обзвона.</div>
+      </div>
+      <div class="mgr">
+        <div class="mgr-name">Исаева Дарья</div>
+        <div class="mgr-role">Телемаркетолог</div>
+        <div class="mgr-row"><span class="mgr-row-label">Звонки</span><span class="mgr-row-value">77</span></div>
+        <div class="mgr-row"><span class="mgr-row-label">Письма</span><span class="mgr-row-value">6</span></div>
+        <div class="mgr-row"><span class="mgr-row-label">Встречи</span><span class="mgr-row-value">—</span></div>
+        <div class="mgr-row"><span class="mgr-row-label">Холодный обзвон</span><span class="mgr-row-value">да</span></div>
+        <div class="mgr-note">Холодный обзвон + сопровождение по почте.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ВСТРЕЧИ -->
+  <section>
+    <div class="section-head">
+      <div class="section-icon purple">◉</div>
+      <h2>Встречи дня — статусы и оценки качества</h2>
+    </div>
+    <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Время</th>
+          <th>Сделка / тип</th>
+          <th>Менеджер</th>
+          <th>Статус</th>
+          <th>Запись</th>
+          <th>Расшифровка</th>
+          <th>Оценка</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>11:00</td>
+          <td>
+            <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/15430/">renewal.ru</a> · Защита КП
+            <div class="meeting-meta">125 142 ₽/мес × 4 = 515К ₽ · фарма, выручка 9 млрд</div>
+          </td>
+          <td>Менеджер по нейросетям</td>
+          <td><span class="badge b-green">Успех</span></td>
+          <td><span class="badge b-green">есть</span></td>
+          <td><span class="badge b-green">есть</span></td>
+          <td><span class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star-empty">★</span><span class="star-empty">★</span><span class="star-empty">★</span><span class="star-empty">★</span></span><span class="score-label">6/10</span></td>
+        </tr>
+        <tr>
+          <td>11:00</td>
+          <td>
+            <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/24158/">galaktika.clinic</a> · Защита КП
+            <div class="meeting-meta">75 000 ₽</div>
+          </td>
+          <td>Семенихин</td>
+          <td><span class="badge b-red">Провал</span></td>
+          <td><span class="badge b-gray">нет</span></td>
+          <td><span class="badge b-gray">нет</span></td>
+          <td><span class="stars-na">нельзя оценить</span></td>
+        </tr>
+        <tr>
+          <td>12:00</td>
+          <td>
+            <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/21326/">primyase.ru</a> · Защита КП
+            <div class="meeting-meta">338 800 ₽ · мясной офлайн-бизнес (Новая Рига, Рублёвка)</div>
+          </td>
+          <td>Гордиенко</td>
+          <td><span class="badge b-green">Успех</span></td>
+          <td><span class="badge b-green">есть</span></td>
+          <td><span class="badge b-green">есть</span></td>
+          <td><span class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star-empty">★</span><span class="star-empty">★</span><span class="star-empty">★</span><span class="star-empty">★</span><span class="star-empty">★</span><span class="star-empty">★</span></span><span class="score-label">4/10</span></td>
+        </tr>
+        <tr>
+          <td>12:00</td>
+          <td>
+            <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/24204/">packplace.me</a> · Защита КП
+            <div class="meeting-meta">75 000 ₽ · упаковка для бизнеса</div>
+          </td>
+          <td>Деговцова + Мария (руководитель аккаунтинга)</td>
+          <td><span class="badge b-green">Успех</span></td>
+          <td><span class="badge b-green">есть</span></td>
+          <td><span class="badge b-green">есть</span></td>
+          <td><span class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star-empty">★</span><span class="star-empty">★</span><span class="star-empty">★</span><span class="star-empty">★</span><span class="star-empty">★</span></span><span class="score-label">5/10</span></td>
+        </tr>
+        <tr>
+          <td>13:00</td>
+          <td>
+            <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/23916/">spasgan.ru</a> · Брифинг
+            <div class="meeting-meta">тендер Wockhardt Bio · фарма, выручка 804 млн</div>
+          </td>
+          <td>Гордиенко</td>
+          <td><span class="badge b-green">Успех</span></td>
+          <td><span class="badge b-green">есть</span></td>
+          <td><span class="badge b-green">есть</span></td>
+          <td><span class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star-empty">★</span><span class="star-empty">★</span><span class="star-empty">★</span><span class="star-empty">★</span></span><span class="score-label">6/10</span></td>
+        </tr>
+        <tr>
+          <td>14:00</td>
+          <td>
+            <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/16072/">sovcomlife.ru</a> · Защита КП
+            <div class="meeting-meta">250 000 ₽</div>
+          </td>
+          <td>Деговцова</td>
+          <td><span class="badge b-amber">Висит</span></td>
+          <td><span class="badge b-gray">—</span></td>
+          <td><span class="badge b-gray">—</span></td>
+          <td><span class="stars-na">не состоялась</span></td>
+        </tr>
+        <tr>
+          <td>15:00</td>
+          <td>
+            <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/7634/">kvent.ru</a> · Защита КП
+          </td>
+          <td>Семенихин</td>
+          <td><span class="badge b-amber">Перенесена</span></td>
+          <td><span class="badge b-gray">—</span></td>
+          <td><span class="badge b-gray">—</span></td>
+          <td><span class="stars-na">перенос на 22.05</span></td>
+        </tr>
+        <tr>
+          <td>15:30</td>
+          <td>
+            <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/11412/">metriks.ru</a> · Брифинг
+          </td>
+          <td>Деговцова</td>
+          <td><span class="badge b-green">Успех</span></td>
+          <td><span class="badge b-amber">есть, но…</span></td>
+          <td><span class="badge b-red">чужая</span></td>
+          <td><span class="stars-na">нельзя оценить</span></td>
+        </tr>
+        <tr>
+          <td>16:30</td>
+          <td>
+            <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/10938/">sporttravma.org</a> · Брифинг
+            <div class="meeting-meta">303 765 ₽</div>
+          </td>
+          <td>Семенихин</td>
+          <td><span class="badge b-red">Провал</span></td>
+          <td><span class="badge b-gray">—</span></td>
+          <td><span class="badge b-gray">—</span></td>
+          <td><span class="stars-na">клиент не отвечал</span></td>
+        </tr>
+        <tr>
+          <td>18:00</td>
+          <td>
+            <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/23114/">t-doc.ru</a> · Защита КП
+            <div class="meeting-meta">170 491 ₽</div>
+          </td>
+          <td>Семенихин</td>
+          <td><span class="badge b-green">Успех</span></td>
+          <td><span class="badge b-red">нет</span></td>
+          <td><span class="badge b-red">нет</span></td>
+          <td><span class="stars-na">нельзя оценить</span></td>
+        </tr>
+      </tbody>
+    </table>
+    </div>
+
+    <div class="callout callout-amber">
+      <div class="callout-label">Системная находка</div>
+      <div class="callout-body">
+        Автоматическая запись Яндекс.Телемоста <strong>два раза за день</strong> подставила в карточку чужую расшифровку. В карточку spasgan.ru изначально попала запись встречи primyase.ru (исправлено вручную ночью 22.05). В карточку metriks.ru до сих пор подставлена расшифровка продолжения встречи packplace.me. Похоже, сбой повторяется, когда один менеджер ведёт несколько встреч подряд. Реальной расшифровки встречи metriks.ru 15:30 в карточке нет.
+      </div>
+    </div>
+  </section>
+
+  <!-- ВНИМАНИЕ: gutaclinic -->
+  <section>
+    <div class="section-head">
+      <div class="section-icon red">!</div>
+      <h2>Особое внимание: брифинг gutaclinic.ru (20.05 17:00)</h2>
+    </div>
+    <p>Встреча прошла накануне (20.05 17:00), но результаты обрабатывались всю ночь до 21.05 (3 карточки брифа + 2 карточки коммерческого предложения). Клиент — частная клиника с оборотом 1,46 млрд ₽. Сделка #24412 — повторный заход после ранее проигранного тендера. На встрече Гордиенко вёл диалог с Сергеем (маркетинг клиента).</p>
+
+    <div class="meeting-block">
+      <div class="meeting-head">
+        <div>
+          <div class="meeting-title">gutaclinic.ru · Брифинг (18 мин)</div>
+          <div class="meeting-meta">Гордиенко · 20.05 17:00 · сделка <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/24412/">#24412</a></div>
+        </div>
+        <div class="meeting-score-block">
+          <span class="stars">
+            <span class="star">★</span><span class="star">★</span><span class="star">★</span>
+            <span class="star-empty">★</span><span class="star-empty">★</span><span class="star-empty">★</span><span class="star-empty">★</span><span class="star-empty">★</span><span class="star-empty">★</span><span class="star-empty">★</span>
+          </span>
+          <span class="score-label"><strong>3/10</strong></span>
+        </div>
+      </div>
+
+      <h4>Главный провал — клиент дважды раздражённо сказал, что встреча идёт как опросник</h4>
+
+      <div class="quote client-bad">
+        «Слушайте, честно говоря, я думал, вы мне что-то расскажете. И расскажете про тренды, а не просто тупо меня пробрифовать».
+        <div class="quote-author">Сергей · 10:14</div>
+      </div>
+
+      <div class="quote client-bad">
+        «Немножко не хотела, чтобы это выглядело как допрос, честно скажу, Сергей. Выглядит именно так. Можно было тогда просто отправить бриф, я бы его запомнил».
+        <div class="quote-author">Сергей · 11:15</div>
+      </div>
+
+      <p>Гордиенко первые 11 минут задавала вопросы из брифа подряд: приоритетные услуги? УТП? конкуренты? целевая аудитория? регион? кто разрабатывает сайт? Метрика? средний чек? стоимость лида? — вместо того, чтобы рассказать про тренды и кейсы, как ожидал клиент. Сергей сразу предупредил: «у меня 30 минут встреча сейчас идёт», то есть выделил ровно полчаса, а половина времени ушла на опрос.</p>
+
+      <h4>Что спасло встречу</h4>
+      <p>После критики клиента Гордиенко переключилась на содержание: рассказала про продвижение в нейросетях, объяснила механику ИИ-выдачи на понятном языке, предложила бесплатный аудит позиций в нейросетях по 5 приоритетным услугам (стоматология, дерматология, пластическая хирургия, урология, чек-апы). Сергей согласился, и встреча была закрыта новой защитой на 27.05 11:00.</p>
+
+      <h4>Бардак в карточках сделки</h4>
+      <p>На одну сделку #24412 за день создано <strong>3 карточки брифа и 2 карточки коммерческого предложения</strong>:</p>
+      <ul>
+        <li><strong>Бриф #1468</strong> — продвижение, заполнен полностью на 30 полей. Главный бриф.</li>
+        <li><strong>Бриф #1470</strong> — тот же тип брифа, что и #1468, но <strong>полностью пустой</strong>. Это дубль, удалить.</li>
+        <li><strong>Бриф #1472</strong> — управление репутацией (другая услуга), частично заполнен.</li>
+        <li><strong>КП #192</strong> — привязан к брифу #1468 (по продвижению). Правильное.</li>
+        <li><strong>КП #194</strong> — привязан к пустому дублю-брифу #1470. Это дубль КП #192, удалить.</li>
+      </ul>
+      <p><strong>Реально нужно 2 коммерческих предложения:</strong> одно по поисковому продвижению (есть, #192), второе — по управлению репутацией (карточки пока нет, нужно создать на основе брифа #1472). Хотя по содержанию встречи репутация клиенту не была интересна — он сказал «у нас свои специалисты, везде смотрим и отвечаем». Возможно, второе предложение лучше подать одностраничником в составе пакета, а не отдельной защитой.</p>
+
+      <div class="callout callout-red">
+        <div class="callout-label">Риск перед защитой 27.05</div>
+        <div class="callout-body">
+          На защиту 27.05 11:00 клиент придёт с настроением «вы меня пробрифовали, теперь ждём содержания». Если встреча опять начнётся с «давайте по нашей структуре пройдёмся», сделку мы потеряем. Защита должна сразу начинаться с конкретики: аудит сайта, сравнение с 4 конкурентами в выдаче (Медицина, Медси «Красная пресня», К-31, Госпиталь на Яузе), аудит позиций в нейровыдаче по 5 услугам, адаптированные кейсы под медицинскую нишу.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- РАЗБОР ОСТАЛЬНЫХ ВСТРЕЧ -->
+  <section>
+    <div class="section-head">
+      <div class="section-icon purple">◉</div>
+      <h2>Содержательный разбор остальных встреч</h2>
+    </div>
+
+    <div class="meeting-block">
+      <div class="meeting-head">
+        <div>
+          <div class="meeting-title">renewal.ru · Защита КП (22 мин)</div>
+          <div class="meeting-meta">фарма (производство, выручка 9 млрд) · 515 000 ₽ за 4 мес · сделка <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/15430/">#15430</a></div>
+        </div>
+        <div class="meeting-score-block">
+          <span class="stars">
+            <span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span>
+            <span class="star-empty">★</span><span class="star-empty">★</span><span class="star-empty">★</span><span class="star-empty">★</span>
+          </span>
+          <span class="score-label"><strong>6/10</strong></span>
+        </div>
+      </div>
+      <h4>Что хорошо</h4>
+      <ul>
+        <li>Показали клиенту живой отчёт за неделю с конкретными цифрами: видимость бренда 60%, рост 23.61, конкуренты в нейровыдаче — Nurofen, Aqualor, Panadol, Aquamaris, Эфералган.</li>
+        <li>Объяснили механику нейросетей понятным языком: «клиент пишет общий запрос, нейросеть вычленяет ключи, заходит в Яндекс и смотрит верхние 20 сайтов, чтобы подобрать ответ».</li>
+        <li>Услышали реальные сроки фармы и не давили: согласование на стороне клиента — две недели плюс несколько месяцев на проверку безопасниками и юристами. Менеджер сказала «не будем срочно запрашивать карточку, как согласуете — в течение двух недель запросим».</li>
+        <li>Допродажа Яндекс.Дзена без давления: «из практики этот ресурс периодически даёт хорошие результаты для фармы, не отметайте».</li>
+      </ul>
+      <h4>Что слабо</h4>
+      <ul>
+        <li>Менеджер встречи несколько раз сказала: «я не погружена как менеджер по продажам, передам коллегам». Для защиты на 515К это снижает доверие.</li>
+        <li>Техническая поддержка вообще не заложена в смету. Клиент узнал на встрече: «мы это в коммерческом не учитывали, дополнительно сможем просчитать» — это разочарование «всё под ключ за 125К, а нет».</li>
+        <li>Цифры в коммерческом предложении не аргументированы: 50 запросов, 3 статьи в месяц, 12 рерайтов. Клиент изначально просил 16–17 статей в месяц — мы предлагаем в 5 раз меньше, без объяснения.</li>
+      </ul>
+    </div>
+
+    <div class="meeting-block">
+      <div class="meeting-head">
+        <div>
+          <div class="meeting-title">primyase.ru · Защита КП (18 мин)</div>
+          <div class="meeting-meta">мясной офлайн-бизнес (Новая Рига, Рублёвка) · 338 800 ₽ · сделка <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/21326/">#21326</a></div>
+        </div>
+        <div class="meeting-score-block">
+          <span class="stars">
+            <span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span>
+            <span class="star-empty">★</span><span class="star-empty">★</span><span class="star-empty">★</span><span class="star-empty">★</span><span class="star-empty">★</span><span class="star-empty">★</span>
+          </span>
+          <span class="score-label"><strong>4/10</strong></span>
+        </div>
+      </div>
+      <h4>Критическая ошибка подготовки</h4>
+      <p>Гордиенко пришла с коммерческим предложением на 300К/150К ₽ по контекстной рекламе, рассчитанным под трафик на сайт. А клиенту нужны люди в офлайн-точки (рестораны, магазины). Гордиенко на встрече: «тут у нас чуть неверная история, мы поправим». Средний чек посчитали в два раза неверно: брали онлайновый, а у клиента офлайн-чек 5 000 ₽.</p>
+      <div class="quote client-bad">
+        «Я не буду читать, потому что я в этом не разбираюсь. Меня убедите голосом».
+        <div class="quote-author">Олег Константинович — на предложение почитать аудит</div>
+      </div>
+      <div class="quote client-bad">
+        «SEO в нашей ситуации очень плохая история. Если вы хотите получить денег и сделать нам то, что нам не пригодится — это не пойдёт».
+        <div class="quote-author">Олег Константинович — с первой минуты разговора</div>
+      </div>
+      <h4>Что спасло встречу</h4>
+      <p>Партнёр клиента Артём встал на сторону Гордиенко: «доведение сайта до ума по низкочастотным запросам — мясо на Новой Риге — это сделать». Без него встреча была бы закрыта отказом. В финале сам клиент сформулировал следующий шаг («Артём, проработай SEO локальное и медиаплан») — менеджер закрытие не вёл.</p>
+    </div>
+
+    <div class="meeting-block">
+      <div class="meeting-head">
+        <div>
+          <div class="meeting-title">packplace.me · Защита КП (27 мин)</div>
+          <div class="meeting-meta">упаковка для бизнеса · 75 000 ₽ · сделка <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/24204/">#24204</a></div>
+        </div>
+        <div class="meeting-score-block">
+          <span class="stars">
+            <span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span>
+            <span class="star-empty">★</span><span class="star-empty">★</span><span class="star-empty">★</span><span class="star-empty">★</span><span class="star-empty">★</span>
+          </span>
+          <span class="score-label"><strong>5/10</strong></span>
+        </div>
+      </div>
+      <h4>Что хорошо</h4>
+      <ul>
+        <li>Открытие с подарка: «сделали вам скидку 10% на весь период сотрудничества, у нас такого не бывает, для вас согласовал лично руководитель».</li>
+        <li>Конкретный разбор технического аудита: «дубли мета-тегов, отсутствующие заголовки H1». Менеджер: «это прям большая редкость, я удивлена, что у вас был подрядчик с таким количеством ошибок».</li>
+        <li>Использование данных Яндекс.Метрики клиента: «трафик падает с 1 января 2025, рост отказов 25%».</li>
+        <li>Подключили руководителя аккаунтинга Марию для технических ответов по бизнесу-в-бизнес сегменту.</li>
+      </ul>
+      <h4>Критические проблемы</h4>
+      <div class="callout callout-red">
+        <div class="callout-label">Клиент нашёл ошибку прямо на защите</div>
+        <div class="callout-body">
+          Роман на защите: «Если 0 лидов — почему 98 тысяч, а должно быть 80?» Менеджер: «Это что-то некорректное, попрошу специалистов проверить». Показывать клиенту нерабочий калькулятор на защите предложения на 230 тыс/мес — серьёзный пробел подготовки.
+        </div>
+      </div>
+      <div class="callout callout-red">
+        <div class="callout-label">Клиент нашёл дыру в логике показателей</div>
+        <div class="callout-body">
+          Роман: «Сентябрь 233 → 380, выполнение даже без работ = 61%. Сколько мы вам заплатим?» — наш план завышает результат за счёт сезонности, и клиент это видит. Мы получим деньги за рост, который произошёл бы и без нас. Доверие к нашей методике падает.
+        </div>
+      </div>
+      <h4>Слабый кейс</h4>
+      <p>На вопрос «расскажите супер-кейс по нашей нише» Мария рассказала про <strong>«Фурнитуру Титан»</strong> — компания производила фурнитуру для душевых, работали 10 лет, «бизнес у них переформатировался, маркетинг урезали, мы остались на поддержке, потом они вообще SEO не занимаются». Это негативный финал и совсем другая ниша.</p>
+    </div>
+
+    <div class="meeting-block">
+      <div class="meeting-head">
+        <div>
+          <div class="meeting-title">spasgan.ru · Брифинг (23 мин)</div>
+          <div class="meeting-meta">тендер Wockhardt Bio (фарма, выручка 804 млн) · сделка <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/23916/">#23916</a></div>
+        </div>
+        <div class="meeting-score-block">
+          <span class="stars">
+            <span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span>
+            <span class="star-empty">★</span><span class="star-empty">★</span><span class="star-empty">★</span><span class="star-empty">★</span>
+          </span>
+          <span class="score-label"><strong>6/10</strong></span>
+        </div>
+      </div>
+      <p>Виктория сама описала структуру тендерного отбора (три компонента сравнения), сама упомянула наш активный клиент renewal.ru («мы не Renewal, мы маленькая компания»), сама подтвердила дедлайн — пятница 29 мая. На встрече Гордиенко открыто заявила бюджетный разрыв и за 10 минут до конца дня заполнила подробный бриф. Главный сигнал — клиент прямо сказала: <strong>«не знаю, почему вы так поздно беретесь за тендер»</strong>.</p>
+      <p class="small">Подробный разбор — в отдельном аудите сделки spasgan (документ в карточке).</p>
+    </div>
+
+    <div class="meeting-block">
+      <div class="meeting-head">
+        <div>
+          <div class="meeting-title">t-doc.ru · Защита КП — оценить невозможно</div>
+          <div class="meeting-meta">170 491 ₽ · сделка <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/23114/">#23114</a> · Семенихин</div>
+        </div>
+        <div class="meeting-score-block">
+          <span class="stars-na">нет данных</span>
+        </div>
+      </div>
+      <p>Защита прошла без записи и без расшифровки. В ленте сделки только задача «Получить реквизиты». Содержание защиты на 170К ₽ нигде не зафиксировано. Если клиент сошлётся на «вы обещали…», у нас нет ни одного следа договорённостей.</p>
+    </div>
+  </section>
+
+  <!-- ИСПОЛЬЗОВАНИЕ КЕЙСОВ -->
+  <section>
+    <div class="section-head">
+      <div class="section-icon amber">★</div>
+      <h2>Использование кейсов на встречах</h2>
+    </div>
+
+    <div class="callout callout-amber">
+      <div class="callout-label">Главный вывод</div>
+      <div class="callout-body">
+        <strong>Ни на одной встрече дня не был показан конкретный кейс по нише клиента с цифрами.</strong> Кейсы либо назывались устно мимоходом без деталей, либо рассказывались с негативным финалом, либо были обещаны прислать «позже». Это системный пробел — мы выходим на защиты предложений на сотни тысяч рублей без главного аргумента доверия.
+      </div>
+    </div>
+
+    <div class="case-row">
+      <div>
+        <div class="case-meet">renewal.ru</div>
+        <div class="case-status">упомянуты устно</div>
+      </div>
+      <div>
+        Менеджер назвала «знаете, например, SM Clinic, медицинский центр? И мы продвигаем Совкомбанк, Совкомбанк страхования, ВТБ страхования». Без цифр, без скриншотов, без сравнения с задачами клиента. Клиент Диёр попросил: «отправьте релевантные кейсы именно по медицинской тематике текстов» — обещали прислать в чате. На самой встрече ничего не показано.
+      </div>
+    </div>
+
+    <div class="case-row">
+      <div>
+        <div class="case-meet">primyase.ru</div>
+        <div class="case-status">не упомянуты</div>
+      </div>
+      <div>
+        Кейсов не было ни одного. Клиент с первой минуты возражал по поисковому продвижению — это идеальный момент для аргумента «у нас был похожий локальный бизнес, вот результат». Гордиенко вместо этого пыталась убедить общими словами «давайте хотя бы посмотрите наш аудит».
+      </div>
+    </div>
+
+    <div class="case-row">
+      <div>
+        <div class="case-meet">packplace.me</div>
+        <div class="case-status">показан плохой</div>
+      </div>
+      <div>
+        Клиент Сева прямо попросил: «расскажите один супер-кейс по SEO, в нашей нише — упаковка, бизнес-в-бизнес, расходники». Мария рассказала про «Фурнитуру Титан» — 10 лет работы, итог «бизнес переформатировался, маркетинг урезали, теперь они SEO не занимаются». Это негативный финал и совсем другая ниша. После такого кейса клиент уходит думать «а нас тоже забросят».
+      </div>
+    </div>
+
+    <div class="case-row">
+      <div>
+        <div class="case-meet">spasgan.ru</div>
+        <div class="case-status">клиент сам упомянул</div>
+      </div>
+      <div>
+        Виктория сама упомянула: «мы не Renewal, мы маленькая компания». То есть клиент <strong>знает наш кейс Renewal через другие источники</strong>. Это шанс положить кейс на стол. На встрече кейсы не показывались — это правильно для брифинга, но к защите 29 мая кейс Renewal должен быть первым на столе.
+      </div>
+    </div>
+
+    <div class="case-row">
+      <div>
+        <div class="case-meet">gutaclinic.ru</div>
+        <div class="case-status">обещаны на следующую встречу</div>
+      </div>
+      <div>
+        Гордиенко: «мы 10 лет на рынке, мы именно в медицине. На сайте представлены кейсы, но у нас больше кейсов. Я их вам представлю адаптивно под вашу нишу к следующей встрече». Клиент: «я это смотрел» — то есть общие кейсы с сайта уже видел, ему нужны живые и под профиль. К защите 27 мая обязательно подготовить кейсы конкретно по 5 услугам клиента (стоматология, дерматология, пластика, урология, чек-апы).
+      </div>
+    </div>
+  </section>
+
+  <!-- ЧТО КЛАССНОГО -->
+  <section class="tinted-green">
+    <div class="section-head">
+      <div class="section-icon green">✓</div>
+      <h2>Что классного во вчерашнем дне</h2>
+    </div>
+
+    <div class="hilight-grid">
+      <div class="hilight good">
+        <div class="hilight-title"><span class="hilight-tag tag-good">приём</span> Открытое возражение по бюджету</div>
+        <div class="hilight-body">Гордиенко на звонке со spasgan: «нам не проходит, насколько вы гибкие или просто не сработаемся». Сразу вскрыли структуру — выяснилось, что 25К это только техподдержка, остальное по факту. Расхождение оказалось всего 6К/мес.</div>
+      </div>
+
+      <div class="hilight good">
+        <div class="hilight-title"><span class="hilight-tag tag-good">приём</span> Живой отчёт на защите</div>
+        <div class="hilight-body">На защите renewal показали готовый отчёт за неделю с реальными цифрами — видимость бренда 60%, рост 23.61, конкуренты в нейровыдаче по именам. Демонстрация продукта в действии до подписания — сильнейший аргумент.</div>
+      </div>
+
+      <div class="hilight good">
+        <div class="hilight-title"><span class="hilight-tag tag-good">приём</span> Открытие со скидки</div>
+        <div class="hilight-body">Деговцова на защите packplace начала с подарка: «сделали вам скидку 10% на весь период, у нас такого не бывает». Создаёт благоприятный фон сразу.</div>
+      </div>
+
+      <div class="hilight good">
+        <div class="hilight-title"><span class="hilight-tag tag-good">работа</span> Использование данных клиента</div>
+        <div class="hilight-body">На packplace заранее получили доступ к Яндекс.Метрике клиента и пришли на встречу с конкретикой: «трафик падает с 1 января, рост отказов 25%». Клиент видит, что мы знаем его сайт.</div>
+      </div>
+
+      <div class="hilight good">
+        <div class="hilight-title"><span class="hilight-tag tag-good">работа</span> Быстрый перехват</div>
+        <div class="hilight-body">После увольнения менеджера сделка spasgan.ru была перехвачена руководителем за 5 дней — звонок клиенту, встреча, заполненный бриф в день встречи. Тендерный заказчик не потерян.</div>
+      </div>
+
+      <div class="hilight good">
+        <div class="hilight-title"><span class="hilight-tag tag-good">приём</span> Прозрачность по моделям оплаты</div>
+        <div class="hilight-body">На packplace в ответ на прямой вопрос клиента «если 3 часа из 10, всё равно платим 30?» менеджер на лету представила обе модели — циклическую и депозитную. Прозрачность без давления.</div>
+      </div>
+
+      <div class="hilight good">
+        <div class="hilight-title"><span class="hilight-tag tag-good">приём</span> Не торопили в фарме</div>
+        <div class="hilight-body">На renewal услышали «согласование 2 недели плюс несколько месяцев на безопасников» и приняли это как нормальный темп. Не давили запросом карточки контрагента сразу.</div>
+      </div>
+
+      <div class="hilight good">
+        <div class="hilight-title"><span class="hilight-tag tag-good">канал</span> Telegram через Wazzup</div>
+        <div class="hilight-body">Координация переноса встречи spasgan прошла за минуты через Telegram. Через корпоративную почту крупного клиента это заняло бы часы.</div>
+      </div>
+
+      <div class="hilight good">
+        <div class="hilight-title"><span class="hilight-tag tag-good">объём</span> Холодный обзвон</div>
+        <div class="hilight-body">Вострецов — 89 звонков, Исаева — 77 звонков. Один из самых результативных дней по объёму холодного обзвона за май.</div>
+      </div>
+
+      <div class="hilight good">
+        <div class="hilight-title"><span class="hilight-tag tag-good">работа</span> Бриф в день встречи</div>
+        <div class="hilight-body">Бриф spasgan заполнен в 21:24 вечера того же дня, когда прошла встреча. Контекст не потерян, аккаунту не приходится распутывать через неделю.</div>
+      </div>
+
+      <div class="hilight good">
+        <div class="hilight-title"><span class="hilight-tag tag-good">наведение порядка</span> Закрытие хвостов</div>
+        <div class="hilight-body">Деговцова ночью закрыла 15 старых карточек встреч (некоторые с марта). До этого они висели в отчётности как «запланированные». Чистка перед отчётом руководителю.</div>
+      </div>
+
+      <div class="hilight good">
+        <div class="hilight-title"><span class="hilight-tag tag-good">технология</span> Запись и расшифровка работают</div>
+        <div class="hilight-body">На 6 встречах из 6 запланированных с Яндекс.Телемоста работала автозапись и автоматическая расшифровка через memoai.tech. Технология есть, проблема только в путанице между встречами одного менеджера и в том, что Семенихин записи не делает.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ЧТО ДОЛЖНО БЫЛО БЫТЬ, НО НЕ СДЕЛАНО -->
+  <section class="tinted-amber">
+    <div class="section-head">
+      <div class="section-icon amber">⊘</div>
+      <h2>Что должно было быть сделано, но не сделано</h2>
+    </div>
+
+    <h3>До и на встречах</h3>
+    <div class="hilight-grid">
+      <div class="hilight miss">
+        <div class="hilight-title"><span class="hilight-tag tag-miss">подготовка</span> Кейсы по нише клиента</div>
+        <div class="hilight-body">На все 4 защиты предложений (renewal, primyase, packplace, gutaclinic) должны были приехать с конкретным кейсом по нише с цифрами. Не привезли ни одного — обещали прислать позже или показали плохой кейс.</div>
+      </div>
+
+      <div class="hilight miss">
+        <div class="hilight-title"><span class="hilight-tag tag-miss">подготовка</span> Калькулятор показателей packplace</div>
+        <div class="hilight-body">Клиент Роман нашёл математическую ошибку и дыру в логике прямо на защите. Перед показом клиенту калькулятор должен быть проверен на крайних значениях (0 лидов, сезонность).</div>
+      </div>
+
+      <div class="hilight miss">
+        <div class="hilight-title"><span class="hilight-tag tag-miss">подготовка</span> Цель клиента primyase</div>
+        <div class="hilight-body">Пришли с предложением под трафик на сайт — а клиенту нужны люди в офлайн-точки. Цель нужно уточнять до расчёта предложения, не на защите.</div>
+      </div>
+
+      <div class="hilight miss">
+        <div class="hilight-title"><span class="hilight-tag tag-miss">подготовка</span> Технический специалист на gutaclinic и renewal</div>
+        <div class="hilight-body">На обеих встречах менеджеры сказали «я не погружена технически, передам коллегам». Это снижает доверие на защитах от 170К до 515К. Технический специалист нужен с начала, не подключаться по запросу.</div>
+      </div>
+    </div>
+
+    <h3>В оформлении в Битрикс24</h3>
+    <div class="hilight-grid">
+      <div class="hilight miss">
+        <div class="hilight-title"><span class="hilight-tag tag-miss">оформление</span> Итоги встреч в ленту сделок</div>
+        <div class="hilight-body">На 4 из 5 защит коммерческих предложений нет короткой заметки «о чём договорились». Расшифровка есть, но её никто читать не будет. Нужно правило: 30 минут после встречи — саммари в ленту.</div>
+      </div>
+
+      <div class="hilight miss">
+        <div class="hilight-title"><span class="hilight-tag tag-miss">оформление</span> Закрытие встреч в карточках</div>
+        <div class="hilight-body">sovcomlife и kvent висят в статусе «новая» вечером 21.05. Sovcomlife не состоялась — клиент не пришёл, kvent перенесена на 22.05 через Telegram без обновления карточки. Обе должны быть закрыты с правильным статусом до конца дня.</div>
+      </div>
+
+      <div class="hilight miss">
+        <div class="hilight-title"><span class="hilight-tag tag-miss">оформление</span> Причина провала встреч</div>
+        <div class="hilight-body">galaktika.clinic FAIL и sporttravma.org FAIL — ни в одной карточке нет причины провала или плана дальнейших действий. Семенихин их просто закрыл.</div>
+      </div>
+
+      <div class="hilight miss">
+        <div class="hilight-title"><span class="hilight-tag tag-miss">оформление</span> Чистка дублей gutaclinic</div>
+        <div class="hilight-body">3 брифа и 2 КП на одной сделке — нужно удалить пустой дубль брифа #1470 и КП #194, привязанный к нему. Создать КП по управлению репутацией на основе брифа #1472.</div>
+      </div>
+
+      <div class="hilight miss">
+        <div class="hilight-title"><span class="hilight-tag tag-miss">оформление</span> Запись встреч Семенихина</div>
+        <div class="hilight-body">3 встречи 21.05 — все без записи. У других менеджеров записи есть автоматом через Я.Телемост. Возможно, Семенихин ведёт встречи в Zoom или звонком — нужно проверить и закрепить правило.</div>
+      </div>
+
+      <div class="hilight miss">
+        <div class="hilight-title"><span class="hilight-tag tag-miss">оформление</span> Исправление чужой расшифровки metriks</div>
+        <div class="hilight-body">В карточке встречи metriks до сих пор лежит расшифровка продолжения встречи packplace. Реальной расшифровки встречи metriks 15:30 в карточке нет.</div>
+      </div>
+    </div>
+
+    <h3>Следующие шаги по сделкам</h3>
+    <div class="hilight-grid">
+      <div class="hilight miss">
+        <div class="hilight-title"><span class="hilight-tag tag-miss">обещано клиенту</span> primyase — пересчёт под офлайн</div>
+        <div class="hilight-body">Гордиенко обещала прислать пересчитанное предложение под офлайн-точки и средний чек 5 000 ₽. Срок не зафиксирован, в карточке задачи нет.</div>
+      </div>
+
+      <div class="hilight miss">
+        <div class="hilight-title"><span class="hilight-tag tag-miss">обещано клиенту</span> renewal — кейсы по медицине</div>
+        <div class="hilight-body">Менеджер обещала Диёру: «отправлю релевантные кейсы по медицинской тематике текстов». Срок не зафиксирован.</div>
+      </div>
+
+      <div class="hilight miss">
+        <div class="hilight-title"><span class="hilight-tag tag-miss">обещано клиенту</span> packplace — исправленный калькулятор</div>
+        <div class="hilight-body">Лиза обещала «попрошу специалистов проверить» по ошибке в калькуляторе. Без исправленного калькулятора с объяснением — клиент уходит в раздумья.</div>
+      </div>
+
+      <div class="hilight miss">
+        <div class="hilight-title"><span class="hilight-tag tag-miss">упущено</span> spasgan — запросить готовый гео-аудит</div>
+        <div class="hilight-body">Виктория явно сказала «у нас есть готовый гео-аудит». Гордиенко не попросила прислать. Это эталон сравнения и экономия наших дней на подготовке.</div>
+      </div>
+
+      <div class="hilight miss">
+        <div class="hilight-title"><span class="hilight-tag tag-miss">не выставлено</span> Суммы сделок в карточках</div>
+        <div class="hilight-body">spasgan — 0 ₽ при потенциале 360–600 тыс/год. gutaclinic — 0 ₽ при потенциале от 1,2 млн/год. Сделки не попадают в прогноз продаж и не получают приоритета в воронке.</div>
+      </div>
+
+      <div class="hilight miss">
+        <div class="hilight-title"><span class="hilight-tag tag-miss">не выставлено</span> Ключевые лица решения</div>
+        <div class="hilight-body">Ни по одной крупной сделке (renewal, spasgan, gutaclinic, primyase) не вышли на генерального или финансового директора клиента. Все договорённости висят на одном маркетологе или маркетинг-менеджере.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ГЛАВНЫЕ РИСКИ -->
+  <section>
+    <div class="section-head">
+      <div class="section-icon red">▲</div>
+      <h2>Главные риски — требуют действий сегодня</h2>
+    </div>
+
+    <div class="hilight-grid">
+      <div class="hilight risk">
+        <div class="hilight-title">gutaclinic — защита 27.05 11:00</div>
+        <div class="hilight-deal">Сделка #24412 · от 1,2 млн ₽/год</div>
+        <div class="hilight-body">Клиент уже раздражён форматом «опросника». На защите через 5 дней должен быть пакет: технический аудит, коммерческий аудит, сравнение с 4 конкурентами в выдаче по 5 услугам, аудит позиций в нейровыдаче, адаптированные медицинские кейсы. Без этого — потеря сделки во второй раз подряд.</div>
+      </div>
+
+      <div class="hilight risk">
+        <div class="hilight-title">packplace — клиент нашёл нашу ошибку</div>
+        <div class="hilight-deal">Сделка #24204 · 230 тыс/мес</div>
+        <div class="hilight-body">Прямо на защите Роман обнаружил математическую ошибку и логическую дыру в нашем калькуляторе. Без исправленного, прозрачного расчёта с объяснениями к возврату клиента «в конце недели» — сделка уйдёт.</div>
+      </div>
+
+      <div class="hilight risk">
+        <div class="hilight-title">primyase — обещание пересчитать</div>
+        <div class="hilight-deal">Сделка #21326 · 338 800 ₽</div>
+        <div class="hilight-body">Гордиенко обещала пересчитать предложение под офлайн-точки и правильный средний чек 5 000 ₽. Без обновлённого предложения к понедельнику — клиент скажет «вы опять не услышали».</div>
+      </div>
+
+      <div class="hilight risk">
+        <div class="hilight-title">t-doc — защита без записи</div>
+        <div class="hilight-deal">Сделка #23114 · 170 491 ₽</div>
+        <div class="hilight-body">Защита прошла, стадия сменилась на финальную, но содержание встречи нигде не зафиксировано. Нет записи, расшифровки, итогового комментария. При разногласиях — нет аудиторного следа.</div>
+      </div>
+
+      <div class="hilight risk-medium">
+        <div class="hilight-title">sovcomlife — встреча зависла</div>
+        <div class="hilight-deal">Сделка #16072 · 250 000 ₽</div>
+        <div class="hilight-body">Защита на 14:00 не состоялась — клиент не пришёл. Карточка не закрыта ни в провал, ни в новую дату. В отчётах висит как «запланирована».</div>
+      </div>
+
+      <div class="hilight risk-medium">
+        <div class="hilight-title">kvent — перенос без обновления карточки</div>
+        <div class="hilight-deal">Сделка #7634</div>
+        <div class="hilight-body">Семенихин в Telegram написал «скину ссылку на завтра 15:00», но текущую карточку встречи в провал не перевёл, новую на 22.05 не создал.</div>
+      </div>
+
+      <div class="hilight risk-medium">
+        <div class="hilight-title">gutaclinic — дубли карточек</div>
+        <div class="hilight-deal">Сделка #24412</div>
+        <div class="hilight-body">3 брифа и 2 коммерческих предложения на одной сделке за день. Засоряет аналитику и непонятно, какая карточка актуальна. Нужно удалить пустой дубль брифа #1470 и КП #194.</div>
+      </div>
+
+      <div class="hilight risk-medium">
+        <div class="hilight-title">galaktika и sporttravma — провалы без объяснения</div>
+        <div class="hilight-deal">Сделки #24158 и #10938 · Семенихин</div>
+        <div class="hilight-body">Обе встречи провалены, в карточках нет ни причины, ни плана дальнейших действий. Сделки откатились на стадию исполнения без следа.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- СИСТЕМНЫЕ ПАТТЕРНЫ -->
+  <section>
+    <div class="section-head">
+      <div class="section-icon purple">≡</div>
+      <h2>Системные паттерны качества встреч</h2>
+    </div>
+
+    <div class="grid-2">
+      <div>
+        <h3>Сильные стороны</h3>
+        <ul>
+          <li>Заранее получаем доступ к Яндекс.Метрике клиента и приходим с конкретикой по его данным</li>
+          <li>Подключаем руководителей отделов на технические вопросы (Мария, технический специалист по нейросетям)</li>
+          <li>Не давим в фарме — приняли длинные циклы согласования как норму</li>
+          <li>Бриф заполняется в день встречи, пока контекст свежий</li>
+          <li>Открытое возражение по бюджету в первых минутах звонка</li>
+          <li>Telegram через Wazzup работает мгновенно</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Что повторяется как слабое место</h3>
+        <ul>
+          <li>Менеджеры сами обесценивают свою экспертность («я не технический специалист, передам коллегам»)</li>
+          <li>Цифры в коммерческих предложениях не аргументированы или содержат ошибки</li>
+          <li>Кейсы либо обещают «отправим позже», либо рассказывают негативные</li>
+          <li>Подготовка предложения без уточнения цели клиента</li>
+          <li>Закрытие встречи через клиента, а не через менеджера</li>
+          <li>Итоги встреч не пишутся в ленту сделки</li>
+          <li>Брифинги идут как опросник вместо рассказа про тренды и продукт</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ИТОГ -->
+  <section>
+    <div class="section-head">
+      <div class="section-icon blue">∎</div>
+      <h2>Итог дня</h2>
+    </div>
+    <p style="font-size: 16px; line-height: 1.75; color: var(--text);">
+      День насыщенный — 280 действий, 6 проведённых встреч, 4 защиты коммерческих предложений с переходом в финальную стадию. Самые сильные истории дня: <strong>spasgan.ru</strong> (тендерный заказчик в фарме перехвачен за 5 дней после увольнения менеджера, бриф заполнен в день встречи) и <strong>renewal.ru</strong> (живой отчёт с конкретными цифрами по нейровыдаче на защите предложения в фарме на 515К). Самые слабые: <strong>gutaclinic.ru</strong> (клиент дважды раздражённо сказал «вы меня пробрифовали») и <strong>primyase.ru</strong> (пришли с предложением под не ту цель и не тот средний чек). Главные системные сигналы: повторяющийся сбой автозаписи Яндекс.Телемоста, который путает встречи; отсутствие кейсов по нише на всех защитах; привычка не оставлять короткое саммари в ленте сделки после защиты. Через 5 дней — критическая защита gutaclinic, через 7 дней — финал тендера spasgan. Оба требуют конкретики, которой пока нет.
+    </p>
+  </section>
+
+  <footer>
+    Отчёт построен на данных Битрикс24 (belberrycrm.bitrix24.ru): 280 действий, 41 карточка встреч, 12 карточек брифов, 8 карточек коммерческих предложений, 6 расшифрованных встреч через memoai.tech.
+    <br>Подготовлено 22 мая 2026, ~10:00 МСК.
+  </footer>
+
+</div>
+
+</body>
+</html>

@@ -1,0 +1,1262 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Отдел продаж — пятница, 22 мая 2026</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --card: #ffffff;
+    --text: #14171c;
+    --text-secondary: #525a6b;
+    --text-muted: #8a93a3;
+    --border: #e7eaf0;
+    --border-strong: #d4d9e2;
+    --green: #15803d;
+    --green-light: #16a34a;
+    --green-soft: #dcfce7;
+    --green-bg: #f0fdf4;
+    --amber: #b45309;
+    --amber-light: #d97706;
+    --amber-soft: #fef3c7;
+    --amber-bg: #fffbeb;
+    --red: #b91c1c;
+    --red-light: #dc2626;
+    --red-soft: #fee2e2;
+    --red-bg: #fef2f2;
+    --blue: #1d4ed8;
+    --blue-light: #2563eb;
+    --blue-soft: #dbeafe;
+    --blue-bg: #eff6ff;
+    --purple: #6d28d9;
+    --purple-soft: #ede9fe;
+    --shadow-sm: 0 1px 2px rgba(15,23,42,0.04), 0 1px 3px rgba(15,23,42,0.06);
+    --shadow-md: 0 4px 6px -1px rgba(15,23,42,0.07), 0 2px 4px -2px rgba(15,23,42,0.05);
+    --shadow-lg: 0 10px 15px -3px rgba(15,23,42,0.08), 0 4px 6px -4px rgba(15,23,42,0.05);
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    margin: 0;
+    padding: 0;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 0 20px; }
+
+  /* HERO */
+  .hero {
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    color: #fff;
+    padding: 56px 0 64px;
+    margin-bottom: 32px;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -120px; right: -120px;
+    width: 400px; height: 400px;
+    background: radial-gradient(circle, rgba(59,130,246,0.2) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .hero-label {
+    display: inline-block;
+    padding: 6px 14px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+  .hero h1 {
+    font-size: 44px;
+    font-weight: 800;
+    letter-spacing: -1.5px;
+    margin: 0 0 12px;
+    line-height: 1.1;
+  }
+  .hero-subtitle {
+    font-size: 18px;
+    color: rgba(255,255,255,0.75);
+    max-width: 760px;
+    line-height: 1.5;
+  }
+  .hero-meta {
+    margin-top: 24px;
+    display: flex;
+    gap: 32px;
+    flex-wrap: wrap;
+    font-size: 14px;
+    color: rgba(255,255,255,0.6);
+  }
+  .hero-meta strong { color: #fff; font-weight: 600; }
+
+  /* SECTIONS */
+  section {
+    background: var(--card);
+    border-radius: 20px;
+    padding: 32px 36px;
+    margin-bottom: 24px;
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--border);
+  }
+  section.tinted-green { background: var(--green-bg); border-color: #bbf7d0; }
+  section.tinted-amber { background: var(--amber-bg); border-color: #fde68a; }
+
+  .section-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .section-icon {
+    width: 36px; height: 36px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 10px;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+  .section-icon.blue { background: var(--blue-soft); color: var(--blue); }
+  .section-icon.green { background: var(--green-soft); color: var(--green); }
+  .section-icon.amber { background: var(--amber-soft); color: var(--amber); }
+  .section-icon.red { background: var(--red-soft); color: var(--red); }
+  .section-icon.purple { background: var(--purple-soft); color: var(--purple); }
+
+  h2 {
+    font-size: 22px;
+    font-weight: 700;
+    margin: 0;
+    letter-spacing: -0.4px;
+  }
+  h3 {
+    font-size: 17px;
+    font-weight: 700;
+    margin: 28px 0 12px;
+    letter-spacing: -0.2px;
+  }
+  h3:first-child { margin-top: 0; }
+  h4 {
+    font-size: 14px;
+    font-weight: 700;
+    margin: 16px 0 8px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  p { margin: 0 0 12px; color: var(--text-secondary); }
+
+  /* STAT CARDS */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+  }
+  .stat {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 22px 24px;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .stat:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+  .stat.accent-green { background: linear-gradient(135deg, #dcfce7 0%, #f0fdf4 100%); border-color: #bbf7d0; }
+  .stat.accent-amber { background: linear-gradient(135deg, #fef3c7 0%, #fffbeb 100%); border-color: #fde68a; }
+  .stat.accent-red { background: linear-gradient(135deg, #fee2e2 0%, #fef2f2 100%); border-color: #fecaca; }
+  .stat.accent-blue { background: linear-gradient(135deg, #dbeafe 0%, #eff6ff 100%); border-color: #bfdbfe; }
+  .stat-value {
+    font-size: 36px;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -1.5px;
+  }
+  .stat-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    margin-top: 8px;
+  }
+  .stat-sub {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 4px;
+  }
+
+  /* MANAGER GRID */
+  .managers {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 16px;
+  }
+  .mgr {
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px 22px;
+    background: var(--card);
+    transition: box-shadow 0.15s ease;
+  }
+  .mgr:hover { box-shadow: var(--shadow-md); }
+  .mgr-name {
+    font-weight: 700;
+    font-size: 16px;
+    letter-spacing: -0.2px;
+  }
+  .mgr-role {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 14px;
+  }
+  .mgr-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    font-size: 13px;
+    border-bottom: 1px dashed var(--border);
+  }
+  .mgr-row:last-child { border-bottom: none; }
+  .mgr-row-label { color: var(--text-secondary); }
+  .mgr-row-value { font-weight: 700; font-size: 15px; }
+  .mgr-note {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+
+  /* TABLE */
+  .tbl-wrap {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+  th, td {
+    text-align: left;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  th {
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    background: #fafbfc;
+  }
+  tr:last-child td { border-bottom: none; }
+  tbody tr { transition: background 0.1s; }
+  tbody tr:hover { background: #fafbfc; }
+
+  /* BADGES */
+  .badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .b-green { background: var(--green-soft); color: var(--green); }
+  .b-amber { background: var(--amber-soft); color: var(--amber); }
+  .b-red { background: var(--red-soft); color: var(--red); }
+  .b-blue { background: var(--blue-soft); color: var(--blue); }
+  .b-purple { background: var(--purple-soft); color: var(--purple); }
+  .b-gray { background: #f1f3f5; color: var(--text-secondary); }
+
+  /* STARS */
+  .stars {
+    display: inline-flex;
+    gap: 1px;
+    align-items: center;
+    font-size: 14px;
+    line-height: 1;
+  }
+  .star { color: #f59e0b; }
+  .star-empty { color: #e5e7eb; }
+  .stars-na { color: var(--text-muted); font-size: 12px; font-style: italic; }
+  .score-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-left: 4px;
+  }
+
+  /* QUOTES */
+  .quote {
+    background: #fafbfc;
+    border-left: 3px solid var(--blue);
+    padding: 14px 18px;
+    border-radius: 0 8px 8px 0;
+    margin: 12px 0;
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--text);
+  }
+  .quote-author {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 6px;
+    font-weight: 500;
+  }
+  .quote.client { border-left-color: var(--amber); background: #fffbeb; }
+  .quote.client-bad { border-left-color: var(--red); background: #fef2f2; }
+  .quote.client-good { border-left-color: var(--green); background: #f0fdf4; }
+
+  /* MEETING CARDS */
+  .meeting-block {
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 22px 26px;
+    margin-bottom: 16px;
+    background: var(--card);
+  }
+  .meeting-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  .meeting-title {
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.2px;
+  }
+  .meeting-meta {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+  .meeting-score-block {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  /* CALLOUT */
+  .callout {
+    padding: 18px 22px;
+    border-radius: 12px;
+    margin: 16px 0;
+    border: 1px solid;
+  }
+  .callout-amber {
+    background: var(--amber-bg);
+    border-color: #fde68a;
+  }
+  .callout-red {
+    background: var(--red-bg);
+    border-color: #fecaca;
+  }
+  .callout-blue {
+    background: var(--blue-bg);
+    border-color: #bfdbfe;
+  }
+  .callout-label {
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    margin-bottom: 6px;
+  }
+  .callout-amber .callout-label { color: var(--amber); }
+  .callout-red .callout-label { color: var(--red); }
+  .callout-blue .callout-label { color: var(--blue); }
+  .callout-body { color: var(--text); font-size: 14px; line-height: 1.55; }
+
+  /* HIGHLIGHT BOXES */
+  .hilight-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 14px;
+  }
+  .hilight {
+    padding: 18px 22px;
+    border-radius: 12px;
+    border: 1px solid;
+    background: var(--card);
+  }
+  .hilight.good {
+    border-color: #bbf7d0;
+    background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%);
+  }
+  .hilight.miss {
+    border-color: #fde68a;
+    background: linear-gradient(135deg, #fffbeb 0%, #ffffff 100%);
+  }
+  .hilight.risk {
+    border-color: #fecaca;
+    background: linear-gradient(135deg, #fef2f2 0%, #ffffff 100%);
+    border-left: 4px solid var(--red);
+  }
+  .hilight.risk-medium {
+    border-color: #fde68a;
+    background: linear-gradient(135deg, #fffbeb 0%, #ffffff 100%);
+    border-left: 4px solid var(--amber);
+  }
+  .hilight-title {
+    font-weight: 700;
+    font-size: 14px;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .hilight-deal {
+    font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+  }
+  .hilight-body {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+  .hilight-tag {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 2px 8px;
+    border-radius: 999px;
+  }
+  .tag-good { background: var(--green-soft); color: var(--green); }
+  .tag-miss { background: var(--amber-soft); color: var(--amber); }
+
+  /* CASE TABLE */
+  .case-row {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 16px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 14px;
+  }
+  .case-row:last-child { border-bottom: none; }
+  .case-meet {
+    font-weight: 700;
+  }
+  .case-status {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 2px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+
+  /* LINKS */
+  a { color: var(--blue-light); text-decoration: none; font-weight: 500; }
+  a:hover { text-decoration: underline; }
+
+  /* UTIL */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  @media (max-width: 760px) { .grid-2 { grid-template-columns: 1fr; } }
+  ul { padding-left: 22px; color: var(--text-secondary); margin: 8px 0 12px; }
+  ul li { margin-bottom: 8px; line-height: 1.55; }
+  .small { font-size: 12px; color: var(--text-muted); }
+  .mt-0 { margin-top: 0; }
+  .nowrap { white-space: nowrap; }
+
+  /* FOOTER */
+  footer {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 12px;
+    padding: 32px 16px 48px;
+    line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="wrap">
+    <div class="hero-label">Сводка отдела продаж</div>
+    <h1>Пятница, 22 мая 2026</h1>
+    <div class="hero-subtitle">
+      Концовка недели: 4 защиты КП с переходом в финал, 2 бриффинга на крупных клиентах (Альтамед Плюс, Kandela). Главное событие — Деговцова улетает на 2 недели в Китай, handover на Гордиенко проговорён внутри встреч с клиентами.
+    </div>
+    <div class="hero-meta">
+      <div><strong>249</strong> завершённых действий</div>
+      <div><strong>6</strong> встреч в плане · <strong>5</strong> проведено</div>
+      <div><strong>3</strong> менеджера + <strong>2</strong> ТМ в холодных звонках</div>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <!-- ГЛАВНЫЕ ЦИФРЫ -->
+  <section>
+    <div class="section-head">
+      <div class="section-icon blue">①</div>
+      <h2>Главные цифры дня</h2>
+    </div>
+    <div class="stats">
+      <div class="stat accent-blue">
+        <div class="stat-value">249</div>
+        <div class="stat-label">Действий всего</div>
+        <div class="stat-sub">164 звонка · 21 письмо · 60 веб-форм/задач</div>
+      </div>
+      <div class="stat accent-green">
+        <div class="stat-value">5</div>
+        <div class="stat-label">Встреч проведено</div>
+        <div class="stat-sub">из 6 запланированных</div>
+      </div>
+      <div class="stat accent-red">
+        <div class="stat-value">1</div>
+        <div class="stat-label">Провалена</div>
+        <div class="stat-sub">lasmed.ru — клиент не пришёл</div>
+      </div>
+      <div class="stat accent-amber">
+        <div class="stat-value">3</div>
+        <div class="stat-label">Брифа создано</div>
+        <div class="stat-sub">altamedplus · zn48 · kandela</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">4</div>
+        <div class="stat-label">Защит КП успешно</div>
+        <div class="stat-sub">vtb.med · zn48 · kvent · (+1 переходит в финал)</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">0</div>
+        <div class="stat-label">Сделок выиграно сегодня</div>
+        <div class="stat-sub">все клиенты «уходят думать»</div>
+      </div>
+    </div>
+
+    <div class="callout callout-blue">
+      <div class="callout-label">Контекст</div>
+      <div class="callout-body">
+        Это пятница, и динамика по понятным причинам ниже четверга: 249 действий против 280, 6 встреч против 10. Но качество встреч выше — <strong>4 из 5 проведённых были защитами КП на финальной стадии</strong> (C10:EXECUTING / C10:PREPAYMENT_INVOIC / C10:FINAL_INVOICE). К понедельнику ждём решения по vtb.med, zn48, kvent, lasmed.
+      </div>
+    </div>
+  </section>
+
+  <!-- МЕНЕДЖЕРЫ -->
+  <section>
+    <div class="section-head">
+      <div class="section-icon blue">②</div>
+      <h2>Активность менеджеров</h2>
+    </div>
+    <div class="managers">
+      <div class="mgr">
+        <div class="mgr-name">Гордиенко Евгения</div>
+        <div class="mgr-role">Руководитель отдела продаж</div>
+        <div class="mgr-row"><span class="mgr-row-label">Звонки</span><span class="mgr-row-value">7</span></div>
+        <div class="mgr-row"><span class="mgr-row-label">Письма (вх/исх)</span><span class="mgr-row-value">4 / 3</span></div>
+        <div class="mgr-row"><span class="mgr-row-label">Встречи провела</span><span class="mgr-row-value">2</span></div>
+        <div class="mgr-row"><span class="mgr-row-label">Брифы заполнила</span><span class="mgr-row-value">2</span></div>
+        <div class="mgr-note">Бриффинги altamedplus.ru (Дубки-Альтамед, оборот 108 М ₽) и kandela.ru (Русскотон, оборот 213 М ₽). На обоих она же — главный спикер. Бриф kandela заполнила в 23:18 — тревожно поздно (через 10 ч после встречи).</div>
+      </div>
+      <div class="mgr">
+        <div class="mgr-name">Деговцова Елизавета</div>
+        <div class="mgr-role">Менеджер по продажам</div>
+        <div class="mgr-row"><span class="mgr-row-label">Звонки (вх/исх)</span><span class="mgr-row-value">8 / 3</span></div>
+        <div class="mgr-row"><span class="mgr-row-label">Письма</span><span class="mgr-row-value">2</span></div>
+        <div class="mgr-row"><span class="mgr-row-label">Встречи провела</span><span class="mgr-row-value">3</span></div>
+        <div class="mgr-row"><span class="mgr-row-label">Брифы</span><span class="mgr-row-value">1 (zn48)</span></div>
+        <div class="mgr-note">Защиты vtb.med (36 мин, в паре с РОП аккаунтинга Марией), zn48.ru (44 мин), lasmed.ru (провал — клиент не пришёл). Завтра улетает на 2 недели в Китай → handover на Гордиенко проговорён лично с каждым клиентом vtb.med и zn48 в кадре встречи. Возвращается 08.06.</div>
+      </div>
+      <div class="mgr">
+        <div class="mgr-name">Семенихин Егор</div>
+        <div class="mgr-role">Менеджер по продажам</div>
+        <div class="mgr-row"><span class="mgr-row-label">Звонки (вх)</span><span class="mgr-row-value">13</span></div>
+        <div class="mgr-row"><span class="mgr-row-label">Письма</span><span class="mgr-row-value">1</span></div>
+        <div class="mgr-row"><span class="mgr-row-label">Встречи провёл</span><span class="mgr-row-value">1</span></div>
+        <div class="mgr-row"><span class="mgr-row-label">Брифы / КП</span><span class="mgr-row-value">—</span></div>
+        <div class="mgr-note">Защита kvent.ru (35 мин) — перенесённая с 21.05. В транскрипте обозначен как «SEO-специалист» — презентует именно технический аудит. Клиент дважды резко прервал: «можем больше по делу, это всё теория».</div>
+      </div>
+      <div class="mgr">
+        <div class="mgr-name">Вострецов Аркадий</div>
+        <div class="mgr-role">Телемаркетолог</div>
+        <div class="mgr-row"><span class="mgr-row-label">Звонки</span><span class="mgr-row-value">67</span></div>
+        <div class="mgr-row"><span class="mgr-row-label">Веб-формы</span><span class="mgr-row-value">11</span></div>
+        <div class="mgr-row"><span class="mgr-row-label">Встречи</span><span class="mgr-row-value">—</span></div>
+        <div class="mgr-row"><span class="mgr-row-label">Сделок коснулся</span><span class="mgr-row-value">29</span></div>
+        <div class="mgr-note">Пятница, объём ниже чем у Исаевой — но 29 разных сделок против 32 у неё. Возможно компенсирует более длинными разговорами.</div>
+      </div>
+      <div class="mgr">
+        <div class="mgr-name">Исаева Дарья</div>
+        <div class="mgr-role">Телемаркетолог</div>
+        <div class="mgr-row"><span class="mgr-row-label">Звонки</span><span class="mgr-row-value">66</span></div>
+        <div class="mgr-row"><span class="mgr-row-label">Письма</span><span class="mgr-row-value">7</span></div>
+        <div class="mgr-row"><span class="mgr-row-label">Встречи</span><span class="mgr-row-value">—</span></div>
+        <div class="mgr-row"><span class="mgr-row-label">Сделок коснулась</span><span class="mgr-row-value">32</span></div>
+        <div class="mgr-note">Самая широкая воронка касаний дня — 32 разных сделки. Холодный обзвон + 7 писем сопровождения.</div>
+      </div>
+    </div>
+
+    <div class="callout callout-amber" style="margin-top: 20px;">
+      <div class="callout-label">Дополнение к отчёту 21.05</div>
+      <div class="callout-body">
+        Во вчерашнем отчёте имена ТМ были указаны неверно: правильные имена — <strong>Вострецов Аркадий</strong> (не Поспехов) и <strong>Исаева Дарья</strong> (не Краева). Кроме того, Семенихина зовут <strong>Егор</strong> (не Игорь). Имена выверены через user.get по user_id.
+      </div>
+    </div>
+  </section>
+
+  <!-- ВСТРЕЧИ -->
+  <section>
+    <div class="section-head">
+      <div class="section-icon purple">③</div>
+      <h2>Встречи дня — статусы и оценки качества</h2>
+    </div>
+    <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Время</th>
+          <th>Сделка / тип</th>
+          <th>Менеджер</th>
+          <th>Статус</th>
+          <th>Запись</th>
+          <th>Транскрипт</th>
+          <th>Оценка</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>11:00</td>
+          <td>
+            <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/17146/">altamedplus.ru</a> · Бриффинг
+            <div class="meeting-meta">Дубки-Альтамед · медцентр в Одинцово · оборот 108 М ₽ · 6 филиалов</div>
+          </td>
+          <td>Гордиенко</td>
+          <td><span class="badge b-green">Успех</span></td>
+          <td><span class="badge b-green">есть</span></td>
+          <td><span class="badge b-green">есть</span></td>
+          <td><span class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star-empty">★</span><span class="star-empty">★</span><span class="star-empty">★</span><span class="star-empty">★</span><span class="star-empty">★</span></span><span class="score-label">5/10</span></td>
+        </tr>
+        <tr>
+          <td>11:00</td>
+          <td>
+            <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/16240/">vtb.med</a> · Защита КП
+            <div class="meeting-meta">АО ВТБ Медицина · 200 000 ₽/мес SEO + 78К ТП · мед.туризм для b2c</div>
+          </td>
+          <td>Деговцова + Мария (РОП аккаунтинга)</td>
+          <td><span class="badge b-green">Успех</span></td>
+          <td><span class="badge b-green">есть</span></td>
+          <td><span class="badge b-green">есть</span></td>
+          <td><span class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star-empty">★</span><span class="star-empty">★</span><span class="star-empty">★</span></span><span class="score-label">7/10</span></td>
+        </tr>
+        <tr>
+          <td>13:00</td>
+          <td>
+            <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/24304/">kandela.ru</a> · Бриффинг
+            <div class="meeting-meta">Русскотон · спецтехника (вилочные погрузчики, краны, мототехника) · оборот 213 М ₽</div>
+          </td>
+          <td>Гордиенко</td>
+          <td><span class="badge b-green">Успех</span></td>
+          <td><span class="badge b-green">есть</span></td>
+          <td><span class="badge b-green">есть</span></td>
+          <td><span class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star-empty">★</span><span class="star-empty">★</span><span class="star-empty">★</span><span class="star-empty">★</span><span class="star-empty">★</span><span class="star-empty">★</span></span><span class="score-label">4/10</span></td>
+        </tr>
+        <tr>
+          <td>15:00</td>
+          <td>
+            <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/7634/">kvent.ru</a> · Защита КП
+            <div class="meeting-meta">Аэросистемы · 118 800 ₽/мес SEO + 56К техничка · перенесена с 21.05</div>
+          </td>
+          <td>Семенихин</td>
+          <td><span class="badge b-green">Успех</span></td>
+          <td><span class="badge b-green">есть</span></td>
+          <td><span class="badge b-green">есть</span></td>
+          <td><span class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star-empty">★</span><span class="star-empty">★</span><span class="star-empty">★</span><span class="star-empty">★</span><span class="star-empty">★</span><span class="star-empty">★</span></span><span class="score-label">4/10</span></td>
+        </tr>
+        <tr>
+          <td>17:00</td>
+          <td>
+            <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/17140/">zn48.ru</a> · Защита КП
+            <div class="meeting-meta">МНПО «Здоровье Нации» · 81К/мес нейросети + 47К контекст медцентр в Липецке</div>
+          </td>
+          <td>Деговцова</td>
+          <td><span class="badge b-green">Успех</span></td>
+          <td><span class="badge b-green">есть</span></td>
+          <td><span class="badge b-green">есть</span></td>
+          <td><span class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star-empty">★</span><span class="star-empty">★</span><span class="star-empty">★</span></span><span class="score-label">7/10</span></td>
+        </tr>
+        <tr>
+          <td>18:00</td>
+          <td>
+            <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/17112/">lasmed.ru</a> · Защита КП
+            <div class="meeting-meta">ЛАЗМЕД · Забродина Ольга (маркетолог)</div>
+          </td>
+          <td>Деговцова</td>
+          <td><span class="badge b-red">Провал</span></td>
+          <td><span class="badge b-gray">нет</span></td>
+          <td><span class="badge b-gray">нет</span></td>
+          <td><span class="stars-na">не состоялась</span></td>
+        </tr>
+      </tbody>
+    </table>
+    </div>
+
+    <div class="callout callout-amber">
+      <div class="callout-label">Положительный тренд</div>
+      <div class="callout-body">
+        В отличие от 21.05 (только 5 из 9 встреч имели запись и расшифровку), <strong>22.05 все 5 проведённых встреч имеют и запись и транскрипт</strong>. Сбоев Яндекс.Телемоста с подставленной чужой расшифровкой сегодня не было. Также Семенихин впервые за неделю провёл встречу с записью — сравните со вчерашним «3 встречи без записи».
+      </div>
+    </div>
+  </section>
+
+  <!-- РАЗБОР: vtb.med -->
+  <section>
+    <div class="section-head">
+      <div class="section-icon green">✓</div>
+      <h2>Лучшая встреча дня: vtb.med (36 мин · защита КП)</h2>
+    </div>
+    <p>Это самая длинная и самая сильная встреча дня. <strong>Платформа медицинского туризма для ВТБ</strong>: подбор клиник и врачей, постреабилитационное сопровождение, два сайта (вторая версия — для арабского рынка). У клиента бюджет 150–200 тыс ₽/мес, новый подрядчик с июня. Команда: Лиза-Деговцова + Мария (руководитель отдела аккаунтинга) + Ярослав (маркетолог клиента) + Елена (продакт клиента).</p>
+
+    <div class="meeting-block">
+      <div class="meeting-head">
+        <div>
+          <div class="meeting-title">vtb.med · Защита КП (36 мин)</div>
+          <div class="meeting-meta">Деговцова + Мария · 22.05 11:00 · сделка <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/16240/">#16240</a></div>
+        </div>
+        <div class="meeting-score-block">
+          <span class="stars">
+            <span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span>
+            <span class="star-empty">★</span><span class="star-empty">★</span><span class="star-empty">★</span>
+          </span>
+          <span class="score-label"><strong>7/10</strong></span>
+        </div>
+      </div>
+
+      <h4>Что сильно</h4>
+      <ul>
+        <li><strong>Две сметы вместо одной.</strong> Лиза показала две модели по бюджету клиента: 10 страниц/цикл + ТП на стороне клиента, либо 5 страниц/цикл + ТП на нашей стороне. Клиент видит выбор и понимает почему именно.</li>
+        <li><strong>Норма-часа 2 600–2 800 ₽ без скидок.</strong> Лиза прозрачно объяснила: «премиальная команда Team Lead Off, которая работает с Дом.РФ, Сбербанком, СМ-клиник, уже 10 лет вместе» — конкретные знаковые клиенты вместо абстрактного «опыт».</li>
+        <li><strong>Открытое возражение по поведенческим факторам.</strong> Клиент спросил «как относитесь к ПФ?» — Мария чётко ответила <em>«серый метод, не используем, кроме критических случаев»</em>, рассказала про один такой случай с историей домена. Не подсунули клиенту сомнительную услугу.</li>
+        <li><strong>Подняли фокус-смещение клиента.</strong> Лиза: «у меня в CRM везде СНГ отмечена ваша целевая аудитория. Расскажите сейчас в двух словах». Поймали важное изменение позиционирования за 4 минуты обсуждения.</li>
+        <li><strong>Внятный handover на Китай.</strong> «С завтрашнего дня улетаю на 2 недели в Китай, подхватит Егор или РОП, с 8-го числа я выхожу». Клиент уведомлён в кадре встречи — будущих недоразумений не будет.</li>
+      </ul>
+
+      <h4>Что слабо</h4>
+      <ul>
+        <li><strong>Кейса медицинского туризма не было</strong> — Лиза ссылалась на «Буду-агрегатор» от Марии как аналогию, но не показала экран, не назвала результаты. У клиента осталось ощущение «понимаем что у вас был аналог, но не видели его».</li>
+        <li><strong>Тариф сильно зависит от списка услуг клиента, который ещё не готов.</strong> Елена: «продукты должны быть выкачаны, это вопрос трёх-четырёх недель». Деговцова не предложила параллельно начать на широких запросах <em>«медицинский туризм, ВМП, нозологии»</em> — клиент сам это сформулировал.</li>
+        <li><strong>Сделка #16240 OPP=200К/мес</strong> — не отражено в карточке productrow (только одна строчка SEO на 200К). По факту обсуждались две сметы + ТП, реальная цена 230+ К/мес. Сделка не попадёт в прогноз продаж правильно.</li>
+      </ul>
+
+      <div class="callout callout-blue">
+        <div class="callout-label">Эмоциональный итог</div>
+        <div class="callout-body">
+          Лиза в финале: <em>«мы с загоревшимся проектом уходим думать, делать и предоставлять информацию. Надеюсь, что заключимся, потому что команда правда горит изнутри»</em> — клиент Елена ответила «спасибо за активный разговор». Сделку <strong>не закрыли, но клиент эмоционально вовлечён</strong>. Прогноз посещаемости обещан к понедельнику 25.05.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- РАЗБОР: zn48.ru -->
+  <section>
+    <div class="section-head">
+      <div class="section-icon green">✓</div>
+      <h2>Вторая сильная встреча: zn48.ru (44 мин · защита КП + бонусный отчёт)</h2>
+    </div>
+    <p>Медицинский центр в Липецке, продвижение в нейросетях + контекст + SEO. Дмитрий (руководитель) и Антон (SEO-специалист на полставки у клиента) с одной стороны, Деговцова — с другой. На столе: <strong>бонусный отчёт по нейровыдаче за 1–7 мая</strong> (сделали в порядке лояльности, обычно только клиентам), аудит контекста, КП по SEO+нейросети.</p>
+
+    <div class="meeting-block">
+      <div class="meeting-head">
+        <div>
+          <div class="meeting-title">zn48.ru · Защита КП (44 мин)</div>
+          <div class="meeting-meta">Деговцова · 22.05 17:00 · сделка <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/17140/">#17140</a></div>
+        </div>
+        <div class="meeting-score-block">
+          <span class="stars">
+            <span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span>
+            <span class="star-empty">★</span><span class="star-empty">★</span><span class="star-empty">★</span>
+          </span>
+          <span class="score-label"><strong>7/10</strong></span>
+        </div>
+      </div>
+
+      <h4>Что сильно</h4>
+      <ul>
+        <li><strong>Бонусный отчёт за работу до договора.</strong> Деговцова: «договорилась, чтобы сделали вам отчёт в порядке бонуса, лояльности». Это сильный аргумент «мы инвестируем в вас ещё до подписания». Аналог нашему отчёту renewal.ru от 21.05 — пайплайн отчётов работает.</li>
+        <li><strong>Признали заслугу штатного SEO клиента.</strong> Деговцова: «Антон, мы жмём вам руку, это ваша заслуга целиком и полностью, что у вас положительная тональность упоминаний». Антон стал союзником на встрече, а не соперником-стороной.</li>
+        <li><strong>Корректно отказали в ПФ-факторах.</strong> Антон спросил «50–80 тыс на ПФ?» — Деговцова: «работаем по белым методам, но если нужно — можем подключить, понимая, что слезть с них сложно». Не подсунули серый метод ради короткого результата.</li>
+        <li><strong>Признали ограничения нейропродвижения честно.</strong> «Лидогенерацию через нейросети нельзя полноценно отследить — клиент видит бренд, идёт через Яндекс.Карты, лиды припишут картам». Не врали про метрики, объяснили механику.</li>
+        <li><strong>Конкретные цифры по контексту.</strong> 47К врачи=94 лида + 37К хирургия=45 + 28К диагностика=66 + 22К косметология=66 + 15К RSA=41 → бюджет 150К/мес даёт 312 лидов прогноз. Антон сверил с фактом «300–400 ₽ за лид» — цифры сошлись.</li>
+      </ul>
+
+      <h4>Что слабо</h4>
+      <ul>
+        <li><strong>Сорвалось предложение по лидам на SEO.</strong> Дмитрий сам остановил Деговцову: <em>«не вижу смысла считать прогноз по лидам — слишком много допусков, картина получится неадекватной»</em>. Деговцова не предложила альтернативу первой — клиент сам сформулировал «давайте только трафик + позиции по коммерческим запросам». Потеряли инициативу.</li>
+        <li><strong>Сделка #17140 OPP=0 ₽.</strong> Несмотря на чёткие цифры в КП (81К нейросети + 47К+37К+28К+22К+15К контекст = ~230К/мес), в карточке сделки сумма не зафиксирована. Сделка не попадёт в прогноз продаж.</li>
+        <li><strong>Ссылочный бюджет не объяснили чем отличается SEO-ссылки от нейро-ссылок.</strong> Дмитрий: «мы уже покупаем ссылки для SEO, не будет ли дублироваться работа?» Деговцова: «знаю, что отличаются, уточню и пришлю развёрнутый ответ». Должно быть готовое объяснение к защите — это базовый вопрос.</li>
+        <li><strong>Сослалась на конкретного конкурента «Семейный доктор» как активного в нейросетях</strong> — но без вывода. Это шанс сказать «вот они начали раньше, опередят вас на 6 месяцев если не возьмётесь сейчас». Срочности в финале не было.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- РАЗБОР: altamedplus -->
+  <section>
+    <div class="section-head">
+      <div class="section-icon purple">④</div>
+      <h2>Содержательный разбор остальных встреч</h2>
+    </div>
+
+    <div class="meeting-block">
+      <div class="meeting-head">
+        <div>
+          <div class="meeting-title">altamedplus.ru · Бриффинг (23 мин)</div>
+          <div class="meeting-meta">Дубки-Альтамед · многопрофильный медцентр в Одинцово, 6 филиалов, 150+ врачей · сделка <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/17146/">#17146</a></div>
+        </div>
+        <div class="meeting-score-block">
+          <span class="stars">
+            <span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span>
+            <span class="star-empty">★</span><span class="star-empty">★</span><span class="star-empty">★</span><span class="star-empty">★</span><span class="star-empty">★</span>
+          </span>
+          <span class="score-label"><strong>5/10</strong></span>
+        </div>
+      </div>
+      <h4>Что хорошо</h4>
+      <ul>
+        <li>Гордиенко показала <strong>живой отчёт Renewal от вчерашней встречи 21.05</strong>: «вот пример отчёта мы для Реневала делали вот вчера буквально». Демонстрация продукта в действии — самый сильный аргумент.</li>
+        <li>На вопрос «какие услуги приоритетные?» — клиент Елена назвала Топ-3 (стоматология, косметология, гинекология), Гордиенко уточнила «какие из них самые прибыльные?». Маркетинговая воронка → экономическая воронка — хороший reframe.</li>
+        <li>Зафиксировали 6 филиалов, ребрендинг с «Альтамед + Один Мед» в единый бренд — учтут при семантике и геопродвижении.</li>
+      </ul>
+      <h4>Что слабо</h4>
+      <ul>
+        <li>В первые 30 секунд Гордиенко сказала «отойду, у меня зарядка садится» — это <strong>проявление неподготовленности</strong>. Клиент пожелал хорошего, но первое впечатление испорчено.</li>
+        <li><strong>Ошибка с сайтом:</strong> Гордиенко открыла сайт «dubki-altamed.ru» (юр.лица), а у клиента altamedplus.ru. Клиент: «это не наш сайт». Гордиенко: «прошу прощения». Должен был быть открыт правильный сайт до встречи.</li>
+        <li><strong>Перепутала имя клиента.</strong> В 11:49 говорит: «Воденцова, прошу прощения» — после альтамеда у неё была встреча с другими клиентами, имена смешались. У клиента Елена.</li>
+        <li>На «40 промтов — это в месяц на один раздел? У нас 55 направлений» Гордиенко не объяснила сразу — «это в среднем, тех специалисты посмотрят». Базовый вопрос про объём работ без готового ответа.</li>
+        <li>Бриф #1482 заполнен в 11:36 (через 36 минут после начала) — хорошо. Но содержание брифа надо проверить — особенно по 55 мед.направлениям клиента.</li>
+      </ul>
+    </div>
+
+    <div class="meeting-block">
+      <div class="meeting-head">
+        <div>
+          <div class="meeting-title">kandela.ru · Бриффинг (12 мин — самая короткая встреча дня)</div>
+          <div class="meeting-meta">Русскотон · спецтехника · клиент Егор · сделка <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/24304/">#24304</a></div>
+        </div>
+        <div class="meeting-score-block">
+          <span class="stars">
+            <span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span>
+            <span class="star-empty">★</span><span class="star-empty">★</span><span class="star-empty">★</span><span class="star-empty">★</span><span class="star-empty">★</span><span class="star-empty">★</span>
+          </span>
+          <span class="score-label"><strong>4/10</strong></span>
+        </div>
+      </div>
+      <h4>Критические проблемы</h4>
+      <div class="callout callout-red">
+        <div class="callout-label">Дословный повтор питча из altamedplus</div>
+        <div class="callout-body">
+          Гордиенко открыла встречу с kandela.ru теми же словами что и в altamedplus 2 часа назад: «продукт относительно новый на рынке», «нам удалось выявить, что работает», <em>«это не просто платформа, в которой мы делаем отчёт. Тут на самом деле Франкенштейн, и тут часть отчёта делается руками»</em>. Дословный повтор. Клиент Егор спросил «нас перебивает? Ну, это очень такой вопрос, не объективный» — попросил не лезть в его рынок.
+        </div>
+      </div>
+      <div class="quote client-bad">
+        «Нас перебивает? Ну, это очень такой вопрос, не объективный. Потому что направление много. По каждой категории свои конкуренты».
+        <div class="quote-author">Егор (Русскотон) · 05:07 — на вопрос «кто ваши конкуренты»</div>
+      </div>
+      <h4>Что не так с подходом</h4>
+      <ul>
+        <li><strong>Гордиенко не подстроилась под B2B-нишу.</strong> Клиент — продаёт спецтехнику (вилочные погрузчики, краны, мототехника) промышленным клиентам. Те же фразы про нейропродвижение медицины не работают для спецтехники B2B. Нужен был кейс по промышленному оборудованию (на сайте есть кейсы строительной техники).</li>
+        <li><strong>Кейс не показан.</strong> Гордиенко: «я вам направлю кейс с уклоном медицины, но всё равно посмотрите этапы геопродвижения». Клиент это не отметил — он понимает что не его ниша.</li>
+        <li><strong>Бриф #1490 заполнен в 23:18.</strong> Через 10 часов после встречи — контекст уже потерян. Должен заполняться в течение часа.</li>
+      </ul>
+    </div>
+
+    <div class="meeting-block">
+      <div class="meeting-head">
+        <div>
+          <div class="meeting-title">kvent.ru · Защита КП (35 мин — перенесённая с 21.05)</div>
+          <div class="meeting-meta">Аэросистемы · клиент Иван ЛВР (маркетолог) + представитель клиента · сделка <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/7634/">#7634</a></div>
+        </div>
+        <div class="meeting-score-block">
+          <span class="stars">
+            <span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span>
+            <span class="star-empty">★</span><span class="star-empty">★</span><span class="star-empty">★</span><span class="star-empty">★</span><span class="star-empty">★</span><span class="star-empty">★</span>
+          </span>
+          <span class="score-label"><strong>4/10</strong></span>
+        </div>
+      </div>
+
+      <div class="quote client-bad">
+        «Можем больше по делу, что конкретно предлагаете, какие работы, всё и так понятно. Можно больше по делу, пожалуйста?»
+        <div class="quote-author">Представитель клиента · 03:39 — первые 4 минуты встречи</div>
+      </div>
+      <div class="quote client-bad">
+        «Тоже не нужно давать. Но это всё теория».
+        <div class="quote-author">Представитель клиента · 03:57</div>
+      </div>
+
+      <h4>Сильные моменты</h4>
+      <ul>
+        <li><strong>Конкретный технический аудит:</strong> дубли мета-тегов, отсутствие canonical, отсутствие 301-редиректов, страницы без товаров (только подкатегории). Семенихин ссылался на конкретные слайды и страницы конкурентов.</li>
+        <li>Хорошо объяснил <strong>почему не делают накрутку ПФ</strong>: «соскочить очень сложно, поисковики не одобряют» — клиент Антон-аналог не получил соблазна.</li>
+        <li>Финальный вопрос: «есть ли понимание, на что директор будет ориентироваться при выборе?» — пытается зацепить критерии решения.</li>
+      </ul>
+      <h4>Слабые моменты</h4>
+      <ul>
+        <li>Первые 4 минуты — теория и общие маркетинговые слайды. Семенихин не успел дойти до конкретики, как клиент его прервал.</li>
+        <li>«Я приболеваю, могу покашлять» — не лучший момент для встречи на 175К ₽/мес.</li>
+        <li>Не задал вопрос о бюджете на год. Только в финале клиент сказал что относит к директору — узнали поздно.</li>
+        <li><strong>Кейс по интернет-магазину спецоборудования</strong> не показан, хотя сайт Кэнт — это интернет-магазин расходных материалов. Сравнения с конкурентами вскользь.</li>
+        <li>Сделка #7634 находится в стадии C10:<strong>FINAL_INVOICE</strong> — это самая глубокая стадия воронки, означает что уже почти подписано/оплачено. При этом OPP=0 ₽. Менеджер не выставил сумму в карточке.</li>
+      </ul>
+    </div>
+
+    <div class="meeting-block">
+      <div class="meeting-head">
+        <div>
+          <div class="meeting-title">lasmed.ru · Защита КП — провал, клиент не пришёл</div>
+          <div class="meeting-meta">ЛАЗМЕД · Забродина Ольга · 18:00 · сделка <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/17112/">#17112</a></div>
+        </div>
+        <div class="meeting-score-block">
+          <span class="stars-na">не состоялась</span>
+        </div>
+      </div>
+      <p>Встреча в 18:00 в пятницу — изначально рискованное время. Карточка встречи переведена в FAIL, но в карточке сделки <strong>не указана причина и нет плана дальнейших действий</strong>. Сделка #17112 на стадии C10:EXECUTING (т.е. КП уже было отправлено), и она не должна была так умереть. Деговцова улетает завтра в Китай → этот клиент остаётся «в подвешенном состоянии» как минимум до 8 июня, если Гордиенко не подхватит лично.</p>
+      <div class="callout callout-red">
+        <div class="callout-label">Системная проблема — повторяется с 21.05</div>
+        <div class="callout-body">
+          На 21.05 две встречи провалены (galaktika.clinic, sporttravma.org), на 22.05 — ещё одна (lasmed.ru). За два дня 3 провала без зафиксированной причины и без плана восстановления. <strong>Это пробел в Битриксе — нужно автоматическое требование комментария при переводе встречи в FAIL.</strong>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- HANDOVER В КИТАЙ -->
+  <section>
+    <div class="section-head">
+      <div class="section-icon red">!</div>
+      <h2>Особое внимание: Деговцова улетает в Китай на 2 недели</h2>
+    </div>
+    <p>Завтра, 23 мая, Деговцова Елизавета улетает на 2 недели в Китай. Возвращается 8 июня. До 8-го числа все её активные сделки переходят к РОП Гордиенко Евгении. Это <strong>самое опасное событие недели для отдела продаж</strong> — handover мидл-менеджера с активным портфелем на сильного, но и так загруженного РОПа.</p>
+
+    <h3>Сделки в её зоне, требующие обработки до 8 июня</h3>
+    <div class="hilight-grid">
+      <div class="hilight risk">
+        <div class="hilight-title">vtb.med — ожидает прогноз посещаемости</div>
+        <div class="hilight-deal">Сделка #16240 · 200 000 ₽/мес</div>
+        <div class="hilight-body">Лиза обещала клиенту прогноз посещаемости <strong>к понедельнику 25.05</strong>. Если она не успеет до отлёта — Гордиенко обязана подхватить и обеспечить прогноз. Клиент Елена очень эмоционально вовлечён, опоздание = риск потери доверия.</div>
+      </div>
+
+      <div class="hilight risk">
+        <div class="hilight-title">zn48.ru — ожидает 2 сметы и встреча с Марией</div>
+        <div class="hilight-deal">Сделка #17140 · ~230 000 ₽/мес</div>
+        <div class="hilight-body">Деговцова обещала две сметы (SEO отдельно и SEO+нейросети комбо) с учётом 75 запросов от Антона. Также обещана повторная встреча с Марией. Антон ждёт ответ «чем отличаются ссылки SEO от ссылок нейро» — это техническая задолженность Деговцовой.</div>
+      </div>
+
+      <div class="hilight risk-medium">
+        <div class="hilight-title">lasmed.ru — провалена, нет плана</div>
+        <div class="hilight-deal">Сделка #17112 · стадия EXECUTING</div>
+        <div class="hilight-body">Клиент не пришёл на защиту. Нужен звонок «что случилось, перенесём?» в понедельник 25.05. Без этого сделка умрёт за 2 недели отсутствия Лизы.</div>
+      </div>
+
+      <div class="hilight risk-medium">
+        <div class="hilight-title">Прочие активные сделки в её портфеле</div>
+        <div class="hilight-deal">~9 сделок, которых она касалась 22.05</div>
+        <div class="hilight-body">Деговцова за день коснулась 9 разных сделок (звонки/письма). Нужен полный список с её Telegram до отлёта + статус каждой. Часть может болтаться без касаний до 8 июня.</div>
+      </div>
+    </div>
+
+    <div class="callout callout-blue">
+      <div class="callout-label">Что сделано правильно</div>
+      <div class="callout-body">
+        Деговцова <strong>лично проговорила handover</strong> с клиентами vtb.med и zn48.ru в кадре встречи: «с завтрашнего дня улетаю в Китай, подхватит Евгения-РОП, с 8 июня я с вами». Клиенты в курсе — это снижает риск «вы меня обманули, не отвечаете». В классических компаниях handover делают в почте через неделю, здесь — сразу и устно.
+      </div>
+    </div>
+  </section>
+
+  <!-- ЧТО КЛАССНОГО -->
+  <section class="tinted-green">
+    <div class="section-head">
+      <div class="section-icon green">✓</div>
+      <h2>Что классного в сегодняшнем дне</h2>
+    </div>
+
+    <div class="hilight-grid">
+      <div class="hilight good">
+        <div class="hilight-title"><span class="hilight-tag tag-good">приём</span> Кейс Renewal на следующий день</div>
+        <div class="hilight-body">Гордиенко на встрече altamedplus.ru показала живой отчёт Renewal, который мы делали 21.05 (на встрече Маши-НП). Дайджест одной встречи стал инструментом следующей. <strong>Пайплайн «отчёт → демонстрация» работает.</strong></div>
+      </div>
+
+      <div class="hilight good">
+        <div class="hilight-title"><span class="hilight-tag tag-good">приём</span> Бонусный отчёт zn48 до договора</div>
+        <div class="hilight-body">Деговцова: «договорилась, чтобы сделали вам отчёт в порядке бонуса». Инвестиция продукта в потенциального клиента до подписания — сильный сигнал лояльности. Аналогично работает с altamedplus («приду со вторым визитом с готовым аудитом»).</div>
+      </div>
+
+      <div class="hilight good">
+        <div class="hilight-title"><span class="hilight-tag tag-good">приём</span> Открытый отказ от ПФ</div>
+        <div class="hilight-body">На zn48 и vtb.med оба клиента спрашивали про ПФ (поведенческие факторы). Деговцова и Мария чётко: «серый метод, рискуем здоровьем сайта, не используем». Не подсунули сомнительную услугу ради короткого результата — это и есть «белые методы».</div>
+      </div>
+
+      <div class="hilight good">
+        <div class="hilight-title"><span class="hilight-tag tag-good">приём</span> Команда на встречу</div>
+        <div class="hilight-body">На vtb.med Деговцова пришла с Марией (РОП аккаунтинга). Лиза вела процесс, Мария закрывала технику. Это даёт клиенту ощущение премиальной команды, и Лиза не «провисает» когда задают глубокие технические вопросы.</div>
+      </div>
+
+      <div class="hilight good">
+        <div class="hilight-title"><span class="hilight-tag tag-good">приём</span> Признали заслугу штатного SEO клиента</div>
+        <div class="hilight-body">На zn48 Деговцова Антону (SEO на полставки у клиента): «жмём вам руку, ваша заслуга, что у вас положительная тональность». Антон стал союзником на встрече, в финале он сам предложил «давайте смету и на SEO посмотрим».</div>
+      </div>
+
+      <div class="hilight good">
+        <div class="hilight-title"><span class="hilight-tag tag-good">приём</span> Прозрачный handover в кадре</div>
+        <div class="hilight-body">Деговцова на каждой защите проговорила свою поездку в Китай: «подхватит Евгения». Клиенты vtb.med и zn48 проинформированы лично — намного сильнее писем после «дисклеймер передачи».</div>
+      </div>
+
+      <div class="hilight good">
+        <div class="hilight-title"><span class="hilight-tag tag-good">работа</span> Все 5 встреч с транскриптом</div>
+        <div class="hilight-body">В отличие от 21.05 (5 встреч без записи или с подставленной), на 22.05 <strong>все 5 проведённых встреч имеют корректную запись и транскрипт</strong>. Семенихин впервые за неделю — с записью. Сбоев Яндекс.Телемоста не зафиксировано.</div>
+      </div>
+
+      <div class="hilight good">
+        <div class="hilight-title"><span class="hilight-tag tag-good">приём</span> Reframe «приоритет→прибыльность»</div>
+        <div class="hilight-body">Гордиенко на altamedplus: «А какие из ваших услуг самые прибыльные?». Маркетолог-клиент назвал направления, Гордиенко переключила в плоскость экономики. Хороший reframe — это вопрос которого ждёт коммерческий директор.</div>
+      </div>
+
+      <div class="hilight good">
+        <div class="hilight-title"><span class="hilight-tag tag-good">работа</span> Холодный обзвон в пятницу</div>
+        <div class="hilight-body">Вострецов 67 звонков, Исаева 66. Пятница — обычно «лайтовый» день, но ТМ держат норму понедельника. Исаева коснулась 32 разных сделок — самая широкая воронка за день.</div>
+      </div>
+
+      <div class="hilight good">
+        <div class="hilight-title"><span class="hilight-tag tag-good">приём</span> Конкретные конкурентные имена</div>
+        <div class="hilight-body">На zn48 Деговцова назвала конкурента: «Семейный доктор очень активно работает над нейросетями — либо на старте, либо уже не первый месяц». Конкретное имя > абстракции «у вас есть конкуренты». К защите 27.05 gutaclinic нужно прийти с 4 конкурентами в нейровыдаче.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ЧТО ДОЛЖНО БЫЛО БЫТЬ, НО НЕ СДЕЛАНО -->
+  <section class="tinted-amber">
+    <div class="section-head">
+      <div class="section-icon amber">⚠</div>
+      <h2>Что должно было быть сделано, но не сделано</h2>
+    </div>
+
+    <h3>До и на встречах</h3>
+    <div class="hilight-grid">
+      <div class="hilight miss">
+        <div class="hilight-title"><span class="hilight-tag tag-miss">подготовка</span> Правильный сайт открыт</div>
+        <div class="hilight-body">Гордиенко на altamedplus открыла «dubki-altamed.ru» вместо «altamedplus.ru» — клиент сам поправил. Перед встречей открывать именно тот сайт с которым клиент идёт. Базовый чек-лист.</div>
+      </div>
+
+      <div class="hilight miss">
+        <div class="hilight-title"><span class="hilight-tag tag-miss">подготовка</span> Зарядка устройства</div>
+        <div class="hilight-body">Гордиенко: «отойду, у меня зарядка садится» в первые 30 секунд встречи altamedplus. На защите 515К₽ — это базовый провал подготовки. Должен быть power bank или питание у ноута до начала.</div>
+      </div>
+
+      <div class="hilight miss">
+        <div class="hilight-title"><span class="hilight-tag tag-miss">подготовка</span> Адаптация питча под B2B</div>
+        <div class="hilight-body">Гордиенко на kandela.ru дала тот же питч что в altamedplus — про медицинский нейроконтент. Клиент Русскотон — спецтехника. Должна была быть подготовка «вот наши кейсы по промышленному оборудованию», но их не показали.</div>
+      </div>
+
+      <div class="hilight miss">
+        <div class="hilight-title"><span class="hilight-tag tag-miss">подготовка</span> Ответ про SEO-vs-нейро ссылки</div>
+        <div class="hilight-body">Дмитрий-zn48 спросил «чем отличаются ссылки для SEO от ссылок для нейро» — Деговцова не знала. Это базовый вопрос на защите. Ответ должен быть в чек-листе перед каждой защитой нейро-КП.</div>
+      </div>
+    </div>
+
+    <h3>Оформление в Битриксе</h3>
+    <div class="hilight-grid">
+      <div class="hilight miss">
+        <div class="hilight-title"><span class="hilight-tag tag-miss">оформление</span> OPP сделок не отражает КП</div>
+        <div class="hilight-body">vtb.med #16240 OPP=200К, но обсуждались две сметы 200К+78К. zn48 #17140 OPP=0₽ при 230К/мес. kvent #7634 OPP=0₽ на стадии FINAL_INVOICE. <strong>Системная проблема — прогноз продаж не отражает реальность.</strong></div>
+      </div>
+
+      <div class="hilight miss">
+        <div class="hilight-title"><span class="hilight-tag tag-miss">оформление</span> OPP=оборот компании</div>
+        <div class="hilight-body">altamedplus.ru OPP=108 299 000 ₽ и kandela.ru OPP=213 159 000 ₽ — это <strong>обороты компаний клиентов</strong>, не суммы сделок. По всему CRM таких сделок 136 шт. По итогам диагностики (5 smoke-тестов в Битрикс24) — автоматического БП который бы это делал НЕТ. Это <strong>ручной скрипт массового update</strong>, запущенный 20-21 мая ночью под двумя OAuth-токенами (Лариса AI и Кувандыков). Подробности и план фикса — в отдельной записке.</div>
+      </div>
+
+      <div class="hilight miss">
+        <div class="hilight-title"><span class="hilight-tag tag-miss">оформление</span> Бриф kandela в 23:18</div>
+        <div class="hilight-body">Бриф #1490 заполнен через 10 часов после встречи. Правило «бриф в день встречи, пока контекст свежий» — нарушено. Качество брифа надо отдельно проверить.</div>
+      </div>
+
+      <div class="hilight miss">
+        <div class="hilight-title"><span class="hilight-tag tag-miss">оформление</span> 2 дубля брифа сделки #10740</div>
+        <div class="hilight-body">Брифы #1486 и #1488 созданы для сделки #10740 в 19:08 и 19:34 от пользователя 1710 (не sales). Похоже на дубль из-за ошибки сохранения. Один нужно удалить, оставить тот, который заполнен.</div>
+      </div>
+
+      <div class="hilight miss">
+        <div class="hilight-title"><span class="hilight-tag tag-miss">оформление</span> Причина провала lasmed.ru</div>
+        <div class="hilight-body">Встреча FAIL, в карточке нет причины и плана. Повторение проблемы 21.05 (galaktika+sporttravma). Нужно автоматическое требование комментария при переводе встречи в FAIL.</div>
+      </div>
+
+      <div class="hilight miss">
+        <div class="hilight-title"><span class="hilight-tag tag-miss">оформление</span> Карточка КП — 0 шт за день</div>
+        <div class="hilight-body">Защиты КП проведены по 3 сделкам (vtb.med, zn48, kvent), но <strong>ни одной карточки КП в SP=1106 за 22.05 не создано</strong>. Карточки КП должны были быть до защит или сразу после. Это нарушает structured-учёт КП в воронке.</div>
+      </div>
+    </div>
+
+    <h3>Обещания клиентам — нужно фиксировать в задачах</h3>
+    <div class="hilight-grid">
+      <div class="hilight miss">
+        <div class="hilight-title"><span class="hilight-tag tag-miss">обещано клиенту</span> vtb.med — прогноз посещаемости</div>
+        <div class="hilight-body">Лиза обещала «к понедельнику 25.05» или «либо край понедельник». В карточке сделки задачи нет. Гордиенко должна получить эту задачу при handover.</div>
+      </div>
+
+      <div class="hilight miss">
+        <div class="hilight-title"><span class="hilight-tag tag-miss">обещано клиенту</span> zn48 — две сметы и кейсы</div>
+        <div class="hilight-body">Деговцова обещала: 1) смета SEO+нейросети комбо, 2) кейс по операциям/хирургии, 3) кейс многопрофильной клиники, 4) встреча с Марией. Срок — на следующей неделе. В карточке задач нет.</div>
+      </div>
+
+      <div class="hilight miss">
+        <div class="hilight-title"><span class="hilight-tag tag-miss">обещано клиенту</span> altamedplus — кейсы и СМИ</div>
+        <div class="hilight-body">Гордиенко обещала Елене: «выжимка по встрече, кейсы, СМИ покажу на второй итерации, 4–5 дней максимум». Клиент ждёт обратной связи на следующей неделе. Срок 27.05.</div>
+      </div>
+
+      <div class="hilight miss">
+        <div class="hilight-title"><span class="hilight-tag tag-miss">обещано клиенту</span> kandela — отчёт с уклоном медицины</div>
+        <div class="hilight-body">Гордиенко обещала Егору: «кейс с уклоном медицины, но всё равно посмотрите этапы геопродвижения». Это слабое обещание — клиенту нужен кейс по промышленному оборудованию, не медицине. Если такой есть на портфолио → подменить кейс.</div>
+      </div>
+
+      <div class="hilight miss">
+        <div class="hilight-title"><span class="hilight-tag tag-miss">обещано клиенту</span> kvent — повторная связь через неделю</div>
+        <div class="hilight-body">Семенихин: «через неделю обратная связь, конец месяца». Клиент: «относим к директору, не принимаем конечное решение». До 29.05 — звонок «как обсуждение?». Если директор не ответил — повод выйти на него напрямую.</div>
+      </div>
+
+      <div class="hilight miss">
+        <div class="hilight-title"><span class="hilight-tag tag-miss">подготовка</span> Карточка КП для всех защит</div>
+        <div class="hilight-body">К любой защите КП нужна карточка SP=1106 с PDF-приложением. Сейчас все три защиты дня прошли без карточек. До конца понедельника 25.05 создать 3 карточки КП ретроактивно с приложенными PDF.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ГЛАВНЫЕ РИСКИ -->
+  <section>
+    <div class="section-head">
+      <div class="section-icon red">▲</div>
+      <h2>Главные риски — требуют действий в понедельник 25.05</h2>
+    </div>
+
+    <div class="hilight-grid">
+      <div class="hilight risk">
+        <div class="hilight-title">gutaclinic — защита 27.05 (от 21.05)</div>
+        <div class="hilight-deal">Сделка #24412 · от 1,2 млн ₽/год · перенесена из вчерашнего отчёта</div>
+        <div class="hilight-body">Клиент Сергей дважды раздражённо сказал «вы меня пробивали как опросник». До 27.05 11:00 нужно: аудит сайта, сравнение с 4 конкурентами по 5 услугам, аудит позиций в нейровыдаче, адаптированные мед.кейсы. Деговцова уезжает — Гордиенко обязана это вытащить за 4 дня.</div>
+      </div>
+
+      <div class="hilight risk">
+        <div class="hilight-title">vtb.med — обещанный прогноз 25.05</div>
+        <div class="hilight-deal">Сделка #16240 · 200 000+ ₽/мес</div>
+        <div class="hilight-body">Лиза обещала прогноз посещаемости к понедельнику. Лиза уже в Китае. Гордиенко — либо успеть с командой к 25.05 18:00, либо честно написать клиенту «нужна неделя, было такое условие». Молчание = удар по доверию.</div>
+      </div>
+
+      <div class="hilight risk">
+        <div class="hilight-title">lasmed.ru — клиент пропал</div>
+        <div class="hilight-deal">Сделка #17112 · стадия C10:EXECUTING</div>
+        <div class="hilight-body">Встреча провалена 18:00 пятницы. До конца понедельника позвонить Забродиной Ольге, выяснить причину, перенести защиту. Если молчание — сделка умрёт за 2 недели отсутствия Деговцовой.</div>
+      </div>
+
+      <div class="hilight risk">
+        <div class="hilight-title">spasgan.ru — финал тендера 29.05 (от 21.05)</div>
+        <div class="hilight-deal">Сделка #23916 · Wockhardt Bio · переходит во вторую неделю</div>
+        <div class="hilight-body">Дедлайн от клиента — пятница 29.05. SEO+GEO аудиты, тарифная смета, прайс на доп.услуги, кейс Renewal, образец договора, карточка КП в SP=1106. Гордиенко лично ведёт со среды, риск низкий, но дедлайн жёсткий.</div>
+      </div>
+
+      <div class="hilight risk-medium">
+        <div class="hilight-title">kandela — питч под спецтехнику</div>
+        <div class="hilight-deal">Сделка #24304 · 23.05 заполнить бриф нормально</div>
+        <div class="hilight-body">Бриф заполнен в 23:18 ночи, питч был неадекватный под B2B. До второй встречи (4–5 дней): найти/подготовить кейс по промышленному оборудованию или ритейлу. Нет смысла идти со вторым визитом с тем же медицинским кейсом.</div>
+      </div>
+
+      <div class="hilight risk-medium">
+        <div class="hilight-title">altamedplus — second visit 27.05</div>
+        <div class="hilight-deal">Сделка #17146 · бриф полный, OPP завышен ошибочно</div>
+        <div class="hilight-body">Гордиенко обещала второй визит «4–5 дней». На вторую встречу — аудит позиций по 3 направлениям (стоматология, косметология, гинекология), 5 конкурентов (Бэлло, Новый Век, Фрешка, Клиника Мама, Анит) в нейровыдаче, рекомендации по СМИ. До второй встречи также поправить OPP сделки на реальную сумму КП.</div>
+      </div>
+
+      <div class="hilight risk-medium">
+        <div class="hilight-title">zn48 — две сметы и встреча с Марией</div>
+        <div class="hilight-deal">Сделка #17140 · бюджет SEO на 2026 не заложен</div>
+        <div class="hilight-body">Антон сообщил «бюджет на SEO в 2026 не заложен, только на контекст» — значит будем биться за допфинансирование, не за смену подрядчика. Сметы 2 шт + ответ на «чем отличаются ссылки SEO-vs-нейро» + ещё одна встреча с Марией. Гордиенко подхватит до 8 июня.</div>
+      </div>
+
+      <div class="hilight risk-medium">
+        <div class="hilight-title">Деговцова в Китае — портфель в подвешенном состоянии</div>
+        <div class="hilight-deal">~9 сделок коснулись 22.05 + длинный хвост более ранних</div>
+        <div class="hilight-body">До отлёта (23.05) Деговцова должна передать Гордиенко: 1) список всех активных сделок и их стадий, 2) обещания клиентам с датами, 3) задачи в Битрикс24 с напоминаниями. Иначе часть сделок «утонет» за 2 недели.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- СИСТЕМНЫЕ ПАТТЕРНЫ -->
+  <section>
+    <div class="section-head">
+      <div class="section-icon purple">⚡</div>
+      <h2>Системные паттерны качества встреч (по сравнению с 21.05)</h2>
+    </div>
+
+    <div class="grid-2">
+      <div>
+        <h3>Что закрепляется как сильная сторона</h3>
+        <ul>
+          <li>На сильные защиты приходим командой 2+ человек (vtb.med = Лиза + Мария-РОП; packplace вчера = Деговцова + Маша-аккаунтинг)</li>
+          <li>Корректно отказываем в «серых» методах (ПФ — отказали и на zn48, и на vtb.med)</li>
+          <li>Hand-off проговариваем в кадре встречи (Лиза рассказала про Китай каждому клиенту)</li>
+          <li>Используем кейс Renewal как продукт-демо на следующих встречах</li>
+          <li>Признаём заслугу штатных специалистов клиента (Антон на zn48)</li>
+          <li>Reframe «маркетинг → экономика» (Гордиенко на altamedplus спросила про прибыльные услуги)</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Что повторяется как слабое место</h3>
+        <ul>
+          <li><strong>OPP сделок не отражает КП</strong> — повторяется 2 дня подряд, системная ошибка учёта</li>
+          <li><strong>Карточек КП в SP=1106 не создают</strong> — 0 за день при 3 защитах</li>
+          <li><strong>Питч не адаптируется под нишу клиента</strong> (kandela B2B-спецтехника — Гордиенко дала медицинский питч)</li>
+          <li><strong>Базовая подготовка</strong> — открытый правильный сайт, заряженный ноут, готовые ответы на типовые вопросы</li>
+          <li><strong>Брифы поздно вечером</strong> — kandela в 23:18 через 10 ч после встречи</li>
+          <li><strong>Провалы встреч без причины и плана</strong> — 3-й случай за 2 дня (lasmed)</li>
+          <li><strong>Кейсы по нише клиента отсутствуют</strong> — что 21.05 (нет мед.кейсов на gutaclinic), что 22.05 (нет промышленных кейсов на kandela)</li>
+          <li><strong>Обещания клиентам не зафиксированы в задачах</strong> — повторяется на каждой встрече, риск утери</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ИТОГ -->
+  <section>
+    <div class="section-head">
+      <div class="section-icon blue">✓</div>
+      <h2>Итог дня</h2>
+    </div>
+    <p style="font-size: 16px; line-height: 1.75; color: var(--text);">
+      Пятница вышла более качественной чем четверг: 5 из 6 встреч проведены, все с записью, 3 успешные защиты КП на финальной стадии воронки. Сильнее всего отработали <strong>Деговцова на vtb.med</strong> (две сметы, ПФ-отказ, команда с Марией, эмоциональный финал) и <strong>Деговцова на zn48.ru</strong> (бонусный отчёт, конкретные цифры, союзничество с штатным SEO). Слабее всего — <strong>Гордиенко на kandela</strong> (дословный повтор медицинского питча на промышленного клиента) и <strong>Семенихин на kvent</strong> (4 минуты теории до того как клиент его прервал).
+    </p>
+    <p style="font-size: 16px; line-height: 1.75; color: var(--text); margin-top: 12px;">
+      Главные риски недели: <strong>Деговцова улетает в Китай завтра, возвращается 08.06</strong>. Её портфель переходит на Гордиенко, в нём как минимум 4 горящих сделки (vtb.med прогноз 25.05, lasmed восстановление, zn48 две сметы, gutaclinic защита 27.05). Системные пробелы прежние: OPP сделок не отражает КП (теперь ещё и завышен оборотом компании на 321 М ₽ по altamedplus+kandela), карточек КП в SP=1106 за день не создано, провалы встреч без причины (lasmed — третий за 2 дня).
+    </p>
+    <p style="font-size: 16px; line-height: 1.75; color: var(--text); margin-top: 12px;">
+      <strong>Через 5 дней — защита gutaclinic от 21.05, через 7 дней — финал тендера spasgan.</strong> Гордиенко лично ведёт оба — но теперь параллельно ведёт ещё и портфель Деговцовой. Это пиковая нагрузка месяца, и качество защит будет напрямую зависеть от того, как РОП сможет переключаться между сделками. Имеет смысл сейчас же написать «таблицу handover» по всем активным сделкам Деговцовой и пройтись по ним с Гордиенко лично до отлёта.
+    </p>
+  </section>
+
+  <footer>
+    Отчёт построен на данных Битрикс24 (belberrycrm.bitrix24.ru) за 22.05.2026: 249 действий, 6 карточек встреч, 5 карточек брифов (3 рабочих + 2 дубля), 0 карточек КП, 5 расшифрованных встреч через memoai.tech (2 PDF + 3 TXT). Транскрипты доступны в Битриксе в карточках встреч 2118 · 2134 · 2136 · 2140 · 2148.
+    <br>Подготовлено 25 мая 2026, ~09:30 МСК.
+  </footer>
+
+</div>
+
+</body>
+</html>
