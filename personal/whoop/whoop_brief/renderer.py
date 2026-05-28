@@ -56,6 +56,7 @@ def render_morning_brief(
     baseline_note = " (baseline неполный)" if baseline.incomplete else ""
     sleep_need = format_minutes(today.sleep_need_minutes)
     sleep_last = _bold(format_minutes(today.sleep_minutes)) if today.sleep_minutes is not None else "н/д"
+    sleep_debt_line = _sleep_debt_line(today.sleep_debt_minutes)
     metrics = _metrics_block(today, baseline, verdict)
     top_flag = _bold_top_flag(verdict)
 
@@ -72,11 +73,20 @@ def render_morning_brief(
         sleep_action=verdict.plan.sleep_action,
         sleep_last=sleep_last,
         sleep_need=sleep_need,
+        sleep_debt_line=sleep_debt_line,
         baseline_note=baseline_note,
         metrics=metrics,
         trend_recovery=trend["recovery"],
         trend_summary=trend["summary"],
     ).strip()
+
+
+def _sleep_debt_line(debt_minutes: Optional[int]) -> str:
+    """Строка долга сна для шаблона (пустая если данных нет или долг < 15 мин)."""
+    if debt_minutes is None or debt_minutes < 15:
+        return ""
+    marker = "✅" if debt_minutes < 30 else ("⚠️" if debt_minutes < 60 else "⚠️⚠️")
+    return f"\n{marker} Долг сна: {_bold(format_minutes(debt_minutes))}"
 
 
 def render_weekly_brief(
@@ -190,6 +200,14 @@ def _metrics_block(today: DailyMetrics, baseline: Baseline30d, verdict: Verdict)
 
     if today.sleep_efficiency_pct is not None and top_flag_code != "sleep_low":
         lines.append(f"✅ Сон-эффективность {_bold(_percent(today.sleep_efficiency_pct))}")
+
+    if today.respiratory_rate is not None:
+        rate = today.respiratory_rate
+        rate_str = f"{rate:.1f}/мин"
+        if 12.0 <= rate <= 20.0:
+            lines.append(f"✅ Дыхание во сне {_bold(rate_str)} — норма")
+        else:
+            lines.append(f"⚠️ Дыхание во сне {_bold(rate_str)} — вне нормы 12-20")
 
     for flag in verdict.flags[1:]:
         if flag.code in {"recovery_red", "hrv_low", "rhr_high", "sleep_low"}:

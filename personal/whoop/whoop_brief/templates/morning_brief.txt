@@ -4,7 +4,7 @@ $emoji $headline
 $top_flag
 
 ПЛАН: $training_duration ($modality), пульс $hr_zone, $steps_target
-СОН:  $sleep_action (вчера $sleep_last при норме $sleep_need)
+СОН:  $sleep_action (вчера $sleep_last при норме $sleep_need)$sleep_debt_line
 
 Метрики vs baseline 30д:$baseline_note
 $metrics

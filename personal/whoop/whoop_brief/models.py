@@ -15,6 +15,8 @@ class DailyMetrics:
     sleep_need_minutes: Optional[int] = None
     sleep_performance_pct: Optional[float] = None
     sleep_efficiency_pct: Optional[float] = None
+    sleep_debt_minutes: Optional[int] = None  # накопленный долг сна из sleep_need.need_from_sleep_debt_milli
+    respiratory_rate: Optional[float] = None  # частота дыхания во сне, /мин
     strain: Optional[float] = None
 
 
