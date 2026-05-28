@@ -55,7 +55,7 @@ def build_flags(today: DailyMetrics, history: Iterable[DailyMetrics], baseline: 
                     "spo2_low",
                     "critical",
                     "🔴",
-                    f"SpO₂ {spo2_text} — {spo2_streak}-й день <94%, обсуди с терапевтом (возможен вопрос апноэ)",
+                    f"SpO₂ {spo2_text} — {spo2_streak}-й день ниже 94%, обсуди с терапевтом (возможен вопрос апноэ)",
                     streak_days=spo2_streak,
                     doctor_hint=True,
                 )
@@ -66,13 +66,13 @@ def build_flags(today: DailyMetrics, history: Iterable[DailyMetrics], baseline: 
                     "spo2_low",
                     "orange",
                     "🟠",
-                    f"SpO₂ {spo2_text} — {spo2_streak}-й день <94%, проверь нос/позу",
+                    f"SpO₂ {spo2_text} — {spo2_streak}-й день ниже 94%, проверь нос/позу",
                     streak_days=spo2_streak,
                 )
             )
         else:
             day_word = "первый" if spo2_streak <= 1 else f"{spo2_streak}-й"
-            flags.append(Flag("spo2_low", "yellow", "🟡", f"SpO₂ {spo2_text} — {day_word} день <94%, наблюдаем", streak_days=spo2_streak))
+            flags.append(Flag("spo2_low", "yellow", "🟡", f"SpO₂ {spo2_text} — {day_word} день ниже 94%, наблюдаем", streak_days=spo2_streak))
 
     sleep_ratio = _sleep_ratio(today)
     sleep_streak = _streak_days(history, today.date, lambda item: (_sleep_ratio(item) or 1.0) < 0.77)
