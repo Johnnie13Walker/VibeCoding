@@ -44,7 +44,8 @@ def build_verdict(
 def build_flags(today: DailyMetrics, history: Iterable[DailyMetrics], baseline: Baseline30d) -> list[Flag]:
     flags: list[Flag] = []
     if today.recovery is not None and today.recovery < 34:
-        flags.append(Flag("recovery_red", "critical", "🔴", f"Recovery {today.recovery:.0f}% — критически низкое восстановление."))
+        rec_val = f"{today.recovery:.0f}%"
+        flags.append(Flag("recovery_red", "critical", "🔴", f"Recovery {rec_val} — критически низкое восстановление.", value=rec_val))
 
     spo2_streak = _streak_days(history, today.date, lambda item: item.spo2_pct is not None and item.spo2_pct < 94.0)
     if today.spo2_pct is not None and today.spo2_pct < 94.0:
@@ -58,6 +59,7 @@ def build_flags(today: DailyMetrics, history: Iterable[DailyMetrics], baseline: 
                     f"SpO₂ {spo2_text} — {spo2_streak}-й день ниже 94%, обсуди с терапевтом (возможен вопрос апноэ)",
                     streak_days=spo2_streak,
                     doctor_hint=True,
+                    value=spo2_text,
                 )
             )
         elif spo2_streak >= 3:
@@ -68,35 +70,41 @@ def build_flags(today: DailyMetrics, history: Iterable[DailyMetrics], baseline: 
                     "🟠",
                     f"SpO₂ {spo2_text} — {spo2_streak}-й день ниже 94%, проверь нос/позу",
                     streak_days=spo2_streak,
+                    value=spo2_text,
                 )
             )
         else:
             day_word = "первый" if spo2_streak <= 1 else f"{spo2_streak}-й"
-            flags.append(Flag("spo2_low", "yellow", "🟡", f"SpO₂ {spo2_text} — {day_word} день ниже 94%, наблюдаем", streak_days=spo2_streak))
+            flags.append(Flag("spo2_low", "yellow", "🟡", f"SpO₂ {spo2_text} — {day_word} день ниже 94%, наблюдаем", streak_days=spo2_streak, value=spo2_text))
 
     sleep_ratio = _sleep_ratio(today)
     sleep_streak = _streak_days(history, today.date, lambda item: (_sleep_ratio(item) or 1.0) < 0.77)
     if sleep_ratio is not None and sleep_ratio < 0.77:
         severity = "orange" if sleep_streak >= 3 else "yellow"
         emoji = "🟠" if severity == "orange" else "🟡"
+        sleep_val = format_minutes(today.sleep_minutes)
         flags.append(
             Flag(
                 "sleep_low",
                 severity,
                 emoji,
-                f"Сон {format_minutes(today.sleep_minutes)} — {sleep_ratio * 100:.0f}% от потребности.",
+                f"Сон {sleep_val} — {sleep_ratio * 100:.0f}% от потребности.",
                 streak_days=sleep_streak,
+                value=sleep_val,
             )
         )
 
     if today.hrv_ms is not None and baseline.hrv_ms is not None and today.hrv_ms < baseline.hrv_ms * 0.70:
-        flags.append(Flag("hrv_low", "orange", "🟠", f"HRV {today.hrv_ms:.0f}ms — ниже baseline 30д на 30%+."))
+        hrv_val = f"{today.hrv_ms:.0f}ms"
+        flags.append(Flag("hrv_low", "orange", "🟠", f"HRV {hrv_val} — ниже baseline 30д на 30%+.", value=hrv_val))
 
     if today.rhr_bpm is not None and baseline.rhr_bpm is not None and today.rhr_bpm > baseline.rhr_bpm * 1.10:
-        flags.append(Flag("rhr_high", "yellow", "🟡", f"RHR {today.rhr_bpm:.0f} — выше baseline 30д на 10%+."))
+        rhr_val = f"{today.rhr_bpm:.0f}"
+        flags.append(Flag("rhr_high", "yellow", "🟡", f"RHR {rhr_val} — выше baseline 30д на 10%+.", value=rhr_val))
 
     if today.strain is not None and today.strain > 15:
-        flags.append(Flag("strain_high", "yellow", "🟡", f"Strain {today.strain:.1f} — высокая нагрузка, держи восстановление в фокусе."))
+        strain_val = f"{today.strain:.1f}"
+        flags.append(Flag("strain_high", "yellow", "🟡", f"Strain {strain_val} — высокая нагрузка, держи восстановление в фокусе.", value=strain_val))
 
     return flags
 
