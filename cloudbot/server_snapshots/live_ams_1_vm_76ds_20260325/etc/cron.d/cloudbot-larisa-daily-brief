@@ -1,0 +1,4 @@
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+CRON_TZ=Europe/Moscow
+0 9 * * 1-5 root /usr/local/bin/cloudbot-larisa-daily-brief.sh >> /home/ops/cloudbot-larisa-agent/reports/larisa_daily_brief_cron.log 2>&1

@@ -1,0 +1,11 @@
+# Source of truth: configs/schedule_contract.env
+# Этот файл описывает только локальный cron-контур разработческой машины.
+CRON_TZ=Europe/Moscow
+# 06:00 МСК — maintenance commit snapshot
+0 6 * * * cd '/Users/pro2kuror/Desktop/OpenClo/projects/engineer' && ./scripts/agent_commit.sh >> reports/backup.log 2>&1
+# 08:00 МСК — дневной brief Ларисы
+0 8 * * * cd '/Users/pro2kuror/Desktop/OpenClo/projects/engineer' && ./infra/orchestrator/run_workflow.sh larisa_daily_brief >> reports/larisa_daily_brief.log 2>&1
+# 19:30 МСК — future candidate: темы для постов Ларисы за день.
+# Заблокировано до отдельного Larisa content/search feature review.
+# 30 19 * * * cd '/Users/pro2kuror/Desktop/OpenClo/projects/engineer' && PERIOD=day ./infra/orchestrator/run_workflow.sh larisa_content_topics >> reports/larisa_content_topics.log 2>&1
+# Sales Copilot / WHOOP / OpenClaw scheduler управляются серверным контуром.

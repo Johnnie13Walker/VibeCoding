@@ -1,0 +1,2 @@
+# Server timezone is UTC. 05:01 UTC = 08:01 Europe/Moscow.
+1 5 * * * root /usr/bin/env WHOOP_ENV_FILE=/etc/openclaw/whoop.env /usr/local/bin/send_whoop_report.py send-report >> /var/log/openclaw-whoop-report.log 2>&1

@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Marketing Dashboard Mockup</title>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --panel: rgba(255, 255, 255, 0.88);
+      --panel-strong: #ffffff;
+      --ink: #112033;
+      --muted: #64748b;
+      --line: #d6dfeb;
+      --accent: #0f766e;
+      --accent-soft: #d7f3ee;
+      --brand-a: #0f766e;
+      --brand-b: #1d4ed8;
+      --warn: #dc2626;
+      --shadow: 0 20px 60px rgba(18, 38, 63, 0.12);
+      --radius: 24px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "SF Pro Display", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(15, 118, 110, 0.12), transparent 30%),
+        radial-gradient(circle at top right, rgba(29, 78, 216, 0.1), transparent 26%),
+        linear-gradient(180deg, #eef4fb 0%, #f7f9fc 100%);
+    }
+
+    .page {
+      max-width: 1520px;
+      margin: 0 auto;
+      padding: 36px 28px 60px;
+    }
+
+    .hero {
+      display: flex;
+      justify-content: space-between;
+      gap: 24px;
+      align-items: flex-start;
+      margin-bottom: 28px;
+    }
+
+    .hero-card,
+    .filter-card,
+    .panel {
+      background: var(--panel);
+      border: 1px solid rgba(214, 223, 235, 0.8);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(14px);
+    }
+
+    .hero-card {
+      flex: 1;
+      padding: 28px 30px;
+      min-height: 188px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-card::after {
+      content: "";
+      position: absolute;
+      inset: auto -80px -80px auto;
+      width: 240px;
+      height: 240px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(15, 118, 110, 0.16), transparent 65%);
+    }
+
+    .eyebrow {
+      font-size: 12px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+
+    h1 {
+      margin: 0 0 14px;
+      font-size: 38px;
+      line-height: 1.05;
+      letter-spacing: -0.04em;
+    }
+
+    .hero-copy {
+      max-width: 720px;
+      font-size: 16px;
+      line-height: 1.55;
+      color: #41536a;
+    }
+
+    .hero-meta {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 18px;
+    }
+
+    .chip {
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: rgba(17, 32, 51, 0.05);
+      color: #334155;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .filter-card {
+      width: 332px;
+      padding: 22px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .filter-title {
+      font-size: 13px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+    }
+
+    .filter-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 16px;
+      border-radius: 18px;
+      background: #f8fbff;
+      border: 1px solid var(--line);
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .grid-kpi {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .kpi {
+      padding: 20px;
+      min-height: 148px;
+      position: relative;
+    }
+
+    .kpi-title {
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 18px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+    }
+
+    .kpi-value {
+      font-size: 34px;
+      font-weight: 700;
+      letter-spacing: -0.04em;
+      margin-bottom: 8px;
+    }
+
+    .kpi-foot {
+      font-size: 14px;
+      color: #476178;
+    }
+
+    .kpi .delta {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 16px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 1.7fr 1fr;
+      gap: 24px;
+      margin-bottom: 24px;
+    }
+
+    .panel {
+      padding: 22px;
+    }
+
+    .panel-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+
+    .panel-title {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      margin: 0 0 6px;
+    }
+
+    .panel-subtitle {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.45;
+      margin: 0;
+    }
+
+    .legend {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: #4b5f78;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .chart {
+      height: 320px;
+      border-radius: 22px;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0) 0, rgba(255,255,255,0) 24%, rgba(214,223,235,0.6) 24%, rgba(214,223,235,0.6) 25%, transparent 25%) 0 0/100% 25%,
+        linear-gradient(90deg, rgba(214,223,235,0.35) 1px, transparent 1px) 0 0/10% 100%,
+        linear-gradient(180deg, #fbfdff, #f4f8fc);
+      border: 1px solid var(--line);
+      padding: 20px 18px 36px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .area {
+      position: absolute;
+      left: 22px;
+      right: 22px;
+      bottom: 48px;
+      height: 190px;
+      border-radius: 24px 24px 0 0;
+      opacity: 0.14;
+      filter: blur(0.2px);
+    }
+
+    .area.a {
+      background: linear-gradient(180deg, rgba(15,118,110,0.75), rgba(15,118,110,0.06));
+      clip-path: polygon(0% 70%, 8% 64%, 18% 61%, 28% 52%, 38% 49%, 48% 55%, 58% 43%, 68% 41%, 78% 34%, 88% 25%, 100% 18%, 100% 100%, 0 100%);
+    }
+
+    .area.b {
+      background: linear-gradient(180deg, rgba(29,78,216,0.75), rgba(29,78,216,0.05));
+      clip-path: polygon(0% 78%, 8% 73%, 18% 66%, 28% 58%, 38% 62%, 48% 48%, 58% 52%, 68% 45%, 78% 37%, 88% 33%, 100% 22%, 100% 100%, 0 100%);
+    }
+
+    .line {
+      position: absolute;
+      inset: 22px 22px 44px 22px;
+    }
+
+    .line svg {
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+    }
+
+    .chart-labels {
+      position: absolute;
+      left: 18px;
+      right: 18px;
+      bottom: 14px;
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 4px;
+      color: #607286;
+      font-size: 11px;
+      text-align: center;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .funnel {
+      display: grid;
+      gap: 12px;
+    }
+
+    .stage {
+      display: grid;
+      grid-template-columns: 1.2fr 2.2fr 0.8fr;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .stage-name {
+      font-size: 14px;
+      font-weight: 700;
+      color: #334155;
+    }
+
+    .stage-bar {
+      height: 18px;
+      background: #e9f0f7;
+      border-radius: 999px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .stage-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--brand-a), #34d399);
+    }
+
+    .stage-value {
+      font-size: 14px;
+      font-weight: 700;
+      text-align: right;
+    }
+
+    .brand-split {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 18px;
+    }
+
+    .brand-card {
+      padding: 18px;
+      border-radius: 20px;
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, #fff, #f8fbff);
+    }
+
+    .brand-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 14px;
+      font-size: 13px;
+      font-weight: 700;
+      color: #334155;
+    }
+
+    .brand-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+
+    .brand-metric {
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: #f7fafc;
+    }
+
+    .brand-metric strong {
+      display: block;
+      font-size: 20px;
+      letter-spacing: -0.03em;
+      margin-top: 4px;
+    }
+
+    .table-panel {
+      margin-bottom: 24px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      overflow: hidden;
+      border-radius: 18px;
+      background: var(--panel-strong);
+      border: 1px solid var(--line);
+    }
+
+    th,
+    td {
+      padding: 14px 12px;
+      border-bottom: 1px solid #e7eef7;
+      text-align: left;
+      font-size: 14px;
+      vertical-align: middle;
+    }
+
+    th {
+      background: #f2f7fc;
+      color: #53667d;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    td.num {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum";
+    }
+
+    td strong {
+      font-size: 15px;
+    }
+
+    .source-cell {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+    }
+
+    .source-rank {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: #eef4fb;
+      color: #4c6178;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .good {
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    .bad {
+      color: var(--warn);
+      font-weight: 700;
+    }
+
+    .footer-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+
+    .insight-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .insight {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 12px;
+      padding: 16px;
+      border-radius: 18px;
+      background: linear-gradient(180deg, #fff, #f7fafc);
+      border: 1px solid var(--line);
+    }
+
+    .insight-index {
+      width: 34px;
+      height: 34px;
+      border-radius: 12px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: #e9f6f4;
+      color: var(--accent);
+      font-weight: 800;
+    }
+
+    .insight p {
+      margin: 4px 0 0;
+      color: #51657d;
+      line-height: 1.45;
+      font-size: 14px;
+    }
+
+    @media (max-width: 1180px) {
+      .grid-kpi,
+      .layout,
+      .footer-grid,
+      .brand-split {
+        grid-template-columns: 1fr;
+      }
+
+      .hero {
+        flex-direction: column;
+      }
+
+      .filter-card {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <div class="hero-card">
+        <div class="eyebrow">Предварительный визуальный мокап</div>
+        <h1>Marketing Performance Dashboard</h1>
+        <div class="hero-copy">
+          Макет для управленческого дашборда: источники, выручка, стоимость лида, стоимость продажи и воронка по двум брендам.
+          Формат рассчитан на Google Sheets или Looker Studio, но визуальная логика уже показывает, как должен выглядеть сильный верхнеуровневый отчет.
+        </div>
+        <div class="hero-meta">
+          <span class="chip">Период: Январь 2025 — Март 2026</span>
+          <span class="chip">Срез: Бренд / Источник / Месяц</span>
+          <span class="chip">Роль: CEO / Head of Marketing</span>
+        </div>
+      </div>
+
+      <aside class="filter-card">
+        <div class="filter-title">Срезы</div>
+        <div class="filter-row"><span>Бренд</span><span>Все бренды</span></div>
+        <div class="filter-row"><span>Период</span><span>15 месяцев</span></div>
+        <div class="filter-row"><span>Модель атрибуции</span><span>First stage entry</span></div>
+        <div class="filter-row"><span>Режим</span><span>Источник → Выручка</span></div>
+      </aside>
+    </section>
+
+    <section class="grid-kpi">
+      <article class="panel kpi">
+        <div class="kpi-title">Выручка</div>
+        <div class="kpi-value">₽18.4M</div>
+        <div class="kpi-foot">Выручка из закрытых в успех сделок</div>
+        <div class="delta">+18.2% к прошлому периоду</div>
+      </article>
+      <article class="panel kpi">
+        <div class="kpi-title">Расход</div>
+        <div class="kpi-value">₽3.9M</div>
+        <div class="kpi-foot">Маркетинговый бюджет по каналам</div>
+        <div class="delta">CPL ниже плана на 11%</div>
+      </article>
+      <article class="panel kpi">
+        <div class="kpi-title">Лиды</div>
+        <div class="kpi-value">684</div>
+        <div class="kpi-foot">Дошли до стадии брифа</div>
+        <div class="delta">CR из обращения 31.4%</div>
+      </article>
+      <article class="panel kpi">
+        <div class="kpi-title">Продажи</div>
+        <div class="kpi-value">71</div>
+        <div class="kpi-foot">Сделки, дошедшие до успеха</div>
+        <div class="delta">Средний чек: ₽259k</div>
+      </article>
+      <article class="panel kpi">
+        <div class="kpi-title">Эффективность</div>
+        <div class="kpi-value">ROMI 372%</div>
+        <div class="kpi-foot">CPL: ₽5 702 · CAC: ₽54 930</div>
+        <div class="delta">Окупаемость выше целевой</div>
+      </article>
+    </section>
+
+    <section class="layout">
+      <article class="panel">
+        <div class="panel-head">
+          <div>
+            <h2 class="panel-title">Динамика по месяцам</h2>
+            <p class="panel-subtitle">На одном графике видны рост входящего потока, качество квалификации и финальный денежный результат.</p>
+          </div>
+          <div class="legend">
+            <span class="legend-item"><span class="dot" style="background:#0f766e;"></span> Лиды</span>
+            <span class="legend-item"><span class="dot" style="background:#1d4ed8;"></span> Выручка</span>
+          </div>
+        </div>
+        <div class="chart">
+          <div class="area a"></div>
+          <div class="area b"></div>
+          <div class="line">
+            <svg viewBox="0 0 100 100" preserveAspectRatio="none">
+              <polyline fill="none" stroke="#0f766e" stroke-width="2.4" points="0,74 8,68 16,64 24,54 32,50 40,56 48,45 56,42 64,34 72,31 80,24 88,18 100,10"></polyline>
+              <polyline fill="none" stroke="#1d4ed8" stroke-width="2.4" points="0,82 8,76 16,70 24,63 32,66 40,54 48,57 56,49 64,42 72,36 80,30 88,25 100,15"></polyline>
+            </svg>
+          </div>
+          <div class="chart-labels">
+            <span>янв</span><span>фев</span><span>мар</span><span>апр</span><span>май</span><span>июн</span>
+            <span>июл</span><span>авг</span><span>сен</span><span>окт</span><span>ноя</span><span>мар 26</span>
+          </div>
+        </div>
+      </article>
+
+      <article class="panel">
+        <div class="panel-head">
+          <div>
+            <h2 class="panel-title">Воронка и бренды</h2>
+            <p class="panel-subtitle">Здесь сразу видно, где теряется поток и какой бренд продает качественнее.</p>
+          </div>
+        </div>
+        <div class="funnel">
+          <div class="stage">
+            <div class="stage-name">Обращения</div>
+            <div class="stage-bar"><div class="stage-fill" style="width: 100%"></div></div>
+            <div class="stage-value">2 180</div>
+          </div>
+          <div class="stage">
+            <div class="stage-name">Лиды</div>
+            <div class="stage-bar"><div class="stage-fill" style="width: 68%"></div></div>
+            <div class="stage-value">684</div>
+          </div>
+          <div class="stage">
+            <div class="stage-name">КП</div>
+            <div class="stage-bar"><div class="stage-fill" style="width: 46%"></div></div>
+            <div class="stage-value">411</div>
+          </div>
+          <div class="stage">
+            <div class="stage-name">Договоры</div>
+            <div class="stage-bar"><div class="stage-fill" style="width: 25%"></div></div>
+            <div class="stage-value">146</div>
+          </div>
+          <div class="stage">
+            <div class="stage-name">Продажи</div>
+            <div class="stage-bar"><div class="stage-fill" style="width: 13%"></div></div>
+            <div class="stage-value">71</div>
+          </div>
+        </div>
+
+        <div class="brand-split">
+          <div class="brand-card">
+            <div class="brand-tag"><span class="dot" style="background: var(--brand-a);"></span>Acoola Team</div>
+            <div class="brand-grid">
+              <div class="brand-metric">Выручка<strong>₽7.1M</strong></div>
+              <div class="brand-metric">ROMI<strong>298%</strong></div>
+              <div class="brand-metric">Лиды<strong>248</strong></div>
+              <div class="brand-metric">CAC<strong>₽61k</strong></div>
+            </div>
+          </div>
+          <div class="brand-card">
+            <div class="brand-tag"><span class="dot" style="background: var(--brand-b);"></span>Belberry</div>
+            <div class="brand-grid">
+              <div class="brand-metric">Выручка<strong>₽11.3M</strong></div>
+              <div class="brand-metric">ROMI<strong>421%</strong></div>
+              <div class="brand-metric">Лиды<strong>436</strong></div>
+              <div class="brand-metric">CAC<strong>₽49k</strong></div>
+            </div>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section class="panel table-panel">
+      <div class="panel-head">
+        <div>
+          <h2 class="panel-title">Источники: эффективность и деньги</h2>
+          <p class="panel-subtitle">Главная управленческая таблица: тут сравниваются объём, качество, выручка и экономика каждого канала.</p>
+        </div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Источник</th>
+            <th>Расход</th>
+            <th>Обращения</th>
+            <th>Лиды</th>
+            <th>Продажи</th>
+            <th>Выручка</th>
+            <th>CPL</th>
+            <th>CAC</th>
+            <th>ROMI</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><div class="source-cell"><span class="source-rank">1</span> Google Ads</div></td>
+            <td class="num">₽1.22M</td>
+            <td class="num">728</td>
+            <td class="num">214</td>
+            <td class="num">26</td>
+            <td class="num"><strong>₽6.8M</strong></td>
+            <td class="num">₽5 701</td>
+            <td class="num">₽46 923</td>
+            <td class="num good">458%</td>
+          </tr>
+          <tr>
+            <td><div class="source-cell"><span class="source-rank">2</span> SEO</div></td>
+            <td class="num">₽640k</td>
+            <td class="num">412</td>
+            <td class="num">165</td>
+            <td class="num">23</td>
+            <td class="num"><strong>₽5.4M</strong></td>
+            <td class="num">₽3 879</td>
+            <td class="num">₽27 826</td>
+            <td class="num good">744%</td>
+          </tr>
+          <tr>
+            <td><div class="source-cell"><span class="source-rank">3</span> Подпись в футере</div></td>
+            <td class="num">₽0</td>
+            <td class="num">142</td>
+            <td class="num">61</td>
+            <td class="num">8</td>
+            <td class="num"><strong>₽1.9M</strong></td>
+            <td class="num">₽0</td>
+            <td class="num">₽0</td>
+            <td class="num good">∞</td>
+          </tr>
+          <tr>
+            <td><div class="source-cell"><span class="source-rank">4</span> E-mail Outreach</div></td>
+            <td class="num">₽470k</td>
+            <td class="num">255</td>
+            <td class="num">73</td>
+            <td class="num">7</td>
+            <td class="num"><strong>₽1.4M</strong></td>
+            <td class="num">₽6 438</td>
+            <td class="num">₽67 143</td>
+            <td class="num good">198%</td>
+          </tr>
+          <tr>
+            <td><div class="source-cell"><span class="source-rank">5</span> Таргет</div></td>
+            <td class="num">₽910k</td>
+            <td class="num">409</td>
+            <td class="num">97</td>
+            <td class="num">7</td>
+            <td class="num"><strong>₽1.0M</strong></td>
+            <td class="num">₽9 381</td>
+            <td class="num">₽130 000</td>
+            <td class="num bad">12%</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="footer-grid">
+      <article class="panel">
+        <div class="panel-head">
+          <div>
+            <h2 class="panel-title">Ключевые выводы</h2>
+            <p class="panel-subtitle">Блок для итогов месяца и приоритетов на следующий период.</p>
+          </div>
+        </div>
+        <div class="insight-list">
+          <div class="insight">
+            <div class="insight-index">01</div>
+            <div>
+              <strong>SEO и футер дают лучшую экономику</strong>
+              <p>Это не просто дешевые лиды, а каналы с высокой выручкой и низким CAC. Их надо масштабировать первыми.</p>
+            </div>
+          </div>
+          <div class="insight">
+            <div class="insight-index">02</div>
+            <div>
+              <strong>Таргет льет объем, но почти не закрывает сделки</strong>
+              <p>По нему высокий CPL и слабая конверсия в продажу. Либо меняем оффер, либо режем бюджет.</p>
+            </div>
+          </div>
+          <div class="insight">
+            <div class="insight-index">03</div>
+            <div>
+              <strong>Belberry сильнее по выручке, Acoola ближе к точке контроля</strong>
+              <p>У Belberry выше общий денежный результат, но Acoola проще стабилизировать через сокращение просадки на этапе договора.</p>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="panel">
+        <div class="panel-head">
+          <div>
+            <h2 class="panel-title">Что можно сделать дальше</h2>
+            <p class="panel-subtitle">Это уже можно превратить в боевой лист или в Looker Studio без пересборки логики.</p>
+          </div>
+        </div>
+        <div class="insight-list">
+          <div class="insight">
+            <div class="insight-index">A</div>
+            <div>
+              <strong>Вариант 1: реализовать в Google Sheets</strong>
+              <p>Самый быстрый путь. KPI сверху, динамика ниже, источники и проверка сделок отдельными листами.</p>
+            </div>
+          </div>
+          <div class="insight">
+            <div class="insight-index">B</div>
+            <div>
+              <strong>Вариант 2: вынести в Looker Studio</strong>
+              <p>Нормально подойдет, если нужно больше фильтров, брендов и интерактивности для команды.</p>
+            </div>
+          </div>
+          <div class="insight">
+            <div class="insight-index">C</div>
+            <div>
+              <strong>Нужно дотянуть затраты и сумму продаж</strong>
+              <p>Тогда дашборд станет полноценным: можно будет считать CPL, CAC, ROMI и приоритизировать каналы по деньгам.</p>
+            </div>
+          </div>
+        </div>
+      </article>
+    </section>
+  </main>
+</body>
+</html>

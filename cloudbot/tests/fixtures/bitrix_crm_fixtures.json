@@ -1,0 +1,420 @@
+{
+  "profile": {
+    "ID": "201",
+    "NAME": "Иван",
+    "LAST_NAME": "Петров",
+    "EMAIL": "ivan.petrov@example.test",
+    "ADMIN": "Y"
+  },
+  "users": [
+    {
+      "ID": "201",
+      "NAME": "Иван",
+      "LAST_NAME": "Петров",
+      "WORK_POSITION": "Head of Sales",
+      "UF_DEPARTMENT": ["11"]
+    },
+    {
+      "ID": "202",
+      "NAME": "Мария",
+      "LAST_NAME": "Соколова",
+      "WORK_POSITION": "Sales Manager",
+      "UF_DEPARTMENT": ["12"]
+    },
+    {
+      "ID": "203",
+      "NAME": "Олег",
+      "LAST_NAME": "Миронов",
+      "WORK_POSITION": "Telemarketing Manager",
+      "UF_DEPARTMENT": ["13"]
+    },
+    {
+      "ID": "204",
+      "NAME": "Петр",
+      "LAST_NAME": "Дудин",
+      "WORK_POSITION": "Finance Manager",
+      "UF_DEPARTMENT": ["14"]
+    },
+    {
+      "ID": "205",
+      "NAME": "Анна",
+      "LAST_NAME": "Лебедева",
+      "WORK_POSITION": "Recruiter",
+      "UF_DEPARTMENT": ["15"]
+    }
+  ],
+  "departments": [
+    {
+      "ID": "10",
+      "NAME": "Коммерческий блок",
+      "PARENT": "1"
+    },
+    {
+      "ID": "11",
+      "NAME": "Группа продаж Belberry",
+      "PARENT": "10"
+    },
+    {
+      "ID": "12",
+      "NAME": "Группа продаж Acoola Team",
+      "PARENT": "10"
+    },
+    {
+      "ID": "13",
+      "NAME": "Телемаркетинг",
+      "PARENT": "10"
+    },
+    {
+      "ID": "14",
+      "NAME": "Финансовый отдел",
+      "PARENT": "1"
+    },
+    {
+      "ID": "15",
+      "NAME": "Рекрутинг",
+      "PARENT": "1"
+    }
+  ],
+  "statuses": [
+    {
+      "STATUS_ID": "NEW",
+      "NAME": "Новый",
+      "ENTITY_ID": "STATUS",
+      "SORT": 10
+    },
+    {
+      "STATUS_ID": "IN_PROCESS",
+      "NAME": "В работе",
+      "ENTITY_ID": "STATUS",
+      "SORT": 30
+    },
+    {
+      "STATUS_ID": "QUALIFIED",
+      "NAME": "Квалифицирован",
+      "ENTITY_ID": "STATUS",
+      "SORT": 60
+    },
+    {
+      "STATUS_ID": "JUNK",
+      "NAME": "Некачественный лид",
+      "ENTITY_ID": "STATUS",
+      "SORT": 100
+    },
+    {
+      "STATUS_ID": "C0:NEW",
+      "NAME": "Новая сделка",
+      "ENTITY_ID": "DEAL_STAGE_0",
+      "SORT": 10
+    },
+    {
+      "STATUS_ID": "C0:PREPARATION",
+      "NAME": "Подготовка",
+      "ENTITY_ID": "DEAL_STAGE_0",
+      "SORT": 30
+    },
+    {
+      "STATUS_ID": "C0:PROPOSAL",
+      "NAME": "Коммерческое предложение",
+      "ENTITY_ID": "DEAL_STAGE_0",
+      "SORT": 60
+    },
+    {
+      "STATUS_ID": "C0:FINAL_INVOICE",
+      "NAME": "Счет / договор",
+      "ENTITY_ID": "DEAL_STAGE_0",
+      "SORT": 80
+    },
+    {
+      "STATUS_ID": "C0:WON",
+      "NAME": "Успешно реализовано",
+      "ENTITY_ID": "DEAL_STAGE_0",
+      "SORT": 100
+    },
+    {
+      "STATUS_ID": "C0:LOSE",
+      "NAME": "Сделка проиграна",
+      "ENTITY_ID": "DEAL_STAGE_0",
+      "SORT": 110
+    }
+  ],
+  "leads": [
+    {
+      "ID": "501",
+      "TITLE": "site.ru",
+      "STATUS_ID": "NEW",
+      "ASSIGNED_BY_ID": "201",
+      "COMPANY_ID": "3001",
+      "DATE_CREATE": "2026-03-09T11:30:00+03:00",
+      "DATE_MODIFY": "2026-03-09T11:30:00+03:00"
+    },
+    {
+      "ID": "502",
+      "TITLE": "Referral / Enterprise SEO",
+      "STATUS_ID": "QUALIFIED",
+      "ASSIGNED_BY_ID": "202",
+      "DATE_CREATE": "2026-03-10T09:20:00+03:00",
+      "DATE_MODIFY": "2026-03-10T09:50:00+03:00"
+    },
+    {
+      "ID": "503",
+      "TITLE": "Cold outreach / PPC retainer",
+      "STATUS_ID": "IN_PROCESS",
+      "ASSIGNED_BY_ID": "203",
+      "DATE_CREATE": "2026-03-07T12:00:00+03:00",
+      "DATE_MODIFY": "2026-03-07T12:00:00+03:00"
+    }
+  ],
+  "deals": [
+    {
+      "ID": "1001",
+      "TITLE": "SEO Retainer / Acme",
+      "STAGE_ID": "C0:PREPARATION",
+      "ASSIGNED_BY_ID": "201",
+      "DATE_CREATE": "2026-03-10T08:15:00+03:00",
+      "DATE_MODIFY": "2026-03-10T08:20:00+03:00",
+      "OPPORTUNITY": "180000",
+      "PROBABILITY": "45",
+      "CLOSED": "N"
+    },
+    {
+      "ID": "1002",
+      "TITLE": "Performance Audit / Nord",
+      "STAGE_ID": "C0:PROPOSAL",
+      "ASSIGNED_BY_ID": "201",
+      "DATE_CREATE": "2026-03-08T14:00:00+03:00",
+      "DATE_MODIFY": "2026-03-09T17:05:00+03:00",
+      "OPPORTUNITY": "90000",
+      "PROBABILITY": "80",
+      "CLOSED": "N"
+    },
+    {
+      "ID": "1003",
+      "TITLE": "E-commerce SEO / Vega",
+      "STAGE_ID": "C0:FINAL_INVOICE",
+      "ASSIGNED_BY_ID": "202",
+      "DATE_CREATE": "2026-03-01T10:00:00+03:00",
+      "DATE_MODIFY": "2026-03-03T18:00:00+03:00",
+      "OPPORTUNITY": "220000",
+      "PROBABILITY": "85",
+      "CLOSED": "N"
+    },
+    {
+      "ID": "1004",
+      "TITLE": "PPC Sprint / Orbit",
+      "STAGE_ID": "C0:PROPOSAL",
+      "ASSIGNED_BY_ID": "202",
+      "DATE_CREATE": "2026-03-02T13:00:00+03:00",
+      "DATE_MODIFY": "2026-03-09T18:00:00+03:00",
+      "OPPORTUNITY": "70000",
+      "PROBABILITY": "60",
+      "CLOSED": "N"
+    },
+    {
+      "ID": "1005",
+      "TITLE": "Content Hub / Pine",
+      "STAGE_ID": "C0:PREPARATION",
+      "ASSIGNED_BY_ID": "203",
+      "DATE_CREATE": "2026-02-20T11:00:00+03:00",
+      "DATE_MODIFY": "2026-03-01T11:00:00+03:00",
+      "OPPORTUNITY": "45000",
+      "PROBABILITY": "35",
+      "CLOSED": "N"
+    },
+    {
+      "ID": "1006",
+      "TITLE": "Brand Sprint / Nova",
+      "STAGE_ID": "C0:FINAL_INVOICE",
+      "ASSIGNED_BY_ID": "203",
+      "DATE_CREATE": "2026-02-25T15:00:00+03:00",
+      "DATE_MODIFY": "2026-03-09T14:10:00+03:00",
+      "OPPORTUNITY": "120000",
+      "PROBABILITY": "75",
+      "UF_CRM_NEEDS_HEAD": "1",
+      "CLOSED": "N"
+    },
+    {
+      "ID": "1007",
+      "TITLE": "Web Migration / Atlas",
+      "STAGE_ID": "C0:WON",
+      "ASSIGNED_BY_ID": "201",
+      "DATE_CREATE": "2026-02-10T10:00:00+03:00",
+      "DATE_MODIFY": "2026-03-05T18:00:00+03:00",
+      "OPPORTUNITY": "110000",
+      "PROBABILITY": "100",
+      "CLOSED": "Y"
+    }
+  ],
+  "companies": [
+    {
+      "ID": "3001",
+      "TITLE": "Acme LLC",
+      "ASSIGNED_BY_ID": "201",
+      "DATE_CREATE": "2026-03-06T10:00:00+03:00",
+      "DATE_MODIFY": "2026-03-09T10:00:00+03:00"
+    },
+    {
+      "ID": "3002",
+      "TITLE": "Nord Group",
+      "ASSIGNED_BY_ID": "202",
+      "DATE_CREATE": "2026-03-08T10:00:00+03:00",
+      "DATE_MODIFY": "2026-03-10T10:00:00+03:00"
+    }
+  ],
+  "contacts": [
+    {
+      "ID": "4001",
+      "NAME": "Анна",
+      "LAST_NAME": "Соколова",
+      "ASSIGNED_BY_ID": "201",
+      "DATE_CREATE": "2026-03-05T10:00:00+03:00",
+      "DATE_MODIFY": "2026-03-09T10:00:00+03:00"
+    },
+    {
+      "ID": "4002",
+      "NAME": "Дмитрий",
+      "LAST_NAME": "Мельников",
+      "ASSIGNED_BY_ID": "202",
+      "DATE_CREATE": "2026-03-08T09:00:00+03:00",
+      "DATE_MODIFY": "2026-03-10T09:30:00+03:00"
+    }
+  ],
+  "activities": [
+    {
+      "ID": "9001",
+      "OWNER_TYPE_ID": "2",
+      "OWNER_ID": "1002",
+      "TYPE_ID": "1",
+      "SUBJECT": "Онлайн-встреча по КП",
+      "RESPONSIBLE_ID": "201",
+      "DEADLINE": "2026-03-10T15:00:00+03:00",
+      "COMPLETED": "N",
+      "LAST_UPDATED": "2026-03-10T10:00:00+03:00"
+    },
+    {
+      "ID": "9002",
+      "OWNER_TYPE_ID": "2",
+      "OWNER_ID": "1002",
+      "TYPE_ID": "2",
+      "SUBJECT": "Контрольный звонок",
+      "PROVIDER_ID": "VOXIMPLANT_CALL",
+      "PROVIDER_TYPE_ID": "CALL",
+      "RESPONSIBLE_ID": "201",
+      "CREATED": "2026-03-09T17:00:00+03:00",
+      "START_TIME": "2026-03-09T17:00:00+03:00",
+      "END_TIME": "2026-03-09T17:01:24+03:00",
+      "DEADLINE": "2026-03-09T17:00:00+03:00",
+      "COMPLETED": "Y",
+      "LAST_UPDATED": "2026-03-09T17:10:00+03:00",
+      "COMMUNICATIONS": [
+        {
+          "TYPE": "PHONE",
+          "VALUE": "79990001122"
+        }
+      ]
+    },
+    {
+      "ID": "9003",
+      "OWNER_TYPE_ID": "2",
+      "OWNER_ID": "1004",
+      "TYPE_ID": "2",
+      "SUBJECT": "Follow-up call",
+      "PROVIDER_ID": "VOXIMPLANT_CALL",
+      "PROVIDER_TYPE_ID": "CALL",
+      "RESPONSIBLE_ID": "202",
+      "CREATED": "2026-03-09T18:05:00+03:00",
+      "START_TIME": "2026-03-09T18:05:00+03:00",
+      "END_TIME": "2026-03-09T18:05:25+03:00",
+      "DEADLINE": "2026-03-09T18:05:00+03:00",
+      "COMPLETED": "Y",
+      "LAST_UPDATED": "2026-03-09T18:05:25+03:00",
+      "COMMUNICATIONS": [
+        {
+          "TYPE": "PHONE",
+          "VALUE": "79990002233"
+        }
+      ]
+    },
+    {
+      "ID": "9004",
+      "OWNER_TYPE_ID": "1",
+      "OWNER_ID": "502",
+      "TYPE_ID": "1",
+      "SUBJECT": "Квалификация лида",
+      "RESPONSIBLE_ID": "202",
+      "DEADLINE": "2026-03-10T16:00:00+03:00",
+      "COMPLETED": "N",
+      "LAST_UPDATED": "2026-03-10T10:15:00+03:00"
+    },
+    {
+      "ID": "9005",
+      "OWNER_TYPE_ID": "2",
+      "OWNER_ID": "1006",
+      "TYPE_ID": "1",
+      "SUBJECT": "Согласование договора",
+      "RESPONSIBLE_ID": "203",
+      "DEADLINE": "2026-03-09T14:00:00+03:00",
+      "COMPLETED": "Y",
+      "LAST_UPDATED": "2026-03-09T14:10:00+03:00"
+    },
+    {
+      "ID": "9006",
+      "OWNER_TYPE_ID": "4",
+      "OWNER_ID": "3001",
+      "TYPE_ID": "2",
+      "SUBJECT": "Finance reminder call",
+      "PROVIDER_ID": "VOXIMPLANT_CALL",
+      "PROVIDER_TYPE_ID": "CALL",
+      "RESPONSIBLE_ID": "204",
+      "CREATED": "2026-03-09T12:10:00+03:00",
+      "START_TIME": "2026-03-09T12:10:00+03:00",
+      "END_TIME": "2026-03-09T12:11:20+03:00",
+      "DEADLINE": "2026-03-09T12:10:00+03:00",
+      "COMPLETED": "Y",
+      "LAST_UPDATED": "2026-03-09T12:11:20+03:00",
+      "COMMUNICATIONS": [
+        {
+          "TYPE": "PHONE",
+          "VALUE": "79990004455"
+        }
+      ]
+    }
+  ],
+  "calendar_events": [
+    {
+      "ID": "7001",
+      "NAME": "Коммерческий созвон / Nord",
+      "DATE_FROM": "2026-03-10T15:00:00+03:00",
+      "DATE_TO": "2026-03-10T15:30:00+03:00",
+      "ATTENDEES": ["201", "202"]
+    },
+    {
+      "ID": "7002",
+      "NAME": "Разбор pipeline / Sales",
+      "DATE_FROM": "2026-03-10T18:00:00+03:00",
+      "DATE_TO": "2026-03-10T18:30:00+03:00",
+      "ATTENDEES": ["201", "203"]
+    }
+  ],
+  "tasks": [
+    {
+      "ID": "8001",
+      "TITLE": "Подготовить follow-up по Nord",
+      "STATUS": "2",
+      "RESPONSIBLE_ID": "201",
+      "DEADLINE": "2026-03-10T09:00:00+03:00",
+      "UF_CRM_TASK": ["D_1002"],
+      "deadlineChangeCount": "4",
+      "changedDate": "2026-03-09T18:30:00+03:00"
+    },
+    {
+      "ID": "8002",
+      "TITLE": "Обновить статус Vega после согласования нового этапа и дополнительного комментария клиента",
+      "STATUS": "2",
+      "RESPONSIBLE_ID": "202",
+      "DEADLINE": "2026-03-09T17:00:00+03:00",
+      "UF_CRM_TASK": ["D_1003"],
+      "deadlineChangeCount": "3",
+      "changedDate": "2026-03-08T16:00:00+03:00"
+    }
+  ]
+}

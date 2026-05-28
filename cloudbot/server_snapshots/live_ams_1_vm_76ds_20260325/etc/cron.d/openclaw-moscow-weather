@@ -1,0 +1,2 @@
+# Server timezone is UTC. 05:00 UTC = 08:00 Europe/Moscow.
+0 5 * * * root /usr/local/bin/send_moscow_weather.sh >/var/log/openclaw-moscow-weather.log 2>&1
