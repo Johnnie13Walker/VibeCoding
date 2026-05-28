@@ -15,23 +15,33 @@ Runtime-код Cloudbot перенесён из `~/Desktop/OpenClo/projects/engi
 
 ## Смежные контуры на текущей машине
 
-- `/Users/pro2kuror/Desktop/architect` — control-plane / documentation workspace; это не runtime-код, а слой контрактов, чеклистов и статусов.
-- `/Users/pro2kuror/Desktop/OpenClo/projects/commercial-director` — внешний локальный knowledge/migration contour без `.git`; по зафиксированному контракту больше не должен считаться source of truth после переноса роли в `apps/lev_petrovich`.
-- `/Users/pro2kuror/Desktop/OpenClo/projects/whoop` — отдельный локальный WHOOP-модуль без `.git`, со своим `.venv` и скриптами; это standalone/sandbox контур, а не канонический runtime Cloudbot без отдельного deploy-контракта.
+### Внутри VibeCoding/cloudbot/
+
+- `cloudbot/incubator/openclaw-extensions/` — инкубационный sandbox: Telegram CRM-lite, Search, Steps, Discord-hub, DevOps-SRE, providers, workflows (перенесён 2026-05-28 из `~/Desktop/OpenClo/incubator/`). Не канонический runtime, прототипы.
+- `cloudbot/docs/legacy/commercial-director/` — historical knowledge layer retired-проекта «Коммерческий директор»; роль перенесена в `apps/lev_petrovich/` (перенесён 2026-05-28 из `~/Desktop/OpenClo/projects/commercial-director/`).
+
+### Внешние артефакты на десктопе
+
+- `~/Desktop/engineer-backup-2026-05-28/` — снапшот канонического runtime до миграции subtree merge (`codex-base.git` clone). Удалится после переписи VPS deploy-bundle под путь VibeCoding/cloudbot/.
+- `~/Desktop/BelberryArchive/` — архив агентской работы (64 клиентских папки + брифы + брендбук + конкурентная разведка). Не в git по решению владельца. См. [[reference-belberry-archive-desktop]] в memory.
+
+### Retired контуры (полностью удалены 2026-05-28)
+
+- `~/Desktop/architect/` — control-plane / documentation workspace. Git-история сохранена в `shared/archive/architect-history-2026-04-28.bundle`.
+- `~/Desktop/OpenClo/archive/restored-workspace/` — пустой архивный git-контур (был detached HEAD без коммитов).
+- `~/Desktop/OpenClo/projects/whoop/` — стояла пустой к моменту миграции, удалена.
 
 ## Что не считать каноническим runtime без отдельной миграции
 
-- `/Users/pro2kuror/Desktop/OpenClo/projects/commercial-director` — внешний локальный контур без git-источника; использовать только как вспомогательный knowledge/archive слой.
-- `/Users/pro2kuror/Desktop/OpenClo/projects/whoop` — локальный standalone WHOOP sandbox; live `openclaw-whoop-report` сейчас идёт не из этой папки.
-- `/Users/pro2kuror/Desktop/OpenClo/archive/restored-workspace` — архивный контур.
-- `/Users/pro2kuror/Desktop/OpenClo/incubator/openclaw-extensions` — инкубационный и экспериментальный контур.
-- `logs`, `reports`, `tmp`, `cache` внутри runtime-репозитория — runtime-артефакты, а не source of truth.
+- `cloudbot/incubator/openclaw-extensions/` — sandbox / прототипы. Перенос в production — через явный design + смену контракта.
+- `cloudbot/docs/legacy/*` — историческая документация, не source of truth.
+- `logs`, `reports`, `tmp`, `cache` внутри runtime-репозитория — runtime-артефакты.
 
 Дополнительная диагностика:
 
-- Полный scan `find /Users/pro2kuror/Desktop -name .git -type d` на `2026-03-29` дал только три git-контура: `architect`, `projects/engineer` и архивный `archive/restored-workspace`.
-- `/Users/pro2kuror/Desktop/OpenClo/archive/restored-workspace` содержит отдельный `.git`, но сейчас находится в detached `HEAD` и должен считаться историческим архивом.
-- `/Users/pro2kuror/Desktop/OpenClo/incubator/openclaw-extensions` не содержит `.git` и представляет собой набор экспериментальных модулей/прототипов.
+- На `2026-05-28` после миграции в `~/Desktop/` остался только один git-контур: `engineer-backup-2026-05-28/` (`codex-base.git` clone) — backup до переписи VPS deploy-bundle.
+- Бывший `~/Desktop/architect/` git-контур заархивирован в `shared/archive/architect-history-2026-04-28.bundle`.
+- Бывший `~/Desktop/OpenClo/archive/restored-workspace/` был detached HEAD без коммитов — git bundle создать не удалось (пустой репо), удалён.
 
 ## Подтвержденные live auxiliary-контуры на сервере
 
