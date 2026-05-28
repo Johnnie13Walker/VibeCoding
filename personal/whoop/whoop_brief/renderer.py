@@ -57,6 +57,7 @@ def render_morning_brief(
     sleep_need = format_minutes(today.sleep_need_minutes)
     sleep_last = _bold(format_minutes(today.sleep_minutes)) if today.sleep_minutes is not None else "н/д"
     sleep_debt_line = _sleep_debt_line(today.sleep_debt_minutes)
+    steps_line = _steps_line(today.steps)
     metrics = _metrics_block(today, baseline, verdict)
     top_flag = _bold_top_flag(verdict)
 
@@ -74,6 +75,7 @@ def render_morning_brief(
         sleep_last=sleep_last,
         sleep_need=sleep_need,
         sleep_debt_line=sleep_debt_line,
+        steps_line=steps_line,
         baseline_note=baseline_note,
         metrics=metrics,
         trend_recovery=trend["recovery"],
@@ -87,6 +89,14 @@ def _sleep_debt_line(debt_minutes: Optional[int]) -> str:
         return ""
     marker = "✅" if debt_minutes < 30 else ("⚠️" if debt_minutes < 60 else "⚠️⚠️")
     return f"\n{marker} Долг сна: {_bold(format_minutes(debt_minutes))}"
+
+
+def _steps_line(steps: Optional[int]) -> str:
+    """Строка шагов вчера из Apple Health (пустая если данных нет)."""
+    if steps is None:
+        return ""
+    marker = "✅" if steps >= 6000 else ("⚠️" if steps >= 3000 else "⚠️⚠️")
+    return f"\n{marker} Шаги вчера: {_bold(f'{steps:,}'.replace(',', ' '))}"
 
 
 def render_weekly_brief(

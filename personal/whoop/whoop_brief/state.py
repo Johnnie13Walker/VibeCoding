@@ -11,6 +11,35 @@ from typing import Any, Iterable, Optional
 from .models import Baseline30d, DailyMetrics
 
 DEFAULT_STATE_PATH = Path("/var/lib/cloudbot-larisa-whoop/whoop-state.json")
+DEFAULT_HEALTH_STATE_PATH = Path("/etc/openclaw/health-state.json")
+
+
+def health_state_path(explicit: Optional[str] = None) -> Path:
+    if explicit:
+        return Path(explicit)
+    env_path = os.getenv("HEALTH_STATE_FILE", "").strip()
+    if env_path:
+        return Path(env_path)
+    return DEFAULT_HEALTH_STATE_PATH
+
+
+def read_health_steps(date: str, *, path: Optional[str] = None) -> Optional[int]:
+    """Шаги за дату из health-state.json (Apple Health → iOS Shortcut). None если нет."""
+    target = health_state_path(path)
+    if not target.exists():
+        return None
+    try:
+        with target.open("r", encoding="utf-8") as fh:
+            data = json.load(fh)
+    except Exception:
+        return None
+    if not isinstance(data, dict):
+        return None
+    steps_map = data.get("steps") if isinstance(data.get("steps"), dict) else {}
+    value = steps_map.get(date)
+    if isinstance(value, int) and 0 <= value <= 200_000:
+        return value
+    return None
 
 
 def state_path(explicit: Optional[str] = None) -> Path:
@@ -86,6 +115,7 @@ def metrics_from_state(data: dict[str, Any]) -> list[DailyMetrics]:
                 sleep_debt_minutes=_to_int(row.get("sleep_debt_minutes")),
                 respiratory_rate=_to_float(row.get("respiratory_rate")),
                 strain=_to_float(row.get("strain")),
+                steps=_to_int(row.get("steps")),
             )
         )
     rows.sort(key=lambda item: item.date)

@@ -18,6 +18,7 @@ class DailyMetrics:
     sleep_debt_minutes: Optional[int] = None  # накопленный долг сна из sleep_need.need_from_sleep_debt_milli
     respiratory_rate: Optional[float] = None  # частота дыхания во сне, /мин
     strain: Optional[float] = None
+    steps: Optional[int] = None  # шаги за день из Apple Health через iOS Shortcut → health-state.json
 
 
 @dataclass(frozen=True)

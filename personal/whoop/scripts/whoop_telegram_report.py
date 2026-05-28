@@ -1071,6 +1071,11 @@ def _daily_metrics_from_records(
 ) -> DailyMetrics:
     rec = extract_recovery_metrics(recovery or {})
     slp = extract_sleep_metrics(sleep or {})
+    try:
+        from whoop_brief.state import read_health_steps
+        steps_value = read_health_steps(date_value.isoformat())
+    except Exception:
+        steps_value = None
     return DailyMetrics(
         date=date_value.isoformat(),
         recovery=rec.get("score"),
@@ -1084,6 +1089,7 @@ def _daily_metrics_from_records(
         sleep_debt_minutes=_sleep_debt_minutes(sleep or {}),
         respiratory_rate=slp.get("respiratory_rate"),
         strain=extract_strain(cycle or {}),
+        steps=steps_value,
     )
 
 
