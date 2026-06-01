@@ -1,5 +1,7 @@
 import { redirect } from 'next/navigation';
+import { CalendarView } from '@/components/CalendarView';
 import { requireSession } from '@/lib/auth';
+import { availableReportDates } from '@/lib/reports';
 
 export default async function HomePage() {
   const session = await requireSession();
@@ -7,6 +9,7 @@ export default async function HomePage() {
   if (!session) {
     redirect('/login');
   }
+  const dates = await availableReportDates();
 
   return (
     <main className="mx-auto flex min-h-screen max-w-5xl flex-col gap-8 px-6 py-10">
@@ -22,28 +25,14 @@ export default async function HomePage() {
         </form>
       </header>
 
-      <section className="grid gap-4 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="grid gap-6">
         <div>
-          <h2 className="text-xl font-semibold text-slate-950">Доступ открыт</h2>
+          <h2 className="text-xl font-semibold text-slate-950">Архив отчётов</h2>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-            Календарь и отчёты дня появятся в следующей фазе. Сейчас проверяем
-            закрытый вход, сессию и базовую оболочку.
+            Выберите дату с готовым отчётом. Серые дни пока недоступны.
           </p>
         </div>
-        <dl className="grid gap-3 text-sm text-slate-700 sm:grid-cols-3">
-          <div>
-            <dt className="font-medium text-slate-500">Bitrix ID</dt>
-            <dd className="mt-1 font-semibold text-slate-950">{session.bitrixId}</dd>
-          </div>
-          <div>
-            <dt className="font-medium text-slate-500">Email</dt>
-            <dd className="mt-1 font-semibold text-slate-950">{session.email}</dd>
-          </div>
-          <div>
-            <dt className="font-medium text-slate-500">Роль</dt>
-            <dd className="mt-1 font-semibold text-slate-950">{session.role}</dd>
-          </div>
-        </dl>
+        <CalendarView availableDates={dates} />
       </section>
     </main>
   );
