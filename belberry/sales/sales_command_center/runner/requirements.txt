@@ -1,0 +1,6 @@
+workalendar==17.0.0
+psycopg[binary]==3.2.3
+pytz==2024.2
+python-dotenv==1.0.1
+tenacity==9.0.0
+pytest==8.3.4
