@@ -1,0 +1,11 @@
+# Global Sales Dashboard — образец crontab для VPS.
+# Перед установкой заменить /path/to/runner на абсолютный путь runner-каталога.
+# Env (DATABASE_URL/SCC_*/TELEGRAM_*) задавать через окружение сервиса/обёртки на VPS.
+
+TZ=Europe/Moscow
+
+# Пн–Пт 09:00 МСК: сформировать отчёт за прошлый рабочий день.
+0 9 * * 1-5 /path/to/runner/scripts/run_daily.sh
+
+# Ежедневно 03:00 МСК: Postgres backup + ротация.
+0 3 * * * /path/to/runner/scripts/backup_postgres.sh
