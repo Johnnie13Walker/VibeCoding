@@ -8,7 +8,7 @@ import anthropic
 
 from .config import load_config
 
-MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-3-5-sonnet-latest")
+MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-6")
 VALID_MARKS = {"✅", "⚠️", "❌"}
 
 SYSTEM_PROMPT = """
