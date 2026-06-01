@@ -18,6 +18,7 @@ def test_run_daily_has_flock_and_tz():
     assert "TZ" in text
     assert "Europe/Moscow" in text
     assert "SCC_LOCK_PATH" in text
+    assert "SCC_LOCK_FD" in text
     assert "daily_runner.py" in text
 
 

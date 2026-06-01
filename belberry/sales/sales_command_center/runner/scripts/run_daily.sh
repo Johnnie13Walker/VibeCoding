@@ -15,6 +15,7 @@ flock -n 9 || {
   echo "$(date -Is) уже выполняется, пропуск" >>"$LOG"
   exit 0
 }
+export SCC_LOCK_FD=9
 
 echo "$(date -Is) старт daily_runner" >>"$LOG"
 "$RUNNER_DIR/.venv/bin/python" "$RUNNER_DIR/daily_runner.py" >>"$LOG" 2>&1

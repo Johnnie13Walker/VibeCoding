@@ -12,6 +12,12 @@ class AlreadyRunning(RuntimeError):
 
 @contextlib.contextmanager
 def single_instance(lock_path: str | None = None) -> Iterator[None]:
+    inherited_fd = os.environ.get("SCC_LOCK_FD")
+    if inherited_fd:
+        os.fstat(int(inherited_fd))
+        yield
+        return
+
     path = lock_path or os.environ.get("SCC_LOCK_PATH") or DEFAULT_LOCK_PATH
     lock_file = open(path, "w", encoding="utf-8")
 

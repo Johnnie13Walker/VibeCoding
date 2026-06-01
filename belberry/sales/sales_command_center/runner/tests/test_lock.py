@@ -31,3 +31,11 @@ def test_lock_released_on_exception(tmp_path):
 
     with single_instance(lock_path):
         pass
+
+
+def test_inherited_shell_lock_fd_is_accepted(tmp_path, monkeypatch):
+    lock_path = tmp_path / "runner.lock"
+    with open(lock_path, "w", encoding="utf-8") as lock_file:
+        monkeypatch.setenv("SCC_LOCK_FD", str(lock_file.fileno()))
+        with single_instance(str(lock_path)):
+            pass
