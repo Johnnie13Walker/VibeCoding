@@ -1,6 +1,7 @@
 from datetime import date, datetime, timedelta, timezone
 
 from src.timeutil import MSK, msk_day_utc_range, now_msk, prev_working_day
+from src.timeutil import next_working_day
 
 
 def test_now_msk_returns_aware_moscow_datetime():
@@ -30,3 +31,7 @@ def test_prev_working_day_returns_previous_calendar_day_for_tuesday():
 
 def test_prev_working_day_handles_russian_new_year_holidays():
     assert prev_working_day(date(2026, 1, 12)) == date(2026, 1, 9)
+
+
+def test_next_working_day_skips_weekend():
+    assert next_working_day(date(2026, 5, 29)) == date(2026, 6, 1)

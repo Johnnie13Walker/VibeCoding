@@ -24,3 +24,13 @@ def prev_working_day(d: date | None = None) -> date:
         current -= timedelta(days=1)
 
     return current
+
+
+def next_working_day(d: date | None = None) -> date:
+    calendar = Russia()
+    current = (d or now_msk().date()) + timedelta(days=1)
+
+    while not calendar.is_working_day(current):
+        current += timedelta(days=1)
+
+    return current
