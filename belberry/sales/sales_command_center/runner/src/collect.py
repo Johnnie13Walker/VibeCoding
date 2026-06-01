@@ -25,6 +25,7 @@ SEL_1048 = [
     "ufCrm16_1751006555",
     "ufCrm16_1751006126",
     "ufCrm16_1751470800",
+    "ufCrm16Transcript",
     "parentId2",
     "opportunity",
 ]
