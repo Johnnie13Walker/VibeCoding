@@ -4,8 +4,10 @@ from datetime import date
 
 from src import bx_client
 from src import analyze_llm
+from src import notify
 from src.config import load_config
 from src.db import connect
+from src.lock import AlreadyRunning, single_instance
 from src.collect import collect_day
 from src.enrich import enrich_meetings
 from src.render import extract_rejections, render_report
@@ -98,7 +100,12 @@ def run(
     }
     counts = write_day(conn, target, rows, html, summary, status=llm_status)
     conn.commit()
-    return {"status": "done", "report_date": target.isoformat(), "counts": counts}
+    return {
+        "status": "done",
+        "report_date": target.isoformat(),
+        "counts": counts,
+        "llm_status": llm_status,
+    }
 
 
 def run_llm_only(target: date, *, connect_fn=connect, llm_client_factory=None):
@@ -196,6 +203,41 @@ def _mask(text: str) -> str:
     return text.replace("ANTHROPIC_API_KEY", "***")
 
 
+def cron_entry(
+    target: date | None = None,
+    *,
+    force: bool = False,
+    run_fn=run,
+    lock_ctx=single_instance,
+    notify_link=notify.send_report_link,
+    notify_alert=notify.send_alert,
+) -> int:
+    try:
+        with lock_ctx():
+            try:
+                result = run_fn(target, force=force)
+            except Exception as exc:
+                report_date = target.isoformat() if isinstance(target, date) else None
+                notify_alert(_mask(str(exc)), report_date=report_date)
+                return 1
+    except AlreadyRunning:
+        print("daily_runner уже выполняется, пропуск")
+        return 0
+
+    if result.get("status") == "skipped":
+        return 0
+
+    report_date = result.get("report_date")
+    if result.get("status") == "done" and result.get("llm_status") == "partial_llm_failure":
+        notify_alert("Отчёт сформирован частично: LLM-разбор недоступен", report_date=report_date)
+        return 0
+
+    if result.get("status") == "done" and report_date:
+        notify_link(report_date)
+
+    return 0
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--date", help="Дата отчёта YYYY-MM-DD")
@@ -203,8 +245,12 @@ def main() -> None:
     parser.add_argument("--phase", choices=["all", "llm"], default="all")
     args = parser.parse_args()
     target = resolve_target_date(args.date)
-    result = run_llm_only(target) if args.phase == "llm" else run(target, force=args.force)
-    print(result)
+    if args.phase == "llm":
+        result = run_llm_only(target)
+        print(result)
+        return
+
+    raise SystemExit(cron_entry(target, force=args.force))
 
 
 if __name__ == "__main__":

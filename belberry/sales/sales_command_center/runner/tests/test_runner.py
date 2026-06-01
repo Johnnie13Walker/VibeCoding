@@ -1,6 +1,8 @@
 from datetime import date, datetime
+from contextlib import contextmanager
 
 import daily_runner
+from src.lock import AlreadyRunning
 from src.timeutil import MSK
 
 
@@ -198,3 +200,106 @@ def test_phase_llm_skips_bitrix_and_uses_db_transcript(monkeypatch):
     assert set(calls["transcripts"]) == {1}
     assert calls["transcripts"][1]["text"] == "db transcript"
     assert conn.committed is True
+
+
+@contextmanager
+def unlocked():
+    yield
+
+
+def test_cron_entry_sends_link_on_success():
+    links = []
+    alerts = []
+
+    code = daily_runner.cron_entry(
+        date(2026, 5, 29),
+        run_fn=lambda target, force=False: {
+            "status": "done",
+            "report_date": "2026-05-29",
+            "llm_status": "done",
+        },
+        lock_ctx=unlocked,
+        notify_link=lambda report_date: links.append(report_date) or True,
+        notify_alert=lambda message, report_date=None: alerts.append((message, report_date)) or True,
+    )
+
+    assert code == 0
+    assert links == ["2026-05-29"]
+    assert alerts == []
+
+
+def test_cron_entry_alerts_on_partial():
+    links = []
+    alerts = []
+
+    code = daily_runner.cron_entry(
+        date(2026, 5, 29),
+        run_fn=lambda target, force=False: {
+            "status": "done",
+            "report_date": "2026-05-29",
+            "llm_status": "partial_llm_failure",
+        },
+        lock_ctx=unlocked,
+        notify_link=lambda report_date: links.append(report_date) or True,
+        notify_alert=lambda message, report_date=None: alerts.append((message, report_date)) or True,
+    )
+
+    assert code == 0
+    assert links == []
+    assert alerts == [("Отчёт сформирован частично: LLM-разбор недоступен", "2026-05-29")]
+
+
+def test_cron_entry_alerts_on_exception():
+    alerts = []
+
+    def fail(target, force=False):
+        raise RuntimeError("boom ANTHROPIC_API_KEY")
+
+    code = daily_runner.cron_entry(
+        date(2026, 5, 29),
+        run_fn=fail,
+        lock_ctx=unlocked,
+        notify_link=lambda report_date: None,
+        notify_alert=lambda message, report_date=None: alerts.append((message, report_date)) or True,
+    )
+
+    assert code == 1
+    assert alerts == [("boom ***", "2026-05-29")]
+
+
+def test_cron_entry_blocked_when_running():
+    calls = []
+
+    @contextmanager
+    def locked():
+        raise AlreadyRunning("busy")
+        yield
+
+    code = daily_runner.cron_entry(
+        date(2026, 5, 29),
+        run_fn=lambda target, force=False: calls.append("run"),
+        lock_ctx=locked,
+        notify_link=lambda report_date: calls.append("link"),
+        notify_alert=lambda message, report_date=None: calls.append("alert"),
+    )
+
+    assert code == 0
+    assert calls == []
+
+
+def test_cron_entry_skipped_sends_nothing():
+    calls = []
+
+    code = daily_runner.cron_entry(
+        date(2026, 5, 29),
+        run_fn=lambda target, force=False: {
+            "status": "skipped",
+            "report_date": "2026-05-29",
+        },
+        lock_ctx=unlocked,
+        notify_link=lambda report_date: calls.append("link"),
+        notify_alert=lambda message, report_date=None: calls.append("alert"),
+    )
+
+    assert code == 0
+    assert calls == []
