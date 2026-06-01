@@ -29,9 +29,11 @@ export const loginCodes = pgTable(
   {
     id: serial('id').primaryKey(),
     email: text('email').notNull(),
+    // stores SHA-256 hash of the OTP, never plaintext (PITFALLS Pitfall 11)
     code: text('code').notNull(),
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
     used: boolean('used').notNull().default(false),
+    attempts: integer('attempts').notNull().default(0),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   },
   (table) => [
