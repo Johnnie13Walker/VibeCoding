@@ -14,7 +14,11 @@ export function toReportDateKey(date: Date): string {
 }
 
 export function CalendarView({ availableDates }: CalendarViewProps) {
-  const [month, setMonth] = useState(() => new Date());
+  const [month, setMonth] = useState(() =>
+    availableDates.length > 0
+      ? new Date(`${availableDates[0]}T00:00:00`)
+      : new Date(),
+  );
   const availableSet = useMemo(() => new Set(availableDates), [availableDates]);
 
   function openReport(date: Date) {
