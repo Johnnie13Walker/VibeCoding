@@ -94,6 +94,8 @@ def render_report(rows: dict[str, list[dict[str, Any]]], extras: dict[str, Any])
     photos = extras.get("photos") or {}
     raw = extras.get("raw") or {}
     stale = extras.get("stale") or {}
+    narrative = extras.get("narrative") or {}
+    analyses = extras.get("analyses") or {}
     rejections = extras.get("rejections")
     if rejections is None:
         rejections = extract_rejections(raw, users)
@@ -110,18 +112,22 @@ def render_report(rows: dict[str, list[dict[str, Any]]], extras: dict[str, Any])
         "</head><body><div class=\"wrap\">",
         f"<h1>Сводка отдела продаж · {html.escape(str(report_date))}</h1>",
         _stats(rows, rejections, stale),
-        _section("Главное за 30 секунд", llm_placeholder(), "red"),
-        _tiger_section(tiger, photos),
-        _section("Кого пинать сегодня", llm_placeholder(), "red"),
+        _section("Главное за 30 секунд", _narrative_text(narrative, "thirty_seconds") or llm_placeholder(), "red"),
+        _tiger_section(tiger, photos, narrative),
+        _section("Кого пинать сегодня", _narrative_text(narrative, "pinch_list") or llm_placeholder(), "red"),
         _risk_section(stale),
         _stale_section(stale),
         _activity_section(rows.get("manager_activity", []), users, photos),
         _meetings_section(rows.get("meetings", []), raw.get("meet_day", []), users),
-        _section("Содержательный разбор встреч", llm_placeholder(), "purple"),
+        _section(
+            "Содержательный разбор встреч",
+            _meeting_analysis_body(analyses, rows.get("meetings", []), raw.get("meet_day", []), users),
+            "purple",
+        ),
         _briefs_kp_section(rows.get("kp_briefs", []), raw, users),
         _rejections_section(rejections),
-        _section("Системные паттерны", llm_placeholder(), "blue"),
-        _section("Итог дня", llm_placeholder(), "green"),
+        _section("Системные паттерны", _narrative_text(narrative, "systemic_patterns") or llm_placeholder(), "blue"),
+        _section("Итог дня", _narrative_text(narrative, "day_summary") or llm_placeholder(), "green"),
         _tech_debt_section(),
         "</div></body></html>",
     ]
@@ -174,7 +180,7 @@ def _choose_tiger(activity: list[dict[str, Any]], users: dict[Any, str]) -> dict
     return {**winner, "name": manager_name(users, winner.get("manager_id"))}
 
 
-def _tiger_section(tiger: dict[str, Any] | None, photos: dict[Any, str]) -> str:
+def _tiger_section(tiger: dict[str, Any] | None, photos: dict[Any, str], narrative: dict[str, Any] | None = None) -> str:
     if tiger:
         name = tiger["name"]
         photo = photos.get(str(tiger.get("manager_id"))) or photos.get(name) or ""
@@ -185,7 +191,7 @@ def _tiger_section(tiger: dict[str, Any] | None, photos: dict[Any, str]) -> str:
             f'<div class="tiger-metric">{tiger.get("dials_total", 0)} наборов · '
             f'{tiger.get("calls_answered", 0)} дозвонов · '
             f'{tiger.get("calls_120s_plus", 0)} разговоров ≥120 с</div>'
-            f"{llm_placeholder()}</div></div>"
+            f"{_tiger_caption(narrative)}</div></div>"
         )
     else:
         body = llm_placeholder()
@@ -194,6 +200,79 @@ def _tiger_section(tiger: dict[str, Any] | None, photos: dict[Any, str]) -> str:
         'официальная сводка «Опер» недоступна.</p>'
     )
     return _section("Тигр дня", body, "amber")
+
+
+def _tiger_caption(narrative: dict[str, Any] | None) -> str:
+    caption = (narrative or {}).get("tiger_caption")
+    if caption:
+        return f'<div class="tiger-caption">{html.escape(str(caption))}</div>'
+    return '<div class="tiger-caption">Детерминированный лидер по телефонии дня.</div>'
+
+
+def _narrative_text(narrative: dict[str, Any], key: str) -> str | None:
+    value = narrative.get(key)
+    if not value:
+        return None
+    if key == "thirty_seconds" and isinstance(value, dict):
+        return "<ul>" + "".join(
+            f"<li><b>{html.escape(label)}:</b> {html.escape(str(value.get(label, '')))}</li>"
+            for label in ["горит", "деньги", "системно"]
+            if value.get(label)
+        ) + "</ul>"
+    if key == "pinch_list" and isinstance(value, list):
+        return "<ul>" + "".join(
+            f"<li><b>{html.escape(str(item.get('name', '')))}:</b> "
+            f"{html.escape(str(item.get('action', '')))} — {html.escape(str(item.get('why', '')))}</li>"
+            for item in value
+        ) + "</ul>"
+    if key == "systemic_patterns" and isinstance(value, dict):
+        works = "".join(f"<li>{html.escape(str(item))}</li>" for item in value.get("works", []))
+        repeats = "".join(f"<li>{html.escape(str(item))}</li>" for item in value.get("repeats", []))
+        return f"<h3>Что работает</h3><ul>{works}</ul><h3>Что повторяется</h3><ul>{repeats}</ul>"
+    if key == "quote_of_day" and isinstance(value, dict):
+        return f"<blockquote>{html.escape(str(value.get('text', '')))}</blockquote><p>{html.escape(str(value.get('meta', '')))}</p>"
+    return f"<p>{html.escape(str(value))}</p>"
+
+
+def _meeting_analysis_body(analyses, meetings, raw_meetings, users) -> str:
+    raw_index = {int(item.get("id")): item for item in raw_meetings if item.get("id") is not None}
+    blocks = []
+    for row in meetings:
+        meeting_id = int(row["meeting_id"])
+        analysis = analyses.get(meeting_id) or analyses.get(str(meeting_id))
+        raw = raw_index.get(meeting_id, {})
+        title = raw.get("title") or f"Встреча {meeting_id}"
+        header = f"<h3>{a(meeting_url(meeting_id), title)} · {html.escape(manager_name(users, row.get('manager_id')))}</h3>"
+        if not analysis:
+            blocks.append(header + llm_placeholder())
+            continue
+        if analysis.get("analysis_available") is False or analysis.get("transcript_status") != "ok":
+            reason = html.escape(str(analysis.get("reason") or "Разбор невозможен: транскрипта нет"))
+            blocks.append(header + f'<div class="hilight risk">⚠️ Разбор невозможен: {reason}. Проблема контроля.</div>')
+            continue
+        checklist = "".join(
+            f"<li>{html.escape(str(item.get('mark', '')))} <b>{html.escape(str(item.get('item', '')))}</b>: "
+            f"{html.escape(str(item.get('note', '')))}</li>"
+            for item in analysis.get("checklist", [])
+        )
+        quote = analysis.get("client_quote")
+        quote_html = f"<blockquote>💬 {html.escape(str(quote))}</blockquote>" if quote else ""
+        conclusion = html.escape(str(analysis.get("systemic_conclusion") or ""))
+        discrepancy = ""
+        if analysis.get("status_discrepancy"):
+            discrepancy = (
+                '<div class="hilight risk">Расхождение со статусом Bitrix: '
+                f'{html.escape(str(analysis.get("status_discrepancy_note") or ""))}</div>'
+            )
+        blocks.append(
+            header
+            + f"<ul>{checklist}</ul>"
+            + quote_html
+            + f"<p>🔧 {conclusion}</p>"
+            + discrepancy
+            + f"<p><b>Вердикт:</b> {html.escape(str(analysis.get('verdict') or ''))}</p>"
+        )
+    return "".join(blocks) or llm_placeholder()
 
 
 def _risk_section(stale: dict[str, list[dict[str, Any]]]) -> str:

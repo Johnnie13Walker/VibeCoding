@@ -108,6 +108,10 @@ export const meetings = pgTable(
     managerId: integer('manager_id'),
     scheduledAt: timestamp('scheduled_at', { withTimezone: true }),
     analysisJson: jsonb('analysis_json'),
+    transcriptUrl: text('transcript_url'),
+    transcriptText: text('transcript_text'),
+    transcriptOk: boolean('transcript_ok'),
+    analysisStatus: text('analysis_status'),
   },
   (table) => [
     unique('meetings_report_date_meeting_id_unique').on(

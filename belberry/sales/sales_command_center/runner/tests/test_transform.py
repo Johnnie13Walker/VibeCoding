@@ -119,5 +119,9 @@ def test_build_db_rows_matches_phase_one_schema_keys():
         "manager_id",
         "scheduled_at",
         "analysis_json",
+        "transcript_url",
+        "transcript_text",
+        "transcript_ok",
+        "analysis_status",
     }
     assert rows["meetings"][0]["analysis_json"] is None

@@ -5,10 +5,17 @@ from typing import Any
 from .db import build_upsert_sql, upsert
 
 
-def write_day(conn, target_date: date, rows: dict[str, list[dict[str, Any]]], html: str, summary: dict):
+def write_day(
+    conn,
+    target_date: date,
+    rows: dict[str, list[dict[str, Any]]],
+    html: str,
+    summary: dict,
+    status: str = "done",
+):
     report_row = {
         "report_date": target_date.isoformat(),
-        "status": "done",
+        "status": status,
         "html": html,
         "summary_json": json.dumps(summary, ensure_ascii=False),
         "generated_at": summary.get("generated_at"),

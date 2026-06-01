@@ -20,7 +20,7 @@ def load_raw():
     return raw
 
 
-def render_fixture():
+def render_fixture(analyses=None, narrative=None):
     raw = load_raw()
     rows = build_db_rows(raw, date(2026, 5, 29), NOW)
     extras = {
@@ -30,6 +30,8 @@ def render_fixture():
         "users": raw["users"],
         "photos": raw["photos"],
         "rejections": extract_rejections(raw, raw["users"]),
+        "analyses": analyses or {},
+        "narrative": narrative or {},
     }
     return render_report(rows, extras)
 
@@ -80,3 +82,74 @@ def test_stale_deal_title_is_rendered_as_link_text():
 
     assert "sporttravma.org" in output or "newflat.ai" in output
     assert "<a href=\"https://belberrycrm.bitrix24.ru/crm/deal/details/" in output
+
+
+def test_meeting_analysis_rendered_when_present():
+    output = render_fixture(
+        analyses={
+            2180: {
+                "meeting_type": "defense",
+                "checklist": [{"item": "кейсы", "mark": "❌", "note": "не показаны"}],
+                "client_quote": "Без кейса я не понимаю результат.",
+                "systemic_conclusion": "Нужны кейсы и прогноз.",
+                "status_discrepancy": True,
+                "status_discrepancy_note": "Статус успех, но клиент не согласовал шаг.",
+                "verdict": "не закрыта",
+                "transcript_status": "ok",
+            }
+        }
+    )
+
+    assert "Без кейса я не понимаю результат." in output
+    assert "❌" in output
+    assert "Нужны кейсы и прогноз." in output
+    assert "Расхождение со статусом Bitrix" in output
+
+
+def test_missing_transcript_shows_honest_note():
+    output = render_fixture(
+        analyses={
+            2180: {
+                "transcript_status": "missing",
+                "analysis_available": False,
+                "control_flag": True,
+                "reason": "Записи/транскрипта нет — разбор невозможен",
+            }
+        }
+    )
+
+    assert "Разбор невозможен" in output
+    assert "Проблема контроля" in output
+
+
+def test_narrative_placeholders_filled():
+    output = render_fixture(
+        narrative={
+            "thirty_seconds": {"горит": "дожать КП", "деньги": "3 млн", "системно": "кейсы"},
+            "pinch_list": [{"name": "Иванов Иван", "action": "позвонить", "why": "зависло"}],
+            "systemic_patterns": {"works": ["брифы"], "repeats": ["нет кейсов"]},
+            "day_summary": "Итоговый абзац.",
+            "quote_of_day": {"text": "Жду прогноз", "meta": "защита"},
+            "tiger_caption": "LLM-подпись",
+        }
+    )
+
+    assert "дожать КП" in output
+    assert "Иванов Иван" in output
+    assert "Итоговый абзац." in output
+    assert "LLM-подпись" in output
+
+
+def test_tiger_caption_falls_back_without_narrative():
+    output = render_fixture()
+
+    assert "Детерминированный лидер по телефонии дня." in output
+
+
+def test_sections_count_and_order_preserved_with_llm_content():
+    output = render_fixture(narrative={"day_summary": "Итог"})
+
+    indexes = [output.index(marker) for marker in SECTION_H2_MARKERS]
+
+    assert indexes == sorted(indexes)
+    assert len(indexes) == 13

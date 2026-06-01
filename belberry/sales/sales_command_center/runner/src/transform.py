@@ -174,6 +174,10 @@ def build_db_rows(raw: dict[str, Any], target_date: date, now: datetime) -> dict
             "manager_id": _to_int(item.get("assignedById")),
             "scheduled_at": item.get("ufCrm16_1751009238"),
             "analysis_json": None,
+            "transcript_url": None,
+            "transcript_text": None,
+            "transcript_ok": None,
+            "analysis_status": None,
         }
         for item in raw.get("meet_day", [])
     ]
