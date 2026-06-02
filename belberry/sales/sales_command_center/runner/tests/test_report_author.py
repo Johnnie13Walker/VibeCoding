@@ -106,3 +106,10 @@ def test_build_payload_excludes_non_sales_roles():
     ids = [m["manager_id"] for m in payload["manager_activity"]]
     assert ids == [10]  # только ОП/ТМ
     assert payload["stats"]["calls_total"] == 50
+
+
+def test_fmt_until_formats_dates():
+    from src.report_author import _fmt_until
+    assert _fmt_until("08.06.2026 18:00:00") == "08.06"
+    assert _fmt_until("2026-06-08T18:00:00") == "08.06"
+    assert _fmt_until(None) is None

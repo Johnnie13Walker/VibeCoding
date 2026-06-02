@@ -8,7 +8,7 @@ import time
 import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -298,6 +298,47 @@ def compute_messenger_dialogs(
     return counts
 
 
+ABSENCE_NAME_HINTS = ("отпуск", "отсутств", "больнич", "vacation")
+
+
+def collect_absences(user_ids: set[Any], target: date, bx=None) -> dict[str, str]:
+    """Кто в отпуске/отсутствует — из «Графика отсутствий» Bitrix.
+
+    calendar.accessibility.get возвращает события доступности; отпуск приходит с
+    ACCESSIBILITY="absent" (или календарным событием с «отпуск» в названии). Берём
+    дату окончания (DATE_TO) → «в отпуске до DD.MM». Отдельного absence-метода в
+    REST портала нет, этого достаточно.
+    """
+    client = _client(bx)
+    ids = sorted({str(u) for u in user_ids if u not in (None, "", "0", 0)})
+    if not ids:
+        return {}
+    response = client.call(
+        "calendar.accessibility.get",
+        {"users": ids, "from": target.isoformat(), "to": (target + timedelta(days=21)).isoformat()},
+    )
+    result = response.get("result") if isinstance(response, dict) else None
+    if not isinstance(result, dict):
+        return {}
+    out: dict[str, str] = {}
+    for uid, events in result.items():
+        best_ts, until = -1, None
+        for ev in events or []:
+            acc = str(ev.get("ACCESSIBILITY") or "").lower()
+            name = str(ev.get("NAME") or "").lower()
+            if acc != "absent" and not any(h in name for h in ABSENCE_NAME_HINTS):
+                continue
+            try:
+                ts = int(float(ev.get("DATE_TO_TS_UTC") or 0))
+            except (TypeError, ValueError):
+                ts = 0
+            if ts >= best_ts:
+                best_ts, until = ts, ev.get("DATE_TO")
+        if until:
+            out[str(uid)] = str(until)
+    return out
+
+
 REJECTION_STAGES = {"C10:LOSE", "C50:APOLOGY"}
 
 
@@ -501,6 +542,7 @@ def collect_day(target: date, bx=None) -> dict[str, Any]:
     return {
         "user_roles": user_roles,
         "messenger_dialogs": messenger_dialogs,
+        "absences": _progress_step("absences", lambda: collect_absences(user_ids, target, bx)),
         "report_date": target.isoformat(),
         "deals_created": deals_created,
         "deals_open": deals_open,

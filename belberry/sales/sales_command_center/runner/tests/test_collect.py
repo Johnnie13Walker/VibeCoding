@@ -267,3 +267,21 @@ def test_compute_messenger_dialogs_per_manager_for_day():
     d0, d1 = "2026-05-29T00:00:00+03:00", "2026-05-29T23:59:59+03:00"
     out = compute_messenger_dialogs(wazzup, deal_manager, d0, d1)
     assert out == {"1": 1, "2": 1}
+
+
+def test_collect_absences_filters_absent_and_takes_end_date():
+    from src.collect import collect_absences
+
+    class Bx:
+        def call(self, method, params=None):
+            assert method == "calendar.accessibility.get"
+            return {"result": {
+                "2806": [
+                    {"ACCESSIBILITY": "busy", "NAME": "Встреча", "DATE_TO": "02.06.2026 14:00:00", "DATE_TO_TS_UTC": "100"},
+                    {"ACCESSIBILITY": "absent", "NAME": "Отпуск", "DATE_TO": "08.06.2026 18:00:00", "DATE_TO_TS_UTC": "200"},
+                ],
+                "10": [{"ACCESSIBILITY": "busy", "NAME": "x", "DATE_TO": "01.06.2026", "DATE_TO_TS_UTC": "1"}],
+            }}
+
+    out = collect_absences({"2806", "10"}, date(2026, 6, 1), Bx())
+    assert out == {"2806": "08.06.2026 18:00:00"}  # только absent, дата окончания
