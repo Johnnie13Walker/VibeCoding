@@ -155,6 +155,44 @@ def test_call_uses_bitrix_timeout_and_retries_env(monkeypatch, tmp_path):
     assert attempts == [7, 7]
 
 
+def test_call_syncs_and_retries_once_on_expired_token(monkeypatch, tmp_path):
+    state = tmp_path / "install.latest.json"
+    state.write_text(
+        '{"payload":{"auth[client_endpoint]":"https://example.test/rest","auth[access_token]":"old-token"}}'
+    )
+    posts = []
+
+    class FakeResponse:
+        def __init__(self, payload):
+            self.payload = payload
+
+        def json(self):
+            return self.payload
+
+    class FakeSession:
+        def post(self, url, data=None, timeout=None):
+            posts.append(data)
+            if len(posts) == 1:
+                return FakeResponse({"error": "expired_token"})
+            return FakeResponse({"result": [{"ID": "1"}]})
+
+    def fake_sync():
+        state.write_text(
+            '{"payload":{"auth[client_endpoint]":"https://example.test/rest","auth[access_token]":"new-token"}}'
+        )
+
+    monkeypatch.setenv("BITRIX_STATE_PATH", str(state))
+    monkeypatch.setattr(bx_client, "_http_session", lambda: FakeSession())
+    monkeypatch.setattr(bx_client, "ensure_token_fresh", fake_sync)
+
+    response = bx_client.call("crm.deal.list")
+
+    assert response == {"result": [{"ID": "1"}]}
+    assert len(posts) == 2
+    assert "auth=old-token" in posts[0]
+    assert "auth=new-token" in posts[1]
+
+
 def test_fetch_all_raises_on_bitrix_error(monkeypatch):
     monkeypatch.setattr(bx_client, "call", lambda method, params=None: {"error": "expired_token"})
 

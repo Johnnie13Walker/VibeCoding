@@ -62,6 +62,10 @@ def _env_int(name: str, default: int) -> int:
     return value if value > 0 else default
 
 
+def _is_expired_token(response: Any) -> bool:
+    return isinstance(response, dict) and response.get("error") == "expired_token"
+
+
 _SESSION: requests.Session | None = None
 
 
@@ -82,12 +86,21 @@ def call(method: str, params: dict[str, Any] | None = None, retries: int = 3, ti
     url = f"{endpoint}/{method}"
     effective_retries = _env_int("BITRIX_HTTP_RETRIES", retries)
     effective_timeout = _env_int("BITRIX_HTTP_TIMEOUT", timeout)
+    synced_after_expired = False
 
     for attempt in range(effective_retries):
         try:
             response = _http_session().post(url, data=data, timeout=effective_timeout)
             try:
-                return response.json()
+                parsed = response.json()
+                if _is_expired_token(parsed) and not synced_after_expired:
+                    ensure_token_fresh()
+                    endpoint, token = _load_auth()
+                    data = urllib.parse.urlencode([("auth", token), *_flatten_params(params)])
+                    url = f"{endpoint}/{method}"
+                    synced_after_expired = True
+                    continue
+                return parsed
             except ValueError:
                 # не-JSON тело (HTML-ошибка и т.п.) — Bitrix-ошибки приходят JSON
                 if attempt == effective_retries - 1:
