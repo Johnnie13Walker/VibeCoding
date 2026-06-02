@@ -150,9 +150,10 @@ def run_llm_only(target: date, *, connect_fn=connect, llm_client_factory=None):
     all_analyses.update(new_analyses)
     for row in rows["meetings"]:
         mid = int(row["meeting_id"])
-        if mid in new_analyses:
-            row["analysis_json"] = json.dumps(new_analyses[mid], ensure_ascii=False)
-            row["analysis_status"] = "done" if new_analyses[mid].get("analysis_available", True) else "skipped_no_transcript"
+        analysis = all_analyses.get(mid)
+        if analysis:
+            row["analysis_json"] = json.dumps(analysis, ensure_ascii=False)
+            row["analysis_status"] = "done" if analysis.get("analysis_available", True) else "skipped_no_transcript"
     extras = {"raw": {"meet_day": []}, "report_date": target.isoformat(), "stale": {}, "users": {}, "photos": {}, "rejections": [], "analyses": all_analyses}
     extras["narrative"] = analyze_llm.analyze_day_narrative(rows, extras, all_analyses, client=client)
     html = render_report(rows, extras)

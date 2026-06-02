@@ -244,6 +244,39 @@ def test_phase_llm_skips_bitrix_and_uses_db_transcript(monkeypatch):
     assert conn.committed is True
 
 
+def test_phase_llm_serializes_cached_jsonb_analysis(monkeypatch):
+    conn = Conn()
+    conn.rows = [
+        {
+            "meeting_id": 2,
+            "deal_id": 11,
+            "meeting_type": "briefing",
+            "status": "done",
+            "manager_id": 21,
+            "scheduled_at": "2026-05-29T11:00:00+03:00",
+            "transcript_url": "db-url-2",
+            "transcript_text": "cached transcript",
+            "transcript_ok": True,
+            "analysis_json": {"transcript_status": "ok", "verdict": "cached"},
+        },
+    ]
+    captured = {}
+    monkeypatch.setattr(daily_runner.analyze_llm, "analyze_day_narrative", lambda rows, extras, analyses, *, client: {})
+    monkeypatch.setattr(daily_runner, "render_report", lambda rows, extras: "<!DOCTYPE html>")
+
+    def fake_write(conn, target, rows, html, summary, status="done"):
+        captured["rows"] = rows
+        return {"reports": 1}
+
+    monkeypatch.setattr(daily_runner, "write_day", fake_write)
+
+    daily_runner.run_llm_only(date(2026, 5, 29), connect_fn=lambda: conn, llm_client_factory=lambda: object())
+
+    row = captured["rows"]["meetings"][0]
+    assert row["analysis_json"] == '{"transcript_status": "ok", "verdict": "cached"}'
+    assert row["analysis_status"] == "done"
+
+
 @contextmanager
 def unlocked():
     yield
