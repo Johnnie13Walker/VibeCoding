@@ -1,5 +1,6 @@
 import base64
 import json
+import shutil
 import subprocess
 import tempfile
 import urllib.parse
@@ -49,7 +50,14 @@ def collect_voximplant(target: date, bx=None) -> list[dict[str, Any]]:
     last = 0
     client = _client(bx)
 
-    while len(output) < 50000:
+    # Жёсткий потолок страниц: если серверный фильтр CALL_START_DATE не
+    # применится (наблюдалось на этом портале), без потолка цикл пейджит всю
+    # историю звонков и подвешивает прогон. ~140 звонков/день → 3 страницы;
+    # 200 страниц (10000 строк) — заведомо аномалия, прерываемся.
+    pages = 0
+    max_pages = 200
+    while len(output) < 50000 and pages < max_pages:
+        pages += 1
         response = client.call(
             "voximplant.statistic.get",
             {
@@ -60,6 +68,7 @@ def collect_voximplant(target: date, bx=None) -> list[dict[str, Any]]:
                 },
                 "SORT": "ID",
                 "ORDER": "ASC",
+                "start": -1,
             },
         )
         result = response.get("result") or []
@@ -68,7 +77,9 @@ def collect_voximplant(target: date, bx=None) -> list[dict[str, Any]]:
         output.extend(result)
         last = int(result[-1]["ID"])
 
-    return output
+    # Страховка: оставляем только звонки целевого дня, даже если серверный
+    # фильтр отработал неточно (защита от «всей истории»).
+    return [c for c in output if d0 <= str(c.get("CALL_START_DATE", "")) <= d1]
 
 
 def collect_users(user_ids: set[Any], bx=None) -> dict[str, str]:
@@ -101,29 +112,34 @@ def collect_photos(user_ids: set[Any], bx=None) -> dict[str, str]:
         url = _quote_url(result[0]["PERSONAL_PHOTO"])
         try:
             raw = urllib.request.urlopen(url, timeout=20).read()
-            with tempfile.TemporaryDirectory() as tmpdir:
-                source = Path(tmpdir) / f"{uid}.img"
-                output = Path(tmpdir) / f"{uid}.jpg"
-                source.write_bytes(raw)
-                completed = subprocess.run(
-                    [
-                        "sips",
-                        "-s",
-                        "format",
-                        "jpeg",
-                        "-s",
-                        "formatOptions",
-                        "60",
-                        "-Z",
-                        "140",
-                        str(source),
-                        "--out",
-                        str(output),
-                    ],
-                    capture_output=True,
-                    check=False,
-                )
-                image_bytes = output.read_bytes() if completed.returncode == 0 and output.exists() else raw
+            image_bytes = raw
+            # sips есть только на macOS (локальная генерация фикстур). На Linux-
+            # сервере его нет — тогда вшиваем исходное изображение как есть.
+            if shutil.which("sips"):
+                with tempfile.TemporaryDirectory() as tmpdir:
+                    source = Path(tmpdir) / f"{uid}.img"
+                    output = Path(tmpdir) / f"{uid}.jpg"
+                    source.write_bytes(raw)
+                    completed = subprocess.run(
+                        [
+                            "sips",
+                            "-s",
+                            "format",
+                            "jpeg",
+                            "-s",
+                            "formatOptions",
+                            "60",
+                            "-Z",
+                            "140",
+                            str(source),
+                            "--out",
+                            str(output),
+                        ],
+                        capture_output=True,
+                        check=False,
+                    )
+                    if completed.returncode == 0 and output.exists():
+                        image_bytes = output.read_bytes()
             photos[uid] = "data:image/jpeg;base64," + base64.b64encode(image_bytes).decode()
         except Exception:
             continue
