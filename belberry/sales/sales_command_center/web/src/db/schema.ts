@@ -157,6 +157,7 @@ export const kpBriefs = pgTable(
       .references(() => reports.reportDate),
     itemId: integer('item_id').notNull(),
     dealId: integer('deal_id'),
+    title: text('title'),
     itemType: text('item_type').notNull(),
     stage: text('stage'),
     managerId: integer('manager_id'),
