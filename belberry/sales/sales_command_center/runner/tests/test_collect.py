@@ -210,11 +210,38 @@ def test_collect_users_and_photos_one_call_per_user():
             return {"result": [{"ID": "1", "LAST_NAME": "Иванов", "NAME": "Иван"}]}
 
     bx = Bx()
-    names, photos = collect_users_and_photos({"1", "0", None}, bx)
+    names, photos, roles = collect_users_and_photos({"1", "0", None}, bx)
 
     assert names == {"1": "Иванов Иван"}
     assert photos == {}
+    assert roles == {}
     assert bx.n == 1  # один user.get на пользователя, не два (имя+фото из одного ответа)
+
+
+def test_collect_users_collects_role_from_work_position():
+    class Bx:
+        def call(self, method, params=None):
+            return {"result": [{"ID": "1", "LAST_NAME": "Гордиенко", "NAME": "Евгения",
+                                 "WORK_POSITION": "РОП продаж"}]}
+
+    names, photos, roles = collect_users_and_photos({"1"}, Bx())
+    assert roles == {"1": "РОП продаж"}
+
+
+def test_photo_store_read_first_without_bitrix(tmp_path, monkeypatch):
+    from io import BytesIO
+    from PIL import Image
+    from src import collect
+
+    monkeypatch.setenv("SCC_PHOTO_DIR", str(tmp_path))
+    Image.new("RGB", (300, 300), (10, 120, 80)).save(tmp_path / "1.jpg", format="JPEG")
+
+    class Bx:  # без PERSONAL_PHOTO — фото должно прийти из хранилища
+        def call(self, method, params=None):
+            return {"result": [{"ID": "1", "LAST_NAME": "Иванов", "NAME": "Иван"}]}
+
+    names, photos, roles = collect_users_and_photos({"1"}, Bx())
+    assert photos["1"].startswith("data:image/jpeg;base64,")
 
 
 def test_resize_jpeg_pillow_shrinks_and_caps_140():

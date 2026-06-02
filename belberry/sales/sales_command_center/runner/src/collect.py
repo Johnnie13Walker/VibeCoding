@@ -181,26 +181,68 @@ def _encode_photo(photo_url: str, uid: str) -> str | None:
     return "data:image/jpeg;base64," + base64.b64encode(image_bytes).decode()
 
 
-def collect_users_and_photos(user_ids: set[Any], bx=None) -> tuple[dict[str, str], dict[str, str]]:
-    """Один user.get на пользователя: имя + (если есть) аватар.
+def _photo_store_path(uid: str) -> Path | None:
+    # Серверное фото-хранилище: SCC_PHOTO_DIR/<uid>.jpg. Источник истины для
+    # аватаров — читаем оттуда (надёжно, без зависимости от Bitrix/сети). Если
+    # у сотрудника нет фото в Bitrix — кладём файл руками один раз.
+    base = os.environ.get("SCC_PHOTO_DIR")
+    return Path(base) / f"{uid}.jpg" if base else None
 
-    Раньше collect_users и collect_photos дёргали user.get по каждому id
-    отдельно — двойной round-trip. PERSONAL_PHOTO приходит уже в первом ответе.
+
+def _read_stored_photo(uid: str) -> str | None:
+    path = _photo_store_path(uid)
+    if not path or not path.exists():
+        return None
+    raw = path.read_bytes()
+    if not raw:
+        return None
+    # сжимаем при чтении: ручной аплоад может быть любого размера/формата
+    image_bytes = _resize_jpeg_sips(raw, uid) or _resize_jpeg_pillow(raw) or raw
+    return "data:image/jpeg;base64," + base64.b64encode(image_bytes).decode()
+
+
+def _write_stored_photo(uid: str, data_uri: str) -> None:
+    path = _photo_store_path(uid)
+    if not path:
+        return
+    try:
+        b64 = data_uri.split(",", 1)[1]
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(base64.b64decode(b64))
+    except Exception:
+        pass
+
+
+def collect_users_and_photos(
+    user_ids: set[Any], bx=None
+) -> tuple[dict[str, str], dict[str, str], dict[str, str]]:
+    """Один user.get на пользователя: имя + роль (WORK_POSITION) + аватар.
+
+    Фото: сначала из серверного хранилища (SCC_PHOTO_DIR), иначе тянем из Bitrix
+    (параллельно) и кэшируем туда же — следующие прогоны не зависят от сети.
     """
     names: dict[str, str] = {}
     photos: dict[str, str] = {}
+    roles: dict[str, str] = {}
     photo_jobs: dict[str, str] = {}
     client = _client(bx)
     for uid in _clean_uids(user_ids):
+        stored = _read_stored_photo(uid)
+        if stored:
+            photos[uid] = stored  # из хранилища — приоритетно
         result = client.call("user.get", {"ID": uid}).get("result") or []
         if not result:
             names[uid] = uid
             continue
         user = result[0]
         names[uid] = f"{user.get('LAST_NAME', '')} {user.get('NAME', '')}".strip() or uid
-        photo_url = user.get("PERSONAL_PHOTO")
-        if photo_url:
-            photo_jobs[uid] = photo_url
+        position = (user.get("WORK_POSITION") or "").strip()
+        if position:
+            roles[uid] = position
+        if uid not in photos:
+            photo_url = user.get("PERSONAL_PHOTO")
+            if photo_url:
+                photo_jobs[uid] = photo_url
     if photo_jobs:
         with ThreadPoolExecutor(max_workers=min(6, len(photo_jobs))) as pool:
             futures = {pool.submit(_encode_photo, url, uid): uid for uid, url in photo_jobs.items()}
@@ -212,7 +254,8 @@ def collect_users_and_photos(user_ids: set[Any], bx=None) -> tuple[dict[str, str
                     encoded = None
                 if encoded:
                     photos[uid] = encoded
-    return names, photos
+                    _write_stored_photo(uid, encoded)  # кэшируем для след. прогонов
+    return names, photos, roles
 
 
 def _collect_wazzup(deal_ids: set[Any], bx=None) -> dict[str, list[dict[str, Any]]]:
@@ -419,8 +462,11 @@ def collect_day(target: date, bx=None) -> dict[str, Any]:
     deal_ids = {item.get("ID") for item in deals_created}
     deal_ids.update(item.get("parentId2") for item in [*meet_day, *meet_created_day, *meet_today])
 
-    users, photos = _progress_step("users_and_photos", lambda: collect_users_and_photos(user_ids, bx))
+    users, photos, user_roles = _progress_step(
+        "users_and_photos", lambda: collect_users_and_photos(user_ids, bx)
+    )
     return {
+        "user_roles": user_roles,
         "report_date": target.isoformat(),
         "deals_created": deals_created,
         "deals_open": deals_open,

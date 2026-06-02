@@ -44,6 +44,9 @@ SYSTEM_PROMPT = """
 - Используй ТОЛЬКО данные из payload. НЕ выдумывай имена, сделки, цифры, цитаты.
   Если данных нет — пиши честно «нет данных» или опускай блок.
 - Имена сотрудников — «Фамилия Имя» из payload.users, НИКОГДА не id.
+- Роль сотрудника бери из payload.user_roles[<его manager_id/uid>] (WORK_POSITION).
+  Если роли там нет — НЕ пиши «роль: нет данных», а ПОЛНОСТЬЮ опусти роль
+  (для tiger-role, mgr-role и строк таблицы «Кого пинать»).
 - Каждую упомянутую сущность оформляй гиперссылкой на её TITLE/домен:
   сделка → {base}/crm/deal/details/{id}/ ;
   встреча/КП/бриф (смарт-процесс) → {base}/crm/type/{entityTypeId}/details/{id}/ .
@@ -183,6 +186,7 @@ def build_payload(rows: dict[str, Any], extras: dict[str, Any]) -> dict[str, Any
             "smart_process": f"{PORTAL_BASE}/crm/type/{{entityTypeId}}/details/{{id}}/",
         },
         "users": users,
+        "user_roles": raw.get("user_roles") or extras.get("user_roles") or {},
         "stats": _stats(rows, extras),
         "stale": extras.get("stale") or {},
         "rejections": rejections,
