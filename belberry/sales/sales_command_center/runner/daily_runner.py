@@ -100,7 +100,7 @@ def run(
                 client = (llm_client_factory or analyze_llm.get_client)()
                 body = author_report(build_payload(rows, extras), client=client)
                 if body:
-                    body = substitute_photos(body, extras.get("photos") or {})
+                    body = substitute_photos(body, extras.get("photos") or {}, extras.get("users") or {})
                     html = wrap_document(body, _load_css(), target.isoformat())
             except Exception as exc:
                 extras["llm_error"] = _mask(str(exc))

@@ -20,10 +20,23 @@ class _Client:
 
 
 def test_substitute_photos_injects_and_clears():
-    body = '<img class="tiger-photo" src="photo:2806"><img class="mgr-ava" src="photo:999">'
+    body = '<img class="tiger-photo" src="photo:2806"><img class="mgr-ava" src="photo:999" alt="Нет фото">'
     out = report_author.substitute_photos(body, {"2806": "data:image/jpeg;base64,AAA"})
     assert 'src="data:image/jpeg;base64,AAA"' in out
-    assert 'data-no-photo="1"' in out  # для 999 фото нет — src очищен
+    assert '<span class="mgr-ava photo-fallback" data-no-photo="1">Н</span>' in out
+    assert 'src=""' not in out
+
+
+def test_substitute_photos_falls_back_to_alt_user_name():
+    body = '<img class="tiger-photo" src="photo:999" alt="Вострецов Аркадий">'
+    out = report_author.substitute_photos(
+        body,
+        {"2832": "data:image/jpeg;base64,BBB"},
+        {"2832": "Вострецов Аркадий"},
+    )
+
+    assert 'src="data:image/jpeg;base64,BBB"' in out
+    assert "photo-fallback" not in out
 
 
 def test_validate_rules():

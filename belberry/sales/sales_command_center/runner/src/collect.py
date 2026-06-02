@@ -7,9 +7,12 @@ import tempfile
 import time
 import urllib.parse
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date
 from pathlib import Path
 from typing import Any
+
+import requests
 
 from . import bx_client
 from .timeutil import next_working_day
@@ -158,17 +161,24 @@ def _resize_jpeg_pillow(raw: bytes) -> bytes | None:
 
 def _encode_photo(photo_url: str, uid: str) -> str | None:
     url = _quote_url(photo_url)
-    try:
-        raw = urllib.request.urlopen(url, timeout=20).read()
-        # КРИТИЧНО сжимать: иначе сырые аватары Bitrix (~1 МБ каждый) раздувают
-        # отчёт до мегабайтов. macOS → sips (генерация фикстур), Linux/прод →
-        # Pillow (140px, JPEG q60). Без сжатия фото НЕ вшиваем (вернём None).
-        image_bytes = _resize_jpeg_sips(raw, uid) or _resize_jpeg_pillow(raw)
-        if image_bytes is None:
-            return None
-        return "data:image/jpeg;base64," + base64.b64encode(image_bytes).decode()
-    except Exception:
+    raw = None
+    for _ in range(2):
+        try:
+            response = requests.get(url, timeout=(3, 6), headers={"User-Agent": "SCC/1.0"})
+            if response.status_code == 200 and response.content:
+                raw = response.content
+                break
+        except Exception:
+            time.sleep(0.5)
+    if raw is None:
         return None
+    # КРИТИЧНО сжимать: иначе сырые аватары Bitrix (~1 МБ каждый) раздувают
+    # отчёт до мегабайтов. macOS → sips (генерация фикстур), Linux/прод →
+    # Pillow (140px, JPEG q60). Без сжатия фото НЕ вшиваем (вернём None).
+    image_bytes = _resize_jpeg_sips(raw, uid) or _resize_jpeg_pillow(raw)
+    if image_bytes is None:
+        return None
+    return "data:image/jpeg;base64," + base64.b64encode(image_bytes).decode()
 
 
 def collect_users_and_photos(user_ids: set[Any], bx=None) -> tuple[dict[str, str], dict[str, str]]:
@@ -179,6 +189,7 @@ def collect_users_and_photos(user_ids: set[Any], bx=None) -> tuple[dict[str, str
     """
     names: dict[str, str] = {}
     photos: dict[str, str] = {}
+    photo_jobs: dict[str, str] = {}
     client = _client(bx)
     for uid in _clean_uids(user_ids):
         result = client.call("user.get", {"ID": uid}).get("result") or []
@@ -189,9 +200,18 @@ def collect_users_and_photos(user_ids: set[Any], bx=None) -> tuple[dict[str, str
         names[uid] = f"{user.get('LAST_NAME', '')} {user.get('NAME', '')}".strip() or uid
         photo_url = user.get("PERSONAL_PHOTO")
         if photo_url:
-            encoded = _encode_photo(photo_url, uid)
-            if encoded:
-                photos[uid] = encoded
+            photo_jobs[uid] = photo_url
+    if photo_jobs:
+        with ThreadPoolExecutor(max_workers=min(6, len(photo_jobs))) as pool:
+            futures = {pool.submit(_encode_photo, url, uid): uid for uid, url in photo_jobs.items()}
+            for future in as_completed(futures):
+                uid = futures[future]
+                try:
+                    encoded = future.result()
+                except Exception:
+                    encoded = None
+                if encoded:
+                    photos[uid] = encoded
     return names, photos
 
 

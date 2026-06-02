@@ -276,16 +276,25 @@ def author_report(payload: dict[str, Any], *, client, model: str | None = None) 
     return None
 
 
-def substitute_photos(body_html: str, photos: dict[str, str]) -> str:
-    """Заменяет src="photo:ID" на data-URI из собранных фото; иначе убирает src."""
+def substitute_photos(body_html: str, photos: dict[str, str], users: dict[str, str] | None = None) -> str:
+    """Заменяет src="photo:ID" на data-URI; без фото оставляет аккуратный fallback."""
     photos = photos or {}
+    user_to_photo = {name: photos.get(str(uid)) for uid, name in (users or {}).items()}
 
     def repl(match: re.Match) -> str:
+        tag = match.group(0)
         uid = match.group(1)
-        data = photos.get(str(uid))
-        return f'src="{data}"' if data else 'src="" data-no-photo="1"'
+        alt = re.search(r'alt="([^"]*)"', tag)
+        alt_text = html.unescape(alt.group(1)).strip() if alt else ""
+        data = photos.get(str(uid)) or user_to_photo.get(alt_text)
+        if data:
+            return tag.replace(f'src="photo:{uid}"', f'src="{data}"')
+        label = alt_text[:1] or "?"
+        classes = re.search(r'class="([^"]*)"', tag)
+        class_attr = html.escape((classes.group(1) if classes else "") + " photo-fallback")
+        return f'<span class="{class_attr}" data-no-photo="1">{html.escape(label)}</span>'
 
-    return re.sub(r'src="photo:([^"]+)"', repl, body_html)
+    return re.sub(r'<img\b[^>]*\bsrc="photo:([^"]+)"[^>]*>', repl, body_html)
 
 
 def wrap_document(body_html: str, css: str, report_date: Any) -> str:
