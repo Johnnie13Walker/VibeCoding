@@ -40,14 +40,17 @@ function normalizeEmail(email: string): string {
 }
 
 function mapRow(row: typeof loginCodes.$inferSelect): LoginCodeRow {
+  // Drizzle/postgres.js может вернуть timestamptz строкой, а не Date — тогда
+  // row.expiresAt.getTime() в consumeCode падал бы (→ 500, маскируется под
+  // «код не подошёл»). Нормализуем к Date явно.
   return {
     id: row.id,
     email: row.email,
     code: row.code,
-    expiresAt: row.expiresAt,
+    expiresAt: new Date(row.expiresAt),
     used: row.used,
     attempts: row.attempts,
-    createdAt: row.createdAt ?? new Date(0),
+    createdAt: row.createdAt ? new Date(row.createdAt) : new Date(0),
   };
 }
 
