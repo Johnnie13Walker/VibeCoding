@@ -298,7 +298,7 @@ def compute_messenger_dialogs(
     return counts
 
 
-ABSENCE_NAME_HINTS = ("отпуск", "отсутств", "больнич", "vacation")
+ABSENCE_NAME_HINTS = ("отпуск", "отгул", "отсутств", "больнич", "командир", "vacation")
 
 
 def collect_absences(user_ids: set[Any], target: date, bx=None) -> dict[str, str]:
