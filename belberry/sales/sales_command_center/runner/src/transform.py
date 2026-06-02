@@ -90,6 +90,8 @@ def compute_stale_deals(
             continue
 
         deal_id = deal.get("ID")
+        if not deal_id:
+            continue
         activity_days = calendar_days_between(parse_dt(deal.get("LAST_ACTIVITY_TIME")), now)
         wazzup_dt = max_wazzup_date(wazzup.get(str(deal_id)) or wazzup.get(deal_id))
         wazzup_days = calendar_days_between(wazzup_dt, now)
@@ -97,7 +99,7 @@ def compute_stale_deals(
         buckets[stage_label].append(
             {
                 "stage_label": stage_label,
-                "deal_id": int(deal_id),
+                "deal_id": _to_int(deal_id),
                 "title": deal.get("TITLE") or str(deal_id),
                 "manager_id": _to_int(deal.get("ASSIGNED_BY_ID")),
                 "opportunity": float(deal.get("OPPORTUNITY") or 0),

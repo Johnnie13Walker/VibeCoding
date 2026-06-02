@@ -70,42 +70,44 @@ def run(
     load_config(["DATABASE_URL"])
     target = target or resolve_target_date(None)
     conn = connect_fn()
-
-    if not force and already_done(conn, target):
-        return {"status": "skipped", "report_date": target.isoformat()}
-
-    bx_client.ensure_token_fresh()
-    now = now_fn()
-    raw = collect_day(target, bx=bx)
-    raw.setdefault("report_date", target.isoformat())
-    rows = build_db_rows(raw, target, now)
-    extras = build_extras(raw, now)
-    llm_status = "done"
     try:
-        llm_result = run_llm_phase(raw, rows, extras, client_factory=llm_client_factory)
-        extras["analyses"] = llm_result["analyses"]
-        extras["narrative"] = llm_result["narrative"]
-    except Exception as exc:
-        llm_status = "partial_llm_failure"
-        extras["analyses"] = {}
-        extras["narrative"] = {}
-        extras["llm_error"] = _mask(str(exc))
-    html = render_report(rows, extras)
-    summary = {
-        "generated_at": now.isoformat(),
-        "report_date": target.isoformat(),
-        "counts": {key: len(value) for key, value in rows.items()},
-        "llm_status": llm_status,
-        "llm_error": extras.get("llm_error"),
-    }
-    counts = write_day(conn, target, rows, html, summary, status=llm_status)
-    conn.commit()
-    return {
-        "status": "done",
-        "report_date": target.isoformat(),
-        "counts": counts,
-        "llm_status": llm_status,
-    }
+        if not force and already_done(conn, target):
+            return {"status": "skipped", "report_date": target.isoformat()}
+
+        bx_client.ensure_token_fresh()
+        now = now_fn()
+        raw = collect_day(target, bx=bx)
+        raw.setdefault("report_date", target.isoformat())
+        rows = build_db_rows(raw, target, now)
+        extras = build_extras(raw, now)
+        llm_status = "done"
+        try:
+            llm_result = run_llm_phase(raw, rows, extras, client_factory=llm_client_factory)
+            extras["analyses"] = llm_result["analyses"]
+            extras["narrative"] = llm_result["narrative"]
+        except Exception as exc:
+            llm_status = "partial_llm_failure"
+            extras["analyses"] = {}
+            extras["narrative"] = {}
+            extras["llm_error"] = _mask(str(exc))
+        html = render_report(rows, extras)
+        summary = {
+            "generated_at": now.isoformat(),
+            "report_date": target.isoformat(),
+            "counts": {key: len(value) for key, value in rows.items()},
+            "llm_status": llm_status,
+            "llm_error": extras.get("llm_error"),
+        }
+        counts = write_day(conn, target, rows, html, summary, status=llm_status)
+        conn.commit()
+        return {
+            "status": "done",
+            "report_date": target.isoformat(),
+            "counts": counts,
+            "llm_status": llm_status,
+        }
+    finally:
+        conn.close()
 
 
 def run_llm_only(target: date, *, connect_fn=connect, llm_client_factory=None):

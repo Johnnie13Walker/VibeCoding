@@ -41,6 +41,9 @@ class Conn:
     def commit(self):
         self.committed = True
 
+    def close(self):
+        self.closed = True
+
 
 def test_runner_orchestrates_pipeline_on_empty_db(monkeypatch):
     order = []

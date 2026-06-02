@@ -71,6 +71,8 @@ def collect_voximplant(target: date, bx=None) -> list[dict[str, Any]]:
                 "start": -1,
             },
         )
+        if isinstance(response, dict) and response.get("error") and "result" not in response:
+            raise RuntimeError(f"voximplant.statistic.get failed: {response.get('error')}")
         result = response.get("result") or []
         if not result:
             break
@@ -83,17 +85,8 @@ def collect_voximplant(target: date, bx=None) -> list[dict[str, Any]]:
     return [c for c in output if not c.get("CALL_START_DATE") or d0 <= str(c["CALL_START_DATE"]) <= d1]
 
 
-def collect_users(user_ids: set[Any], bx=None) -> dict[str, str]:
-    users: dict[str, str] = {}
-    client = _client(bx)
-    for uid in sorted({str(uid) for uid in user_ids if uid not in (None, "", "0", 0)}):
-        result = client.call("user.get", {"ID": uid}).get("result") or []
-        if result:
-            user = result[0]
-            users[uid] = f"{user.get('LAST_NAME', '')} {user.get('NAME', '')}".strip() or uid
-        else:
-            users[uid] = uid
-    return users
+def _clean_uids(user_ids: set[Any]) -> list[str]:
+    return sorted({str(uid) for uid in user_ids if uid not in (None, "", "0", 0)})
 
 
 def _quote_url(url: str) -> str:
@@ -103,48 +96,65 @@ def _quote_url(url: str) -> str:
     )
 
 
-def collect_photos(user_ids: set[Any], bx=None) -> dict[str, str]:
+def _encode_photo(photo_url: str, uid: str) -> str | None:
+    url = _quote_url(photo_url)
+    try:
+        raw = urllib.request.urlopen(url, timeout=20).read()
+        image_bytes = raw
+        # sips есть только на macOS (локальная генерация фикстур). На Linux-
+        # сервере его нет — тогда вшиваем исходное изображение как есть.
+        if shutil.which("sips"):
+            with tempfile.TemporaryDirectory() as tmpdir:
+                source = Path(tmpdir) / f"{uid}.img"
+                output = Path(tmpdir) / f"{uid}.jpg"
+                source.write_bytes(raw)
+                completed = subprocess.run(
+                    [
+                        "sips",
+                        "-s",
+                        "format",
+                        "jpeg",
+                        "-s",
+                        "formatOptions",
+                        "60",
+                        "-Z",
+                        "140",
+                        str(source),
+                        "--out",
+                        str(output),
+                    ],
+                    capture_output=True,
+                    check=False,
+                )
+                if completed.returncode == 0 and output.exists():
+                    image_bytes = output.read_bytes()
+        return "data:image/jpeg;base64," + base64.b64encode(image_bytes).decode()
+    except Exception:
+        return None
+
+
+def collect_users_and_photos(user_ids: set[Any], bx=None) -> tuple[dict[str, str], dict[str, str]]:
+    """Один user.get на пользователя: имя + (если есть) аватар.
+
+    Раньше collect_users и collect_photos дёргали user.get по каждому id
+    отдельно — двойной round-trip. PERSONAL_PHOTO приходит уже в первом ответе.
+    """
+    names: dict[str, str] = {}
     photos: dict[str, str] = {}
     client = _client(bx)
-    for uid in sorted({str(uid) for uid in user_ids if uid not in (None, "", "0", 0)}):
+    for uid in _clean_uids(user_ids):
         result = client.call("user.get", {"ID": uid}).get("result") or []
-        if not result or not result[0].get("PERSONAL_PHOTO"):
+        if not result:
+            names[uid] = uid
             continue
-        url = _quote_url(result[0]["PERSONAL_PHOTO"])
-        try:
-            raw = urllib.request.urlopen(url, timeout=20).read()
-            image_bytes = raw
-            # sips есть только на macOS (локальная генерация фикстур). На Linux-
-            # сервере его нет — тогда вшиваем исходное изображение как есть.
-            if shutil.which("sips"):
-                with tempfile.TemporaryDirectory() as tmpdir:
-                    source = Path(tmpdir) / f"{uid}.img"
-                    output = Path(tmpdir) / f"{uid}.jpg"
-                    source.write_bytes(raw)
-                    completed = subprocess.run(
-                        [
-                            "sips",
-                            "-s",
-                            "format",
-                            "jpeg",
-                            "-s",
-                            "formatOptions",
-                            "60",
-                            "-Z",
-                            "140",
-                            str(source),
-                            "--out",
-                            str(output),
-                        ],
-                        capture_output=True,
-                        check=False,
-                    )
-                    if completed.returncode == 0 and output.exists():
-                        image_bytes = output.read_bytes()
-            photos[uid] = "data:image/jpeg;base64," + base64.b64encode(image_bytes).decode()
-        except Exception:
-            continue
-    return photos
+        user = result[0]
+        names[uid] = f"{user.get('LAST_NAME', '')} {user.get('NAME', '')}".strip() or uid
+        photo_url = user.get("PERSONAL_PHOTO")
+        if photo_url:
+            encoded = _encode_photo(photo_url, uid)
+            if encoded:
+                photos[uid] = encoded
+    return names, photos
 
 
 def _collect_wazzup(deal_ids: set[Any], bx=None) -> dict[str, list[dict[str, Any]]]:
@@ -329,7 +339,7 @@ def collect_day(target: date, bx=None) -> dict[str, Any]:
     deal_ids = {item.get("ID") for item in deals_created}
     deal_ids.update(item.get("parentId2") for item in [*meet_day, *meet_created_day, *meet_today])
 
-    users = collect_users(user_ids, bx)
+    users, photos = collect_users_and_photos(user_ids, bx)
     return {
         "report_date": target.isoformat(),
         "deals_created": deals_created,
@@ -343,7 +353,7 @@ def collect_day(target: date, bx=None) -> dict[str, Any]:
         "activities": activities,
         "calls": calls,
         "users": users,
-        "photos": collect_photos(set(users), bx),
+        "photos": photos,
         "wazzup": _collect_wazzup(deal_ids, bx),
     }
 

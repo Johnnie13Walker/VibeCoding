@@ -2,8 +2,10 @@ import json
 from datetime import date
 from pathlib import Path
 
+import pytest
+
 from src import bx_client
-from src.collect import collect_day
+from src.collect import collect_day, collect_users_and_photos
 from src.timeutil import next_working_day
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "2026-05-29"
@@ -148,3 +150,27 @@ def test_call_uses_bitrix_timeout_and_retries_env(monkeypatch, tmp_path):
 
     assert response["error"] == "slow handshake"
     assert attempts == [7, 7]
+
+
+def test_fetch_all_raises_on_bitrix_error(monkeypatch):
+    monkeypatch.setattr(bx_client, "call", lambda method, params=None: {"error": "expired_token"})
+
+    with pytest.raises(RuntimeError):
+        bx_client.fetch_all("crm.deal.list")
+
+
+def test_collect_users_and_photos_one_call_per_user():
+    class Bx:
+        def __init__(self):
+            self.n = 0
+
+        def call(self, method, params=None):
+            self.n += 1
+            return {"result": [{"ID": "1", "LAST_NAME": "Иванов", "NAME": "Иван"}]}
+
+    bx = Bx()
+    names, photos = collect_users_and_photos({"1", "0", None}, bx)
+
+    assert names == {"1": "Иванов Иван"}
+    assert photos == {}
+    assert bx.n == 1  # один user.get на пользователя, не два (имя+фото из одного ответа)

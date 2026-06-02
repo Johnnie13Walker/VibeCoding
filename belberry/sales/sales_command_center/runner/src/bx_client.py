@@ -106,6 +106,10 @@ def fetch_all(
         page_params["filter"][f">{idfield}"] = last
         page_params["start"] = -1
         response = call(method, page_params)
+        if isinstance(response, dict) and response.get("error") and "result" not in response:
+            # Ошибка REST/Bitrix при сборе списка — НЕ продолжать с пустым
+            # результатом (иначе отчёт «0 сделок/встреч» уйдёт как валидный).
+            raise RuntimeError(f"Bitrix {method} failed: {response.get('error')}")
         result = response.get("result") if isinstance(response, dict) else None
         if isinstance(result, dict) and "items" in result:
             result = result["items"]
