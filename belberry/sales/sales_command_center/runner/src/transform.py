@@ -221,6 +221,7 @@ def build_db_rows(raw: dict[str, Any], target_date: date, now: datetime) -> dict
                     "report_date": report_date,
                     "item_id": _to_int(item.get("id")),
                     "deal_id": _to_int(item.get("parentId2")),
+                    "title": item.get("title"),
                     "item_type": item_type,
                     "stage": item.get("stageId"),
                     "manager_id": _to_int(item.get("assignedById")),
