@@ -1,4 +1,5 @@
 import html
+import os
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -134,12 +135,46 @@ def render_report(rows: dict[str, list[dict[str, Any]]], extras: dict[str, Any])
     return "\n".join(parts)
 
 
+DEFAULT_CSS = """
+*{box-sizing:border-box}
+body{margin:0;background:#f4f6fb;color:#0f172a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;line-height:1.5}
+.wrap{max-width:880px;margin:0 auto;padding:24px 20px 64px}
+h1{font-size:26px;font-weight:800;margin:8px 0 20px}
+section{background:#fff;border:1px solid #e6e9f0;border-radius:14px;padding:18px 20px;margin:16px 0;box-shadow:0 1px 2px rgba(15,23,42,.04)}
+.section-head{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.section-head h2{font-size:18px;font-weight:700;margin:0}
+.section-icon{width:10px;height:10px;border-radius:50%;font-size:0;flex:0 0 auto}
+.section-icon.red{background:#ef4444}.section-icon.blue{background:#3b82f6}.section-icon.green{background:#22c55e}.section-icon.purple{background:#8b5cf6}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin:0 0 8px}
+.stat{background:#fff;border:1px solid #e6e9f0;border-radius:12px;padding:14px 16px;text-align:center}
+.stat-value{font-size:28px;font-weight:800;line-height:1}
+.stat-label{margin-top:6px;font-size:13px;color:#64748b}
+.tiger{display:flex;align-items:center;gap:14px;margin-bottom:8px}
+.tiger-photo{width:64px;height:64px;border-radius:50%;object-fit:cover;background:#e2e8f0}
+.tiger-name{font-size:18px;font-weight:700}
+.tiger-metric{color:#475569;font-size:14px}
+.tiger-caption{margin-top:6px}
+.tiger-disclaimer{margin-top:8px;font-size:12px;color:#94a3b8}
+.managers{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.mgr{display:flex;align-items:center;gap:10px;background:#f8fafc;border:1px solid #eef2f7;border-radius:12px;padding:10px 12px}
+.mgr-ava{width:40px;height:40px;border-radius:50%;object-fit:cover;background:#e2e8f0;flex:0 0 auto}
+.mgr-name{font-weight:600}
+.hilight{background:#f1f5f9;border-radius:10px;padding:10px 12px;margin:6px 0}
+.hilight.risk{background:#fef2f2;border:1px solid #fee2e2}
+.data-llm-placeholder{color:#94a3b8;font-style:italic}
+ul{margin:6px 0;padding-left:20px}
+strong,b{font-weight:700}
+""".strip()
+
+
 def _load_css() -> str:
-    ref = Path("/tmp/sales_2905/style.css")
-    if ref.exists():
-        text = ref.read_text()
-        return text.replace("<style>", "").replace("</style>", "")
-    return "body{font-family:sans-serif}.data-llm-placeholder{color:#8a93a3}"
+    # CSS вшит в модуль. Раньше читался из /tmp/sales_2905/style.css (локальная
+    # папка мака) — на сервере её нет → отчёт рендерился без стилей. Override
+    # через SCC_REPORT_CSS_PATH оставлен для локальной кастомизации.
+    override = os.environ.get("SCC_REPORT_CSS_PATH")
+    if override and Path(override).exists():
+        return Path(override).read_text().replace("<style>", "").replace("</style>", "")
+    return DEFAULT_CSS
 
 
 def _section(title: str, body: str, color: str = "blue") -> str:
