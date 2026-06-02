@@ -83,7 +83,8 @@ SYSTEM_PROMPT = """
 
 Дальше каждая секция:
 <div class="wrap"><section [class="tinted-green|tinted-amber|tinted-red"]>
-  <div class="section-head"><div class="section-icon blue|green|amber|red|purple">30s</div><h2>Заголовок</h2></div>
+  <div class="section-head"><div class="section-icon blue|green|amber|red|purple">ЭМОДЗИ</div><h2>Заголовок</h2></div>
+  В section-icon — ЭМОДЗИ (📞 🎯 🚫 🔁 ✅ 🔧 💰 🐅 📋 ⚠️), НЕ латинские буквы.
   …тело секции…
 </section></div>
 
