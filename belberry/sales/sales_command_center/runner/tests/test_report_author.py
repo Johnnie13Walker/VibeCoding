@@ -84,6 +84,8 @@ def test_build_payload_shapes_day():
     assert payload["meetings"][0]["deal_opportunity"] == 150000.0  # сумма сделки подтянута к встрече
     assert payload["rejections"][0]["reason_label"] == "Отказ (воронка Продажи)"  # не код F
     assert payload["stats"]["calls_total"] == 89
+    # «Опер»: empty 59×1.5=88.5 + call 30×15=450 + meet 1×50=50 = 588.5 → cap 10.0
+    assert payload["telephony"][0]["operational_score"] == 10.0
 
 
 def test_build_payload_excludes_non_sales_roles():

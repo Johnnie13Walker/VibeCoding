@@ -16,7 +16,9 @@ import re
 from datetime import date
 from typing import Any
 
-from . import analyze_llm
+from collections import Counter
+
+from . import analyze_llm, oper
 
 PORTAL_BASE = "https://belberrycrm.bitrix24.ru"
 
@@ -93,7 +95,8 @@ SYSTEM_PROMPT = """
    <div class="card-30 c-red"><div class="c30-title">🔥 Горит сегодня</div><ul><li>…</li></ul></div>
    <div class="card-30 c-amber"><div class="c30-title">💰 Денег под риском</div><div class="c30-big">&gt; X млн ₽</div><p>…</p></div>
    <div class="card-30 c-amber"><div class="c30-title">🔧 Исправить системно</div><ul><li>…</li></ul></div>
-2. «Тигр дня» (section tinted-green): <div class="tiger-wrap"><img class="tiger-photo" src="photo:ID" alt="Имя"><div class="tiger-body"><div class="tiger-name">Имя <span class="tiger-role">· роль</span></div><div class="tiger-quote">…</div><div class="tiger-metrics"><span class="tm-pill">89 наборов</span>…</div><div class="tiger-note">оговорка</div></div></div>
+2. «Тигр дня» (section tinted-green) — менеджер с МАКС. operational_score («Опер»)
+   из telephony (НЕ по числу наборов!): <div class="tiger-wrap"><img class="tiger-photo" src="photo:<manager_id>" alt="Имя"><div class="tiger-body"><div class="tiger-name">Имя <span class="tiger-role">· роль</span></div><div class="tiger-quote">…</div><div class="tiger-metrics"><span class="tm-pill">Опер 10.0</span><span class="tm-pill">28% конверсия</span><span class="tm-pill">89 наборов</span>…</div><div class="tiger-note">рейтинг по операционной оценке «Опер»; рядом: следующие по Опер</div></div></div>
 3. «Кого пинать сегодня» — ТАБЛИЦА (не список):
    <div class="tbl-wrap"><table><thead><tr><th>Менеджер</th><th>Что сделать</th><th>Сделка</th><th>Почему горит</th><th>Срочность</th></tr></thead><tbody>
    <tr><td>Фамилия Имя<br><span class="muted">роль</span></td><td>конкретное действие</td><td><a href="...">домены через запятую, кликабельно</a></td><td>почему</td><td><span class="badge b-red">сейчас</span></td></tr>
@@ -104,8 +107,9 @@ SYSTEM_PROMPT = """
    <tr><td><a href="{deal-ссылка}">домен</a></td><td>304 тыс.</td><td>Фамилия Имя</td><td>31 раб.дн</td><td>1 дн назад</td><td><span class="badge b-red">высокий</span></td></tr>
    …топ-10 по сумме…</tbody></table></div>
    Риск: <span class="badge b-red">высокий</span> (крупная сумма ИЛИ критический возраст) / <span class="badge b-amber">средний</span>. Сумма — из stale[].opportunity; возраст — age+age_unit; контакт — last_contact_days. Сделки ВСЕГДА кликабельны (deal-ссылка по id).
-6. «Активность менеджеров» — карточки:
-   <div class="mgr hero-mgr"><img class="mgr-ava" src="photo:ID"><div class="mgr-name">Имя</div><div class="mgr-role">роль</div><div class="mgr-row"><span class="mgr-row-label">Наборы</span><span class="mgr-row-value">89</span></div>…</div>
+6. «Активность менеджеров» — карточки, ОТСОРТИРОВАНЫ по «Опер» убыв. (порядок telephony):
+   <div class="mgr hero-mgr"><img class="mgr-ava" src="photo:<manager_id>"><div class="mgr-name">Имя</div><div class="mgr-role">роль · Опер 10.0</div><div class="mgr-row"><span class="mgr-row-label">Наборы</span><span class="mgr-row-value">89</span></div><div class="mgr-row"><span class="mgr-row-label">Дозвоны</span><span class="mgr-row-value">40 (11%)</span></div><div class="mgr-row"><span class="mgr-row-label">120с+</span><span class="mgr-row-value">8</span></div><div class="mgr-row"><span class="mgr-row-label">Встречи</span><span class="mgr-row-value">0</span></div><div class="mgr-row"><span class="mgr-row-label">Опер</span><span class="mgr-row-value">10.0</span></div></div>
+   Данные из telephony: dials_total, calls_answered (connect_percent %), calls_120s_plus, meetings_count, operational_score, oper_status.
 7. «Встречи дня» — кратко: что проведено, со ссылками.
 8. «Содержательный разбор встреч» — по каждой встрече с транскриптом:
    <div class="razbor-card"><div class="razbor-head"><h3>домен — тип</h3><div class="razbor-score">7/10</div></div><div class="razbor-sum">резюме</div><div class="checks"><div class="chk-row"><span class="chk-mark">✅</span><span class="chk-label">Кейсы</span><span class="chk-txt">…</span></div>…</div><div class="razbor-verdict">вердикт</div><div class="razbor-good">Что хорошо: …</div></div>
@@ -169,7 +173,28 @@ def build_payload(rows: dict[str, Any], extras: dict[str, Any]) -> dict[str, Any
     deal_opp = _deal_opportunity_map(raw)
     # ограничиваем состав строго ОП+ТМ ещё до сборки payload
     roles_map = raw.get("user_roles") or extras.get("user_roles") or {}
-    rows = {**rows, "manager_activity": _sales_tm_only(rows.get("manager_activity", []) or [], roles_map)}
+    mgr_activity = _sales_tm_only(rows.get("manager_activity", []) or [], roles_map)
+    # «Опер» (операционная вовлечённость) по формуле Льва Петровича — рейтинг и Тигр
+    meetings_by_mgr = Counter(
+        str(m.get("manager_id")) for m in (rows.get("meetings") or []) if m.get("manager_id") is not None
+    )
+    for m in mgr_activity:
+        uid = str(m.get("manager_id"))
+        role = roles_map.get(uid, "")
+        is_tm = oper.is_telemarketing(role)
+        score = oper.operational_score(
+            dials=m.get("dials_total"),
+            normal_calls=m.get("calls_answered"),
+            messenger_dialogs=0,  # чаты Wazzup на менеджера пока не атрибутируем
+            meetings_count=meetings_by_mgr.get(uid, 0),
+            is_tm=is_tm,
+        )
+        m["operational_score"] = score
+        m["oper_status"] = oper.oper_status(score)
+        m["role"] = role
+        m["meetings_count"] = meetings_by_mgr.get(uid, 0)
+    mgr_activity.sort(key=lambda m: m.get("operational_score") or 0.0, reverse=True)
+    rows = {**rows, "manager_activity": mgr_activity}
 
     meetings = []
     for m in rows.get("meetings", []) or []:
@@ -242,14 +267,23 @@ def _stats(rows: dict[str, Any], extras: dict[str, Any]) -> dict[str, Any]:
 def _telephony(rows: dict[str, Any], users: dict[str, Any]) -> list[dict[str, Any]]:
     out = []
     for item in rows.get("manager_activity", []) or []:
+        dials = item.get("dials_total", 0) or 0
+        answered = item.get("calls_answered", 0) or 0
         out.append(
             {
                 "manager": users.get(str(item.get("manager_id")), item.get("manager_id")),
-                "dials_total": item.get("dials_total", 0),
-                "calls_answered": item.get("calls_answered", 0),
+                "manager_id": item.get("manager_id"),
+                "role": item.get("role"),
+                "dials_total": dials,
+                "calls_answered": answered,
+                "connect_percent": round(answered / dials * 100) if dials else 0,
                 "calls_120s_plus": item.get("calls_120s_plus", 0),
+                "meetings_count": item.get("meetings_count", 0),
+                "operational_score": item.get("operational_score"),
+                "oper_status": item.get("oper_status"),
             }
         )
+    out.sort(key=lambda x: x.get("operational_score") or 0.0, reverse=True)
     return out
 
 
