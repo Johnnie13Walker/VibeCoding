@@ -258,10 +258,12 @@ def collect_users_and_photos(
     return names, photos, roles
 
 
-def _collect_wazzup(deal_ids: set[Any], bx=None) -> dict[str, list[dict[str, Any]]]:
+def _collect_wazzup(deal_ids: set[Any], bx=None, cap: int = 600) -> dict[str, list[dict[str, Any]]]:
+    # crm.timeline.comment.list умеет фильтровать только по конкретной сущности →
+    # один вызов на сделку. cap страхует от runaway, если воронка очень большая.
     client = _client(bx)
     output: dict[str, list[dict[str, Any]]] = {}
-    for deal_id in sorted({str(i) for i in deal_ids if i not in (None, "", "0", 0)}):
+    for deal_id in sorted({str(i) for i in deal_ids if i not in (None, "", "0", 0)})[:cap]:
         response = client.call(
             "crm.timeline.comment.list",
             {
@@ -273,6 +275,27 @@ def _collect_wazzup(deal_ids: set[Any], bx=None) -> dict[str, list[dict[str, Any
         if result:
             output[deal_id] = result
     return output
+
+
+def compute_messenger_dialogs(
+    wazzup: dict[Any, list[dict[str, Any]]] | None,
+    deal_manager: dict[str, str],
+    d0: str,
+    d1: str,
+) -> dict[str, int]:
+    """Число Wazzup-диалогов на менеджера ЗА ДЕНЬ (для chat-минут «Опер»).
+
+    Диалог = сделка, в переписке которой есть хотя бы один Wazzup-комментарий,
+    созданный в целевой день; атрибутируется ответственному за сделку.
+    """
+    counts: dict[str, int] = {}
+    for deal_id, comments in (wazzup or {}).items():
+        manager_id = deal_manager.get(str(deal_id))
+        if not manager_id:
+            continue
+        if any(d0 <= str(c.get("CREATED") or "") <= d1 for c in (comments or [])):
+            counts[manager_id] = counts.get(manager_id, 0) + 1
+    return counts
 
 
 REJECTION_STAGES = {"C10:LOSE", "C50:APOLOGY"}
@@ -461,12 +484,23 @@ def collect_day(target: date, bx=None) -> dict[str, Any]:
 
     deal_ids = {item.get("ID") for item in deals_created}
     deal_ids.update(item.get("parentId2") for item in [*meet_day, *meet_created_day, *meet_today])
+    # Wazzup собираем и по зависшим (open) сделкам: иначе их last_contact игнорирует
+    # переписку и «дни без контакта» завышаются.
+    deal_ids.update(item.get("ID") for item in deals_open)
+    deal_manager = {
+        str(d.get("ID")): str(d.get("ASSIGNED_BY_ID"))
+        for d in [*deals_open, *deals_created]
+        if d.get("ID") and d.get("ASSIGNED_BY_ID")
+    }
 
     users, photos, user_roles = _progress_step(
         "users_and_photos", lambda: collect_users_and_photos(user_ids, bx)
     )
+    wazzup = _progress_step("wazzup", lambda: _collect_wazzup(deal_ids, bx))
+    messenger_dialogs = compute_messenger_dialogs(wazzup, deal_manager, d0, d1)
     return {
         "user_roles": user_roles,
+        "messenger_dialogs": messenger_dialogs,
         "report_date": target.isoformat(),
         "deals_created": deals_created,
         "deals_open": deals_open,
@@ -481,7 +515,7 @@ def collect_day(target: date, bx=None) -> dict[str, Any]:
         "users": users,
         "photos": photos,
         "rejected_deals": _progress_step("rejected_deals", lambda: collect_rejected_deals(stagehistory, bx)),
-        "wazzup": _progress_step("wazzup", lambda: _collect_wazzup(deal_ids, bx)),
+        "wazzup": wazzup,
     }
 
 

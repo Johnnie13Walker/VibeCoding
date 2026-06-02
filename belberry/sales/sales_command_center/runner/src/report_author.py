@@ -109,7 +109,7 @@ SYSTEM_PROMPT = """
    Риск: <span class="badge b-red">высокий</span> (крупная сумма ИЛИ критический возраст) / <span class="badge b-amber">средний</span>. Сумма — из stale[].opportunity; возраст — age+age_unit; контакт — last_contact_days. Сделки ВСЕГДА кликабельны (deal-ссылка по id).
 6. «Активность менеджеров» — карточки, ОТСОРТИРОВАНЫ по «Опер» убыв. (порядок telephony):
    <div class="mgr hero-mgr"><img class="mgr-ava" src="photo:<manager_id>"><div class="mgr-name">Имя</div><div class="mgr-role">роль · Опер 10.0</div><div class="mgr-row"><span class="mgr-row-label">Наборы</span><span class="mgr-row-value">89</span></div><div class="mgr-row"><span class="mgr-row-label">Дозвоны</span><span class="mgr-row-value">40 (11%)</span></div><div class="mgr-row"><span class="mgr-row-label">120с+</span><span class="mgr-row-value">8</span></div><div class="mgr-row"><span class="mgr-row-label">Встречи</span><span class="mgr-row-value">0</span></div><div class="mgr-row"><span class="mgr-row-label">Опер</span><span class="mgr-row-value">10.0</span></div></div>
-   Данные из telephony: dials_total, calls_answered (connect_percent %), calls_120s_plus, meetings_count, operational_score, oper_status.
+   Строки mgr-row: Наборы, Дозвоны (connect_percent %), 120с+, Чаты (messenger_dialogs, Wazzup), Встречи (meetings_count), Опер (operational_score). Данные из telephony.
 7. «Встречи дня — проведено N» — СВОДНАЯ ТАБЛИЦА перед разбором:
    <div class="tbl-wrap"><table><thead><tr><th>Сделка/встреча</th><th>Тип</th><th>Проводит</th><th>Статус</th><th>Балл</th></tr></thead><tbody>
    <tr><td><a href="{встреча}">домен</a></td><td>Защита КП</td><td>Имя</td><td><span class="badge b-green">проведена</span></td><td><b>8/10</b></td></tr></tbody></table></div>
@@ -186,6 +186,7 @@ def build_payload(rows: dict[str, Any], extras: dict[str, Any]) -> dict[str, Any
     meetings_by_mgr = Counter(
         str(m.get("manager_id")) for m in (rows.get("meetings") or []) if m.get("manager_id") is not None
     )
+    messenger_by_mgr = raw.get("messenger_dialogs") or {}
     for m in mgr_activity:
         uid = str(m.get("manager_id"))
         role = roles_map.get(uid, "")
@@ -193,7 +194,7 @@ def build_payload(rows: dict[str, Any], extras: dict[str, Any]) -> dict[str, Any
         score = oper.operational_score(
             dials=m.get("dials_total"),
             normal_calls=m.get("calls_answered"),
-            messenger_dialogs=0,  # чаты Wazzup на менеджера пока не атрибутируем
+            messenger_dialogs=messenger_by_mgr.get(uid, 0),
             meetings_count=meetings_by_mgr.get(uid, 0),
             is_tm=is_tm,
         )
@@ -201,6 +202,7 @@ def build_payload(rows: dict[str, Any], extras: dict[str, Any]) -> dict[str, Any
         m["oper_status"] = oper.oper_status(score)
         m["role"] = role
         m["meetings_count"] = meetings_by_mgr.get(uid, 0)
+        m["messenger_dialogs"] = messenger_by_mgr.get(uid, 0)
     mgr_activity.sort(key=lambda m: m.get("operational_score") or 0.0, reverse=True)
     rows = {**rows, "manager_activity": mgr_activity}
 
@@ -305,6 +307,7 @@ def _telephony(rows: dict[str, Any], users: dict[str, Any]) -> list[dict[str, An
                 "calls_answered": answered,
                 "connect_percent": round(answered / dials * 100) if dials else 0,
                 "calls_120s_plus": item.get("calls_120s_plus", 0),
+                "messenger_dialogs": item.get("messenger_dialogs", 0),
                 "meetings_count": item.get("meetings_count", 0),
                 "operational_score": item.get("operational_score"),
                 "oper_status": item.get("oper_status"),

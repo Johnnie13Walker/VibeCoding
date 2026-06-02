@@ -11,8 +11,9 @@ operational_minutes = empty_dials×1.5 (cap 90)
                      + meetings×50 (только ОП)
 operational_score = min(10, operational_minutes / 300 × 10)
 
-ОГРАНИЧЕНИЕ: messenger_dialogs (чаты Wazzup) пока не атрибутируем на менеджера —
-передаём 0, поэтому «Опер» может быть чуть ниже эталонного. Формула идентична.
+messenger_dialogs (чаты Wazzup) считаем из Bitrix timeline по ответственному за
+сделку (collect.compute_messenger_dialogs) — НЕ из webhook-архива, как у Льва
+Петровича (его на нашем сервере нет), но та же роль в формуле.
 """
 
 EMPTY_DIAL_MINUTES = 1.5

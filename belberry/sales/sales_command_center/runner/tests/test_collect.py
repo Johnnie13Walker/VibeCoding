@@ -254,3 +254,16 @@ def test_resize_jpeg_pillow_shrinks_and_caps_140():
     out = collect._resize_jpeg_pillow(big)
     assert out and len(out) < len(big)  # сжалось
     assert max(Image.open(BytesIO(out)).size) <= 140  # 140px кап
+
+
+def test_compute_messenger_dialogs_per_manager_for_day():
+    from src.collect import compute_messenger_dialogs
+    wazzup = {
+        "100": [{"CREATED": "2026-05-29T10:00:00+03:00"}],  # сегодня
+        "200": [{"CREATED": "2026-05-20T10:00:00+03:00"}],  # старое — не считаем
+        "300": [{"CREATED": "2026-05-29T15:00:00+03:00"}],
+    }
+    deal_manager = {"100": "1", "200": "1", "300": "2", "999": "1"}
+    d0, d1 = "2026-05-29T00:00:00+03:00", "2026-05-29T23:59:59+03:00"
+    out = compute_messenger_dialogs(wazzup, deal_manager, d0, d1)
+    assert out == {"1": 1, "2": 1}
