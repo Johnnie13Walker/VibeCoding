@@ -123,38 +123,49 @@ def _quote_url(url: str) -> str:
     )
 
 
+def _resize_jpeg_sips(raw: bytes, uid: str) -> bytes | None:
+    if not shutil.which("sips"):
+        return None
+    with tempfile.TemporaryDirectory() as tmpdir:
+        source = Path(tmpdir) / f"{uid}.img"
+        output = Path(tmpdir) / f"{uid}.jpg"
+        source.write_bytes(raw)
+        completed = subprocess.run(
+            ["sips", "-s", "format", "jpeg", "-s", "formatOptions", "60",
+             "-Z", "140", str(source), "--out", str(output)],
+            capture_output=True,
+            check=False,
+        )
+        if completed.returncode == 0 and output.exists():
+            return output.read_bytes()
+    return None
+
+
+def _resize_jpeg_pillow(raw: bytes) -> bytes | None:
+    try:
+        from io import BytesIO
+
+        from PIL import Image
+
+        img = Image.open(BytesIO(raw)).convert("RGB")
+        img.thumbnail((140, 140))
+        buf = BytesIO()
+        img.save(buf, format="JPEG", quality=60)
+        return buf.getvalue()
+    except Exception:
+        return None
+
+
 def _encode_photo(photo_url: str, uid: str) -> str | None:
     url = _quote_url(photo_url)
     try:
         raw = urllib.request.urlopen(url, timeout=20).read()
-        image_bytes = raw
-        # sips есть только на macOS (локальная генерация фикстур). На Linux-
-        # сервере его нет — тогда вшиваем исходное изображение как есть.
-        if shutil.which("sips"):
-            with tempfile.TemporaryDirectory() as tmpdir:
-                source = Path(tmpdir) / f"{uid}.img"
-                output = Path(tmpdir) / f"{uid}.jpg"
-                source.write_bytes(raw)
-                completed = subprocess.run(
-                    [
-                        "sips",
-                        "-s",
-                        "format",
-                        "jpeg",
-                        "-s",
-                        "formatOptions",
-                        "60",
-                        "-Z",
-                        "140",
-                        str(source),
-                        "--out",
-                        str(output),
-                    ],
-                    capture_output=True,
-                    check=False,
-                )
-                if completed.returncode == 0 and output.exists():
-                    image_bytes = output.read_bytes()
+        # КРИТИЧНО сжимать: иначе сырые аватары Bitrix (~1 МБ каждый) раздувают
+        # отчёт до мегабайтов. macOS → sips (генерация фикстур), Linux/прод →
+        # Pillow (140px, JPEG q60). Без сжатия фото НЕ вшиваем (вернём None).
+        image_bytes = _resize_jpeg_sips(raw, uid) or _resize_jpeg_pillow(raw)
+        if image_bytes is None:
+            return None
         return "data:image/jpeg;base64," + base64.b64encode(image_bytes).decode()
     except Exception:
         return None

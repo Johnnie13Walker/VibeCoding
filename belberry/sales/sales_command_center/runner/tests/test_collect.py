@@ -177,3 +177,15 @@ def test_collect_users_and_photos_one_call_per_user():
     assert names == {"1": "Иванов Иван"}
     assert photos == {}
     assert bx.n == 1  # один user.get на пользователя, не два (имя+фото из одного ответа)
+
+
+def test_resize_jpeg_pillow_shrinks_and_caps_140():
+    from io import BytesIO
+    from PIL import Image
+    from src import collect
+    buf = BytesIO()
+    Image.new("RGB", (1000, 1000), (120, 40, 200)).save(buf, format="PNG")
+    big = buf.getvalue()
+    out = collect._resize_jpeg_pillow(big)
+    assert out and len(out) < len(big)  # сжалось
+    assert max(Image.open(BytesIO(out)).size) <= 140  # 140px кап
