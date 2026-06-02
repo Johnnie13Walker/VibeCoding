@@ -2,13 +2,23 @@ import json
 import os
 import re
 import time
+from types import SimpleNamespace
 from typing import Any
-
-import anthropic
 
 from .config import load_config
 
-MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-6")
+# Провайдер LLM переключается одной переменной окружения (по умолчанию —
+# Anthropic, как спроектировано и отревьюено). OpenAI поддержан через адаптер
+# с тем же интерфейсом client.messages.create(...) → response.content[0].text,
+# поэтому остальной код и тесты не меняются.
+LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "anthropic").lower()
+
+if os.environ.get("LLM_MODEL"):
+    MODEL = os.environ["LLM_MODEL"]
+elif LLM_PROVIDER == "openai":
+    MODEL = "gpt-4o"
+else:
+    MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-6")
 VALID_MARKS = {"✅", "⚠️", "❌"}
 
 SYSTEM_PROMPT = """
@@ -61,8 +71,47 @@ NARRATIVE_SYSTEM_PROMPT = """
 """
 
 
+class _OpenAIMessages:
+    """Транслирует Anthropic-style вызов в OpenAI chat.completions."""
+
+    def __init__(self, client):
+        self._client = client
+
+    def create(self, *, model, max_tokens=2000, temperature=0, system=None, messages=None):
+        sys_text = ""
+        if system:
+            first = system[0]
+            sys_text = first.get("text", "") if isinstance(first, dict) else str(first)
+        oai_messages = []
+        if sys_text:
+            oai_messages.append({"role": "system", "content": sys_text})
+        for item in messages or []:
+            oai_messages.append({"role": item["role"], "content": item["content"]})
+        completion = self._client.chat.completions.create(
+            model=model,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            messages=oai_messages,
+            response_format={"type": "json_object"},
+        )
+        text = completion.choices[0].message.content or ""
+        return SimpleNamespace(content=[SimpleNamespace(text=text)])
+
+
+class _OpenAIAdapter:
+    def __init__(self, client):
+        self.messages = _OpenAIMessages(client)
+
+
 def get_client():
+    if LLM_PROVIDER == "openai":
+        load_config(["OPENAI_API_KEY"])
+        import openai
+
+        return _OpenAIAdapter(openai.OpenAI())
     load_config(["ANTHROPIC_API_KEY"])
+    import anthropic
+
     return anthropic.Anthropic()
 
 
