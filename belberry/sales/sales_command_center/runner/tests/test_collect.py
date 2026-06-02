@@ -136,19 +136,22 @@ def test_call_uses_bitrix_timeout_and_retries_env(monkeypatch, tmp_path):
     )
     attempts = []
 
-    def fake_urlopen(request, timeout):
+    def fake_post(url, data=None, timeout=None):
         attempts.append(timeout)
-        raise TimeoutError("slow handshake")
+        raise bx_client.requests.exceptions.Timeout("slow handshake")
+
+    class FakeSession:
+        post = staticmethod(fake_post)
 
     monkeypatch.setenv("BITRIX_STATE_PATH", str(state))
     monkeypatch.setenv("BITRIX_HTTP_TIMEOUT", "7")
     monkeypatch.setenv("BITRIX_HTTP_RETRIES", "2")
-    monkeypatch.setattr(bx_client.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(bx_client, "_http_session", lambda: FakeSession())
     monkeypatch.setattr(bx_client.time, "sleep", lambda _: None)
 
     response = bx_client.call("crm.deal.list")
 
-    assert response["error"] == "slow handshake"
+    assert "slow handshake" in response["error"]
     assert attempts == [7, 7]
 
 

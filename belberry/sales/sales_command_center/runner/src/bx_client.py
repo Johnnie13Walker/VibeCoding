@@ -3,11 +3,11 @@ import os
 import re
 import subprocess
 import time
-import urllib.error
 import urllib.parse
-import urllib.request
 from pathlib import Path
 from typing import Any
+
+import requests
 
 DEFAULT_STATE_PATH = (
     "/Users/pro2kuror/Desktop/VibeCoding/shared/config/bitrix24-state/install.latest.json"
@@ -62,26 +62,39 @@ def _env_int(name: str, default: int) -> int:
     return value if value > 0 else default
 
 
+_SESSION: requests.Session | None = None
+
+
+def _http_session() -> requests.Session:
+    # Одна сессия с keep-alive переиспользует TLS-соединение на ВСЕ вызовы.
+    # Раньше urllib открывал новый хендшейк на каждый запрос — на Hetzner→Bitrix
+    # сотни мелких вызовов (пагинация + per-user + per-deal) давали ~17 мин/день.
+    global _SESSION
+    if _SESSION is None:
+        _SESSION = requests.Session()
+    return _SESSION
+
+
 def call(method: str, params: dict[str, Any] | None = None, retries: int = 3, timeout: int = 60):
     endpoint, token = _load_auth()
     params = params or {}
-    data = urllib.parse.urlencode([("auth", token), *_flatten_params(params)]).encode()
+    data = urllib.parse.urlencode([("auth", token), *_flatten_params(params)])
     url = f"{endpoint}/{method}"
     effective_retries = _env_int("BITRIX_HTTP_RETRIES", retries)
     effective_timeout = _env_int("BITRIX_HTTP_TIMEOUT", timeout)
 
     for attempt in range(effective_retries):
         try:
-            request = urllib.request.Request(url, data=data)
-            with urllib.request.urlopen(request, timeout=effective_timeout) as response:
-                return json.loads(response.read().decode())
-        except urllib.error.HTTPError as exc:
-            body = exc.read().decode(errors="replace")
+            response = _http_session().post(url, data=data, timeout=effective_timeout)
             try:
-                return json.loads(body)
-            except json.JSONDecodeError:
+                return response.json()
+            except ValueError:
+                # не-JSON тело (HTML-ошибка и т.п.) — Bitrix-ошибки приходят JSON
                 if attempt == effective_retries - 1:
-                    return {"error": _mask_auth(str(exc)), "body": _mask_auth(body[:300])}
+                    return {
+                        "error": _mask_auth(f"HTTP {response.status_code}"),
+                        "body": _mask_auth(response.text[:300]),
+                    }
         except Exception as exc:
             if attempt == effective_retries - 1:
                 return {"error": _mask_auth(str(exc))}
