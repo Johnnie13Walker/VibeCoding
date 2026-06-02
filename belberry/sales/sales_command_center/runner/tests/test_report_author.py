@@ -46,16 +46,20 @@ def test_author_report_none_on_invalid():
 def test_build_payload_shapes_day():
     rows = {
         "deals_snapshot": [],
-        "meetings": [{"meeting_id": 2180, "meeting_type": "defense", "manager_id": 10, "status": "success"}],
+        "meetings": [{"meeting_id": 2180, "deal_id": 24304, "meeting_type": "defense", "manager_id": 10, "status": "success"}],
         "manager_activity": [{"manager_id": 10, "dials_total": 89, "calls_answered": 30, "calls_120s_plus": 8}],
         "kp_briefs": [],
     }
     extras = {
         "report_date": "2026-05-29",
         "users": {"10": "Семенихин Егор"},
-        "raw": {"deals_created": [], "meet_day": [{"id": 2180, "title": "kandela.ru"}]},
+        "raw": {
+            "deals_created": [],
+            "deals_open": [{"ID": "24304", "OPPORTUNITY": "150000"}],
+            "meet_day": [{"id": 2180, "title": "kandela.ru"}],
+        },
         "stale": {},
-        "rejections": [],
+        "rejections": [{"deal_id": "14652", "title": "aclinic.ru", "stage": "C10:LOSE", "reason": "F"}],
         "analyses": {2180: {"verdict": "v"}},
     }
     payload = report_author.build_payload(rows, extras)
@@ -63,4 +67,6 @@ def test_build_payload_shapes_day():
     assert payload["meetings"][0]["title"] == "kandela.ru"
     assert payload["meetings"][0]["manager"] == "Семенихин Егор"
     assert payload["meetings"][0]["analysis"] == {"verdict": "v"}
+    assert payload["meetings"][0]["deal_opportunity"] == 150000.0  # сумма сделки подтянута к встрече
+    assert payload["rejections"][0]["reason_label"] == "Отказ (воронка Продажи)"  # не код F
     assert payload["stats"]["calls_total"] == 89

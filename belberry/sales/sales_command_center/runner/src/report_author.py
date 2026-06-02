@@ -55,6 +55,9 @@ SYSTEM_PROMPT = """
 - Тон — деловой, конкретный, без воды. Опирайся на цифры и ссылки.
 - Фото: <img class="tiger-photo" src="photo:BITRIXID" alt="Имя"> для Тигра и
   <img class="mgr-ava" src="photo:BITRIXID" alt=""> для менеджеров — подставим сами.
+- Сумма по встрече в «рисках» — `meetings[].deal_opportunity` (и ссылка на сделку
+  `deal_id`, а не только на встречу); если оно null — «нет данных».
+- Причина отказа — `rejections[].reason_label` (НЕ код семантики).
 - Запрещено: <script>, on*-атрибуты, внешние src (кроме src="photo:ID").
 
 ДИЗАЙН-КОНТРАКТ (используй ровно эти классы из report.css):
@@ -109,15 +112,36 @@ def _ru_date(report_date: str) -> str:
     return f"{WEEKDAYS_RU[d.weekday()]}, {d.day} {MONTHS_RU[d.month - 1]} {d.year}"
 
 
+_REJECTION_LABELS = {
+    "C10:LOSE": "Отказ (воронка Продажи)",
+    "C50:APOLOGY": "Отвал (телемаркетинг)",
+}
+
+
+def _deal_opportunity_map(raw: dict[str, Any]) -> dict[str, float]:
+    out: dict[str, float] = {}
+    for d in [*(raw.get("deals_open") or []), *(raw.get("deals_created") or [])]:
+        did = str(d.get("ID"))
+        if not did or did == "None":
+            continue
+        try:
+            out[did] = float(d.get("OPPORTUNITY") or 0)
+        except (TypeError, ValueError):
+            continue
+    return out
+
+
 def build_payload(rows: dict[str, Any], extras: dict[str, Any]) -> dict[str, Any]:
     """Компактный структурированный срез дня для LLM-автора."""
     users = extras.get("users") or {}
     raw = extras.get("raw") or {}
     analyses = extras.get("analyses") or {}
+    deal_opp = _deal_opportunity_map(raw)
 
     meetings = []
     for m in rows.get("meetings", []) or []:
         mid = m.get("meeting_id")
+        deal_id = m.get("deal_id")
         meetings.append(
             {
                 "id": mid,
@@ -126,9 +150,21 @@ def build_payload(rows: dict[str, Any], extras: dict[str, Any]) -> dict[str, Any
                 "type": m.get("meeting_type"),
                 "status": m.get("status"),
                 "manager": users.get(str(m.get("manager_id")), m.get("manager_id")),
+                # связанная сделка + её сумма — чтобы у встречи в «рисках» была сумма,
+                # а не «нет данных», и чтобы ссылаться на сделку, а не только на встречу.
+                "deal_id": deal_id,
+                "deal_opportunity": deal_opp.get(str(deal_id)),
                 "analysis": analyses.get(mid) or analyses.get(int(mid)) if mid is not None else None,
             }
         )
+
+    rejections = []
+    for r in extras.get("rejections") or []:
+        item = dict(r)
+        # человекочитаемая причина вместо кода семантики (F): детального loss-reason
+        # в stagehistory нет — даём метку по стадии, без «кода F».
+        item["reason_label"] = _REJECTION_LABELS.get(r.get("stage"), "Отказ")
+        rejections.append(item)
 
     return {
         "report_date": extras.get("report_date") or raw.get("report_date"),
@@ -141,7 +177,7 @@ def build_payload(rows: dict[str, Any], extras: dict[str, Any]) -> dict[str, Any
         "users": users,
         "stats": _stats(rows, extras),
         "stale": extras.get("stale") or {},
-        "rejections": extras.get("rejections") or [],
+        "rejections": rejections,
         "manager_activity": rows.get("manager_activity", []),
         "meetings": meetings,
         "kp_briefs": rows.get("kp_briefs", []),
