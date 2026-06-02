@@ -206,3 +206,29 @@ def test_openai_adapter_params_and_no_json_force():
                             system=None, messages=[{"role": "user", "content": "x"}])
     assert captured["max_completion_tokens"] == 999
     assert "max_tokens" not in captured and "temperature" not in captured
+
+
+def test_openai_adapter_retries_reasoning_style_on_param_error():
+    from types import SimpleNamespace
+    calls = []
+
+    class FakeCompletions:
+        @staticmethod
+        def create(**kwargs):
+            calls.append(kwargs)
+            if "max_tokens" in kwargs:
+                raise RuntimeError("Unsupported parameter: 'max_tokens'; use 'max_completion_tokens'")
+            return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content="ok"))])
+
+    class FakeChat:
+        completions = FakeCompletions()
+
+    class FakeOpenAI:
+        chat = FakeChat()
+
+    adapter = analyze_llm._OpenAIAdapter(FakeOpenAI())
+    out = adapter.messages.create(model="gpt-5.5", max_tokens=500, temperature=0,
+                                  system=None, messages=[{"role": "user", "content": "x"}])
+    assert out.content[0].text == "ok"
+    assert len(calls) == 2  # первый с max_tokens упал → retry в reasoning-стиле
+    assert "max_completion_tokens" in calls[1] and "temperature" not in calls[1]

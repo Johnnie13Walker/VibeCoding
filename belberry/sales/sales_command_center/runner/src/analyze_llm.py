@@ -87,17 +87,32 @@ class _OpenAIMessages:
             oai_messages.append({"role": "system", "content": sys_text})
         for item in messages or []:
             oai_messages.append({"role": item["role"], "content": item["content"]})
-        params: dict[str, Any] = {"model": model, "messages": oai_messages}
-        # o-серия (o1/o3/o4, reasoning) не принимает max_tokens/temperature —
-        # только max_completion_tokens и дефолтную температуру.
-        if re.match(r"^o\d", model or ""):
-            params["max_completion_tokens"] = max_tokens
-        else:
-            params["max_tokens"] = max_tokens
-            params["temperature"] = temperature
-        # НЕ форсим response_format=json_object: автор отчёта ждёт HTML, а
+        def _params(reasoning: bool) -> dict[str, Any]:
+            p: dict[str, Any] = {"model": model, "messages": oai_messages}
+            if reasoning:
+                # reasoning-модели (o-серия и т.п.): max_completion_tokens,
+                # температуру не передаём (поддерживается только дефолт).
+                p["max_completion_tokens"] = max_tokens
+            else:
+                p["max_tokens"] = max_tokens
+                p["temperature"] = temperature
+            return p
+
+        # Не форсим response_format=json_object: автор отчёта ждёт HTML, а
         # разбор встреч и так парсит JSON из текста (как на Anthropic).
-        completion = self._client.chat.completions.create(**params)
+        reasoning = bool(re.match(r"^o\d", model or ""))
+        try:
+            completion = self._client.chat.completions.create(**_params(reasoning))
+        except Exception as exc:  # noqa: BLE001
+            msg = str(exc).lower()
+            # Модель-агностично: если API отверг max_tokens/temperature
+            # (напр. новые reasoning-модели) — повторяем в reasoning-стиле.
+            if not reasoning and any(
+                k in msg for k in ("max_completion_tokens", "max_tokens", "temperature", "unsupported")
+            ):
+                completion = self._client.chat.completions.create(**_params(True))
+            else:
+                raise
         text = completion.choices[0].message.content or ""
         return SimpleNamespace(content=[SimpleNamespace(text=text)])
 
