@@ -77,9 +77,10 @@ def collect_voximplant(target: date, bx=None) -> list[dict[str, Any]]:
         output.extend(result)
         last = int(result[-1]["ID"])
 
-    # Страховка: оставляем только звонки целевого дня, даже если серверный
-    # фильтр отработал неточно (защита от «всей истории»).
-    return [c for c in output if d0 <= str(c.get("CALL_START_DATE", "")) <= d1]
+    # Страховка: отбрасываем звонки, чья дата ЕСТЬ и вне целевого дня (защита от
+    # «всей истории» при неточном серверном фильтре). Записи без CALL_START_DATE
+    # не трогаем — судить не по чему.
+    return [c for c in output if not c.get("CALL_START_DATE") or d0 <= str(c["CALL_START_DATE"]) <= d1]
 
 
 def collect_users(user_ids: set[Any], bx=None) -> dict[str, str]:
