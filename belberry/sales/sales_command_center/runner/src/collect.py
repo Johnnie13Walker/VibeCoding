@@ -322,21 +322,30 @@ def collect_absences(user_ids: set[Any], target: date, bx=None) -> dict[str, str
         return {}
     out: dict[str, str] = {}
     for uid, events in result.items():
-        best_ts, until = -1, None
+        best_key, until = (0, 0, 0), None
         for ev in events or []:
+            from_hr = ev.get("FROM_HR") in (True, "true", "True", "1", 1)
             acc = str(ev.get("ACCESSIBILITY") or "").lower()
             name = str(ev.get("NAME") or "").lower()
-            if acc != "absent" and not any(h in name for h in ABSENCE_NAME_HINTS):
+            if not (from_hr or acc == "absent" or any(h in name for h in ABSENCE_NAME_HINTS)):
                 continue
-            try:
-                ts = int(float(ev.get("DATE_TO_TS_UTC") or 0))
-            except (TypeError, ValueError):
-                ts = 0
-            if ts >= best_ts:
-                best_ts, until = ts, ev.get("DATE_TO")
+            dt_to = ev.get("DT_TO") or ev.get("DATE_TO")  # HR-отсутствия: DT_TO «05.06.2026»
+            key = _absence_date_key(dt_to)
+            if key >= best_key:
+                best_key, until = key, dt_to
         if until:
             out[str(uid)] = str(until)
     return out
+
+
+def _absence_date_key(dt: Any) -> tuple[int, int, int]:
+    """«05.06.2026 ...» → (2026, 6, 5) для сравнения дат окончания."""
+    head = str(dt or "").split()[0]
+    parts = head.split(".")
+    try:
+        return (int(parts[2]), int(parts[1]), int(parts[0])) if len(parts) >= 3 else (0, 0, 0)
+    except (ValueError, IndexError):
+        return (0, 0, 0)
 
 
 REJECTION_STAGES = {"C10:LOSE", "C50:APOLOGY"}

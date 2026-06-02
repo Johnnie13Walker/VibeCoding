@@ -275,13 +275,14 @@ def test_collect_absences_filters_absent_and_takes_end_date():
     class Bx:
         def call(self, method, params=None):
             assert method == "calendar.accessibility.get"
+            # реальная форма: HR-отсутствие FROM_HR=true, ACCESSIBILITY=absent, DT_TO «DD.MM.YYYY»
             return {"result": {
-                "2806": [
-                    {"ACCESSIBILITY": "busy", "NAME": "Встреча", "DATE_TO": "02.06.2026 14:00:00", "DATE_TO_TS_UTC": "100"},
-                    {"ACCESSIBILITY": "absent", "NAME": "Отпуск", "DATE_TO": "08.06.2026 18:00:00", "DATE_TO_TS_UTC": "200"},
+                "692": [
+                    {"ACCESSIBILITY": "busy", "NAME": "Встреча", "DT_TO": "02.06.2026"},
+                    {"FROM_HR": "true", "ACCESSIBILITY": "absent", "NAME": "отгул", "DT_FROM": "05.06.2026", "DT_TO": "05.06.2026"},
                 ],
-                "10": [{"ACCESSIBILITY": "busy", "NAME": "x", "DATE_TO": "01.06.2026", "DATE_TO_TS_UTC": "1"}],
+                "10": [{"ACCESSIBILITY": "busy", "NAME": "x", "DT_TO": "01.06.2026"}],
             }}
 
-    out = collect_absences({"2806", "10"}, date(2026, 6, 1), Bx())
-    assert out == {"2806": "08.06.2026 18:00:00"}  # только absent, дата окончания
+    out = collect_absences({"692", "10"}, date(2026, 6, 1), Bx())
+    assert out == {"692": "05.06.2026"}  # только HR-отсутствие, дата окончания
