@@ -1,8 +1,10 @@
 import base64
 import json
+import os
 import shutil
 import subprocess
 import tempfile
+import time
 import urllib.parse
 import urllib.request
 from datetime import date
@@ -41,7 +43,32 @@ def _client(bx):
 
 
 def _fetch_all(bx, method: str, params: dict[str, Any], idfield: str = "ID"):
-    return _client(bx).fetch_all(method, params, idfield=idfield)
+    if os.environ.get("SCC_COLLECT_PROGRESS") != "1":
+        return _client(bx).fetch_all(method, params, idfield=idfield)
+    started = time.monotonic()
+    entity = params.get("entityTypeId", "")
+    filter_keys = ",".join(sorted((params.get("filter") or {}).keys()))
+    print(
+        f"collect_day START fetch_all method={method} entityTypeId={entity} idfield={idfield} filter={filter_keys}",
+        flush=True,
+    )
+    rows = _client(bx).fetch_all(method, params, idfield=idfield)
+    print(
+        f"collect_day DONE fetch_all method={method} entityTypeId={entity} count={len(rows)} sec={time.monotonic() - started:.1f}",
+        flush=True,
+    )
+    return rows
+
+
+def _progress_step(name: str, fn):
+    if os.environ.get("SCC_COLLECT_PROGRESS") != "1":
+        return fn()
+    started = time.monotonic()
+    print(f"collect_day START {name}", flush=True)
+    value = fn()
+    count = len(value) if hasattr(value, "__len__") else "?"
+    print(f"collect_day DONE {name} count={count} sec={time.monotonic() - started:.1f}", flush=True)
+    return value
 
 
 def collect_voximplant(target: date, bx=None) -> list[dict[str, Any]]:
@@ -326,7 +353,7 @@ def collect_day(target: date, bx=None) -> dict[str, Any]:
             ],
         },
     )
-    calls = collect_voximplant(target, bx)
+    calls = _progress_step("voximplant", lambda: collect_voximplant(target, bx))
 
     user_ids: set[Any] = set()
     for seq in [deals_created, deals_open]:
@@ -339,7 +366,7 @@ def collect_day(target: date, bx=None) -> dict[str, Any]:
     deal_ids = {item.get("ID") for item in deals_created}
     deal_ids.update(item.get("parentId2") for item in [*meet_day, *meet_created_day, *meet_today])
 
-    users, photos = collect_users_and_photos(user_ids, bx)
+    users, photos = _progress_step("users_and_photos", lambda: collect_users_and_photos(user_ids, bx))
     return {
         "report_date": target.isoformat(),
         "deals_created": deals_created,
@@ -354,7 +381,7 @@ def collect_day(target: date, bx=None) -> dict[str, Any]:
         "calls": calls,
         "users": users,
         "photos": photos,
-        "wazzup": _collect_wazzup(deal_ids, bx),
+        "wazzup": _progress_step("wazzup", lambda: _collect_wazzup(deal_ids, bx)),
     }
 
 
