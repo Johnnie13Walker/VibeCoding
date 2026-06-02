@@ -188,12 +188,14 @@ def build_db_rows(raw: dict[str, Any], target_date: date, now: datetime) -> dict
     manager_ids = set(calls)
     for key in ["meet_day", "meet_created_day", "briefs", "kp"]:
         manager_ids.update(_to_int(item.get("assignedById")) for item in raw.get(key, []))
+    manager_ids.update(_to_int(d.get("ASSIGNED_BY_ID")) for d in raw.get("deals_created", []))
     manager_ids.discard(None)
 
     meetings_set = Counter(_to_int(item.get("assignedById")) for item in raw.get("meet_created_day", []))
     meetings_held = Counter(_to_int(item.get("assignedById")) for item in raw.get("meet_day", []))
     briefs_created = Counter(_to_int(item.get("assignedById")) for item in raw.get("briefs", []))
     kp_sent = Counter(_to_int(item.get("assignedById")) for item in raw.get("kp", []))
+    deals_created_cnt = Counter(_to_int(d.get("ASSIGNED_BY_ID")) for d in raw.get("deals_created", []))
 
     manager_activity = []
     for manager_id in sorted(manager_ids):
@@ -206,10 +208,12 @@ def build_db_rows(raw: dict[str, Any], target_date: date, now: datetime) -> dict
                 "calls_answered": call_stats.get("calls_answered", 0),
                 "calls_120s_plus": call_stats.get("calls_120s_plus", 0),
                 "dials_total": call_stats.get("dials_total", 0),
+                "talk_seconds": call_stats.get("talk_seconds", 0),
                 "meetings_set": meetings_set[manager_id],
                 "meetings_held": meetings_held[manager_id],
                 "briefs_created": briefs_created[manager_id],
                 "kp_sent": kp_sent[manager_id],
+                "deals_created_count": deals_created_cnt[manager_id],
             }
         )
 

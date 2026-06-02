@@ -109,7 +109,8 @@ SYSTEM_PROMPT = """
    Риск: <span class="badge b-red">высокий</span> (крупная сумма ИЛИ критический возраст) / <span class="badge b-amber">средний</span>. Сумма — из stale[].opportunity; возраст — age+age_unit; контакт — last_contact_days. Сделки ВСЕГДА кликабельны (deal-ссылка по id).
 6. «Активность менеджеров» — карточки, ОТСОРТИРОВАНЫ по «Опер» убыв. (порядок telephony):
    <div class="mgr hero-mgr"><img class="mgr-ava" src="photo:<manager_id>"><div class="mgr-name">Имя</div><div class="mgr-role">роль · Опер 10.0</div><div class="mgr-row"><span class="mgr-row-label">Наборы</span><span class="mgr-row-value">89</span></div><div class="mgr-row"><span class="mgr-row-label">Дозвоны</span><span class="mgr-row-value">40 (11%)</span></div><div class="mgr-row"><span class="mgr-row-label">120с+</span><span class="mgr-row-value">8</span></div><div class="mgr-row"><span class="mgr-row-label">Встречи</span><span class="mgr-row-value">0</span></div><div class="mgr-row"><span class="mgr-row-label">Опер</span><span class="mgr-row-value">10.0</span></div></div>
-   Строки mgr-row: Наборы, Дозвоны (connect_percent %), 120с+, Чаты (messenger_dialogs, Wazzup), Встречи (meetings_count), Опер (operational_score). Данные из telephony.
+   Строки mgr-row: Наборы (dials_total), Дозвоны «40 (11%)» (calls_answered, connect_percent), 120с+ (calls_120s_plus), Чаты (messenger_dialogs), Часы (hours), Встречи (meetings_held), Новых сделок (new_deals), Опер (operational_score). Данные из telephony.
+   Если away=true (поле telephony) — карточка <div class="mgr away">, роль «роль · в простое», и строка «Заморожено сделок: frozen_deals». НЕ писать «в отпуске» (источника отпусков нет) — только факт: нет активности + заморожённые сделки.
 7. «Встречи дня — проведено N» — СВОДНАЯ ТАБЛИЦА перед разбором:
    <div class="tbl-wrap"><table><thead><tr><th>Сделка/встреча</th><th>Тип</th><th>Проводит</th><th>Статус</th><th>Балл</th></tr></thead><tbody>
    <tr><td><a href="{встреча}">домен</a></td><td>Защита КП</td><td>Имя</td><td><span class="badge b-green">проведена</span></td><td><b>8/10</b></td></tr></tbody></table></div>
@@ -203,7 +204,43 @@ def build_payload(rows: dict[str, Any], extras: dict[str, Any]) -> dict[str, Any
         m["role"] = role
         m["meetings_count"] = meetings_by_mgr.get(uid, 0)
         m["messenger_dialogs"] = messenger_by_mgr.get(uid, 0)
+    # «away»: владельцы зависших сделок без активности за день (как Деговцова в эталоне).
+    # Дату отпуска не выдумываем (нет источника) — показываем факт: 0 активности + N заморожено.
+    stale = extras.get("stale") or {}
+    frozen_by_mgr = Counter(
+        str(it.get("manager_id"))
+        for rows_ in stale.values()
+        for it in rows_
+        if it.get("manager_id") is not None
+    )
+    present = {str(m.get("manager_id")) for m in mgr_activity}
+    for m in mgr_activity:
+        uid = str(m.get("manager_id"))
+        m["frozen_deals"] = frozen_by_mgr.get(uid, 0)
+        m["away"] = (
+            not (m.get("dials_total") or 0)
+            and not (m.get("calls_answered") or 0)
+            and not (m.get("meetings_held") or 0)
+        )
+    for uid, frozen in frozen_by_mgr.items():
+        role = roles_map.get(uid, "")
+        if uid in present or not any(k in role.lower() for k in _SALES_TM_ROLE_KEYS):
+            continue
+        mgr_activity.append(
+            {
+                "manager_id": int(uid) if uid.isdigit() else uid,
+                "dials_total": 0, "calls_answered": 0, "calls_120s_plus": 0,
+                "talk_seconds": 0, "meetings_held": 0, "deals_created_count": 0,
+                "operational_score": 0.0, "oper_status": oper.oper_status(0.0),
+                "role": role, "meetings_count": 0, "messenger_dialogs": 0,
+                "away": True, "frozen_deals": frozen,
+            }
+        )
     mgr_activity.sort(key=lambda m: m.get("operational_score") or 0.0, reverse=True)
+    # суммы КП/брифов: если своя сумма пуста — фолбэк на opportunity связанной сделки
+    for kp in rows.get("kp_briefs") or []:
+        if not kp.get("amount"):
+            kp["amount"] = deal_opp.get(str(kp.get("deal_id")))
     rows = {**rows, "manager_activity": mgr_activity}
 
     meetings = []
@@ -308,9 +345,14 @@ def _telephony(rows: dict[str, Any], users: dict[str, Any]) -> list[dict[str, An
                 "connect_percent": round(answered / dials * 100) if dials else 0,
                 "calls_120s_plus": item.get("calls_120s_plus", 0),
                 "messenger_dialogs": item.get("messenger_dialogs", 0),
+                "hours": round((item.get("talk_seconds") or 0) / 3600, 1),
+                "meetings_held": item.get("meetings_held", 0),
+                "new_deals": item.get("deals_created_count", 0),
                 "meetings_count": item.get("meetings_count", 0),
                 "operational_score": item.get("operational_score"),
                 "oper_status": item.get("oper_status"),
+                "away": item.get("away", False),
+                "frozen_deals": item.get("frozen_deals", 0),
             }
         )
     out.sort(key=lambda x: x.get("operational_score") or 0.0, reverse=True)
