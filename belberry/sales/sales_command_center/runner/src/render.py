@@ -168,12 +168,14 @@ strong,b{font-weight:700}
 
 
 def _load_css() -> str:
-    # CSS вшит в модуль. Раньше читался из /tmp/sales_2905/style.css (локальная
-    # папка мака) — на сервере её нет → отчёт рендерился без стилей. Override
-    # через SCC_REPORT_CSS_PATH оставлен для локальной кастомизации.
+    # CSS бандлится в репо (report.css рядом с модулем) — дизайн-система эталона.
+    # Override через SCC_REPORT_CSS_PATH; DEFAULT_CSS — last-resort фолбэк.
     override = os.environ.get("SCC_REPORT_CSS_PATH")
     if override and Path(override).exists():
         return Path(override).read_text().replace("<style>", "").replace("</style>", "")
+    bundled = Path(__file__).parent / "report.css"
+    if bundled.exists():
+        return bundled.read_text()
     return DEFAULT_CSS
 
 

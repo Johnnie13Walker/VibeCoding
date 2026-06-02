@@ -10,7 +10,8 @@ from src.db import connect
 from src.lock import AlreadyRunning, single_instance
 from src.collect import collect_day
 from src.enrich import enrich_meetings
-from src.render import extract_rejections, render_report
+from src.render import extract_rejections, render_report, _load_css
+from src.report_author import author_report, build_payload, substitute_photos, wrap_document
 from src.transform import build_db_rows, compute_stale_deals, resolve_target_date
 from src.timeutil import now_msk
 from src.writer import write_day
@@ -90,7 +91,23 @@ def run(
             extras["analyses"] = {}
             extras["narrative"] = {}
             extras["llm_error"] = _mask(str(exc))
-        html = render_report(rows, extras)
+
+        # Архитектура B: финальный отчёт авторит LLM по данным дня (report.css —
+        # дизайн-контракт). render_report остаётся fallback-скелетом на сбой.
+        html = None
+        if llm_status == "done":
+            try:
+                client = (llm_client_factory or analyze_llm.get_client)()
+                body = author_report(build_payload(rows, extras), client=client)
+                if body:
+                    body = substitute_photos(body, extras.get("photos") or {})
+                    html = wrap_document(body, _load_css(), target.isoformat())
+            except Exception as exc:
+                extras["llm_error"] = _mask(str(exc))
+        if html is None:
+            if llm_status == "done":
+                llm_status = "partial_llm_failure"
+            html = render_report(rows, extras)
         summary = {
             "generated_at": now.isoformat(),
             "report_date": target.isoformat(),

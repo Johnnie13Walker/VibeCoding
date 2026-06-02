@@ -67,6 +67,13 @@ def test_runner_orchestrates_pipeline_on_empty_db(monkeypatch):
         },
     )
     monkeypatch.setattr(daily_runner, "build_extras", lambda raw, now: {"raw": raw})
+    monkeypatch.setattr(daily_runner.analyze_llm, "get_client", lambda: object())
+    monkeypatch.setattr(daily_runner, "run_llm_phase", lambda *a, **k: {"analyses": {}, "narrative": {}})
+    monkeypatch.setattr(
+        daily_runner,
+        "author_report",
+        lambda payload, client, model=None: order.append("author") or '<div class="hero">x</div>',
+    )
     monkeypatch.setattr(
         daily_runner,
         "render_report",
@@ -86,7 +93,9 @@ def test_runner_orchestrates_pipeline_on_empty_db(monkeypatch):
     )
 
     assert result["status"] == "done"
-    assert order == ["config", "token", "collect", "transform", "render", "write"]
+    # Архитектура B: отчёт пишет LLM-автор (author), детерминированный render —
+    # только fallback, здесь не вызывается.
+    assert order == ["config", "token", "collect", "transform", "author", "write"]
     assert conn.committed is True
 
 
@@ -142,11 +151,14 @@ def test_llm_success_marks_done_and_transcripts_written(monkeypatch):
         return {"analyses": {2180: {"transcript_status": "ok"}}, "narrative": {}}
 
     monkeypatch.setattr(daily_runner, "run_llm_phase", fake_llm)
+    monkeypatch.setattr(daily_runner.analyze_llm, "get_client", lambda: object())
+    monkeypatch.setattr(daily_runner, "author_report", lambda payload, client, model=None: '<div class="hero">ok</div>')
     monkeypatch.setattr(daily_runner, "render_report", lambda rows, extras: "<!DOCTYPE html>")
 
     def fake_write(conn, target, rows, html, summary, status="done"):
         captured["status"] = status
         captured["rows"] = rows
+        captured["html"] = html
         return {"reports": 1}
 
     monkeypatch.setattr(daily_runner, "write_day", fake_write)
@@ -155,6 +167,33 @@ def test_llm_success_marks_done_and_transcripts_written(monkeypatch):
 
     assert captured["status"] == "done"
     assert captured["rows"]["meetings"][0]["transcript_text"] == "текст"
+    # отчёт собран LLM-автором и обёрнут в документ с CSS
+    assert 'class="hero">ok' in captured["html"] and "<style>" in captured["html"]
+
+
+def test_author_failure_falls_back_to_render(monkeypatch):
+    conn = Conn()
+    captured = {}
+    monkeypatch.setattr(daily_runner, "load_config", lambda required: None)
+    monkeypatch.setattr(daily_runner.bx_client, "ensure_token_fresh", lambda: None)
+    monkeypatch.setattr(daily_runner, "collect_day", lambda target, bx=None: {"report_date": target.isoformat(), "deals_open": [], "meet_day": []})
+    monkeypatch.setattr(daily_runner, "build_db_rows", lambda raw, target, now: {"deals_snapshot": [], "meetings": [], "manager_activity": [], "kp_briefs": []})
+    monkeypatch.setattr(daily_runner, "run_llm_phase", lambda *a, **k: {"analyses": {}, "narrative": {}})
+    monkeypatch.setattr(daily_runner.analyze_llm, "get_client", lambda: object())
+    monkeypatch.setattr(daily_runner, "author_report", lambda payload, client, model=None: None)  # LLM-автор не дал валидный HTML
+    monkeypatch.setattr(daily_runner, "render_report", lambda rows, extras: "<!DOCTYPE html>FALLBACK")
+
+    def fake_write(conn, target, rows, html, summary, status="done"):
+        captured["status"] = status
+        captured["html"] = html
+        return {"reports": 1}
+
+    monkeypatch.setattr(daily_runner, "write_day", fake_write)
+
+    daily_runner.run(date(2026, 5, 29), connect_fn=lambda: conn)
+
+    assert captured["status"] == "partial_llm_failure"  # автор не справился → деградация
+    assert "FALLBACK" in captured["html"]  # детерминированный скелет
 
 
 def test_phase_llm_skips_bitrix_and_uses_db_transcript(monkeypatch):
