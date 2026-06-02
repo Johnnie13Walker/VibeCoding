@@ -41,9 +41,13 @@ SYSTEM_PROMPT = """
 - Не верь статусу Bitrix слепо. Лови расхождение между статусом сделки/встречи и сутью
   разговора. Если статус "успех", но клиент не согласовал следующий шаг, ставь
   status_discrepancy=true.
+- Поставь встрече итоговый балл score — целое 1..10 по качеству проработки
+  (чек-лист + следующий шаг + аргументация). Эталон: сильная защита ≈8, тяжёлый
+  брифинг без бюджета ≈5-6.
 - Верни JSON по схеме:
 {
   "meeting_type": "defense|briefing|other",
+  "score": 1,
   "checklist": [{"item": "...", "mark": "✅|⚠️|❌", "note": "..."}],
   "client_quote": "..." | null,
   "systemic_conclusion": "...",
@@ -228,8 +232,14 @@ def _normalize_analysis(parsed: dict[str, Any]) -> dict[str, Any]:
                 "note": str(item.get("note") or ""),
             }
         )
+    score = parsed.get("score")
+    try:
+        score = max(1, min(10, int(score))) if score is not None else None
+    except (TypeError, ValueError):
+        score = None
     return {
         "meeting_type": parsed.get("meeting_type") or "other",
+        "score": score,
         "checklist": checklist,
         "client_quote": parsed.get("client_quote"),
         "systemic_conclusion": parsed.get("systemic_conclusion") or "",

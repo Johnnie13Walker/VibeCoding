@@ -110,11 +110,19 @@ SYSTEM_PROMPT = """
 6. «Активность менеджеров» — карточки, ОТСОРТИРОВАНЫ по «Опер» убыв. (порядок telephony):
    <div class="mgr hero-mgr"><img class="mgr-ava" src="photo:<manager_id>"><div class="mgr-name">Имя</div><div class="mgr-role">роль · Опер 10.0</div><div class="mgr-row"><span class="mgr-row-label">Наборы</span><span class="mgr-row-value">89</span></div><div class="mgr-row"><span class="mgr-row-label">Дозвоны</span><span class="mgr-row-value">40 (11%)</span></div><div class="mgr-row"><span class="mgr-row-label">120с+</span><span class="mgr-row-value">8</span></div><div class="mgr-row"><span class="mgr-row-label">Встречи</span><span class="mgr-row-value">0</span></div><div class="mgr-row"><span class="mgr-row-label">Опер</span><span class="mgr-row-value">10.0</span></div></div>
    Данные из telephony: dials_total, calls_answered (connect_percent %), calls_120s_plus, meetings_count, operational_score, oper_status.
-7. «Встречи дня» — кратко: что проведено, со ссылками.
-8. «Содержательный разбор встреч» — по каждой встрече с транскриптом:
-   <div class="razbor-card"><div class="razbor-head"><h3>домен — тип</h3><div class="razbor-score">7/10</div></div><div class="razbor-sum">резюме</div><div class="checks"><div class="chk-row"><span class="chk-mark">✅</span><span class="chk-label">Кейсы</span><span class="chk-txt">…</span></div>…</div><div class="razbor-verdict">вердикт</div><div class="razbor-good">Что хорошо: …</div></div>
-9. «Брифы и КП дня» — список со ссылками.
-10. «Отказы дня» — содержательные отказы с причиной и суммой.
+7. «Встречи дня — проведено N» — СВОДНАЯ ТАБЛИЦА перед разбором:
+   <div class="tbl-wrap"><table><thead><tr><th>Сделка/встреча</th><th>Тип</th><th>Проводит</th><th>Статус</th><th>Балл</th></tr></thead><tbody>
+   <tr><td><a href="{встреча}">домен</a></td><td>Защита КП</td><td>Имя</td><td><span class="badge b-green">проведена</span></td><td><b>8/10</b></td></tr></tbody></table></div>
+   Балл = meetings[].analysis.score (X/10); если score=null — «—».
+8. «Встречи сегодня — N запланировано» (если meetings_today непустой) — ТАБЛИЦА:
+   <div class="tbl-wrap"><table><thead><tr><th>Время</th><th>Сделка</th><th>Проводит</th><th>Статус</th></tr></thead><tbody>
+   <tr><td>12:00</td><td><a href="{встреча}">домен</a></td><td>Имя</td><td><span class="badge b-blue">запланирована</span></td></tr></tbody></table></div>
+   Время — из meetings_today[].scheduled_at (только HH:MM, МСК).
+9. «Содержательный разбор встреч» — по каждой встрече с analysis (transcript):
+   <div class="razbor-card"><div class="razbor-head"><h3>домен · тип · Имя · N мин</h3><div class="razbor-score">8/10</div></div><div class="razbor-sum">резюме + дословная цитата клиента</div><div class="checks"><div class="chk-row"><span class="chk-mark">✅</span><span class="chk-label">Кейсы</span><span class="chk-txt">…</span></div>… (чек-лист из analysis.checklist)</div><div class="razbor-verdict">вердикт (+ расхождение статуса, если status_discrepancy)</div><div class="razbor-good">🌟 Что было хорошо: …</div></div>
+   razbor-score = analysis.score (X/10), не «нет данных».
+10. «Брифы и КП дня» — СВЯЗНЫМ ТЕКСТОМ, не простынёй: «Брифы в работе: <ссылки>», «КП: <ссылки и статусы>». Сумма «нет данных» не дублировать в каждой строке.
+11. «Отказы дня» — содержательные потери (воронка Продажи, с деньгами) — мини-таблицей (Сделка/Сумма/Менеджер/Комментарий). ТМ-отвалы НЕ перечислять списком — агрегировать счётчиком из rejections_summary («Отвал (телемаркетинг): N — штатный отсев холодной базы»).
 11. «Системные паттерны» — <div class="cards-2"> карточки card-pat (что работает / что повторяется).
 12. «Итог дня» — короткий вывод.
 13. «Технические ограничения отчёта» — оговорки по данным.
@@ -237,12 +245,31 @@ def build_payload(rows: dict[str, Any], extras: dict[str, Any]) -> dict[str, Any
         "stats": _stats(rows, extras),
         "stale": extras.get("stale") or {},
         "rejections": rejections,
+        "rejections_summary": dict(Counter(r.get("reason_label") for r in rejections)),
         "manager_activity": rows.get("manager_activity", []),
         "meetings": meetings,
+        "meetings_today": _meetings_today(raw, users),
         "kp_briefs": rows.get("kp_briefs", []),
         "deals_created": raw.get("deals_created", []),
         "telephony": _telephony(rows, users),
     }
+
+
+def _meetings_today(raw: dict[str, Any], users: dict[str, Any]) -> list[dict[str, Any]]:
+    """Запланированные на сегодня встречи (для секции «Встречи сегодня»)."""
+    out = []
+    for it in raw.get("meet_today") or []:
+        out.append(
+            {
+                "id": it.get("id"),
+                "entityTypeId": 1048,
+                "title": it.get("title"),
+                "manager": users.get(str(it.get("assignedById")), it.get("assignedById")),
+                "deal_id": it.get("parentId2"),
+                "scheduled_at": it.get("ufCrm16_1751009238"),
+            }
+        )
+    return out
 
 
 def raw_title(raw: dict[str, Any], mid: Any) -> Any:
