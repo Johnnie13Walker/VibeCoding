@@ -500,9 +500,10 @@
   .hstat:last-child .hstat-num{color:var(--red);}
   .hstat-lbl{font-size:13px;color:var(--text);margin-top:6px;font-weight:700;}
   .hstat-lbl span{display:block;font-size:11px;color:var(--text-muted);font-weight:400;margin-top:2px;}
-  .hero-verdict{display:flex;align-items:flex-start;gap:14px;background:#fff;border:1px solid #fecaca;border-left:4px solid var(--red);box-shadow:var(--shadow-sm);border-radius:14px;padding:16px 20px;font-size:15px;color:var(--text);line-height:1.5;}
+  /* блок, НЕ flex: иначе каждая ссылка/фрагмент становится колонкой ("криво") */
+  .hero-verdict{background:#fff;border:1px solid #fecaca;border-left:4px solid var(--red);box-shadow:var(--shadow-sm);border-radius:14px;padding:16px 20px;font-size:15px;color:var(--text);line-height:1.6;}
   .hero-verdict b{color:var(--red);}
-  .hv-icon{font-size:22px;flex-shrink:0;line-height:1.2;}
+  .hv-icon{font-size:18px;margin-right:6px;}
   .hero-corr{margin-top:16px;font-size:12px;color:var(--text-muted);}
 
   /* ТИГР ДНЯ */

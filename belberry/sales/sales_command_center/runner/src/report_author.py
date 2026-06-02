@@ -53,8 +53,9 @@ SYSTEM_PROMPT = """
   заметка. Не верь статусу Bitrix слепо: лови расхождение «статус успех vs суть
   не закрыта». Добавляй дословную цитату клиента из транскрипта (если есть).
 - Тон — деловой, конкретный, без воды. Опирайся на цифры и ссылки.
-- Фото: <img class="tiger-photo" src="photo:BITRIXID" alt="Имя"> для Тигра и
-  <img class="mgr-ava" src="photo:BITRIXID" alt=""> для менеджеров — подставим сами.
+- Фото: src="photo:<manager_id>", где manager_id — из manager_activity[].manager_id
+  (НЕ имя!). Тигр: <img class="tiger-photo" src="photo:<manager_id>" alt="Имя">;
+  менеджеры: <img class="mgr-ava" src="photo:<manager_id>" alt="">. Подставим сами.
 - Сумма по встрече в «рисках» — `meetings[].deal_opportunity` (и ссылка на сделку
   `deal_id`, а не только на встречу); если оно null — «нет данных».
 - Причина отказа — `rejections[].reason_label` (НЕ код семантики).
@@ -71,7 +72,7 @@ SYSTEM_PROMPT = """
     <div class="stat accent-green"><div class="stat-value">4</div><div class="stat-label">Встречи проведены</div><div class="stat-sub">разбивка/детали со ссылками</div></div>
     … 6-8 карточек, accent: green|blue|amber|red …
   </div>
-  <div class="hero-verdict">⚠️ <b>Итог за ночь:</b> главный риск дня со ссылками.</div>
+  <div class="hero-verdict"><span class="hv-icon">⚠️</span><b>Итог за ночь:</b> связный абзац-вывод со ссылками (НЕ список фрагментов).</div>
   <div class="hero-corr">Источник данных и оговорки.</div>
 </div></div>
 
@@ -87,9 +88,16 @@ SYSTEM_PROMPT = """
    <div class="card-30 c-amber"><div class="c30-title">💰 Денег под риском</div><div class="c30-big">&gt; X млн ₽</div><p>…</p></div>
    <div class="card-30 c-amber"><div class="c30-title">🔧 Исправить системно</div><ul><li>…</li></ul></div>
 2. «Тигр дня» (section tinted-green): <div class="tiger-wrap"><img class="tiger-photo" src="photo:ID" alt="Имя"><div class="tiger-body"><div class="tiger-name">Имя <span class="tiger-role">· роль</span></div><div class="tiger-quote">…</div><div class="tiger-metrics"><span class="tm-pill">89 наборов</span>…</div><div class="tiger-note">оговорка</div></div></div>
-3. «Кого пинать сегодня» — <ul> или карточки с действиями и ссылками.
-4. «Где могут сорваться сделки» (tinted-amber) — <div class="tbl-wrap"><table>…</table></div>, статусы через <span class="badge b-red|b-amber|b-blue|b-green">…</span>.
-5. «Зависшие сделки по стадиям» (tinted-red) — таблица с badge по сумме/возрасту.
+3. «Кого пинать сегодня» — ТАБЛИЦА (не список):
+   <div class="tbl-wrap"><table><thead><tr><th>Менеджер</th><th>Что сделать</th><th>Сделка</th><th>Почему горит</th><th>Срочность</th></tr></thead><tbody>
+   <tr><td>Фамилия Имя<br><span class="muted">роль</span></td><td>конкретное действие</td><td><a href="...">домены через запятую, кликабельно</a></td><td>почему</td><td><span class="badge b-red">сейчас</span></td></tr>
+   …</tbody></table></div>
+   Срочность: <span class="badge b-red">сейчас</span> / <span class="badge b-amber">сегодня</span> / <span class="badge b-blue">на неделе</span>.
+4. «Где могут сорваться сделки» (tinted-amber) — лид-абзац (сколько сделок превысили норму на стадии + ядро затора) + ТАБЛИЦА:
+   <div class="tbl-wrap"><table><thead><tr><th>Сделка</th><th>Сумма</th><th>Менеджер</th><th>На стадии</th><th>Посл. контакт</th><th>Риск</th></tr></thead><tbody>
+   <tr><td><a href="{deal-ссылка}">домен</a></td><td>304 тыс.</td><td>Фамилия Имя</td><td>31 раб.дн</td><td>1 дн назад</td><td><span class="badge b-red">высокий</span></td></tr>
+   …топ-10 по сумме…</tbody></table></div>
+   Риск: <span class="badge b-red">высокий</span> (крупная сумма ИЛИ критический возраст) / <span class="badge b-amber">средний</span>. Сумма — из stale[].opportunity; возраст — age+age_unit; контакт — last_contact_days. Сделки ВСЕГДА кликабельны (deal-ссылка по id).
 6. «Активность менеджеров» — карточки:
    <div class="mgr hero-mgr"><img class="mgr-ava" src="photo:ID"><div class="mgr-name">Имя</div><div class="mgr-role">роль</div><div class="mgr-row"><span class="mgr-row-label">Наборы</span><span class="mgr-row-value">89</span></div>…</div>
 7. «Встречи дня» — кратко: что проведено, со ссылками.
