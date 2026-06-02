@@ -174,7 +174,7 @@ def build_db_rows(raw: dict[str, Any], target_date: date, now: datetime) -> dict
             "meeting_type": _meeting_type(item),
             "status": item.get("stageId"),
             "manager_id": _to_int(item.get("assignedById")),
-            "scheduled_at": item.get("ufCrm16_1751009238"),
+            "scheduled_at": parse_dt(item.get("ufCrm16_1751009238")),
             "analysis_json": None,
             "transcript_url": None,
             "transcript_text": None,

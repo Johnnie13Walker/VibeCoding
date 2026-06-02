@@ -38,12 +38,12 @@ describe('rate limit', () => {
   it('allows requests below the 15-minute limit', async () => {
     await expect(checkRateLimit('manager@example.com', new MemoryLoginCodeRepo([row(1)]))).resolves.toEqual({
       ok: true,
-      remaining: 3,
+      remaining: 8,
     });
   });
 
   it('blocks when issued codes and attempts reach the limit', async () => {
-    const repo = new MemoryLoginCodeRepo([row(4), row(0)]);
+    const repo = new MemoryLoginCodeRepo([row(4), row(4)]);
 
     await expect(checkRateLimit('manager@example.com', repo)).resolves.toEqual({
       ok: false,
@@ -56,7 +56,7 @@ describe('rate limit', () => {
 
     await expect(checkRateLimit('manager@example.com', new MemoryLoginCodeRepo([row(20, old)]))).resolves.toEqual({
       ok: true,
-      remaining: 5,
+      remaining: 10,
     });
   });
 });

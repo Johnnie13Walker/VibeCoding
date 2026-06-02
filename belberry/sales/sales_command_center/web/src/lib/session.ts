@@ -17,6 +17,10 @@ export const sessionOptions: SessionOptions = {
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
     path: '/',
+    // Вход живёт рабочий день: деактивированный в Bitrix сотрудник теряет
+    // доступ в течение суток, менеджер раз в день вводит код (он и так
+    // приходит утром вместе со ссылкой на отчёт).
+    maxAge: 60 * 60 * 12,
   },
 };
 

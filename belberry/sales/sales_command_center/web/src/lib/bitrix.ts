@@ -110,7 +110,13 @@ export async function findActiveUserByEmail(email: string): Promise<BitrixUser |
       ACTIVE: 'Y',
     },
   });
-  const user = result[0];
+  // Фильтр Bitrix по EMAIL нестрогий и может вернуть несколько/частичных
+  // совпадений — берём только точное совпадение, иначе код уйдёт и сессия
+  // привяжется к чужому аккаунту.
+  const wanted = email.trim().toLowerCase();
+  const user = result.find(
+    (candidate) => String(candidate.EMAIL ?? '').trim().toLowerCase() === wanted,
+  );
 
   if (!user) {
     return null;

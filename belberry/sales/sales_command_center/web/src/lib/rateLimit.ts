@@ -1,7 +1,10 @@
 import { drizzleLoginCodeRepo, type LoginCodeRepo } from './loginCodes';
 
 const WINDOW_MS = 15 * 60 * 1000;
-const MAX_EVENTS = 5;
+// Поднято с 5: счётчик складывает запросы кода + неверные вводы (1 + attempts),
+// и при 5 легитимный пользователь лочился после нескольких опечаток. 10 даёт
+// запас на опечатки, оставаясь анти-брутфорс барьером (6-значный код).
+const MAX_EVENTS = 10;
 
 export interface RateLimitResult {
   ok: boolean;
