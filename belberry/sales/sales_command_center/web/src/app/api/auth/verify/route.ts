@@ -37,15 +37,25 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'rate_limited' }, { status: 429 });
   }
 
-  const consumed = await consumeCode(email, parsed.data.code);
+  let consumed;
+  try {
+    consumed = await consumeCode(email, parsed.data.code);
+  } catch (err) {
+    // Раньше исключение здесь (напр. expires_at пришёл строкой → .getTime())
+    // отдавалось как общий сбой и в UI выглядело как «код не подошёл».
+    console.error('[auth] consumeCode threw:', (err as Error)?.name, (err as Error)?.message);
+    return NextResponse.json({ error: 'server_error' }, { status: 500 });
+  }
 
   if (!consumed.ok) {
+    console.warn('[auth] verify rejected:', { email, reason: consumed.reason });
     return NextResponse.json({ error: 'invalid_code' }, { status: 401 });
   }
 
   const activeUser = await findActiveUserByEmail(email);
 
   if (!activeUser) {
+    console.warn('[auth] verify inactive:', { email });
     return NextResponse.json({ error: 'inactive' }, { status: 403 });
   }
 
