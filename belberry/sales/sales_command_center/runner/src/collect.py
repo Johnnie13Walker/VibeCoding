@@ -201,6 +201,28 @@ def _collect_wazzup(deal_ids: set[Any], bx=None) -> dict[str, list[dict[str, Any
     return output
 
 
+REJECTION_STAGES = {"C10:LOSE", "C50:APOLOGY"}
+
+
+def collect_rejected_deals(stagehistory: list[dict[str, Any]], bx=None) -> list[dict[str, Any]]:
+    """Названия отклонённых сегодня сделок (они закрыты → не в deals_open/created),
+    чтобы в «Отказах» был домен, а не «Сделка <id>»."""
+    ids = sorted(
+        {
+            str(h.get("OWNER_ID"))
+            for h in stagehistory
+            if h.get("STAGE_ID") in REJECTION_STAGES and h.get("OWNER_ID")
+        }
+    )
+    if not ids:
+        return []
+    return _fetch_all(
+        bx,
+        "crm.deal.list",
+        {"filter": {"@ID": ids}, "select": ["ID", "TITLE", "ASSIGNED_BY_ID", "OPPORTUNITY"]},
+    )
+
+
 def collect_day(target: date, bx=None) -> dict[str, Any]:
     d0, d1 = _range(target)
     today = next_working_day(target)
@@ -381,6 +403,7 @@ def collect_day(target: date, bx=None) -> dict[str, Any]:
         "calls": calls,
         "users": users,
         "photos": photos,
+        "rejected_deals": _progress_step("rejected_deals", lambda: collect_rejected_deals(stagehistory, bx)),
         "wazzup": _progress_step("wazzup", lambda: _collect_wazzup(deal_ids, bx)),
     }
 

@@ -68,7 +68,11 @@ def extract_rejections(raw: dict[str, Any], users: dict[Any, str] | None = None)
     users = users or raw.get("users") or {}
     deal_index = {
         str(deal.get("ID")): deal
-        for deal in [*raw.get("deals_created", []), *raw.get("deals_open", [])]
+        for deal in [
+            *raw.get("deals_created", []),
+            *raw.get("deals_open", []),
+            *raw.get("rejected_deals", []),
+        ]
     }
     rejections = []
     for item in raw.get("stagehistory", []):

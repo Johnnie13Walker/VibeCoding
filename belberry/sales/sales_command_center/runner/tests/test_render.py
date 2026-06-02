@@ -153,3 +153,17 @@ def test_sections_count_and_order_preserved_with_llm_content():
 
     assert indexes == sorted(indexes)
     assert len(indexes) == 13
+
+
+def test_extract_rejections_uses_rejected_deal_titles():
+    from src.render import extract_rejections
+    raw = {
+        "stagehistory": [{"OWNER_ID": "14652", "STAGE_ID": "C10:LOSE"}],
+        "deals_created": [],
+        "deals_open": [],
+        "rejected_deals": [{"ID": "14652", "TITLE": "aclinic.ru", "ASSIGNED_BY_ID": "10"}],
+        "users": {"10": "Семенихин Егор"},
+    }
+    out = extract_rejections(raw, raw["users"])
+    assert out[0]["title"] == "aclinic.ru"  # домен, а не «Сделка 14652»
+    assert out[0]["manager"] == "Семенихин Егор"
