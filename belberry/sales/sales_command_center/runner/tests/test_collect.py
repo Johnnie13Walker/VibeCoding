@@ -125,3 +125,26 @@ def test_fetch_all_cursor_stops_on_empty_page(monkeypatch):
     assert calls[0]["filter"][">ID"] == 0
     assert calls[1]["filter"][">ID"] == 2
     assert calls[0]["start"] == -1
+
+
+def test_call_uses_bitrix_timeout_and_retries_env(monkeypatch, tmp_path):
+    state = tmp_path / "install.latest.json"
+    state.write_text(
+        '{"payload":{"auth[client_endpoint]":"https://example.test/rest","auth[access_token]":"token"}}'
+    )
+    attempts = []
+
+    def fake_urlopen(request, timeout):
+        attempts.append(timeout)
+        raise TimeoutError("slow handshake")
+
+    monkeypatch.setenv("BITRIX_STATE_PATH", str(state))
+    monkeypatch.setenv("BITRIX_HTTP_TIMEOUT", "7")
+    monkeypatch.setenv("BITRIX_HTTP_RETRIES", "2")
+    monkeypatch.setattr(bx_client.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(bx_client.time, "sleep", lambda _: None)
+
+    response = bx_client.call("crm.deal.list")
+
+    assert response["error"] == "slow handshake"
+    assert attempts == [7, 7]

@@ -51,26 +51,39 @@ def ensure_token_fresh() -> None:
     subprocess.run(["bash", script], check=True)
 
 
+def _env_int(name: str, default: int) -> int:
+    raw = os.environ.get(name)
+    if not raw:
+        return default
+    try:
+        value = int(raw)
+    except ValueError:
+        return default
+    return value if value > 0 else default
+
+
 def call(method: str, params: dict[str, Any] | None = None, retries: int = 3, timeout: int = 60):
     endpoint, token = _load_auth()
     params = params or {}
     data = urllib.parse.urlencode([("auth", token), *_flatten_params(params)]).encode()
     url = f"{endpoint}/{method}"
+    effective_retries = _env_int("BITRIX_HTTP_RETRIES", retries)
+    effective_timeout = _env_int("BITRIX_HTTP_TIMEOUT", timeout)
 
-    for attempt in range(retries):
+    for attempt in range(effective_retries):
         try:
             request = urllib.request.Request(url, data=data)
-            with urllib.request.urlopen(request, timeout=timeout) as response:
+            with urllib.request.urlopen(request, timeout=effective_timeout) as response:
                 return json.loads(response.read().decode())
         except urllib.error.HTTPError as exc:
             body = exc.read().decode(errors="replace")
             try:
                 return json.loads(body)
             except json.JSONDecodeError:
-                if attempt == retries - 1:
+                if attempt == effective_retries - 1:
                     return {"error": _mask_auth(str(exc)), "body": _mask_auth(body[:300])}
         except Exception as exc:
-            if attempt == retries - 1:
+            if attempt == effective_retries - 1:
                 return {"error": _mask_auth(str(exc))}
             time.sleep(1.5 * (attempt + 1))
     return {"error": "Bitrix request failed"}
