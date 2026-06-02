@@ -139,6 +139,8 @@ export const managerActivity = pgTable(
     meetingsHeld: integer('meetings_held').default(0),
     briefsCreated: integer('briefs_created').default(0),
     kpSent: integer('kp_sent').default(0),
+    talkSeconds: integer('talk_seconds').default(0),
+    dealsCreatedCount: integer('deals_created_count').default(0),
   },
   (table) => [
     unique('manager_activity_report_date_manager_id_unique').on(
