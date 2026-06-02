@@ -11,6 +11,7 @@ fallback-скелетом на случай сбоя/невалидного от
 
 import html
 import json
+import os
 import re
 from datetime import date
 from typing import Any
@@ -206,19 +207,29 @@ def author_report(payload: dict[str, Any], *, client, model: str | None = None) 
             json.dumps(payload, ensure_ascii=False, default=str),
         ]
     )
+    max_tokens = int(os.environ.get("SCC_AUTHOR_MAX_TOKENS", "16000"))
     try:
         response = analyze_llm._call_with_retry(
             client,
             model=model or analyze_llm.MODEL,
-            max_tokens=8000,
+            max_tokens=max_tokens,
             temperature=0.3,
             system=analyze_llm._system(SYSTEM_PROMPT),
             messages=[{"role": "user", "content": user_message}],
         )
-    except Exception:
+    except Exception as exc:  # noqa: BLE001
+        print(f"[author] LLM call failed: {type(exc).__name__}: {str(exc)[:200]}", flush=True)
         return None
     body = _strip_fence(analyze_llm._response_text(response))
-    return body if _validate(body) else None
+    if _validate(body):
+        return body
+    has_hero = 'class="hero"' in body
+    print(
+        f"[author] invalid body: len={len(body)} has_hero={has_hero} "
+        f"has_section={'<section' in body} head={body[:150]!r}",
+        flush=True,
+    )
+    return None
 
 
 def substitute_photos(body_html: str, photos: dict[str, str]) -> str:
