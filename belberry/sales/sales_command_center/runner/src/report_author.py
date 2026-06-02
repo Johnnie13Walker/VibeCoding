@@ -43,6 +43,8 @@ SYSTEM_PROMPT = """
 ЖЁСТКИЕ ПРАВИЛА:
 - Используй ТОЛЬКО данные из payload. НЕ выдумывай имена, сделки, цифры, цитаты.
   Если данных нет — пиши честно «нет данных» или опускай блок.
+- В отчёте — ТОЛЬКО отдел продаж и телемаркетинг. Других сотрудников (рекрутёр,
+  аккаунт-менеджер, админ, HR, дизайн) НЕ упоминай ни в одном блоке.
 - Имена сотрудников — «Фамилия Имя» из payload.users, НИКОГДА не id.
 - Роль сотрудника бери из payload.user_roles[<его manager_id/uid>] (WORK_POSITION).
   Если роли там нет — НЕ пиши «роль: нет данных», а ПОЛНОСТЬЮ опусти роль
@@ -142,12 +144,31 @@ def _deal_opportunity_map(raw: dict[str, Any]) -> dict[str, float]:
     return out
 
 
+_SALES_TM_ROLE_KEYS = ("продаж", "телемаркет", "роп")
+
+
+def _sales_tm_only(
+    manager_activity: list[dict[str, Any]], roles_map: dict[str, Any]
+) -> list[dict[str, Any]]:
+    """Только отдел продаж и телемаркетинг — остальных (рекрутёр, аккаунт,
+    админ, HR, дизайн) НЕ показываем ни в одном блоке (правило ОП+ТМ)."""
+    out = []
+    for m in manager_activity:
+        role = (roles_map.get(str(m.get("manager_id"))) or "").lower()
+        if any(k in role for k in _SALES_TM_ROLE_KEYS):
+            out.append(m)
+    return out
+
+
 def build_payload(rows: dict[str, Any], extras: dict[str, Any]) -> dict[str, Any]:
     """Компактный структурированный срез дня для LLM-автора."""
     users = extras.get("users") or {}
     raw = extras.get("raw") or {}
     analyses = extras.get("analyses") or {}
     deal_opp = _deal_opportunity_map(raw)
+    # ограничиваем состав строго ОП+ТМ ещё до сборки payload
+    roles_map = raw.get("user_roles") or extras.get("user_roles") or {}
+    rows = {**rows, "manager_activity": _sales_tm_only(rows.get("manager_activity", []) or [], roles_map)}
 
     meetings = []
     for m in rows.get("meetings", []) or []:

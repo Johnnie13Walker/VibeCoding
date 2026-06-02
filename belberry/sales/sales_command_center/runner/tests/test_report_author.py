@@ -70,6 +70,7 @@ def test_build_payload_shapes_day():
             "deals_created": [],
             "deals_open": [{"ID": "24304", "OPPORTUNITY": "150000"}],
             "meet_day": [{"id": 2180, "title": "kandela.ru"}],
+            "user_roles": {"10": "Менеджер по продажам"},
         },
         "stale": {},
         "rejections": [{"deal_id": "14652", "title": "aclinic.ru", "stage": "C10:LOSE", "reason": "F"}],
@@ -83,3 +84,23 @@ def test_build_payload_shapes_day():
     assert payload["meetings"][0]["deal_opportunity"] == 150000.0  # сумма сделки подтянута к встрече
     assert payload["rejections"][0]["reason_label"] == "Отказ (воронка Продажи)"  # не код F
     assert payload["stats"]["calls_total"] == 89
+
+
+def test_build_payload_excludes_non_sales_roles():
+    rows = {
+        "meetings": [], "kp_briefs": [],
+        "manager_activity": [
+            {"manager_id": 10, "dials_total": 50},   # продажи
+            {"manager_id": 99, "dials_total": 5},     # рекрутёр — исключить
+            {"manager_id": 7, "dials_total": 0},      # роль не указана — исключить
+        ],
+    }
+    extras = {
+        "report_date": "2026-05-29",
+        "users": {"10": "Семенихин Егор", "99": "Николаева Ирина", "7": "Админ"},
+        "raw": {"user_roles": {"10": "Менеджер по продажам", "99": "Рекрутер"}},
+    }
+    payload = report_author.build_payload(rows, extras)
+    ids = [m["manager_id"] for m in payload["manager_activity"]]
+    assert ids == [10]  # только ОП/ТМ
+    assert payload["stats"]["calls_total"] == 50
