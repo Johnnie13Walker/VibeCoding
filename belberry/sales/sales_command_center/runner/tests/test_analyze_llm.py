@@ -174,3 +174,35 @@ def test_analyze_day_narrative_returns_keys():
     assert result["quote_of_day"]["text"]
     assert result["tiger_caption"]
     assert client.messages.kwargs[0]["system"][0]["cache_control"] == {"type": "ephemeral"}
+
+
+def test_openai_adapter_params_and_no_json_force():
+    from types import SimpleNamespace
+    captured = {}
+
+    class FakeCompletions:
+        @staticmethod
+        def create(**kwargs):
+            captured.clear()
+            captured.update(kwargs)
+            return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content="ok"))])
+
+    class FakeChat:
+        completions = FakeCompletions()
+
+    class FakeOpenAI:
+        chat = FakeChat()
+
+    adapter = analyze_llm._OpenAIAdapter(FakeOpenAI())
+
+    # chat-модель: max_tokens + temperature, без response_format=json_object
+    adapter.messages.create(model="gpt-4.1", max_tokens=1234, temperature=0,
+                            system=[{"text": "sys"}], messages=[{"role": "user", "content": "x"}])
+    assert captured["max_tokens"] == 1234 and "temperature" in captured
+    assert "response_format" not in captured
+
+    # reasoning-модель: max_completion_tokens, без max_tokens/temperature
+    adapter.messages.create(model="o3", max_tokens=999, temperature=0,
+                            system=None, messages=[{"role": "user", "content": "x"}])
+    assert captured["max_completion_tokens"] == 999
+    assert "max_tokens" not in captured and "temperature" not in captured

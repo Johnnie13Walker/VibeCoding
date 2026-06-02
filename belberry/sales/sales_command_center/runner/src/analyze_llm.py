@@ -87,13 +87,17 @@ class _OpenAIMessages:
             oai_messages.append({"role": "system", "content": sys_text})
         for item in messages or []:
             oai_messages.append({"role": item["role"], "content": item["content"]})
-        completion = self._client.chat.completions.create(
-            model=model,
-            max_tokens=max_tokens,
-            temperature=temperature,
-            messages=oai_messages,
-            response_format={"type": "json_object"},
-        )
+        params: dict[str, Any] = {"model": model, "messages": oai_messages}
+        # o-серия (o1/o3/o4, reasoning) не принимает max_tokens/temperature —
+        # только max_completion_tokens и дефолтную температуру.
+        if re.match(r"^o\d", model or ""):
+            params["max_completion_tokens"] = max_tokens
+        else:
+            params["max_tokens"] = max_tokens
+            params["temperature"] = temperature
+        # НЕ форсим response_format=json_object: автор отчёта ждёт HTML, а
+        # разбор встреч и так парсит JSON из текста (как на Anthropic).
+        completion = self._client.chat.completions.create(**params)
         text = completion.choices[0].message.content or ""
         return SimpleNamespace(content=[SimpleNamespace(text=text)])
 
