@@ -1,4 +1,5 @@
-import { Filter, Flame, Users, Goal } from 'lucide-react';
+import Link from 'next/link';
+import { Filter, Flame, Users, Goal, FileText } from 'lucide-react';
 import { FunnelChart } from '@/components/dashboard/FunnelChart';
 import { KpiCard } from '@/components/dashboard/KpiCard';
 import { Gauge } from '@/components/dashboard/Gauge';
@@ -10,6 +11,16 @@ function rub(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)} млн ₽`;
   if (n >= 1_000) return `${Math.round(n / 1_000)} тыс ₽`;
   return `${Math.round(n)} ₽`;
+}
+
+function fmtMsk(iso: string): string {
+  try {
+    return new Intl.DateTimeFormat('ru-RU', {
+      day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow',
+    }).format(new Date(iso));
+  } catch {
+    return iso;
+  }
 }
 
 function SectionHead({ icon, title, hint }: { icon: React.ReactNode; title: string; hint?: string }) {
@@ -37,7 +48,11 @@ export default async function DashboardPage() {
             <h1 className="bb-hero-title">Командный центр</h1>
             <div className="bb-hero-sub">
               Снимок воронки {data.snapshotDate ?? '—'} · {data.funnelCount} открытых сделок на {rub(data.funnelAmount)}
+              {data.generatedAt ? ` · отчёт сформирован ${fmtMsk(data.generatedAt)} МСК` : ''}
             </div>
+            <Link href="/daily?open=last" className="bb-hero-btn">
+              <FileText size={15} /> Открыть последний отчёт
+            </Link>
           </div>
           <Gauge value={data.health} label="здоровье" />
         </div>

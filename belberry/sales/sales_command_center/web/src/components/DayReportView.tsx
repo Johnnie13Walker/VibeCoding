@@ -3,7 +3,7 @@
 import { useRef, useState } from 'react';
 import { format, parseISO } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { ArrowLeft, ChevronLeft, ChevronRight, Printer, ExternalLink, Calendar } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight, Printer, ExternalLink, Calendar, FileText } from 'lucide-react';
 import { CalendarView } from '@/components/CalendarView';
 
 function label(date: string): string {
@@ -14,13 +14,23 @@ function label(date: string): string {
   }
 }
 
-export function DayReportView({ availableDates }: { availableDates: string[] }) {
+export function DayReportView({ availableDates, initialDate }: { availableDates: string[]; initialDate?: string }) {
   // availableDates отсортированы desc (свежие сверху).
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(initialDate ?? null);
   const frameRef = useRef<HTMLIFrameElement>(null);
 
   if (!selected) {
-    return <CalendarView availableDates={availableDates} onSelect={setSelected} />;
+    const latest = availableDates[0];
+    return (
+      <div>
+        {latest ? (
+          <button className="bb-rbtn" style={{ marginBottom: 16 }} onClick={() => setSelected(latest)}>
+            <FileText size={15} /> Открыть последний отчёт · {label(latest)}
+          </button>
+        ) : null}
+        <CalendarView availableDates={availableDates} onSelect={setSelected} />
+      </div>
+    );
   }
 
   const idx = availableDates.indexOf(selected);

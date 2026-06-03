@@ -2,7 +2,7 @@ import 'server-only';
 
 import { and, eq, gte, lte, sql } from 'drizzle-orm';
 import { db } from '@/db';
-import { dealsSnapshot, managerActivity, plans, users } from '@/db/schema';
+import { dealsSnapshot, managerActivity, plans, reports, users } from '@/db/schema';
 
 // Зеркало STAGE_RULES/STAGE_ORDER из runner/src/transform.py — воронка «Продажи» (CATEGORY_ID=10).
 // Порядок = реальная последовательность стадий в Bitrix.
@@ -61,11 +61,14 @@ export interface DashboardData {
   deltas: { meetings: KpiDelta; dials: KpiDelta; kp: KpiDelta; deals: KpiDelta };
   trend: TrendPoint[];
   health: number;
+  generatedAt: string | null;
 }
 
 export interface KpiDelta {
   pct: number | null;
   dir: 'up' | 'down' | 'flat';
+  /** Готовая подпись: «+34%», «×11», «новое» — или null (нечего показывать). */
+  label: string | null;
 }
 
 export interface TrendPoint {
@@ -75,9 +78,20 @@ export interface TrendPoint {
 }
 
 function delta(current: number, prev: number): KpiDelta {
-  if (!prev) return { pct: null, dir: current > 0 ? 'up' : 'flat' };
+  if (!prev) {
+    return { pct: null, dir: current > 0 ? 'up' : 'flat', label: current > 0 ? 'новое' : null };
+  }
   const pct = Math.round(((current - prev) / prev) * 100);
-  return { pct, dir: pct > 0 ? 'up' : pct < 0 ? 'down' : 'flat' };
+  const dir = pct > 0 ? 'up' : pct < 0 ? 'down' : 'flat';
+  // Дикие проценты (крошечный прошлый месяц) показываем кратностью: «×11».
+  let label: string;
+  if (Math.abs(pct) >= 1000) {
+    const x = current / prev;
+    label = `×${x >= 10 ? Math.round(x) : x.toFixed(1)}`;
+  } else {
+    label = `${pct > 0 ? '+' : ''}${pct}%`;
+  }
+  return { pct, dir, label };
 }
 
 /** Здоровье месяца 0-100: выполнение плана встреч − штраф за затор. Детерминировано. */
@@ -139,7 +153,7 @@ export async function getDashboardData(): Promise<DashboardData> {
   const snapshotDate = latest[0]?.d ?? null;
 
   if (!snapshotDate) {
-    const zeroDelta: KpiDelta = { pct: null, dir: 'flat' };
+    const zeroDelta: KpiDelta = { pct: null, dir: 'flat', label: null };
     return {
       monthLabel: '—',
       snapshotDate: null,
@@ -156,6 +170,7 @@ export async function getDashboardData(): Promise<DashboardData> {
       deltas: { meetings: zeroDelta, dials: zeroDelta, kp: zeroDelta, deals: zeroDelta },
       trend: [],
       health: 0,
+      generatedAt: null,
     };
   }
 
@@ -290,6 +305,14 @@ export async function getDashboardData(): Promise<DashboardData> {
 
   const health = monthHealth(meetingsHeldTotal, meetingsPlan, team.length, stuck.length);
 
+  // Свежесть: когда сформирован отчёт за опорный день.
+  const repRows = await db
+    .select({ g: reports.generatedAt })
+    .from(reports)
+    .where(eq(reports.reportDate, snapshotDate))
+    .limit(1);
+  const generatedAt = repRows[0]?.g ? new Date(repRows[0].g).toISOString() : null;
+
   return {
     monthLabel: label,
     snapshotDate,
@@ -306,5 +329,6 @@ export async function getDashboardData(): Promise<DashboardData> {
     deltas,
     trend,
     health,
+    generatedAt,
   };
 }

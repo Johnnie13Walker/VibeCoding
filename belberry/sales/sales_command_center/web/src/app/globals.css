@@ -204,6 +204,13 @@ input {
 .bb-hero-eyebrow { color: #c9c5f0; font-size: 13px; font-weight: 600; }
 .bb-hero-title { font-size: 30px; font-weight: 800; letter-spacing: -0.03em; margin-top: 4px; }
 .bb-hero-sub { color: #c9c5f0; font-size: 13.5px; font-weight: 500; margin-top: 6px; }
+.bb-hero-btn {
+  display: inline-flex; align-items: center; gap: 7px; margin-top: 14px;
+  background: rgba(255, 255, 255, 0.14); color: #fff; border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 11px; padding: 8px 14px; font-size: 13.5px; font-weight: 600;
+  text-decoration: none; transition: background 0.15s, border-color 0.15s;
+}
+.bb-hero-btn:hover { background: rgba(255, 255, 255, 0.22); border-color: rgba(255, 255, 255, 0.4); }
 
 .bb-grid { display: grid; gap: 16px; }
 .bb-grid-4 { grid-template-columns: repeat(4, 1fr); }
@@ -267,4 +274,14 @@ input {
   .bb-nav-item.soon { display: none; }
   .bb-rail-foot { margin-top: 0; background: transparent; padding: 0; }
   .bb-who { display: none; }
+}
+
+/* мобайл: компактнее полотно и hero */
+@media (max-width: 600px) {
+  .bb-page { padding: 18px 16px 56px; }
+  .bb-hero { padding: 20px 18px; border-radius: 18px; }
+  .bb-hero-title { font-size: 24px; }
+  .bb-hero-row { gap: 16px; }
+  .bb-card { padding: 16px; }
+  .bb-rframe { height: 70vh; }
 }

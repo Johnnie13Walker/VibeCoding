@@ -64,15 +64,12 @@ export function KpiCard({
         {text}
       </div>
       <div style={foot}>
-        {delta && delta.pct !== null ? (
-          <span style={{ ...chip, ...(down ? chipDown : chipUp) }}>
+        {delta?.label ? (
+          <span style={{ ...chip, ...(down ? chipDown : up ? chipUp : chipFlat) }}>
             {up ? <TrendingUp size={12} /> : down ? <TrendingDown size={12} /> : null}
-            {delta.pct > 0 ? '+' : ''}
-            {delta.pct}%
+            {delta.label}
           </span>
-        ) : (
-          <span style={{ fontSize: 12, color: '#9a9aa0' }}>к прошлому мес.</span>
-        )}
+        ) : null}
         {trend && trend.length > 1 ? (
           <span style={{ marginLeft: 'auto' }}>
             <Sparkline data={trend} color={down ? '#d4202e' : '#5b50d6'} />
@@ -96,3 +93,4 @@ const foot: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 
 const chip: React.CSSProperties = { fontSize: 12, fontWeight: 700, borderRadius: 999, padding: '2px 8px', display: 'inline-flex', alignItems: 'center', gap: 3 };
 const chipUp: React.CSSProperties = { background: '#e7f4ec', color: '#2c7a4a' };
 const chipDown: React.CSSProperties = { background: '#fdeaec', color: '#d4202e' };
+const chipFlat: React.CSSProperties = { background: '#f0eefb', color: '#5b50d6' };
