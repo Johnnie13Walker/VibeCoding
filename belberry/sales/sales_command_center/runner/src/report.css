@@ -240,7 +240,9 @@
   .tbl-wrap {
     border: 1px solid var(--border);
     border-radius: 12px;
-    overflow: hidden;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
   }
   table {
     width: 100%;
@@ -657,3 +659,88 @@ h2 { color: var(--brand-ink); }
 .quote-day { background: linear-gradient(120deg, #f3effc, #faf5ff); border-color: #cfc8f3; }
 .quote-day-text { color: #3a2a7a; }
 .motto { color: #5b50d6; background: linear-gradient(120deg, #f3effc, #faf5ff); border-color: #cfc8f3; }
+
+@media (max-width: 760px) {
+  .wrap { padding: 0 14px; }
+  .hero { padding: 34px 0 36px; margin-bottom: 20px; }
+  .hero h1 { font-size: 32px; letter-spacing: -0.6px; }
+  .hero-subtitle { font-size: 16px; }
+  .hero-stats, .stats, .cards-2, .cards-3, .managers, .deals-risk, .ach-grid {
+    grid-template-columns: 1fr;
+  }
+  .hero-stats { display: grid; gap: 10px; }
+  .hstat { min-width: 0; padding: 14px 16px; }
+  .hero-health { max-width: none; align-items: flex-start; padding: 14px 16px; }
+  .health-score { font-size: 36px; }
+  .anchor-nav { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; }
+  .anchor-chip { flex: 0 0 auto; }
+  section { padding: 22px 18px; border-radius: 14px; margin-bottom: 16px; }
+  .section-head { align-items: flex-start; gap: 10px; margin-bottom: 18px; }
+  h2 { font-size: 20px; line-height: 1.25; }
+  .tbl-wrap { margin: 0 -4px; }
+  table { min-width: 720px; font-size: 13px; }
+  th, td { padding: 11px 12px; }
+  .tiger-wrap { gap: 16px; align-items: flex-start; }
+  .tiger-photo { width: 96px; height: 96px; border-radius: 16px; }
+  .tiger-body, .cards-2, .cards-3 { min-width: 0; }
+  .tiger-name { font-size: 21px; }
+  .mgr { padding: 18px 16px; }
+  .razbor-card { padding: 18px 16px; border-radius: 14px; }
+  .razbor-head { flex-direction: column; align-items: flex-start; }
+  .razbor-score { font-size: 18px; }
+  .hilight-grid { grid-template-columns: 1fr; }
+  .quote-day-text { font-size: 17px; }
+}
+
+@media print {
+  @page { margin: 12mm; }
+  * {
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+  body {
+    background: #fff !important;
+    color: #000 !important;
+    font-size: 11pt;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .wrap { max-width: none; padding: 0; }
+  .hero {
+    background: #fff !important;
+    color: #000 !important;
+    padding: 0 0 14px;
+    margin: 0 0 16px;
+    border-bottom: 1px solid #999;
+  }
+  .hero::before, .hero::after, .anchor-nav { display: none !important; }
+  .hero h1, h2, h3, .hero-subtitle, .hero-corr, .hero-verdict, .hero-verdict b {
+    color: #000 !important;
+  }
+  .hero-label, .hero-health, .hstat, .stat, section, .card-30, .mgr, .razbor-card, .quote-day {
+    background: #fff !important;
+    color: #000 !important;
+    border-color: #999 !important;
+  }
+  section, .card-30, .mgr, .razbor-card, .quote, .quote-day, .tbl-wrap {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  section { padding: 14px 0; margin-bottom: 12px; border-width: 0 0 1px; border-radius: 0; }
+  .stats, .hero-stats, .cards-3, .cards-2, .managers {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+  .tbl-wrap { overflow: visible; border-radius: 0; }
+  table { min-width: 0; font-size: 9.5pt; }
+  th, td { padding: 6px 7px; }
+  a { color: #000 !important; text-decoration: underline; }
+  .badge, .tm-pill {
+    background: #fff !important;
+    color: #000 !important;
+    border: 1px solid #777;
+  }
+  .tiger-photo, .mgr-ava { filter: grayscale(100%); }
+  .footer { border-top-color: #999; }
+}
