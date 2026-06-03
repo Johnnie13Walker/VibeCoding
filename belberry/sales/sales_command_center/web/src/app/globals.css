@@ -26,9 +26,26 @@
   --border: 240 12% 92%;
   --input: 240 12% 92%;
   --ring: 245 62% 58%;
-  --radius: 0.875rem;
-  color: #1d1d1f;
-  background: #fbfbfd;
+  --radius: 1rem;
+
+  /* Belberry brand — фирстиль «Командный центр» (зеркало report.css). */
+  --bb-indigo: #2b2a5e;
+  --bb-indigo-2: #1f1e47;
+  --bb-violet: #5b50d6;
+  --bb-violet-soft: #f0eefb;
+  --bb-canvas: #faf8f5;
+  --bb-ink: #1d1d1f;
+  --bb-muted: #6e6e73;
+  --bb-faint: #9a9aa0;
+  --bb-line: #ece8e3;
+  --bb-red: #d4202e;
+  --bb-amber: #e88a3b;
+  --bb-green: #2c7a4a;
+  --bb-shadow: 0 1px 3px rgba(20, 18, 50, 0.06), 0 8px 24px -12px rgba(20, 18, 50, 0.12);
+  --bb-shadow-lift: 0 1px 3px rgba(20, 18, 50, 0.06), 0 16px 34px -16px rgba(43, 42, 94, 0.4);
+
+  color: var(--bb-ink);
+  background: var(--bb-canvas);
 }
 
 .dark {
@@ -62,14 +79,13 @@
 body {
   min-height: 100vh;
   margin: 0;
-  background: #fbfbfd;
-  color: #1d1d1f;
-  font-family:
-    -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', Inter,
-    'Helvetica Neue', Helvetica, Arial, sans-serif;
+  background: var(--bb-canvas);
+  color: var(--bb-ink);
+  font-family: Inter, -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+  letter-spacing: -0.01em;
 }
 
 h1, h2, h3, h4 {
@@ -81,4 +97,115 @@ h1, h2, h3, h4 {
 button,
 input {
   font: inherit;
+}
+
+/* ===== Belberry «Командный центр» — утилиты и анимации ===== */
+@keyframes bb-fade {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes bb-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(212, 32, 46, 0.5); }
+  70% { box-shadow: 0 0 0 9px rgba(212, 32, 46, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(212, 32, 46, 0); }
+}
+.bb-fade { animation: bb-fade 0.35s ease; }
+.bb-lift { transition: transform 0.2s, box-shadow 0.2s; }
+.bb-lift:hover { transform: translateY(-3px); box-shadow: var(--bb-shadow-lift); }
+.bb-live-dot {
+  width: 8px; height: 8px; border-radius: 50%; background: var(--bb-red);
+  display: inline-block; animation: bb-pulse 1.8s infinite;
+}
+.tabular { font-variant-numeric: tabular-nums; }
+
+/* aurora-фон для hero-баннеров */
+.bb-aurora { position: relative; overflow: hidden; }
+.bb-aurora::before {
+  content: ''; position: absolute; inset: -60% 40% auto -10%; height: 380px;
+  background: radial-gradient(closest-side, rgba(91, 80, 214, 0.85), transparent 70%);
+  filter: blur(10px); opacity: 0.7; pointer-events: none;
+}
+.bb-aurora::after {
+  content: ''; position: absolute; inset: auto -10% -60% 30%; height: 380px;
+  background: radial-gradient(closest-side, rgba(232, 138, 59, 0.5), transparent 70%);
+  filter: blur(14px); opacity: 0.5; pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .bb-fade, .bb-live-dot { animation: none; }
+  .bb-lift { transition: none; }
+}
+
+/* ===== Тёмный индиго-рельс (sidebar) ===== */
+.bb-rail {
+  position: sticky; top: 0; height: 100vh; width: 248px; flex: 0 0 248px;
+  background: linear-gradient(180deg, var(--bb-indigo) 0%, var(--bb-indigo-2) 100%);
+  color: #cfcce8; display: flex; flex-direction: column; padding: 18px 14px;
+  position: sticky; overflow: hidden;
+}
+.bb-rail-glow {
+  position: absolute; inset: -40% -60% auto -40%; height: 420px; pointer-events: none;
+  background: radial-gradient(closest-side, rgba(91, 80, 214, 0.55), transparent 70%);
+  filter: blur(20px); opacity: 0.55;
+}
+.bb-brand { display: flex; align-items: center; gap: 10px; padding: 8px 10px 22px; position: relative; }
+.bb-brand-logo {
+  width: 30px; height: 30px; border-radius: 9px; flex: 0 0 30px;
+  background: linear-gradient(135deg, #fff, #d9d5ff); display: grid; place-items: center;
+  color: var(--bb-indigo); font-weight: 800; font-size: 16px; box-shadow: var(--bb-shadow);
+}
+.bb-brand-name b { color: #fff; font-weight: 700; font-size: 16px; letter-spacing: -0.02em; display: block; line-height: 1.1; }
+.bb-brand-name small { color: #a7a2d6; font-size: 11px; font-weight: 500; letter-spacing: 0.02em; }
+.bb-nav { display: flex; flex-direction: column; gap: 3px; position: relative; }
+.bb-nav-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.12em; color: #7d79b0; padding: 14px 12px 6px; }
+.bb-nav-item {
+  display: flex; align-items: center; gap: 11px; padding: 10px 12px; border-radius: 12px;
+  color: #cfcce8; text-decoration: none; font-size: 14.5px; font-weight: 500;
+  transition: background 0.18s, color 0.18s; position: relative;
+}
+.bb-nav-item svg { opacity: 0.85; }
+.bb-nav-item:hover { background: rgba(255, 255, 255, 0.06); color: #fff; }
+.bb-nav-item.active {
+  background: linear-gradient(90deg, rgba(91, 80, 214, 0.9), rgba(91, 80, 214, 0.45));
+  color: #fff; font-weight: 600; box-shadow: 0 6px 18px -8px rgba(91, 80, 214, 0.9);
+}
+.bb-nav-item.active::before {
+  content: ''; position: absolute; left: -14px; top: 8px; bottom: 8px; width: 3px; border-radius: 3px; background: #fff;
+}
+.bb-nav-item.soon { color: #8480b5; cursor: default; }
+.bb-nav-item.soon:hover { background: transparent; color: #8480b5; }
+.bb-nav-tag {
+  margin-left: auto; background: rgba(255, 255, 255, 0.12); color: #cfcce8; font-size: 10px;
+  font-weight: 700; border-radius: 999px; padding: 1px 7px; text-transform: lowercase;
+}
+.bb-rail-foot {
+  margin-top: auto; display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05); position: relative;
+}
+.bb-ava {
+  width: 34px; height: 34px; border-radius: 50%; flex: 0 0 34px;
+  background: linear-gradient(135deg, #8b80ff, #5b50d6); color: #fff;
+  display: grid; place-items: center; font-weight: 700; font-size: 13px;
+}
+.bb-who { min-width: 0; flex: 1; }
+.bb-who b { font-size: 12.5px; color: #fff; font-weight: 600; line-height: 1.2; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bb-who small { color: #a7a2d6; font-weight: 500; font-size: 11px; }
+.bb-logout {
+  border: 0; background: transparent; color: #a7a2d6; cursor: pointer; padding: 6px; border-radius: 8px;
+  display: grid; place-items: center; transition: background 0.15s, color 0.15s;
+}
+.bb-logout:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
+
+/* мобайл: рельс становится верхней полосой */
+@media (max-width: 760px) {
+  .bb-rail {
+    position: static; width: 100%; height: auto; flex-direction: row; align-items: center;
+    flex: none; padding: 10px 14px; gap: 10px;
+  }
+  .bb-rail-glow { display: none; }
+  .bb-brand { padding: 0; }
+  .bb-nav { flex-direction: row; flex: 1; gap: 4px; overflow-x: auto; }
+  .bb-nav-label { display: none; }
+  .bb-nav-item.soon { display: none; }
+  .bb-rail-foot { margin-top: 0; background: transparent; padding: 0; }
+  .bb-who { display: none; }
 }

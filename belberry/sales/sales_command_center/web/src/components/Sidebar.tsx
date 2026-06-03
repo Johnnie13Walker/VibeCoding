@@ -2,50 +2,85 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { LayoutDashboard, CalendarDays, Radio, BellRing, LogOut } from 'lucide-react';
 
 const NAV = [
-  { href: '/dashboard', label: 'Dashboard', icon: '📊' },
-  { href: '/daily', label: 'Дневной отчет ОП', icon: '📅' },
+  { href: '/dashboard', label: 'Dashboard', Icon: LayoutDashboard },
+  { href: '/daily', label: 'Дневной отчёт', Icon: CalendarDays },
 ];
 
-export function Sidebar() {
+const SOON = [
+  { label: 'Сегодня', Icon: Radio, tag: 'live' },
+  { label: 'Алерты', Icon: BellRing, tag: 'скоро' },
+];
+
+const ROLE_LABEL: Record<string, string> = {
+  director: 'Руководитель',
+  rop: 'РОП',
+  manager: 'Менеджер',
+};
+
+function initials(value: string): string {
+  const base = value.split('@')[0].replace(/[._-]+/g, ' ').trim();
+  const parts = base.split(/\s+/).filter(Boolean);
+  const chars = parts.length >= 2 ? parts[0][0] + parts[1][0] : base.slice(0, 2);
+  return chars.toUpperCase();
+}
+
+export function Sidebar({ user }: { user?: { email?: string; role?: string } }) {
   const pathname = usePathname();
+  const email = user?.email ?? '';
+  const role = user?.role ? (ROLE_LABEL[user.role] ?? user.role) : '';
 
   return (
-    <aside className="sticky top-0 flex h-screen w-64 shrink-0 flex-col border-r border-[#e8e8ed] bg-white/70 backdrop-blur-xl">
-      <div className="flex h-16 items-center px-6">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/belberry-logo.svg" alt="Belberry" className="h-7 w-auto" />
+    <aside className="bb-rail">
+      <div className="bb-rail-glow" aria-hidden />
+      <div className="bb-brand">
+        <span className="bb-brand-logo">B</span>
+        <span className="bb-brand-name">
+          <b>Belberry</b>
+          <small>Командный центр</small>
+        </span>
       </div>
 
-      <nav className="flex-1 space-y-0.5 px-3 pt-2">
-        {NAV.map((item) => {
-          const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+      <nav className="bb-nav">
+        <div className="bb-nav-label">Обзор</div>
+        {NAV.map(({ href, label, Icon }) => {
+          const active = pathname === href || pathname.startsWith(`${href}/`);
           return (
             <Link
-              key={item.href}
-              href={item.href}
+              key={href}
+              href={href}
               aria-current={active ? 'page' : undefined}
-              className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-[0.95rem] tracking-[-0.01em] transition ${
-                active
-                  ? 'bg-[#f0eefb] font-semibold text-[#5b50d6]'
-                  : 'font-medium text-[#1d1d1f] hover:bg-[#f5f5f7]'
-              }`}
+              className={`bb-nav-item${active ? ' active' : ''}`}
             >
-              <span className="text-base" aria-hidden>
-                {item.icon}
-              </span>
-              {item.label}
+              <Icon size={18} strokeWidth={2} />
+              {label}
             </Link>
           );
         })}
+        <div className="bb-nav-label">Скоро</div>
+        {SOON.map(({ label, Icon, tag }) => (
+          <span key={label} className="bb-nav-item soon" aria-disabled>
+            <Icon size={18} strokeWidth={2} />
+            {label}
+            <span className="bb-nav-tag">{tag}</span>
+          </span>
+        ))}
       </nav>
 
-      <form action="/api/auth/logout" method="post" className="p-3">
-        <button className="w-full rounded-xl px-3 py-2.5 text-left text-[0.95rem] font-medium text-[#6e6e73] transition hover:bg-[#f5f5f7] hover:text-[#1d1d1f]">
-          Выйти
-        </button>
-      </form>
+      <div className="bb-rail-foot">
+        <div className="bb-ava">{email ? initials(email) : 'ОП'}</div>
+        <div className="bb-who">
+          <b>{email || 'Гость'}</b>
+          {role ? <small>{role}</small> : null}
+        </div>
+        <form action="/api/auth/logout" method="post">
+          <button className="bb-logout" aria-label="Выйти" title="Выйти">
+            <LogOut size={17} strokeWidth={2} />
+          </button>
+        </form>
+      </div>
     </aside>
   );
 }
