@@ -636,3 +636,14 @@ h2 { color: var(--brand-ink); }
   content: '•';
   color: #5b50d6;
 }
+
+/* Полный ребренд: перекрытие захардкоженных (не через var) сине-фиолетовых
+   мест под единую палитру Belberry. Семантические red/amber/green не трогаем. */
+.dcard-head.fix { background: linear-gradient(135deg, #5b50d6, #4a3fc5); }
+.pin-ava.sem { background: #5b50d6; }
+.pin-ava.gor { background: #3a2a7a; }
+.pin-ava.deg { background: #8a82e4; }
+.photo-fallback { background: linear-gradient(135deg, #ece9f9, #f3e8ff); color: #5b50d6; }
+.quote-day { background: linear-gradient(120deg, #f3effc, #faf5ff); border-color: #cfc8f3; }
+.quote-day-text { color: #3a2a7a; }
+.motto { color: #5b50d6; background: linear-gradient(120deg, #f3effc, #faf5ff); border-color: #cfc8f3; }
