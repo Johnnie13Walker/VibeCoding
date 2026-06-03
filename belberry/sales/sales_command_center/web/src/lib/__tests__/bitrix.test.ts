@@ -45,7 +45,9 @@ describe('bitrix client', () => {
   });
 
   it('returns null when active user is not found', async () => {
-    fetchMock.mockResolvedValueOnce(Response.json({ result: [] }));
+    fetchMock
+      .mockResolvedValueOnce(Response.json({ result: [] }))
+      .mockResolvedValueOnce(Response.json({ result: [] }));
 
     await expect(findActiveUserByEmail('missing@example.com')).resolves.toBeNull();
   });
