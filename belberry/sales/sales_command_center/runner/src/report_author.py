@@ -69,6 +69,10 @@ SYSTEM_PROMPT = """
   `deal_id`, а не только на встречу); если оно null — «нет данных».
 - Причина отказа — `rejections[].reason_label` (НЕ код семантики).
 - Цитату дня бери из payload.quote_of_day; coaching-строки — из payload.manager_coaching.
+- «Кого пинать» строится по payload.action_items: там уже есть владелец, дедлайн,
+  срочность, сделка и причина. Не выдумывай новые задачи.
+- Пробелы данных показывай только в подвале по payload.data_quality; не размазывай
+  техпроблемы по телу отчёта.
 - Запрещено: <script>, on*-атрибуты, внешние src (кроме src="photo:ID").
 
 ДИЗАЙН-КОНТРАКТ (используй ровно эти классы из report.css):
@@ -115,9 +119,9 @@ SYSTEM_PROMPT = """
    Если payload.quote_of_day.text есть — сразу после Тигра добавь блок:
    <div class="quote-day"><div class="quote-day-text">«дословная цитата»</div><div class="quote-day-meta">кто/сделка/контекст из payload.quote_of_day.meta</div></div>
    НЕ используй .ach-* классы, стрики или ачивки.
-3. «Кого пинать сегодня» (section id="action-items") — ТАБЛИЦА (не список):
-   <div class="tbl-wrap"><table><thead><tr><th>Менеджер</th><th>Что сделать</th><th>Сделка</th><th>Почему горит</th><th>Срочность</th></tr></thead><tbody>
-   <tr><td>Фамилия Имя<br><span class="muted">роль</span></td><td>конкретное действие</td><td><a href="...">домены через запятую, кликабельно</a></td><td>почему</td><td><span class="badge b-red">сейчас</span></td></tr>
+3. «Кого пинать сегодня» (section id="action-items") — ТАБЛИЦА (не список) по payload.action_items:
+   <div class="tbl-wrap"><table><thead><tr><th>Владелец</th><th>Что сделать</th><th>Дедлайн</th><th>Сделка</th><th>Почему горит</th><th>Срочность</th></tr></thead><tbody>
+   <tr><td>Фамилия Имя<br><span class="muted">роль</span></td><td>конкретное действие</td><td>сегодня 18:00</td><td><a href="...">домен</a></td><td>почему</td><td><span class="badge b-red">сейчас</span></td></tr>
    …</tbody></table></div>
    Срочность: <span class="badge b-red">сейчас</span> / <span class="badge b-amber">сегодня</span> / <span class="badge b-blue">на неделе</span>.
 4. «Где могут сорваться сделки» (section id="risks" tinted-amber) — лид-абзац (сколько сделок превысили норму на стадии + ядро затора) + ТАБЛИЦА:
@@ -160,10 +164,10 @@ SYSTEM_PROMPT = """
    Meta в h3: домен · тип · Имя · duration_min мин; если direction/направления нет в payload — НЕ придумывай и не пиши. Если analysis.transcript_based=false или analysis.analysis_available=false — добавь бейдж <span class="badge b-amber">разбор по краткому статусу, не по транскрипту</span> и не выдавай блок за глубокий. razbor-score = analysis.score (X/10); если score=null — «—».
 10. «Брифы и КП дня» — СВЯЗНЫМ ТЕКСТОМ, не простынёй: «Брифы в работе: <ссылки>», «КП: <ссылки и статусы>». Сумма «нет данных» не дублировать в каждой строке.
 11. «Отказы дня» — содержательные потери (воронка Продажи, с деньгами) — мини-таблицей (Сделка/Сумма/Менеджер/Комментарий). ТМ-отвалы НЕ перечислять списком — агрегировать счётчиком из rejections_summary («Отвал (телемаркетинг): N — штатный отсев холодной базы»).
-11. «Системные паттерны» — <div class="cards-2"> карточки card-pat (что работает / что повторяется).
-12. «Итог дня» — короткий вывод.
-13. «Технические ограничения отчёта» — оговорки по данным.
-В конце: <div class="footer"><p>…</p></div>.
+12. «Системные паттерны» — <div class="cards-2"> карточки card-pat (что работает / что повторяется).
+13. «Итог дня» — короткий вывод.
+В конце: <div class="footer"><p>…</p><div class="data-quality"><b>Качество данных:</b> сделки без суммы — N; встречи без транскрипта — N; …</div></div>.
+data-quality добавляй только если payload.data_quality непустой. Это единственное место для технических пробелов данных.
 """.strip()
 
 
@@ -192,6 +196,19 @@ def _deal_opportunity_map(raw: dict[str, Any]) -> dict[str, float]:
         except (TypeError, ValueError):
             continue
     return out
+
+
+def _analysis_for(analyses: dict[Any, Any], meeting_id: Any) -> Any:
+    if meeting_id is None:
+        return None
+    for key in (meeting_id, str(meeting_id)):
+        if key in analyses:
+            return analyses[key]
+    try:
+        int_key = int(meeting_id)
+    except (TypeError, ValueError):
+        return None
+    return analyses.get(int_key)
 
 
 _SALES_TM_ROLE_KEYS = ("продаж", "телемаркет", "роп")
@@ -300,7 +317,7 @@ def build_payload(rows: dict[str, Any], extras: dict[str, Any]) -> dict[str, Any
                 # а не «нет данных», и чтобы ссылаться на сделку, а не только на встречу.
                 "deal_id": deal_id,
                 "deal_opportunity": deal_opp.get(str(deal_id)),
-                "analysis": analyses.get(mid) or analyses.get(int(mid)) if mid is not None else None,
+                "analysis": _analysis_for(analyses, mid),
             }
         )
 
@@ -316,6 +333,7 @@ def build_payload(rows: dict[str, Any], extras: dict[str, Any]) -> dict[str, Any
     deltas = extras.get("deltas") or {}
     health_score = compute_health_score(mgr_activity, meetings, stale)
     manager_coaching = _manager_coaching(narrative, meetings)
+    data_quality = _data_quality(rows, raw, analyses)
     return {
         "report_date": extras.get("report_date") or raw.get("report_date"),
         "weekday_date_ru": _ru_date(extras.get("report_date") or raw.get("report_date") or ""),
@@ -333,6 +351,8 @@ def build_payload(rows: dict[str, Any], extras: dict[str, Any]) -> dict[str, Any
         "narrative": narrative,
         "quote_of_day": _quote_of_day(narrative, meetings),
         "manager_coaching": manager_coaching,
+        "action_items": _action_items(narrative, meetings, stale, users),
+        "data_quality": data_quality,
         "stale": extras.get("stale") or {},
         "rejections": rejections,
         "rejections_summary": dict(Counter(r.get("reason_label") for r in rejections)),
@@ -442,6 +462,149 @@ def _coaching_observation(observations: list[dict[str, Any]]) -> dict[str, Any] 
             if item.get("kind") == kind and item.get("text"):
                 return item
     return None
+
+
+def _action_items(
+    narrative: dict[str, Any],
+    meetings: list[dict[str, Any]],
+    stale: dict[str, list[dict[str, Any]]],
+    users: dict[str, Any],
+) -> list[dict[str, Any]]:
+    output: list[dict[str, Any]] = []
+    seen: set[tuple[str, str, str]] = set()
+
+    def add(item: dict[str, Any]) -> None:
+        key = (
+            str(item.get("owner") or ""),
+            str(item.get("action") or ""),
+            str(item.get("deal_id") or item.get("title") or ""),
+        )
+        if not key[0] or not key[1] or key in seen:
+            return
+        seen.add(key)
+        output.append(item)
+
+    for meeting in meetings:
+        step = (meeting.get("analysis") or {}).get("next_step")
+        if not isinstance(step, dict):
+            continue
+        action = str(step.get("what") or "").strip()
+        if not action:
+            continue
+        deadline = step.get("deadline") or "на неделе"
+        add(
+            {
+                "source": "meeting_next_step",
+                "owner": step.get("who") or meeting.get("manager"),
+                "owner_id": meeting.get("manager_id"),
+                "deadline": deadline,
+                "action": action,
+                "deal_id": meeting.get("deal_id"),
+                "title": meeting.get("title"),
+                "why": "следующий шаг после встречи",
+                "urgency": _urgency(deadline),
+            }
+        )
+
+    for rows_ in (stale or {}).values():
+        for item in rows_:
+            manager_id = item.get("manager_id")
+            add(
+                {
+                    "source": "stale",
+                    "owner": users.get(str(manager_id), manager_id),
+                    "owner_id": manager_id,
+                    "deadline": "сегодня",
+                    "action": "Связаться с клиентом и вернуть движение по стадии",
+                    "deal_id": item.get("deal_id"),
+                    "title": item.get("title"),
+                    "why": item.get("risk_reason") or "зависла стадия",
+                    "urgency": "сейчас" if item.get("age_level") == "critical" else "сегодня",
+                }
+            )
+
+    for item in narrative.get("pinch_list") or []:
+        if not isinstance(item, dict):
+            continue
+        add(
+            {
+                "source": "pinch_list",
+                "owner": item.get("name"),
+                "owner_id": item.get("manager_id"),
+                "deadline": item.get("deadline") or "сегодня",
+                "action": item.get("action"),
+                "deal_id": item.get("deal_id"),
+                "title": item.get("deal") or item.get("title"),
+                "why": item.get("why") or "нарративный риск дня",
+                "urgency": item.get("urgency") or "сегодня",
+            }
+        )
+
+    priority = {"сейчас": 0, "сегодня": 1, "на неделе": 2}
+    output.sort(key=lambda item: priority.get(str(item.get("urgency")), 3))
+    return output[:12]
+
+
+def _urgency(deadline: Any) -> str:
+    text = str(deadline or "").lower()
+    if "сейчас" in text or "asap" in text:
+        return "сейчас"
+    if "сегодня" in text or "до конца дня" in text:
+        return "сегодня"
+    return "на неделе"
+
+
+def _data_quality(rows: dict[str, Any], raw: dict[str, Any], analyses: dict[Any, Any]) -> list[dict[str, Any]]:
+    issues: list[dict[str, Any]] = []
+    zero_amount = [
+        {
+            "id": item.get("ID"),
+            "title": item.get("TITLE") or item.get("title") or item.get("ID"),
+        }
+        for item in [*(raw.get("deals_open") or []), *(raw.get("deals_created") or [])]
+        if _float_or_zero(item.get("OPPORTUNITY") or item.get("opportunity")) <= 0
+    ]
+    if zero_amount:
+        issues.append(
+            {
+                "kind": "zero_amount",
+                "label": "сделки без суммы",
+                "count": len(zero_amount),
+                "items": zero_amount[:10],
+            }
+        )
+
+    meetings_without_transcript = []
+    for meeting in rows.get("meetings") or []:
+        mid = meeting.get("meeting_id")
+        analysis = _analysis_for(analyses, mid)
+        transcript_bad = meeting.get("transcript_ok") is False
+        if isinstance(analysis, dict):
+            transcript_bad = transcript_bad or analysis.get("transcript_based") is False
+        if transcript_bad:
+            meetings_without_transcript.append(
+                {
+                    "id": mid,
+                    "title": meeting.get("title") or mid,
+                }
+            )
+    if meetings_without_transcript:
+        issues.append(
+            {
+                "kind": "missing_transcript",
+                "label": "встречи без транскрипта",
+                "count": len(meetings_without_transcript),
+                "items": meetings_without_transcript[:10],
+            }
+        )
+    return issues
+
+
+def _float_or_zero(value: Any) -> float:
+    try:
+        return float(value or 0)
+    except (TypeError, ValueError):
+        return 0.0
 
 
 def _fmt_until(value: Any) -> str | None:

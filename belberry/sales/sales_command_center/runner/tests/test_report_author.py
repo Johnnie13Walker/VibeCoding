@@ -95,6 +95,7 @@ def test_build_payload_shapes_day():
             2180: {
                 "verdict": "v",
                 "client_quote": "Жду прогноз.",
+                "next_step": {"what": "Отправить прогноз", "who": "Семенихин Егор", "deadline": "сегодня"},
                 "observations": [{"kind": "risk", "text": "Не показан кейс.", "metric": "кейс"}],
             }
         },
@@ -113,6 +114,9 @@ def test_build_payload_shapes_day():
     assert payload["meetings"][0]["deal_opportunity"] == 150000.0  # сумма сделки подтянута к встрече
     assert payload["quote_of_day"]["text"] == "Жду прогноз."
     assert payload["manager_coaching"][0]["advice"] == "Показывать кейс до цены."
+    assert payload["action_items"][0]["owner"] == "Семенихин Егор"
+    assert payload["action_items"][0]["deadline"] == "сегодня"
+    assert payload["action_items"][0]["urgency"] == "сегодня"
     assert payload["rejections"][0]["reason_label"] == "Отказ (воронка Продажи)"  # не код F
     assert payload["stats"]["calls_total"] == 89
     # «Опер»: empty 59×1.5=88.5 + call 30×15=450 + meet 1×50=50 = 588.5 → cap 10.0
@@ -148,9 +152,56 @@ def test_build_payload_falls_back_to_meeting_quote_and_observation_coaching():
     assert "Клиент просит кейс" in payload["manager_coaching"][0]["advice"]
 
 
+def test_build_payload_adds_stale_action_items_and_data_quality():
+    rows = {
+        "deals_snapshot": [],
+        "meetings": [
+            {
+                "meeting_id": 2180,
+                "deal_id": 24304,
+                "meeting_type": "defense",
+                "manager_id": 10,
+                "status": "success",
+                "transcript_ok": False,
+            }
+        ],
+        "manager_activity": [{"manager_id": 10, "dials_total": 10, "calls_answered": 4}],
+        "kp_briefs": [],
+    }
+    extras = {
+        "report_date": "2026-05-29",
+        "users": {"10": "Семенихин Егор"},
+        "raw": {
+            "user_roles": {"10": "Менеджер по продажам"},
+            "deals_open": [{"ID": "24304", "TITLE": "kandela.ru", "OPPORTUNITY": "0"}],
+        },
+        "stale": {
+            "Подготовка КП": [
+                {
+                    "deal_id": 24304,
+                    "title": "kandela.ru",
+                    "manager_id": 10,
+                    "risk_reason": "молчит 10 дн",
+                    "age_level": "critical",
+                }
+            ]
+        },
+        "analyses": {2180: {"transcript_based": False}},
+    }
+
+    payload = report_author.build_payload(rows, extras)
+
+    assert payload["action_items"][0]["source"] == "stale"
+    assert payload["action_items"][0]["urgency"] == "сейчас"
+    assert {issue["kind"] for issue in payload["data_quality"]} == {"zero_amount", "missing_transcript"}
+    assert payload["data_quality"][0]["count"] == 1
+
+
 def test_system_prompt_mentions_quote_day_and_no_achievements():
     assert "quote-day" in report_author.SYSTEM_PROMPT
     assert "manager_coaching" in report_author.SYSTEM_PROMPT
+    assert "payload.action_items" in report_author.SYSTEM_PROMPT
+    assert "payload.data_quality" in report_author.SYSTEM_PROMPT
     assert ".ach-*" in report_author.SYSTEM_PROMPT
 
 
