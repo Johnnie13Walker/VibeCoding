@@ -3,6 +3,16 @@ set -euo pipefail
 
 export TZ="${TZ:-Europe/Moscow}"
 
+# У cron нет окружения сервиса — подгружаем env-файл (DATABASE_URL/SCC_*/TELEGRAM_*),
+# иначе автозапуск падает на отсутствии переменных. Путь переопределяется SCC_ENV_FILE.
+SCC_ENV_FILE="${SCC_ENV_FILE:-/etc/scc/scc.env}"
+if [ -f "$SCC_ENV_FILE" ]; then
+  set -a
+  # shellcheck disable=SC1090
+  . "$SCC_ENV_FILE"
+  set +a
+fi
+
 SCC_LOCK_PATH="${SCC_LOCK_PATH:-/tmp/scc-daily-runner.lock}"
 SCC_LOG_DIR="${SCC_LOG_DIR:-/var/log/scc}"
 RUNNER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

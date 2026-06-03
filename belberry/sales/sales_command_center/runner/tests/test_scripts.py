@@ -20,6 +20,8 @@ def test_run_daily_has_flock_and_tz():
     assert "SCC_LOCK_PATH" in text
     assert "SCC_LOCK_FD" in text
     assert "daily_runner.py" in text
+    # cron не имеет окружения сервиса → скрипт обязан сам подгрузить env-файл
+    assert "SCC_ENV_FILE" in text
 
 
 def test_backup_has_pgdump_and_rotation():
