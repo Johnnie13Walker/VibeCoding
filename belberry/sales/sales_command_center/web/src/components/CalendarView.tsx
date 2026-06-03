@@ -7,13 +7,15 @@ import { Calendar } from '@/components/ui/calendar';
 
 interface CalendarViewProps {
   availableDates: string[];
+  /** Если задан — день открывается внутри платформы (без новой вкладки). */
+  onSelect?: (dateKey: string) => void;
 }
 
 export function toReportDateKey(date: Date): string {
   return format(date, 'yyyy-MM-dd');
 }
 
-export function CalendarView({ availableDates }: CalendarViewProps) {
+export function CalendarView({ availableDates, onSelect }: CalendarViewProps) {
   // Открываем на месяце самого свежего отчёта (availableDates отсортированы desc),
   // но НЕ позже текущего месяца — иначе тестовая запись с будущей датой увела бы
   // календарь в пустое будущее. Месяц неконтролируемый (defaultMonth) — листание
@@ -32,6 +34,11 @@ export function CalendarView({ availableDates }: CalendarViewProps) {
     const key = toReportDateKey(date);
 
     if (!availableSet.has(key)) {
+      return;
+    }
+
+    if (onSelect) {
+      onSelect(key);
       return;
     }
 
@@ -59,7 +66,7 @@ export function CalendarView({ availableDates }: CalendarViewProps) {
         weekStartsOn={1}
       />
       <p className="mt-3 text-sm text-[#6b6f88]">
-        Выберите день — отчёт откроется в новой вкладке.
+        {onSelect ? 'Выберите день — отчёт откроется здесь.' : 'Выберите день — отчёт откроется в новой вкладке.'}
       </p>
     </div>
   );

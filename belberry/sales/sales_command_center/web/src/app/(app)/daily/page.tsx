@@ -1,27 +1,24 @@
-import { CalendarView } from '@/components/CalendarView';
+import { DayReportView } from '@/components/DayReportView';
 import { availableReportDates } from '@/lib/reports';
 
 export default async function DailyOPReportPage() {
   const dates = await availableReportDates();
 
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-12 px-10 py-14">
-      <header className="space-y-1.5">
-        <p className="text-sm font-medium text-[#6e6e73]">Командный центр</p>
-        <h1 className="text-[2.1rem] font-semibold leading-tight tracking-[-0.022em] text-[#1d1d1f]">
-          Дневной отчет ОП
-        </h1>
-      </header>
-
-      <section className="space-y-5">
-        <div className="space-y-1.5">
-          <h2 className="text-xl font-semibold tracking-[-0.018em] text-[#1d1d1f]">Архив отчётов</h2>
-          <p className="max-w-xl text-[0.95rem] leading-relaxed text-[#6e6e73]">
-            Выберите дату с готовым отчётом. Серые дни пока недоступны.
-          </p>
+    <div className="bb-page bb-fade">
+      <div className="bb-hero bb-aurora">
+        <div className="bb-hero-row">
+          <div style={{ flex: 1 }}>
+            <div className="bb-hero-eyebrow">Командный центр</div>
+            <h1 className="bb-hero-title">Дневной отчёт ОП</h1>
+            <div className="bb-hero-sub">Выберите день — богатый разбор откроется прямо здесь</div>
+          </div>
         </div>
-        <CalendarView availableDates={dates} />
-      </section>
+      </div>
+
+      <div className="bb-card">
+        <DayReportView availableDates={dates} />
+      </div>
     </div>
   );
 }

@@ -232,6 +232,27 @@ input {
 .bb-pf-bar { height: 9px; border-radius: 6px; background: #f0ece7; overflow: hidden; margin-top: 7px; }
 .bb-pf-bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--bb-violet), var(--bb-indigo)); transition: width 0.9s cubic-bezier(.22,1,.36,1); }
 
+/* ===== Встроенный отчёт дня (тулбар + рамка) ===== */
+.bb-rtoolbar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px;
+}
+.bb-rbtn {
+  display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--bb-line); background: #fff;
+  border-radius: 10px; padding: 7px 12px; font-size: 13px; font-weight: 600; color: var(--bb-ink);
+  cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s; text-decoration: none;
+}
+.bb-rbtn:hover { background: var(--bb-violet-soft); border-color: #d6cffb; color: var(--bb-violet); }
+.bb-rnav {
+  border: 1px solid var(--bb-line); background: #fff; border-radius: 9px; width: 32px; height: 32px;
+  display: grid; place-items: center; cursor: pointer; color: var(--bb-muted); transition: background 0.15s, color 0.15s;
+}
+.bb-rnav:hover:not(:disabled) { background: var(--bb-violet-soft); color: var(--bb-violet); }
+.bb-rnav:disabled { opacity: 0.4; cursor: default; }
+.bb-rtitle { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 14px; }
+.bb-rtitle svg { color: var(--bb-violet); }
+.bb-rframe-wrap { border: 1px solid var(--bb-line); border-radius: 16px; overflow: hidden; box-shadow: var(--bb-shadow); background: #fff; }
+.bb-rframe { width: 100%; height: 78vh; border: 0; display: block; }
+
 /* мобайл: рельс становится верхней полосой */
 @media (max-width: 760px) {
   .bb-rail {
