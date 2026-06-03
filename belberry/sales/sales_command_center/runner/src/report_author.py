@@ -119,9 +119,23 @@ SYSTEM_PROMPT = """
    <div class="tbl-wrap"><table><thead><tr><th>Время</th><th>Сделка</th><th>Проводит</th><th>Статус</th></tr></thead><tbody>
    <tr><td>12:00</td><td><a href="{встреча}">домен</a></td><td>Имя</td><td><span class="badge b-blue">запланирована</span></td></tr></tbody></table></div>
    Время — из meetings_today[].scheduled_at (только HH:MM, МСК).
-9. «Содержательный разбор встреч» — по каждой встрече с analysis (transcript):
-   <div class="razbor-card"><div class="razbor-head"><h3>домен · тип · Имя · N мин</h3><div class="razbor-score">8/10</div></div><div class="razbor-sum">резюме + дословная цитата клиента</div><div class="checks"><div class="chk-row"><span class="chk-mark">✅</span><span class="chk-label">Кейсы</span><span class="chk-txt">…</span></div>… (чек-лист из analysis.checklist)</div><div class="razbor-verdict">вердикт (+ расхождение статуса, если status_discrepancy)</div><div class="razbor-good">🌟 Что было хорошо: …</div></div>
-   razbor-score = analysis.score (X/10), не «нет данных».
+9. «Содержательный разбор встреч» — по каждой встрече с analysis. Формат ближе к
+   ручному эталону, НЕ сухой чек-лист:
+   <div class="razbor-card" id="meeting-<id>">
+     <div class="razbor-head"><h3>домен · тип · Имя · N мин</h3><div class="razbor-score">8/10</div></div>
+     <div class="razbor-sum">1–2 предложения: что произошло и чем это управленчески важно.</div>
+     <div class="quote client">дословная цитата клиента из analysis.client_quote<div class="quote-author">Клиент · домен</div></div>
+     <div class="hilight-grid">
+       <div class="hilight good"><span class="hilight-title">Что сработало</span><div class="hilight-body">конкретный момент из analysis.observations[].text</div><span class="hilight-tag tag-good">цифра/факт</span></div>
+       <div class="hilight risk"><span class="hilight-title">Где риск</span><div class="hilight-body">конкретный риск из analysis.observations[].text</div><span class="hilight-tag tag-risk">цифра/факт</span></div>
+     </div>
+     <div class="callout callout-blue"><div class="callout-label">Следующий шаг</div><div class="callout-body">что · кто · дедлайн из analysis.next_step</div></div>
+     <div class="callout callout-amber"><div class="callout-label">Возражения</div><div class="callout-body">возражение — отработано/не отработано, note</div></div>
+     <div class="razbor-verdict">Коммитмент: взял обязательство / подумает / нет. Вердикт + расхождение статуса, если status_discrepancy.</div>
+     <div class="checks">… вторично: чек-лист из analysis.checklist …</div>
+     <div class="razbor-good">🌟 Что было хорошо: …</div>
+   </div>
+   Meta в h3: домен · тип · Имя · duration_min мин; если direction/направления нет в payload — НЕ придумывай и не пиши. Если analysis.transcript_based=false или analysis.analysis_available=false — добавь бейдж <span class="badge b-amber">разбор по краткому статусу, не по транскрипту</span> и не выдавай блок за глубокий. razbor-score = analysis.score (X/10); если score=null — «—».
 10. «Брифы и КП дня» — СВЯЗНЫМ ТЕКСТОМ, не простынёй: «Брифы в работе: <ссылки>», «КП: <ссылки и статусы>». Сумма «нет данных» не дублировать в каждой строке.
 11. «Отказы дня» — содержательные потери (воронка Продажи, с деньгами) — мини-таблицей (Сделка/Сумма/Менеджер/Комментарий). ТМ-отвалы НЕ перечислять списком — агрегировать счётчиком из rejections_summary («Отвал (телемаркетинг): N — штатный отсев холодной базы»).
 11. «Системные паттерны» — <div class="cards-2"> карточки card-pat (что работает / что повторяется).

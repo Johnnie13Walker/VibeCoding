@@ -56,6 +56,23 @@ def test_author_report_none_on_invalid():
     assert report_author.author_report({}, client=_Client("нет")) is None
 
 
+def test_system_prompt_requires_reference_meeting_layout():
+    prompt = report_author.SYSTEM_PROMPT
+
+    for token in (
+        "quote client",
+        "quote-author",
+        "hilight-grid",
+        "analysis.observations",
+        "analysis.next_step",
+        "Коммитмент",
+        "transcript_based=false",
+        "разбор по краткому статусу, не по транскрипту",
+        "checks",
+    ):
+        assert token in prompt
+
+
 def test_build_payload_shapes_day():
     rows = {
         "deals_snapshot": [],
