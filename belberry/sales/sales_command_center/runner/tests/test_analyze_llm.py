@@ -260,3 +260,27 @@ def test_openai_adapter_retries_reasoning_style_on_param_error():
     assert out.content[0].text == "ok"
     assert len(calls) == 2  # первый с max_tokens упал → retry в reasoning-стиле
     assert "max_completion_tokens" in calls[1] and "temperature" not in calls[1]
+
+
+def test_get_client_bounds_timeout_and_disables_sdk_retries(monkeypatch):
+    """Клиент LLM создаётся с жёстким таймаутом и без собственных ретраев SDK —
+    иначе зависший сокет копится десятками минут и ломает cron-доставку."""
+    import sys
+    import types
+
+    captured = {}
+
+    class _FakeOpenAI:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+    monkeypatch.setitem(sys.modules, "openai", types.SimpleNamespace(OpenAI=_FakeOpenAI))
+    monkeypatch.setattr(analyze_llm, "LLM_PROVIDER", "openai")
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+
+    analyze_llm.get_client()
+
+    assert captured["timeout"] == analyze_llm.LLM_TIMEOUT
+    assert captured["max_retries"] == analyze_llm.LLM_SDK_RETRIES
+    assert analyze_llm.LLM_SDK_RETRIES == 0
+    assert analyze_llm.LLM_TIMEOUT <= 600

@@ -19,6 +19,16 @@ elif LLM_PROVIDER == "openai":
     MODEL = "gpt-4o"
 else:
     MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-6")
+
+# Жёсткий таймаут на один LLM-вызов: без него клиенты SDK висят на дефолте
+# (~600с) и со встроенными ретраями копят зависший сокет до десятков минут.
+# Это критично для unattended-cron 09:00: зависший author держал бы flock и не
+# доставил отчёт. _call_with_retry даёт свою повторную попытку — ретраи самого
+# SDK отключаем (max_retries=0), чтобы ожидание не множилось. Дефолт 600с = как
+# было у SDK на один запрос, поэтому легитимно-медленный author не словит ложный
+# таймаут; убран именно неограниченный хвост от перемножения ретраев.
+LLM_TIMEOUT = float(os.environ.get("SCC_LLM_TIMEOUT", "600"))
+LLM_SDK_RETRIES = int(os.environ.get("SCC_LLM_SDK_RETRIES", "0"))
 VALID_MARKS = {"✅", "⚠️", "❌"}
 
 SYSTEM_PROMPT = """
@@ -156,11 +166,11 @@ def get_client():
         load_config(["OPENAI_API_KEY"])
         import openai
 
-        return _OpenAIAdapter(openai.OpenAI())
+        return _OpenAIAdapter(openai.OpenAI(timeout=LLM_TIMEOUT, max_retries=LLM_SDK_RETRIES))
     load_config(["ANTHROPIC_API_KEY"])
     import anthropic
 
-    return anthropic.Anthropic()
+    return anthropic.Anthropic(timeout=LLM_TIMEOUT, max_retries=LLM_SDK_RETRIES)
 
 
 def build_user_message(

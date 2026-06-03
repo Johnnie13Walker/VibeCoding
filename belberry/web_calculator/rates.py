@@ -1,6 +1,13 @@
 """Single source of truth для ставок и нормативов калькулятора веб-разработки Belberry.
 
+Актуально на 2026-05-20. Подтверждено финдиректором.
 Все цифры в одном месте. Меняешь здесь — пересобираешь Sheet через build_calculator.py.
+
+Историческая динамика ставок (из 100 закрытых проектов 2023-2025, см. BENCHMARKS.md в Obsidian):
+  2023: 1,659 ₽/ч (ВД медиана)
+  2024: 1,950 ₽/ч (+18%)
+  2025: 2,291 ₽/ч (+17%)
+  2026: 3,100 ₽/ч (+35%) — текущая базовая
 """
 
 from __future__ import annotations
@@ -10,10 +17,14 @@ from dataclasses import dataclass, field
 
 @dataclass(frozen=True)
 class HourlyRates:
-    base: int = 3100              # ₽/час — типовой разработчик/QA
-    design_premium: int = 3500    # ₽/час — авторский дизайн
-    tech_lead: int = 4200         # ₽/час — техлид, ревью архитектуры
-    project_manager: int = 2800   # ₽/час — координация
+    # АКТУАЛЬНО на 2026 — единая базовая ставка для всех ролей разработки
+    base: int = 3100              # ₽/час — Frontend, Backend, Дизайн, PM, аналитика, SEO, QA
+    design_premium: int = 3100    # ₽/час — теперь по базовой (раньше 3500)
+    tech_lead: int = 3100         # ₽/час — по базовой (раньше 4200)
+    project_manager: int = 3100   # ₽/час — по базовой (раньше 2800)
+    content_manager: int = 2000   # ₽/час — контент-менеджер (наполнение, перенос)
+    seo: int = 3100               # ₽/час — SEO по базовой
+    photographer_external: int = 10000  # ₽/час — внешний фотограф (мед.съёмка 4-8 ч)
 
 
 @dataclass(frozen=True)
@@ -34,14 +45,14 @@ class Platform:
 PLATFORMS: dict[str, Platform] = {
     "strapi": Platform(
         code="strapi", title="Strapi (шаблон Belberry)",
-        license_cost=125_000,
+        license_cost=69_000,           # Strapi-шаблон Belberry (актуал 2026, было 125k)
         hours_discovery=8, hours_prototype=12, hours_design_extra=10,
         hours_backend=25, hours_frontend=15, hours_qa=30, hours_launch=8,
         note="Готовый шаблон Belberry. Быстро. Для типовых клиник/корп.сайтов.",
     ),
     "bitrix": Platform(
         code="bitrix", title="1С-Битрикс (шаблон Belberry)",
-        license_cost=84_000,           # «Малый бизнес»
+        license_cost=47_000,           # «Малый бизнес» (актуал 2026)
         hours_discovery=8, hours_prototype=16, hours_design_extra=10,
         hours_backend=30, hours_frontend=20, hours_qa=30, hours_launch=8,
         note="Сложные каталоги, 1С-интеграция, бизнес-процессы.",
@@ -139,18 +150,20 @@ SEO_LEVELS: list[SeoLevel] = [
 
 @dataclass(frozen=True)
 class ContentRates:
-    text_service: int = 5_200      # текст страницы услуги (с медкопирайтером)
-    text_product: int = 2_600      # текст карточки товара
-    text_blog: int = 7_000         # статья блога 3000+ знаков
-    text_brief: int = 1_300        # ТЗ на текст (SEO-структура)
-    text_landing_block: int = 3_500  # блок текста для лендинга
+    # Актуал 2026: единая цена за текст медкопирайтера (услуга или статья блога)
+    # Биографии врачей, лендинги, юр.страницы — НЕ через медкопирайтера
+    text_service: int = 5_200      # текст услуговой страницы (медкопирайтер)
+    text_blog: int = 5_200         # статья блога (медкопирайтер, та же цена)
+    text_product: int = 5_200      # карточка товара (раньше 2600, теперь по базовой)
+    text_brief: int = 0            # ТЗ копирайтеру — входит в работу (раньше 1300)
+    text_landing_block: int = 0    # лендинг-блоки — клиент сам / контент-менеджер
 
 
 @dataclass(frozen=True)
 class Discounts:
     copyright_inhouse: float = 0.10   # «копирайт — наш»
-    speed_signing: float = 0.05       # договор подписан в 14 дней с КП
-    vat: float = 0.05                 # НДС 5% при УСН
+    speed_signing: float = 0.05       # подписан в 7 раб.дней с КП (для активации скидки)
+    vat: float = 0.05                 # НДС 5% — ВСЕГДА (УСН Belberry)
 
 
 @dataclass(frozen=True)
