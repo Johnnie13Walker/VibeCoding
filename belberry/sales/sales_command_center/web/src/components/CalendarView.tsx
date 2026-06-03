@@ -39,9 +39,9 @@ export function CalendarView({ availableDates }: CalendarViewProps) {
   }
 
   return (
-    <div className="mx-auto w-full max-w-md">
+    <div className="w-full max-w-sm">
       <Calendar
-        className="rounded-lg border border-slate-200 bg-white shadow-sm"
+        className="rounded-2xl border border-[#e8e4f2] bg-white shadow-sm"
         disabled={(date) => !availableSet.has(toReportDateKey(date))}
         locale={ru}
         mode="single"
@@ -50,13 +50,13 @@ export function CalendarView({ availableDates }: CalendarViewProps) {
         }}
         modifiersClassNames={{
           available:
-            'bg-[#ece9f9] text-[#4a3fc5] font-semibold hover:bg-[#ddd6f7] cursor-pointer rounded-md',
+            'bg-[#ece9f9] text-[#4a3fc5] font-semibold hover:bg-[#ddd6f7] cursor-pointer rounded-lg',
         }}
         defaultMonth={initialMonth}
         onDayClick={openReport}
         weekStartsOn={1}
       />
-      <p className="mt-3 text-center text-sm text-slate-500">
+      <p className="mt-3 text-sm text-[#6b6f88]">
         Выберите день — отчёт откроется в новой вкладке.
       </p>
     </div>
