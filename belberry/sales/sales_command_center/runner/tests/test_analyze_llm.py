@@ -30,6 +30,7 @@ FIXED_NARRATIVE = {
     "systemic_patterns": {"works": ["брифы"], "repeats": ["нет кейсов"]},
     "day_summary": "Итог дня.",
     "quote_of_day": {"text": "Жду прогноз.", "meta": "защита"},
+    "manager_coaching": [{"manager": "Иванов Иван", "manager_id": 10, "advice": "Показывать кейс до цены.", "basis": "нет кейса"}],
     "tiger_caption": "Сильный обзвон.",
 }
 
@@ -192,8 +193,15 @@ def test_analyze_day_narrative_returns_keys():
     assert result["systemic_patterns"]["works"]
     assert result["day_summary"]
     assert result["quote_of_day"]["text"]
+    assert result["manager_coaching"][0]["advice"]
     assert result["tiger_caption"]
     assert client.messages.kwargs[0]["system"][0]["cache_control"] == {"type": "ephemeral"}
+
+
+def test_narrative_prompt_requests_coaching_without_achievements():
+    assert "manager_coaching" in analyze_llm.NARRATIVE_SYSTEM_PROMPT
+    assert "Не пиши общие банальности" in analyze_llm.NARRATIVE_SYSTEM_PROMPT
+    assert "ачив" not in analyze_llm.NARRATIVE_SYSTEM_PROMPT.lower()
 
 
 def test_openai_adapter_params_and_no_json_force():

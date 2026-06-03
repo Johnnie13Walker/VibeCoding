@@ -88,8 +88,15 @@ NARRATIVE_SYSTEM_PROMPT = """
   "systemic_patterns": {"works": ["..."], "repeats": ["..."]},
   "day_summary": "...",
   "quote_of_day": {"text": "...", "meta": "..."},
+  "manager_coaching": [{"manager": "Фамилия Имя", "manager_id": 123, "advice": "...", "basis": "..."}],
   "tiger_caption": "..."
 }
+
+manager_coaching — максимум 1 конкретный совет на менеджера, только по его встречам
+или активности из агрегата. Не пиши общие банальности вроде «быть активнее»; если
+данных по менеджеру мало, не включай его в manager_coaching.
+quote_of_day — сильная дословная фраза менеджера или клиента из разборов встреч.
+Не придумывай цитаты.
 """
 
 

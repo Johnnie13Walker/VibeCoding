@@ -68,6 +68,7 @@ SYSTEM_PROMPT = """
 - Сумма по встрече в «рисках» — `meetings[].deal_opportunity` (и ссылка на сделку
   `deal_id`, а не только на встречу); если оно null — «нет данных».
 - Причина отказа — `rejections[].reason_label` (НЕ код семантики).
+- Цитату дня бери из payload.quote_of_day; coaching-строки — из payload.manager_coaching.
 - Запрещено: <script>, on*-атрибуты, внешние src (кроме src="photo:ID").
 
 ДИЗАЙН-КОНТРАКТ (используй ровно эти классы из report.css):
@@ -111,6 +112,9 @@ SYSTEM_PROMPT = """
    <div class="card-30 c-amber"><div class="c30-title">🔧 Исправить системно</div><ul><li>…</li></ul></div>
 2. «Тигр дня» (section id="tiger" tinted-green) — менеджер с МАКС. operational_score («Опер»)
    из telephony (НЕ по числу наборов!): <div class="tiger-wrap"><img class="tiger-photo" src="photo:<manager_id>" alt="Имя"><div class="tiger-body"><div class="tiger-name">Имя <span class="tiger-role">· роль</span></div><div class="tiger-quote">…</div><div class="tiger-metrics"><span class="tm-pill">Опер 10.0</span><span class="tm-pill">28% конверсия</span><span class="tm-pill">89 наборов</span>…</div><div class="tiger-note">рейтинг по операционной оценке «Опер»; рядом: следующие по Опер</div></div></div>
+   Если payload.quote_of_day.text есть — сразу после Тигра добавь блок:
+   <div class="quote-day"><div class="quote-day-text">«дословная цитата»</div><div class="quote-day-meta">кто/сделка/контекст из payload.quote_of_day.meta</div></div>
+   НЕ используй .ach-* классы, стрики или ачивки.
 3. «Кого пинать сегодня» (section id="action-items") — ТАБЛИЦА (не список):
    <div class="tbl-wrap"><table><thead><tr><th>Менеджер</th><th>Что сделать</th><th>Сделка</th><th>Почему горит</th><th>Срочность</th></tr></thead><tbody>
    <tr><td>Фамилия Имя<br><span class="muted">роль</span></td><td>конкретное действие</td><td><a href="...">домены через запятую, кликабельно</a></td><td>почему</td><td><span class="badge b-red">сейчас</span></td></tr>
@@ -127,6 +131,7 @@ SYSTEM_PROMPT = """
 6. «Активность менеджеров» (section id="managers") — карточки, ОТСОРТИРОВАНЫ по «Опер» убыв. (порядок telephony):
    <div class="mgr hero-mgr"><img class="mgr-ava" src="photo:<manager_id>"><div class="mgr-name">Имя</div><div class="mgr-role">роль · Опер 10.0</div><div class="mgr-row"><span class="mgr-row-label">Наборы</span><span class="mgr-row-value">89</span></div><div class="mgr-row"><span class="mgr-row-label">Дозвоны</span><span class="mgr-row-value">40 (11%)</span></div><div class="mgr-row"><span class="mgr-row-label">120с+</span><span class="mgr-row-value">8</span></div><div class="mgr-row"><span class="mgr-row-label">Встречи</span><span class="mgr-row-value">0</span></div><div class="mgr-row"><span class="mgr-row-label">Опер</span><span class="mgr-row-value">10.0</span></div></div>
    Строки mgr-row: Наборы (dials_total), Дозвоны «40 (11%)» (calls_answered, connect_percent), 120с+ (calls_120s_plus), Чаты (messenger_dialogs), Часы (hours), Встречи (meetings_held), Новых сделок (new_deals), Опер (operational_score). Данные из telephony.
+   Если для manager_id есть payload.manager_coaching[] — добавь в карточку <div class="mgr-note"><b>Коучинг:</b> конкретный совет; <span class="muted">основание</span></div>.
    Если away=true (поле telephony) — карточка <div class="mgr away">, строка «Заморожено сделок: frozen_deals». Если vacation_until НЕ пуст — роль «роль · в отпуске до {vacation_until}» (по графику Bitrix). Если vacation_until пуст — «роль · в простое» (нет активности; «в отпуске» НЕ писать без vacation_until).
 7. «Встречи дня — проведено N» (section id="meetings-done") — СВОДНАЯ ТАБЛИЦА перед разбором:
    <div class="tbl-wrap"><table><thead><tr><th>Сделка/встреча</th><th>Тип</th><th>Проводит</th><th>Статус</th><th>Балл</th></tr></thead><tbody>
@@ -210,6 +215,7 @@ def build_payload(rows: dict[str, Any], extras: dict[str, Any]) -> dict[str, Any
     users = extras.get("users") or {}
     raw = extras.get("raw") or {}
     analyses = extras.get("analyses") or {}
+    narrative = extras.get("narrative") or {}
     deal_opp = _deal_opportunity_map(raw)
     # ограничиваем состав строго ОП+ТМ ещё до сборки payload
     roles_map = raw.get("user_roles") or extras.get("user_roles") or {}
@@ -289,6 +295,7 @@ def build_payload(rows: dict[str, Any], extras: dict[str, Any]) -> dict[str, Any
                 "type": m.get("meeting_type"),
                 "status": m.get("status"),
                 "manager": users.get(str(m.get("manager_id")), m.get("manager_id")),
+                "manager_id": m.get("manager_id"),
                 # связанная сделка + её сумма — чтобы у встречи в «рисках» была сумма,
                 # а не «нет данных», и чтобы ссылаться на сделку, а не только на встречу.
                 "deal_id": deal_id,
@@ -308,6 +315,7 @@ def build_payload(rows: dict[str, Any], extras: dict[str, Any]) -> dict[str, Any
     stats = _stats(rows, extras)
     deltas = extras.get("deltas") or {}
     health_score = compute_health_score(mgr_activity, meetings, stale)
+    manager_coaching = _manager_coaching(narrative, meetings)
     return {
         "report_date": extras.get("report_date") or raw.get("report_date"),
         "weekday_date_ru": _ru_date(extras.get("report_date") or raw.get("report_date") or ""),
@@ -322,6 +330,9 @@ def build_payload(rows: dict[str, Any], extras: dict[str, Any]) -> dict[str, Any
         "deltas": deltas,
         "hero_stats": _hero_stats(stats, deltas),
         "health_score": health_score,
+        "narrative": narrative,
+        "quote_of_day": _quote_of_day(narrative, meetings),
+        "manager_coaching": manager_coaching,
         "stale": extras.get("stale") or {},
         "rejections": rejections,
         "rejections_summary": dict(Counter(r.get("reason_label") for r in rejections)),
@@ -358,6 +369,79 @@ def _hero_stats(stats: dict[str, Any], deltas: dict[str, Any]) -> list[dict[str,
             }
         )
     return out
+
+
+def _quote_of_day(narrative: dict[str, Any], meetings: list[dict[str, Any]]) -> dict[str, Any] | None:
+    quote = narrative.get("quote_of_day")
+    if isinstance(quote, dict) and quote.get("text"):
+        return {"text": str(quote.get("text")), "meta": str(quote.get("meta") or "")}
+    for meeting in meetings:
+        analysis = meeting.get("analysis") or {}
+        if analysis.get("client_quote"):
+            return {
+                "text": str(analysis["client_quote"]),
+                "meta": " · ".join(
+                    str(part)
+                    for part in (meeting.get("title"), meeting.get("manager"))
+                    if part
+                ),
+            }
+    return None
+
+
+def _manager_coaching(narrative: dict[str, Any], meetings: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    output: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for item in narrative.get("manager_coaching") or []:
+        if not isinstance(item, dict):
+            continue
+        advice = str(item.get("advice") or "").strip()
+        manager = str(item.get("manager") or "").strip()
+        manager_id = item.get("manager_id")
+        key = str(manager_id or manager)
+        if not advice or not key or key in seen:
+            continue
+        seen.add(key)
+        output.append(
+            {
+                "manager": manager,
+                "manager_id": manager_id,
+                "advice": advice,
+                "basis": str(item.get("basis") or "").strip(),
+            }
+        )
+    for meeting in meetings:
+        manager_id = meeting.get("manager_id")
+        key = str(manager_id or meeting.get("manager"))
+        if not key or key in seen:
+            continue
+        analysis = meeting.get("analysis") or {}
+        observation = _coaching_observation(analysis.get("observations") or [])
+        if not observation:
+            continue
+        seen.add(key)
+        text = str(observation.get("text") or "").strip()
+        output.append(
+            {
+                "manager": meeting.get("manager"),
+                "manager_id": manager_id,
+                "advice": (
+                    f"Разобрать и закрыть риск: {text}"
+                    if observation.get("kind") == "risk"
+                    else f"Закрепить удачный приём: {text}"
+                ),
+                "basis": str(observation.get("metric") or meeting.get("title") or "").strip(),
+            }
+        )
+    return output
+
+
+def _coaching_observation(observations: list[dict[str, Any]]) -> dict[str, Any] | None:
+    for kind in ("risk", "good"):
+        for item in observations:
+            if item.get("kind") == kind and item.get("text"):
+                return item
+    return None
 
 
 def _fmt_until(value: Any) -> str | None:

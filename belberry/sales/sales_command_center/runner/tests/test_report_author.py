@@ -91,14 +91,28 @@ def test_build_payload_shapes_day():
         },
         "stale": {},
         "rejections": [{"deal_id": "14652", "title": "aclinic.ru", "stage": "C10:LOSE", "reason": "F"}],
-        "analyses": {2180: {"verdict": "v"}},
+        "analyses": {
+            2180: {
+                "verdict": "v",
+                "client_quote": "Жду прогноз.",
+                "observations": [{"kind": "risk", "text": "Не показан кейс.", "metric": "кейс"}],
+            }
+        },
+        "narrative": {
+            "quote_of_day": {"text": "Жду прогноз.", "meta": "kandela.ru"},
+            "manager_coaching": [
+                {"manager": "Семенихин Егор", "manager_id": 10, "advice": "Показывать кейс до цены.", "basis": "кейс"}
+            ],
+        },
     }
     payload = report_author.build_payload(rows, extras)
     assert payload["weekday_date_ru"].startswith("Пятница")
     assert payload["meetings"][0]["title"] == "kandela.ru"
     assert payload["meetings"][0]["manager"] == "Семенихин Егор"
-    assert payload["meetings"][0]["analysis"] == {"verdict": "v"}
+    assert payload["meetings"][0]["analysis"]["verdict"] == "v"
     assert payload["meetings"][0]["deal_opportunity"] == 150000.0  # сумма сделки подтянута к встрече
+    assert payload["quote_of_day"]["text"] == "Жду прогноз."
+    assert payload["manager_coaching"][0]["advice"] == "Показывать кейс до цены."
     assert payload["rejections"][0]["reason_label"] == "Отказ (воронка Продажи)"  # не код F
     assert payload["stats"]["calls_total"] == 89
     # «Опер»: empty 59×1.5=88.5 + call 30×15=450 + meet 1×50=50 = 588.5 → cap 10.0
@@ -106,6 +120,38 @@ def test_build_payload_shapes_day():
     assert payload["health_score"]["score"] > 0
     assert payload["health_score"]["level"] in {"green", "amber", "red"}
     assert payload["tm_funnel"]["count"] == 0
+
+
+def test_build_payload_falls_back_to_meeting_quote_and_observation_coaching():
+    rows = {
+        "deals_snapshot": [],
+        "meetings": [{"meeting_id": 2180, "deal_id": 24304, "meeting_type": "defense", "manager_id": 10, "status": "success"}],
+        "manager_activity": [{"manager_id": 10, "dials_total": 10, "calls_answered": 4}],
+        "kp_briefs": [],
+    }
+    extras = {
+        "report_date": "2026-05-29",
+        "users": {"10": "Семенихин Егор"},
+        "raw": {"user_roles": {"10": "Менеджер по продажам"}},
+        "analyses": {
+            2180: {
+                "client_quote": "Без кейса не понимаю результат.",
+                "observations": [{"kind": "risk", "text": "Клиент просит кейс.", "metric": "кейс"}],
+            }
+        },
+    }
+
+    payload = report_author.build_payload(rows, extras)
+
+    assert payload["quote_of_day"]["text"] == "Без кейса не понимаю результат."
+    assert payload["manager_coaching"][0]["manager_id"] == 10
+    assert "Клиент просит кейс" in payload["manager_coaching"][0]["advice"]
+
+
+def test_system_prompt_mentions_quote_day_and_no_achievements():
+    assert "quote-day" in report_author.SYSTEM_PROMPT
+    assert "manager_coaching" in report_author.SYSTEM_PROMPT
+    assert ".ach-*" in report_author.SYSTEM_PROMPT
 
 
 def test_build_payload_excludes_non_sales_roles():
