@@ -71,6 +71,8 @@ SYSTEM_PROMPT = """
 - Цитату дня бери из payload.quote_of_day; coaching-строки — из payload.manager_coaching.
 - «Кого пинать» строится по payload.action_items: там уже есть владелец, дедлайн,
   срочность, сделка и причина. Не выдумывай новые задачи.
+- Петля обещаний строится по payload.promises_loop. Если items пустой — покажи
+  честную заглушку message, без выдуманных обещаний.
 - Пробелы данных показывай только в подвале по payload.data_quality; не размазывай
   техпроблемы по телу отчёта.
 - Запрещено: <script>, on*-атрибуты, внешние src (кроме src="photo:ID").
@@ -107,7 +109,7 @@ SYSTEM_PROMPT = """
   …тело секции…
 </section></div>
 Цветовая семантика везде одна: green = выигрыш/хорошо, amber = риск/внимание, red = горит/срочно. Не используй purple/blue для статуса риска — только для нейтральных акцентов.
-Каждой секции ставь id для якорей: main, tiger, action-items, risks, tm-funnel, managers, meetings-done, meetings-today, meeting-analysis. В карточках менеджеров добавляй id="manager-<manager_id>"; если разбор встречи связан с менеджером, можно ссылаться на этот якорь.
+Каждой секции ставь id для якорей: main, tiger, action-items, risks, tm-funnel, promises-loop, managers, meetings-done, meetings-today, meeting-analysis. В карточках менеджеров добавляй id="manager-<manager_id>"; если разбор встречи связан с менеджером, можно ссылаться на этот якорь.
 
 Секции по порядку (опускай те, где нет данных):
 1. «Главное за 30 секунд» — section id="main"; <div class="cards-3"> три карточки:
@@ -132,6 +134,11 @@ SYSTEM_PROMPT = """
 5. «ТМ-воронка» (section id="tm-funnel") — если payload.tm_funnel.count > 0, покажи компактную воронку телемаркетинга:
    наборы → дозвоны → 120с+ → встречи назначено → встречи проведено → сделки.
    Используй ТОЛЬКО payload.tm_funnel: реальные числа и проценты answered_percent, long_call_percent, meeting_set_percent, deal_create_percent. Не добавляй продукт/нишу и не делай новых выводов из Bitrix.
+5a. «Вчера обещали → сегодня» (section id="promises-loop") — таблица по payload.promises_loop.items:
+   <div class="tbl-wrap"><table><thead><tr><th>Обещание</th><th>Владелец</th><th>Дедлайн</th><th>Статус</th><th>Сделка</th></tr></thead><tbody>
+   <tr><td>что обещали</td><td>кто</td><td>дедлайн</td><td><span class="badge b-green|b-amber|b-red">✅ выполнено</span></td><td><a href="{deal-ссылка}">сделка</a></td></tr>
+   </tbody></table></div>
+   Статусы и сигналы бери только из payload.promises_loop: done=green, on_time=amber, overdue=red, unknown=amber. Если items пустой — покажи payload.promises_loop.message.
 6. «Активность менеджеров» (section id="managers") — карточки, ОТСОРТИРОВАНЫ по «Опер» убыв. (порядок telephony):
    <div class="mgr hero-mgr"><img class="mgr-ava" src="photo:<manager_id>"><div class="mgr-name">Имя</div><div class="mgr-role">роль · Опер 10.0</div><div class="mgr-row"><span class="mgr-row-label">Наборы</span><span class="mgr-row-value">89</span></div><div class="mgr-row"><span class="mgr-row-label">Дозвоны</span><span class="mgr-row-value">40 (11%)</span></div><div class="mgr-row"><span class="mgr-row-label">120с+</span><span class="mgr-row-value">8</span></div><div class="mgr-row"><span class="mgr-row-label">Встречи</span><span class="mgr-row-value">0</span></div><div class="mgr-row"><span class="mgr-row-label">Опер</span><span class="mgr-row-value">10.0</span></div></div>
    Строки mgr-row: Наборы (dials_total), Дозвоны «40 (11%)» (calls_answered, connect_percent), 120с+ (calls_120s_plus), Чаты (messenger_dialogs), Часы (hours), Встречи (meetings_held), Новых сделок (new_deals), Опер (operational_score). Данные из telephony.
@@ -353,6 +360,11 @@ def build_payload(rows: dict[str, Any], extras: dict[str, Any]) -> dict[str, Any
         "manager_coaching": manager_coaching,
         "action_items": _action_items(narrative, meetings, stale, users),
         "data_quality": data_quality,
+        "promises_loop": extras.get("promises_loop") or {
+            "previous_date": None,
+            "items": [],
+            "message": "нет структурных обещаний за предыдущий день",
+        },
         "stale": extras.get("stale") or {},
         "rejections": rejections,
         "rejections_summary": dict(Counter(r.get("reason_label") for r in rejections)),

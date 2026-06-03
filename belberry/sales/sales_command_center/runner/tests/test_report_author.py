@@ -202,6 +202,7 @@ def test_system_prompt_mentions_quote_day_and_no_achievements():
     assert "manager_coaching" in report_author.SYSTEM_PROMPT
     assert "payload.action_items" in report_author.SYSTEM_PROMPT
     assert "payload.data_quality" in report_author.SYSTEM_PROMPT
+    assert "payload.promises_loop" in report_author.SYSTEM_PROMPT
     assert ".ach-*" in report_author.SYSTEM_PROMPT
 
 
