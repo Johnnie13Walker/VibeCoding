@@ -2,7 +2,7 @@
 
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { Calendar } from '@/components/ui/calendar';
 
 interface CalendarViewProps {
@@ -14,11 +14,18 @@ export function toReportDateKey(date: Date): string {
 }
 
 export function CalendarView({ availableDates }: CalendarViewProps) {
-  const [month, setMonth] = useState(() =>
-    availableDates.length > 0
-      ? new Date(`${availableDates[0]}T00:00:00`)
-      : new Date(),
-  );
+  // Открываем на месяце самого свежего отчёта (availableDates отсортированы desc),
+  // но НЕ позже текущего месяца — иначе тестовая запись с будущей датой увела бы
+  // календарь в пустое будущее. Месяц неконтролируемый (defaultMonth) — листание
+  // назад/вперёд rdp ведёт сам, без риска зависнуть на контролируемом state.
+  const initialMonth = useMemo(() => {
+    const now = new Date();
+    if (availableDates.length === 0) {
+      return now;
+    }
+    const latest = new Date(`${availableDates[0]}T00:00:00`);
+    return latest > now ? now : latest;
+  }, [availableDates]);
   const availableSet = useMemo(() => new Set(availableDates), [availableDates]);
 
   function openReport(date: Date) {
@@ -45,9 +52,8 @@ export function CalendarView({ availableDates }: CalendarViewProps) {
           available:
             'bg-emerald-100 text-emerald-900 font-semibold hover:bg-emerald-200 cursor-pointer rounded-md',
         }}
-        month={month}
+        defaultMonth={initialMonth}
         onDayClick={openReport}
-        onMonthChange={setMonth}
         weekStartsOn={1}
       />
       <p className="mt-3 text-center text-sm text-slate-500">

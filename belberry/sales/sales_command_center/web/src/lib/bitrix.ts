@@ -104,19 +104,26 @@ async function callBitrix<T>(
 }
 
 export async function findActiveUserByEmail(email: string): Promise<BitrixUser | null> {
-  const result = await callBitrix<Array<Record<string, unknown>>>('user.get', {
-    filter: {
-      EMAIL: email,
-      ACTIVE: 'Y',
-    },
-  });
-  // Фильтр Bitrix по EMAIL нестрогий и может вернуть несколько/частичных
-  // совпадений — берём только точное совпадение, иначе код уйдёт и сессия
-  // привяжется к чужому аккаунту.
+  // Адрес в Bitrix может лежать в EMAIL ИЛИ в LOGIN (часто входят по
+  // корпоративной почте-логину, поле EMAIL пустое). Пробуем оба фильтра;
+  // совпадение проверяем строго по обоим полям — иначе сессия привяжется к чужому.
   const wanted = email.trim().toLowerCase();
-  const user = result.find(
-    (candidate) => String(candidate.EMAIL ?? '').trim().toLowerCase() === wanted,
-  );
+  const matches = (candidate: Record<string, unknown>) =>
+    [candidate.EMAIL, candidate.LOGIN].some(
+      (value) => String(value ?? '').trim().toLowerCase() === wanted,
+    );
+
+  let user: Record<string, unknown> | undefined;
+  for (const filter of [
+    { EMAIL: email, ACTIVE: 'Y' },
+    { LOGIN: email, ACTIVE: 'Y' },
+  ]) {
+    const result = await callBitrix<Array<Record<string, unknown>>>('user.get', { filter });
+    user = result.find(matches);
+    if (user) {
+      break;
+    }
+  }
 
   if (!user) {
     return null;
