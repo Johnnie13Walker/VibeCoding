@@ -7,12 +7,10 @@ import { LayoutDashboard, CalendarDays, Radio, BellRing, LogOut } from 'lucide-r
 const NAV = [
   { href: '/dashboard', label: 'Dashboard', Icon: LayoutDashboard },
   { href: '/daily', label: 'Дневной отчёт', Icon: CalendarDays },
+  { href: '/alerts', label: 'Алерты', Icon: BellRing },
 ];
 
-const SOON = [
-  { label: 'Сегодня', Icon: Radio, tag: 'live' },
-  { label: 'Алерты', Icon: BellRing, tag: 'скоро' },
-];
+const SOON = [{ label: 'Сегодня', Icon: Radio, tag: 'live' }];
 
 const ROLE_LABEL: Record<string, string> = {
   director: 'Руководитель',

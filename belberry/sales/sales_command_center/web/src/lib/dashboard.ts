@@ -6,7 +6,7 @@ import { dealsSnapshot, managerActivity, plans, reports, users } from '@/db/sche
 
 // Зеркало STAGE_RULES/STAGE_ORDER из runner/src/transform.py — воронка «Продажи» (CATEGORY_ID=10).
 // Порядок = реальная последовательность стадий в Bitrix.
-const STAGE_META: Record<string, { label: string; order: number }> = {
+export const STAGE_META: Record<string, { label: string; order: number }> = {
   'C10:NEW': { label: 'Квалификация', order: 1 },
   'C10:PREPAYMENT_INVOIC': { label: 'Подготовка БРИФа', order: 2 },
   'C10:EXECUTING': { label: 'Подготовка КП', order: 3 },
