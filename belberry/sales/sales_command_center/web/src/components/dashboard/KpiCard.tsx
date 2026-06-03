@@ -1,9 +1,20 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { TrendingUp, TrendingDown, type LucideIcon } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { TrendingUp, TrendingDown, Wallet, Handshake, PhoneCall, Zap } from 'lucide-react';
 import { Sparkline } from './Sparkline';
 import type { KpiDelta } from '@/lib/dashboard';
+
+// Иконки маппим по имени-строке: функции/компоненты нельзя прокидывать
+// из server-компонента в client (ограничение RSC).
+const ICONS = { wallet: Wallet, handshake: Handshake, phone: PhoneCall, zap: Zap } as const;
+export type KpiIcon = keyof typeof ICONS;
+
+function rub(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)} млн ₽`;
+  if (n >= 1_000) return `${Math.round(n / 1_000)} тыс ₽`;
+  return `${Math.round(n)} ₽`;
+}
 
 function useCountUp(target: number, dur = 900): number {
   const [v, setV] = useState(0);
@@ -25,26 +36,26 @@ function useCountUp(target: number, dur = 900): number {
 export function KpiCard({
   label,
   value,
-  fmt,
-  Icon,
+  money,
+  icon,
   delta,
   trend,
 }: {
   label: string;
   value: number;
-  fmt?: (n: number) => string;
-  Icon: LucideIcon;
+  money?: boolean;
+  icon: KpiIcon;
   delta?: KpiDelta;
   trend?: number[];
 }) {
-  const ref = useRef<HTMLDivElement>(null);
   const shown = useCountUp(value);
-  const text = fmt ? fmt(shown) : Math.round(shown).toLocaleString('ru-RU');
+  const Icon = ICONS[icon];
+  const text = money ? rub(shown) : Math.round(shown).toLocaleString('ru-RU');
   const up = delta?.dir === 'up';
   const down = delta?.dir === 'down';
 
   return (
-    <div ref={ref} className="bb-lift" style={card}>
+    <div className="bb-lift" style={card}>
       <div style={lbl}>
         <Icon size={14} strokeWidth={2} color="#5b50d6" />
         {label}

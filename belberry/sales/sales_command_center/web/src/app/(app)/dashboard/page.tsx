@@ -1,4 +1,4 @@
-import { Wallet, Handshake, PhoneCall, Zap, Filter, Flame, Users, Goal } from 'lucide-react';
+import { Filter, Flame, Users, Goal } from 'lucide-react';
 import { FunnelChart } from '@/components/dashboard/FunnelChart';
 import { KpiCard } from '@/components/dashboard/KpiCard';
 import { Gauge } from '@/components/dashboard/Gauge';
@@ -45,10 +45,10 @@ export default async function DashboardPage() {
 
       {/* KPI */}
       <div className="bb-grid bb-grid-4" style={{ marginBottom: 22 }}>
-        <KpiCard label="Сумма воронки" value={data.funnelAmount} fmt={rub} Icon={Wallet} />
-        <KpiCard label="Встречи за месяц" value={data.meetingsHeldTotal} Icon={Handshake} delta={data.deltas.meetings} trend={meetingsTrend} />
-        <KpiCard label="Наборы за месяц" value={data.dialsTotal} Icon={PhoneCall} delta={data.deltas.dials} trend={dialsTrend} />
-        <KpiCard label="Сделок создано" value={data.dealsCreatedTotal} Icon={Zap} delta={data.deltas.deals} />
+        <KpiCard label="Сумма воронки" value={data.funnelAmount} money icon="wallet" />
+        <KpiCard label="Встречи за месяц" value={data.meetingsHeldTotal} icon="handshake" delta={data.deltas.meetings} trend={meetingsTrend} />
+        <KpiCard label="Наборы за месяц" value={data.dialsTotal} icon="phone" delta={data.deltas.dials} trend={dialsTrend} />
+        <KpiCard label="Сделок создано" value={data.dealsCreatedTotal} icon="zap" delta={data.deltas.deals} />
       </div>
 
       {/* Воронка + затор */}
