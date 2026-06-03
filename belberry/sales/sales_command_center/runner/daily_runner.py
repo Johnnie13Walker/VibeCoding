@@ -7,6 +7,7 @@ from src import analyze_llm
 from src import notify
 from src.config import load_config
 from src.db import connect
+from src.deltas import compute_deltas
 from src.lock import AlreadyRunning, single_instance
 from src.collect import collect_day
 from src.enrich import enrich_meetings
@@ -81,6 +82,7 @@ def run(
         raw.setdefault("report_date", target.isoformat())
         rows = build_db_rows(raw, target, now)
         extras = build_extras(raw, now)
+        extras["deltas"] = compute_deltas(conn, target, rows)
         llm_status = "done"
         try:
             llm_result = run_llm_phase(raw, rows, extras, client_factory=llm_client_factory, bx=bx)

@@ -19,6 +19,7 @@ from typing import Any
 from collections import Counter
 
 from . import analyze_llm, oper
+from .deltas import delta_label
 
 PORTAL_BASE = "https://belberrycrm.bitrix24.ru"
 
@@ -75,6 +76,10 @@ SYSTEM_PROMPT = """
   <div class="hero-label">Сводка отдела продаж · отчёт за вчера</div>
   <h1>{Деньнедели, D месяца YYYY}</h1>
   <div class="hero-subtitle">Связный абзац-резюме дня со ссылками на сделки/встречи.</div>
+  <div class="hero-stats">
+    <div class="hstat"><div class="hstat-num">7</div><div class="hstat-lbl">Встречи</div><div class="stat-sub">+75% к прошлому рабочему дню</div></div>
+    … 5-7 плиток из payload.hero_stats …
+  </div>
   <div class="stats">
     <div class="stat accent-green"><div class="stat-value">4</div><div class="stat-label">Встречи проведены</div><div class="stat-sub">разбивка/детали со ссылками</div></div>
     … 6-8 карточек, accent: green|blue|amber|red …
@@ -288,6 +293,8 @@ def build_payload(rows: dict[str, Any], extras: dict[str, Any]) -> dict[str, Any
         item["reason_label"] = _REJECTION_LABELS.get(r.get("stage"), "Отказ")
         rejections.append(item)
 
+    stats = _stats(rows, extras)
+    deltas = extras.get("deltas") or {}
     return {
         "report_date": extras.get("report_date") or raw.get("report_date"),
         "weekday_date_ru": _ru_date(extras.get("report_date") or raw.get("report_date") or ""),
@@ -298,7 +305,9 @@ def build_payload(rows: dict[str, Any], extras: dict[str, Any]) -> dict[str, Any
         },
         "users": users,
         "user_roles": raw.get("user_roles") or extras.get("user_roles") or {},
-        "stats": _stats(rows, extras),
+        "stats": stats,
+        "deltas": deltas,
+        "hero_stats": _hero_stats(stats, deltas),
         "stale": extras.get("stale") or {},
         "rejections": rejections,
         "rejections_summary": dict(Counter(r.get("reason_label") for r in rejections)),
@@ -308,7 +317,32 @@ def build_payload(rows: dict[str, Any], extras: dict[str, Any]) -> dict[str, Any
         "kp_briefs": rows.get("kp_briefs", []),
         "deals_created": raw.get("deals_created", []),
         "telephony": _telephony(rows, users),
-    }
+}
+
+
+def _hero_stats(stats: dict[str, Any], deltas: dict[str, Any]) -> list[dict[str, Any]]:
+    metrics = (deltas or {}).get("metrics") or {}
+    spec = [
+        ("meetings", stats.get("meetings", 0), "Встречи проведены"),
+        ("dials", stats.get("calls_total", 0), "Наборы"),
+        ("kp_sent", stats.get("kp_briefs", 0), "КП/брифы"),
+        ("deals_created", stats.get("deals_created", 0), "Новые сделки"),
+        ("stale_total", stats.get("stale_total", 0), "Зависшие сделки"),
+        ("rejections", stats.get("rejections", 0), "Отказы дня"),
+    ]
+    out = []
+    for key, value, label in spec:
+        metric = metrics.get(key, {})
+        out.append(
+            {
+                "key": key,
+                "label": metric.get("label") or label,
+                "value": value,
+                "delta": delta_label(metric) if metric else None,
+                "trend": metric.get("trend") if metric else None,
+            }
+        )
+    return out
 
 
 def _fmt_until(value: Any) -> str | None:
