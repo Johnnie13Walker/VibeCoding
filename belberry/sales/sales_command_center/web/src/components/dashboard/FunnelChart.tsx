@@ -12,7 +12,8 @@ import {
 } from 'recharts';
 import type { FunnelStage } from '@/lib/dashboard';
 
-const SHADES = ['#5b50d6', '#6a5fda', '#7a70df', '#8a82e4', '#9b94e9'];
+// Брендовый рамп фиолет → индиго (Belberry «Командный центр»).
+const SHADES = ['#5b50d6', '#4f46b8', '#423d96', '#363276', '#2b2a5e'];
 
 function fmtMoney(value: number): string {
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)} млн ₽`;

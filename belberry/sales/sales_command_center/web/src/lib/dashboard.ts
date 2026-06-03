@@ -55,6 +55,42 @@ export interface DashboardData {
   team: TeamMember[];
   meetingsPlan: number;
   meetingsHeldTotal: number;
+  dialsTotal: number;
+  kpTotal: number;
+  dealsCreatedTotal: number;
+  deltas: { meetings: KpiDelta; dials: KpiDelta; kp: KpiDelta; deals: KpiDelta };
+  trend: TrendPoint[];
+  health: number;
+}
+
+export interface KpiDelta {
+  pct: number | null;
+  dir: 'up' | 'down' | 'flat';
+}
+
+export interface TrendPoint {
+  date: string;
+  meetings: number;
+  dials: number;
+}
+
+function delta(current: number, prev: number): KpiDelta {
+  if (!prev) return { pct: null, dir: current > 0 ? 'up' : 'flat' };
+  const pct = Math.round(((current - prev) / prev) * 100);
+  return { pct, dir: pct > 0 ? 'up' : pct < 0 ? 'down' : 'flat' };
+}
+
+/** Здоровье месяца 0-100: выполнение плана встреч − штраф за затор. Детерминировано. */
+export function monthHealth(
+  meetingsHeld: number,
+  meetingsPlan: number,
+  activeManagers: number,
+  stuckCount: number,
+): number {
+  const target = Math.max(1, meetingsPlan * Math.max(1, activeManagers));
+  const attainment = Math.min(1, meetingsHeld / target) * 100;
+  const penalty = Math.min(25, stuckCount * 4);
+  return Math.max(0, Math.min(100, Math.round(attainment - penalty)));
 }
 
 interface FunnelRow {
@@ -103,6 +139,7 @@ export async function getDashboardData(): Promise<DashboardData> {
   const snapshotDate = latest[0]?.d ?? null;
 
   if (!snapshotDate) {
+    const zeroDelta: KpiDelta = { pct: null, dir: 'flat' };
     return {
       monthLabel: '—',
       snapshotDate: null,
@@ -113,6 +150,12 @@ export async function getDashboardData(): Promise<DashboardData> {
       team: [],
       meetingsPlan: 20,
       meetingsHeldTotal: 0,
+      dialsTotal: 0,
+      kpTotal: 0,
+      dealsCreatedTotal: 0,
+      deltas: { meetings: zeroDelta, dials: zeroDelta, kp: zeroDelta, deals: zeroDelta },
+      trend: [],
+      health: 0,
     };
   }
 
@@ -193,6 +236,48 @@ export async function getDashboardData(): Promise<DashboardData> {
     .sort((a, b) => b.meetingsHeld - a.meetingsHeld || b.dials - a.dials);
 
   const meetingsHeldTotal = team.reduce((s, x) => s + x.meetingsHeld, 0);
+  const dialsTotal = team.reduce((s, x) => s + x.dials, 0);
+  const kpTotal = team.reduce((s, x) => s + x.kpSent, 0);
+  const dealsCreatedTotal = team.reduce((s, x) => s + x.dealsCreated, 0);
+
+  // Δ к прошлому месяцу — суммы активности за предыдущий календарный месяц.
+  const [py, pm] = start.split('-').map(Number);
+  const prevStart = `${pm === 1 ? py - 1 : py}-${String(pm === 1 ? 12 : pm - 1).padStart(2, '0')}-01`;
+  const prevEndDay = new Date(Date.UTC(py, pm - 1, 0)).getUTCDate();
+  const prevEnd = `${prevStart.slice(0, 7)}-${String(prevEndDay).padStart(2, '0')}`;
+  const prevRows = await db
+    .select({
+      meetings: sql<number>`coalesce(sum(${managerActivity.meetingsHeld}),0)`,
+      dials: sql<number>`coalesce(sum(${managerActivity.dialsTotal}),0)`,
+      kp: sql<number>`coalesce(sum(${managerActivity.kpSent}),0)`,
+      deals: sql<number>`coalesce(sum(${managerActivity.dealsCreatedCount}),0)`,
+    })
+    .from(managerActivity)
+    .where(and(gte(managerActivity.reportDate, prevStart), lte(managerActivity.reportDate, prevEnd)));
+  const prev = prevRows[0] ?? { meetings: 0, dials: 0, kp: 0, deals: 0 };
+  const deltas = {
+    meetings: delta(meetingsHeldTotal, Number(prev.meetings)),
+    dials: delta(dialsTotal, Number(prev.dials)),
+    kp: delta(kpTotal, Number(prev.kp)),
+    deals: delta(dealsCreatedTotal, Number(prev.deals)),
+  };
+
+  // Тренд по дням месяца — для спарклайнов.
+  const trendRows = await db
+    .select({
+      date: managerActivity.reportDate,
+      meetings: sql<number>`coalesce(sum(${managerActivity.meetingsHeld}),0)`,
+      dials: sql<number>`coalesce(sum(${managerActivity.dialsTotal}),0)`,
+    })
+    .from(managerActivity)
+    .where(and(gte(managerActivity.reportDate, start), lte(managerActivity.reportDate, end)))
+    .groupBy(managerActivity.reportDate)
+    .orderBy(managerActivity.reportDate);
+  const trend: TrendPoint[] = trendRows.map((r) => ({
+    date: String(r.date),
+    meetings: Number(r.meetings),
+    dials: Number(r.dials),
+  }));
 
   // План ТМ по встречам из таблицы plans (period 'YYYY-MM', metric 'meetings', глобальный).
   const period = start.slice(0, 7);
@@ -202,6 +287,8 @@ export async function getDashboardData(): Promise<DashboardData> {
     .where(and(eq(plans.period, period), eq(plans.metric, 'meetings')))
     .limit(1);
   const meetingsPlan = planRows[0] ? Number(planRows[0].target) : 20;
+
+  const health = monthHealth(meetingsHeldTotal, meetingsPlan, team.length, stuck.length);
 
   return {
     monthLabel: label,
@@ -213,5 +300,11 @@ export async function getDashboardData(): Promise<DashboardData> {
     team,
     meetingsPlan,
     meetingsHeldTotal,
+    dialsTotal,
+    kpTotal,
+    dealsCreatedTotal,
+    deltas,
+    trend,
+    health,
   };
 }
