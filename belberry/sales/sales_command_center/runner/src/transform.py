@@ -67,6 +67,24 @@ def max_wazzup_date(comments: list[dict[str, Any]] | None) -> datetime | None:
     return max(dates) if dates else None
 
 
+def risk_reason(opportunity: float, age: int, threshold: int, last_contact_days: int) -> str:
+    if opportunity <= 0:
+        return "нет бюджета"
+    if last_contact_days >= 7:
+        return f"молчит {last_contact_days} дн"
+    if age > threshold:
+        return "застрял на стадии"
+    return "нет контакта"
+
+
+def age_level(age: int, threshold: int) -> str:
+    if age >= 31:
+        return "critical"
+    if age >= threshold * 2:
+        return "warning"
+    return "normal"
+
+
 def compute_stale_deals(
     deals_open: list[dict[str, Any]],
     now: datetime,
@@ -95,6 +113,8 @@ def compute_stale_deals(
         activity_days = calendar_days_between(parse_dt(deal.get("LAST_ACTIVITY_TIME")), now)
         wazzup_dt = max_wazzup_date(wazzup.get(str(deal_id)) or wazzup.get(deal_id))
         wazzup_days = calendar_days_between(wazzup_dt, now)
+        last_contact_days = min(activity_days, wazzup_days)
+        opportunity = float(deal.get("OPPORTUNITY") or 0)
 
         buckets[stage_label].append(
             {
@@ -102,10 +122,13 @@ def compute_stale_deals(
                 "deal_id": _to_int(deal_id),
                 "title": deal.get("TITLE") or str(deal_id),
                 "manager_id": _to_int(deal.get("ASSIGNED_BY_ID")),
-                "opportunity": float(deal.get("OPPORTUNITY") or 0),
+                "opportunity": opportunity,
                 "age": age,
                 "age_unit": "раб.дн" if mode == "w" else "кал.дн",
-                "last_contact_days": min(activity_days, wazzup_days),
+                "last_contact_days": last_contact_days,
+                "stage_threshold": threshold,
+                "risk_reason": risk_reason(opportunity, age, threshold, last_contact_days),
+                "age_level": age_level(age, threshold),
                 "stage": stage,
             }
         )

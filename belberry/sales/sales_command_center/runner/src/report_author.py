@@ -111,7 +111,10 @@ SYSTEM_PROMPT = """
    <div class="tbl-wrap"><table><thead><tr><th>Сделка</th><th>Сумма</th><th>Менеджер</th><th>На стадии</th><th>Посл. контакт</th><th>Риск</th></tr></thead><tbody>
    <tr><td><a href="{deal-ссылка}">домен</a></td><td>304 тыс.</td><td>Фамилия Имя</td><td>31 раб.дн</td><td>1 дн назад</td><td><span class="badge b-red">высокий</span></td></tr>
    …топ-10 по сумме…</tbody></table></div>
-   Риск: <span class="badge b-red">высокий</span> (крупная сумма ИЛИ критический возраст) / <span class="badge b-amber">средний</span>. Сумма — из stale[].opportunity; возраст — age+age_unit; контакт — last_contact_days. Сделки ВСЕГДА кликабельны (deal-ссылка по id).
+   Риск: показывай stale[].risk_reason отдельным бейджем причины. Цвет возраста бери по stale[].age_level: critical — красный и текст «31 рабочий день!», warning — amber, normal — обычный. Сумма — из stale[].opportunity; возраст — age+age_unit; контакт — last_contact_days. Сделки ВСЕГДА кликабельны (deal-ссылка по id).
+5. «ТМ-воронка» — если payload.tm_funnel.count > 0, покажи компактную воронку телемаркетинга:
+   наборы → дозвоны → 120с+ → встречи назначено → встречи проведено → сделки.
+   Используй ТОЛЬКО payload.tm_funnel: реальные числа и проценты answered_percent, long_call_percent, meeting_set_percent, deal_create_percent. Не добавляй продукт/нишу и не делай новых выводов из Bitrix.
 6. «Активность менеджеров» — карточки, ОТСОРТИРОВАНЫ по «Опер» убыв. (порядок telephony):
    <div class="mgr hero-mgr"><img class="mgr-ava" src="photo:<manager_id>"><div class="mgr-name">Имя</div><div class="mgr-role">роль · Опер 10.0</div><div class="mgr-row"><span class="mgr-row-label">Наборы</span><span class="mgr-row-value">89</span></div><div class="mgr-row"><span class="mgr-row-label">Дозвоны</span><span class="mgr-row-value">40 (11%)</span></div><div class="mgr-row"><span class="mgr-row-label">120с+</span><span class="mgr-row-value">8</span></div><div class="mgr-row"><span class="mgr-row-label">Встречи</span><span class="mgr-row-value">0</span></div><div class="mgr-row"><span class="mgr-row-label">Опер</span><span class="mgr-row-value">10.0</span></div></div>
    Строки mgr-row: Наборы (dials_total), Дозвоны «40 (11%)» (calls_answered, connect_percent), 120с+ (calls_120s_plus), Чаты (messenger_dialogs), Часы (hours), Встречи (meetings_held), Новых сделок (new_deals), Опер (operational_score). Данные из telephony.
@@ -317,6 +320,7 @@ def build_payload(rows: dict[str, Any], extras: dict[str, Any]) -> dict[str, Any
         "kp_briefs": rows.get("kp_briefs", []),
         "deals_created": raw.get("deals_created", []),
         "telephony": _telephony(rows, users),
+        "tm_funnel": _tm_funnel(rows.get("manager_activity", [])),
 }
 
 
@@ -423,6 +427,34 @@ def _telephony(rows: dict[str, Any], users: dict[str, Any]) -> list[dict[str, An
         )
     out.sort(key=lambda x: x.get("operational_score") or 0.0, reverse=True)
     return out
+
+
+def _tm_funnel(manager_activity: list[dict[str, Any]]) -> dict[str, Any]:
+    tm_rows = [item for item in manager_activity if oper.is_telemarketing(item.get("role"))]
+    dials = sum(item.get("dials_total", 0) or 0 for item in tm_rows)
+    answered = sum(item.get("calls_answered", 0) or 0 for item in tm_rows)
+    long_calls = sum(item.get("calls_120s_plus", 0) or 0 for item in tm_rows)
+    meetings_set = sum(item.get("meetings_set", 0) or 0 for item in tm_rows)
+    meetings_held = sum(item.get("meetings_held", 0) or 0 for item in tm_rows)
+    deals_created = sum(item.get("deals_created_count", 0) or 0 for item in tm_rows)
+
+    return {
+        "count": len(tm_rows),
+        "dials_total": dials,
+        "calls_answered": answered,
+        "calls_120s_plus": long_calls,
+        "meetings_set": meetings_set,
+        "meetings_held": meetings_held,
+        "deals_created_count": deals_created,
+        "answered_percent": _pct(answered, dials),
+        "long_call_percent": _pct(long_calls, answered),
+        "meeting_set_percent": _pct(meetings_set, long_calls),
+        "deal_create_percent": _pct(deals_created, meetings_held),
+    }
+
+
+def _pct(value: int | float, total: int | float) -> int:
+    return round(value / total * 100) if total else 0
 
 
 _FENCE = re.compile(r"^```[a-zA-Z]*\s*|\s*```$", re.S)

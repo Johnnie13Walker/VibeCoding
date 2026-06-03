@@ -5,10 +5,12 @@ from pathlib import Path
 from src.timeutil import MSK
 from src.transform import (
     aggregate_calls,
+    age_level,
     build_db_rows,
     compute_stale_deals,
     manager_name,
     resolve_target_date,
+    risk_reason,
     working_days_between,
 )
 
@@ -48,6 +50,9 @@ def test_compute_stale_deals_groups_stage_buckets():
 
     assert stale["Подготовка КП"][0]["deal_id"] == 1
     assert stale["Подготовка КП"][0]["age"] > 4
+    assert stale["Подготовка КП"][0]["stage_threshold"] == 4
+    assert stale["Подготовка КП"][0]["risk_reason"] == "молчит 10 дн"
+    assert stale["Подготовка КП"][0]["age_level"] == "critical"
 
 
 def test_deal_inside_threshold_is_not_stale():
@@ -78,6 +83,15 @@ def test_wazzup_contact_suppresses_false_no_contact_age():
     stale = compute_stale_deals([deal], NOW, wazzup)
 
     assert stale["Подготовка КП"][0]["last_contact_days"] == 1
+
+
+def test_risk_reason_tags_budget_contact_and_stage():
+    assert risk_reason(0, 10, 4, 1) == "нет бюджета"
+    assert risk_reason(100000, 10, 4, 8) == "молчит 8 дн"
+    assert risk_reason(100000, 10, 4, 1) == "застрял на стадии"
+    assert age_level(31, 4) == "critical"
+    assert age_level(8, 4) == "warning"
+    assert age_level(5, 4) == "normal"
 
 
 def test_aggregate_calls_and_manager_name_from_fixture():

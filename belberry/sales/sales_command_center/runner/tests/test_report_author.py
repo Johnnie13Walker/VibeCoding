@@ -103,6 +103,7 @@ def test_build_payload_shapes_day():
     assert payload["stats"]["calls_total"] == 89
     # «Опер»: empty 59×1.5=88.5 + call 30×15=450 + meet 1×50=50 = 588.5 → cap 10.0
     assert payload["telephony"][0]["operational_score"] == 10.0
+    assert payload["tm_funnel"]["count"] == 0
 
 
 def test_build_payload_excludes_non_sales_roles():
@@ -123,6 +124,51 @@ def test_build_payload_excludes_non_sales_roles():
     ids = [m["manager_id"] for m in payload["manager_activity"]]
     assert ids == [10]  # только ОП/ТМ
     assert payload["stats"]["calls_total"] == 50
+
+
+def test_build_payload_adds_tm_funnel():
+    rows = {
+        "meetings": [],
+        "kp_briefs": [],
+        "manager_activity": [
+            {
+                "manager_id": 11,
+                "dials_total": 100,
+                "calls_answered": 25,
+                "calls_120s_plus": 5,
+                "meetings_set": 3,
+                "meetings_held": 2,
+                "deals_created_count": 1,
+            },
+            {"manager_id": 10, "dials_total": 50, "calls_answered": 20},
+        ],
+    }
+    extras = {
+        "report_date": "2026-05-29",
+        "users": {"11": "Исаева Дарья", "10": "Семенихин Егор"},
+        "raw": {
+            "user_roles": {
+                "11": "Телемаркетолог",
+                "10": "Менеджер по продажам",
+            }
+        },
+    }
+
+    payload = report_author.build_payload(rows, extras)
+
+    assert payload["tm_funnel"] == {
+        "count": 1,
+        "dials_total": 100,
+        "calls_answered": 25,
+        "calls_120s_plus": 5,
+        "meetings_set": 3,
+        "meetings_held": 2,
+        "deals_created_count": 1,
+        "answered_percent": 25,
+        "long_call_percent": 20,
+        "meeting_set_percent": 60,
+        "deal_create_percent": 50,
+    }
 
 
 def test_fmt_until_formats_dates():
