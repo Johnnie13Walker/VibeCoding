@@ -4,11 +4,14 @@ import json
 from datetime import date
 from typing import Any
 
+from .deltas import _previous_report_date
 from .timeutil import prev_working_day
 
 
 def compute_promises_loop(conn, target: date, current_rows: dict[str, list[dict[str, Any]]]) -> dict[str, Any]:
-    previous_date = prev_working_day(target)
+    # «Вчера» = тот же якорь, что у дельт: реальный последний отчёт в БД.
+    # prev_working_day — только фолбэк для первого прогона (отчётов ещё нет).
+    previous_date = _previous_report_date(conn, target) or prev_working_day(target)
     promises = _read_previous_promises(conn, previous_date)
     if not promises:
         return {

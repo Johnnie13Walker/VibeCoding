@@ -89,6 +89,7 @@ def test_risk_reason_tags_budget_contact_and_stage():
     assert risk_reason(0, 10, 4, 1) == "нет бюджета"
     assert risk_reason(100000, 10, 4, 8) == "молчит 8 дн"
     assert risk_reason(100000, 10, 4, 1) == "застрял на стадии"
+    assert risk_reason(100000, 40, 4, 35) == "нет контакта"
     assert age_level(31, 4) == "critical"
     assert age_level(8, 4) == "warning"
     assert age_level(5, 4) == "normal"

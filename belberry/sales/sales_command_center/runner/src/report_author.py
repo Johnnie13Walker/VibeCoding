@@ -21,8 +21,13 @@ from collections import Counter
 from . import analyze_llm, oper
 from .deltas import delta_label
 from .health import compute_health_score
+from .transform import STAGE_RULES
 
 PORTAL_BASE = "https://belberrycrm.bitrix24.ru"
+
+# Стадии, на которых пустая сумма — реальный пробел данных (выше Квалификации).
+# На «Квалификации» (C10:NEW) нулевой бюджет нормален: сделку ещё не оценили.
+_BUDGET_REQUIRED_STAGES = {code for code in STAGE_RULES if code != "C10:NEW"}
 
 WEEKDAYS_RU = [
     "Понедельник",
@@ -568,19 +573,22 @@ def _urgency(deadline: Any) -> str:
 
 def _data_quality(rows: dict[str, Any], raw: dict[str, Any], analyses: dict[Any, Any]) -> list[dict[str, Any]]:
     issues: list[dict[str, Any]] = []
+    # Только открытые сделки выше Квалификации: на ранних стадиях и у созданных
+    # сегодня нулевой бюджет — норма, иначе подвал засоряется ложными пробелами.
     zero_amount = [
         {
             "id": item.get("ID"),
             "title": item.get("TITLE") or item.get("title") or item.get("ID"),
         }
-        for item in [*(raw.get("deals_open") or []), *(raw.get("deals_created") or [])]
-        if _float_or_zero(item.get("OPPORTUNITY") or item.get("opportunity")) <= 0
+        for item in (raw.get("deals_open") or [])
+        if item.get("STAGE_ID") in _BUDGET_REQUIRED_STAGES
+        and _float_or_zero(item.get("OPPORTUNITY") or item.get("opportunity")) <= 0
     ]
     if zero_amount:
         issues.append(
             {
                 "kind": "zero_amount",
-                "label": "сделки без суммы",
+                "label": "сделки без суммы (выше Квалификации)",
                 "count": len(zero_amount),
                 "items": zero_amount[:10],
             }

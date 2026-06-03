@@ -173,7 +173,12 @@ def test_build_payload_adds_stale_action_items_and_data_quality():
         "users": {"10": "Семенихин Егор"},
         "raw": {
             "user_roles": {"10": "Менеджер по продажам"},
-            "deals_open": [{"ID": "24304", "TITLE": "kandela.ru", "OPPORTUNITY": "0"}],
+            "deals_open": [
+                # выше Квалификации с пустой суммой → реальный пробел данных
+                {"ID": "24304", "TITLE": "kandela.ru", "OPPORTUNITY": "0", "STAGE_ID": "C10:EXECUTING"},
+                # на Квалификации нулевой бюджет нормален → НЕ должно попасть в пробелы
+                {"ID": "24999", "TITLE": "lead.ru", "OPPORTUNITY": "0", "STAGE_ID": "C10:NEW"},
+            ],
         },
         "stale": {
             "Подготовка КП": [

@@ -68,13 +68,16 @@ def max_wazzup_date(comments: list[dict[str, Any]] | None) -> datetime | None:
 
 
 def risk_reason(opportunity: float, age: int, threshold: int, last_contact_days: int) -> str:
+    # У зависшей сделки age всегда > threshold (иначе она не попала бы в stale),
+    # поэтому различаем причины по бюджету и давности касания, а «застрял» —
+    # дефолт для сделок со свежим контактом, но без движения по стадии.
     if opportunity <= 0:
         return "нет бюджета"
+    if last_contact_days >= 30:
+        return "нет контакта"
     if last_contact_days >= 7:
         return f"молчит {last_contact_days} дн"
-    if age > threshold:
-        return "застрял на стадии"
-    return "нет контакта"
+    return "застрял на стадии"
 
 
 def age_level(age: int, threshold: int) -> str:
