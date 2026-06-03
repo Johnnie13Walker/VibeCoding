@@ -1,5 +1,6 @@
 import { getIronSession } from 'iron-session';
 import { NextRequest, NextResponse } from 'next/server';
+import { isPreviewMode } from './lib/preview';
 import { sessionOptions, type SessionData } from './lib/session';
 
 const NOINDEX = 'noindex, nofollow';
@@ -24,6 +25,11 @@ export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
   if (isPublicPath(pathname)) {
+    return withNoindex(NextResponse.next());
+  }
+
+  // Локальный preview: пускаем без сессии (только вне прода, см. isPreviewMode).
+  if (isPreviewMode()) {
     return withNoindex(NextResponse.next());
   }
 

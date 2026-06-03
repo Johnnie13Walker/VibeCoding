@@ -1,5 +1,6 @@
 import DOMPurify from 'isomorphic-dompurify';
 import { parseReportDate } from '@/lib/dates';
+import { isPreviewMode } from '@/lib/preview';
 import { getReportHtml } from '@/lib/reports';
 import { getSession } from '@/lib/session';
 
@@ -18,7 +19,7 @@ function notFoundHtml(date: string) {
 export async function GET(_request: Request, { params }: DayRouteContext) {
   const session = await getSession();
 
-  if (!session.bitrixId) {
+  if (!session.bitrixId && !isPreviewMode()) {
     return new Response('Unauthorized', { status: 401 });
   }
 
