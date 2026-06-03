@@ -24,13 +24,13 @@ function Calendar({
         root: 'w-full',
         months: 'flex justify-center',
         month: 'w-full space-y-3',
-        month_caption: 'relative flex h-9 items-center justify-center',
+        month_caption: 'relative flex h-10 items-center justify-center',
         caption_label: 'text-[0.95rem] font-semibold capitalize text-[#1d1d1f]',
-        nav: 'absolute inset-x-0 top-0 flex h-9 items-center justify-between',
+        nav: 'absolute inset-x-0 top-0 flex h-10 items-center justify-between',
         button_previous:
-          'inline-flex h-8 w-8 items-center justify-center rounded-full text-[#6e6e73] transition hover:bg-[#f0f0f3] hover:text-[#1d1d1f] disabled:opacity-30',
+          'inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#e8e4f2] bg-white text-[#5b50d6] shadow-sm transition hover:bg-[#f0eefb] hover:border-[#d6cffb] disabled:opacity-30 disabled:hover:bg-white',
         button_next:
-          'inline-flex h-8 w-8 items-center justify-center rounded-full text-[#6e6e73] transition hover:bg-[#f0f0f3] hover:text-[#1d1d1f] disabled:opacity-30',
+          'inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#e8e4f2] bg-white text-[#5b50d6] shadow-sm transition hover:bg-[#f0eefb] hover:border-[#d6cffb] disabled:opacity-30 disabled:hover:bg-white',
         month_grid: 'w-full table-fixed border-collapse',
         weekdays: '',
         weekday:
