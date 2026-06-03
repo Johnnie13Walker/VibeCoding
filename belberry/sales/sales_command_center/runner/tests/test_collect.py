@@ -200,7 +200,9 @@ def test_fetch_all_raises_on_bitrix_error(monkeypatch):
         bx_client.fetch_all("crm.deal.list")
 
 
-def test_collect_users_and_photos_one_call_per_user():
+def test_collect_users_and_photos_one_call_per_user(monkeypatch, tmp_path):
+    monkeypatch.setenv("SCC_PHOTO_DIR", str(tmp_path))
+
     class Bx:
         def __init__(self):
             self.n = 0

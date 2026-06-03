@@ -71,6 +71,7 @@ def test_send_report_link_is_fire_and_forget_on_http_error(monkeypatch):
 
 def test_send_report_link_returns_false_without_env(monkeypatch):
     monkeypatch.delenv("TELEGRAM_BOT_TOKEN", raising=False)
+    monkeypatch.delenv("SCC_TELEGRAM_BOT_TOKEN", raising=False)
     monkeypatch.setenv("TELEGRAM_CHAT_ID", "-100main")
     monkeypatch.setenv("SCC_BASE_URL", "https://x.example")
 
