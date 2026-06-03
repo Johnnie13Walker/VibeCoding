@@ -34,7 +34,7 @@ describe('CalendarView', () => {
     const unavailableDay = dayButton(16);
 
     expect(availableDay).not.toBeDisabled();
-    expect(availableDay.closest('td')?.className).toContain('bg-emerald-100');
+    expect(availableDay.closest('td')?.className).toContain('bg-[#ece9f9]');
     expect(unavailableDay).toBeDisabled();
   });
 

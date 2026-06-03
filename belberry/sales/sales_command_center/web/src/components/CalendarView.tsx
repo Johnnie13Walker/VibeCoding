@@ -50,7 +50,7 @@ export function CalendarView({ availableDates }: CalendarViewProps) {
         }}
         modifiersClassNames={{
           available:
-            'bg-emerald-100 text-emerald-900 font-semibold hover:bg-emerald-200 cursor-pointer rounded-md',
+            'bg-[#ece9f9] text-[#4a3fc5] font-semibold hover:bg-[#ddd6f7] cursor-pointer rounded-md',
         }}
         defaultMonth={initialMonth}
         onDayClick={openReport}
