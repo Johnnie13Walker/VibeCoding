@@ -29,6 +29,12 @@ else:
 # таймаут; убран именно неограниченный хвост от перемножения ретраев.
 LLM_TIMEOUT = float(os.environ.get("SCC_LLM_TIMEOUT", "600"))
 LLM_SDK_RETRIES = int(os.environ.get("SCC_LLM_SDK_RETRIES", "0"))
+
+# reasoning_effort для reasoning-моделей (o-серия, gpt-5.x). low — потому что
+# авторство HTML/JSON не требует глубокого рассуждения, а высокий effort съедает
+# бюджет max_completion_tokens reasoning-токенами → пустой вывод. minimal у gpt-5.5
+# не поддерживается, поэтому дефолт low. Пусто → reasoning_effort не передаём.
+REASONING_EFFORT = os.environ.get("SCC_LLM_REASONING_EFFORT", "low")
 VALID_MARKS = {"✅", "⚠️", "❌"}
 
 SYSTEM_PROMPT = """
@@ -126,12 +132,17 @@ class _OpenAIMessages:
             oai_messages.append({"role": "system", "content": sys_text})
         for item in messages or []:
             oai_messages.append({"role": item["role"], "content": item["content"]})
-        def _params(reasoning: bool) -> dict[str, Any]:
+        def _params(reasoning: bool, with_effort: bool = True) -> dict[str, Any]:
             p: dict[str, Any] = {"model": model, "messages": oai_messages}
             if reasoning:
-                # reasoning-модели (o-серия и т.п.): max_completion_tokens,
+                # reasoning-модели (o-серия, gpt-5.x): max_completion_tokens,
                 # температуру не передаём (поддерживается только дефолт).
+                # reasoning_effort=low — для авторства HTML/JSON глубокое
+                # рассуждение не нужно, иначе reasoning-токены съедают бюджет
+                # и видимого вывода не остаётся (пустое тело отчёта).
                 p["max_completion_tokens"] = max_tokens
+                if with_effort and REASONING_EFFORT:
+                    p["reasoning_effort"] = REASONING_EFFORT
             else:
                 p["max_tokens"] = max_tokens
                 p["temperature"] = temperature
@@ -139,16 +150,20 @@ class _OpenAIMessages:
 
         # Не форсим response_format=json_object: автор отчёта ждёт HTML, а
         # разбор встреч и так парсит JSON из текста (как на Anthropic).
-        reasoning = bool(re.match(r"^o\d", model or ""))
+        # gpt-5.x — reasoning-модель: распознаём заранее, чтобы сразу слать
+        # max_completion_tokens (max_tokens она отвергает с 400).
+        reasoning = bool(re.match(r"^(o\d|gpt-5)", model or ""))
         try:
             completion = self._client.chat.completions.create(**_params(reasoning))
         except Exception as exc:  # noqa: BLE001
             msg = str(exc).lower()
-            # Модель-агностично: если API отверг max_tokens/temperature
-            # (напр. новые reasoning-модели) — повторяем в reasoning-стиле.
-            if not reasoning and any(
+            if "reasoning_effort" in msg:
+                # модель не приняла reasoning_effort — повтор без него
+                completion = self._client.chat.completions.create(**_params(reasoning, with_effort=False))
+            elif not reasoning and any(
                 k in msg for k in ("max_completion_tokens", "max_tokens", "temperature", "unsupported")
             ):
+                # max_tokens/temperature отвергнуты — повтор в reasoning-стиле
                 completion = self._client.chat.completions.create(**_params(True))
             else:
                 raise

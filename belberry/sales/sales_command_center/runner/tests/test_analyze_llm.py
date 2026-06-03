@@ -254,8 +254,10 @@ def test_openai_adapter_retries_reasoning_style_on_param_error():
     class FakeOpenAI:
         chat = FakeChat()
 
+    # Модель НЕ из известных reasoning-семейств (gpt-5.x/o-серия уже ловятся
+    # заранее) — проверяем общий фолбэк: max_tokens отвергнут → retry reasoning.
     adapter = analyze_llm._OpenAIAdapter(FakeOpenAI())
-    out = adapter.messages.create(model="gpt-5.5", max_tokens=500, temperature=0,
+    out = adapter.messages.create(model="some-new-reasoner", max_tokens=500, temperature=0,
                                   system=None, messages=[{"role": "user", "content": "x"}])
     assert out.content[0].text == "ok"
     assert len(calls) == 2  # первый с max_tokens упал → retry в reasoning-стиле
@@ -284,3 +286,54 @@ def test_get_client_bounds_timeout_and_disables_sdk_retries(monkeypatch):
     assert captured["max_retries"] == analyze_llm.LLM_SDK_RETRIES
     assert analyze_llm.LLM_SDK_RETRIES == 0
     assert analyze_llm.LLM_TIMEOUT <= 600
+
+
+class _FakeCompletions:
+    def __init__(self):
+        self.captured = []
+
+    def create(self, **kwargs):
+        import types
+        self.captured.append(kwargs)
+        return types.SimpleNamespace(
+            choices=[types.SimpleNamespace(message=types.SimpleNamespace(content="<section>ok</section>"))]
+        )
+
+
+class _FakeOpenAIClient:
+    def __init__(self):
+        import types
+        self.completions = _FakeCompletions()
+        self.chat = types.SimpleNamespace(completions=self.completions)
+
+
+def test_openai_adapter_gpt5_uses_completion_tokens_and_effort():
+    """gpt-5.x распознаётся как reasoning: max_completion_tokens + reasoning_effort,
+    без max_tokens/temperature (их модель отвергает 400)."""
+    client = _FakeOpenAIClient()
+    adapter = analyze_llm._OpenAIMessages(client)
+    resp = adapter.create(
+        model="gpt-5.5", max_tokens=40000, temperature=0.3,
+        system=[{"text": "sys"}], messages=[{"role": "user", "content": "hi"}],
+    )
+    sent = client.completions.captured[0]
+    assert sent["max_completion_tokens"] == 40000
+    assert "max_tokens" not in sent
+    assert "temperature" not in sent
+    assert sent["reasoning_effort"] == analyze_llm.REASONING_EFFORT
+    assert resp.content[0].text == "<section>ok</section>"
+
+
+def test_openai_adapter_gpt4o_keeps_max_tokens_and_temperature():
+    """Не-reasoning модель (gpt-4o) — прежний путь: max_tokens + temperature."""
+    client = _FakeOpenAIClient()
+    adapter = analyze_llm._OpenAIMessages(client)
+    adapter.create(
+        model="gpt-4o", max_tokens=2000, temperature=0.3,
+        system=[{"text": "sys"}], messages=[{"role": "user", "content": "hi"}],
+    )
+    sent = client.completions.captured[0]
+    assert sent["max_tokens"] == 2000
+    assert sent["temperature"] == 0.3
+    assert "max_completion_tokens" not in sent
+    assert "reasoning_effort" not in sent

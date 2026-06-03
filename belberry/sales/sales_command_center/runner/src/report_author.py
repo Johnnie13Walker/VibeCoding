@@ -759,7 +759,9 @@ def author_report(payload: dict[str, Any], *, client, model: str | None = None) 
             json.dumps(payload, ensure_ascii=False, default=str),
         ]
     )
-    max_tokens = int(os.environ.get("SCC_AUTHOR_MAX_TOKENS", "16000"))
+    # Тело отчёта — крупный HTML (~20-25k токенов вывода). 16000 обрезал/душил
+    # его (особенно у reasoning-моделей gpt-5.x), отдавая пустое тело → fallback.
+    max_tokens = int(os.environ.get("SCC_AUTHOR_MAX_TOKENS", "40000"))
     try:
         response = analyze_llm._call_with_retry(
             client,
