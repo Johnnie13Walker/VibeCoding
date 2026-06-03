@@ -36,11 +36,9 @@ export function Sidebar({ user }: { user?: { email?: string; role?: string } }) 
     <aside className="bb-rail">
       <div className="bb-rail-glow" aria-hidden />
       <div className="bb-brand">
-        <span className="bb-brand-logo">B</span>
-        <span className="bb-brand-name">
-          <b>Belberry</b>
-          <small>Командный центр</small>
-        </span>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/belberry-logo.svg" alt="Belberry" className="bb-brand-img" />
+        <small className="bb-brand-tag">Командный центр</small>
       </div>
 
       <nav className="bb-nav">

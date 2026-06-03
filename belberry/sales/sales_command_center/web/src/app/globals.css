@@ -147,14 +147,13 @@ input {
   background: radial-gradient(closest-side, rgba(91, 80, 214, 0.55), transparent 70%);
   filter: blur(20px); opacity: 0.55;
 }
-.bb-brand { display: flex; align-items: center; gap: 10px; padding: 8px 10px 22px; position: relative; }
-.bb-brand-logo {
-  width: 30px; height: 30px; border-radius: 9px; flex: 0 0 30px;
-  background: linear-gradient(135deg, #fff, #d9d5ff); display: grid; place-items: center;
-  color: var(--bb-indigo); font-weight: 800; font-size: 16px; box-shadow: var(--bb-shadow);
+.bb-brand { display: flex; flex-direction: column; align-items: flex-start; gap: 7px; padding: 8px 10px 22px; position: relative; }
+.bb-brand-img {
+  height: 26px; width: auto; max-width: 170px; display: block;
+  /* лого монохромное тёмно-индиго (#282068) → на тёмном рельсе делаем белым */
+  filter: brightness(0) invert(1); opacity: 0.96;
 }
-.bb-brand-name b { color: #fff; font-weight: 700; font-size: 16px; letter-spacing: -0.02em; display: block; line-height: 1.1; }
-.bb-brand-name small { color: #a7a2d6; font-size: 11px; font-weight: 500; letter-spacing: 0.02em; }
+.bb-brand-tag { color: #a7a2d6; font-size: 11px; font-weight: 500; letter-spacing: 0.04em; padding-left: 2px; }
 .bb-nav { display: flex; flex-direction: column; gap: 3px; position: relative; }
 .bb-nav-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.12em; color: #7d79b0; padding: 14px 12px 6px; }
 .bb-nav-item {
@@ -260,7 +259,9 @@ input {
     flex: none; padding: 10px 14px; gap: 10px;
   }
   .bb-rail-glow { display: none; }
-  .bb-brand { padding: 0; }
+  .bb-brand { padding: 0; flex-direction: row; align-items: center; }
+  .bb-brand-img { height: 22px; }
+  .bb-brand-tag { display: none; }
   .bb-nav { flex-direction: row; flex: 1; gap: 4px; overflow-x: auto; }
   .bb-nav-label { display: none; }
   .bb-nav-item.soon { display: none; }
