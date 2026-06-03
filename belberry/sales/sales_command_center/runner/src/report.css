@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@700;800&display=swap');
   :root {
     --bg: #f7f8fa;
     --card: #ffffff;
@@ -567,3 +568,71 @@
 .footer{margin-top:32px;padding:28px 0;border-top:1px solid var(--border);text-align:center;color:var(--text-muted);font-size:13px}
 .footer p{margin:4px 0}
 @media(max-width:640px){.chk-row{grid-template-columns:24px 1fr;}.chk-txt{grid-column:2}}
+
+/* ============================================================
+   BELBERRY BRAND LAYER (источник: КП-движок clients/gutaclinic + лого)
+   Перекрашивает отчёт под фирстиль Belberry. Имена классов не меняются —
+   промт report_author трогать не нужно. Палитра: индиго #2b2a5e, фиолет
+   #5b50d6, тёплый фон #faf8f5, красный «Рейтинг Рунета» #d4202e, оранж #e88a3b.
+   ============================================================ */
+:root {
+  --bg: #faf8f5;
+  --card: #ffffff;
+  --text: #1a1f3a;
+  --text-secondary: #6b6f88;
+  --text-muted: #9a9ab0;
+  --border: #e8e4f2;
+  --blue: #5b50d6;       --blue-light: #5b50d6;  --blue-soft: #ece9f9;  --blue-bg: #f3effc;
+  --purple: #5b50d6;     --purple-soft: #ece9f9;
+  --green: #2c7a4a;      --green-soft: #d8efe0;  --green-bg: #f1f9f4;
+  --amber: #b86420;      --amber-soft: #fde3d2;  --amber-bg: #fff4ec;
+  --red: #d4202e;        --red-soft: #fadcde;    --red-bg: #fdf2f3;
+  --brand-ink: #2b2a5e;  --brand-violet: #5b50d6;
+}
+body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+h1, h2, h3, .stat-value, .c30-big, .tiger-name, .drisk-sum, .razbor-score {
+  font-family: 'Manrope', 'Inter', sans-serif;
+}
+h2 { color: var(--brand-ink); }
+
+/* HERO — тёмный фиолетовый титул-баннер (как title-слайд КП) */
+.hero { background: linear-gradient(135deg, #1f1547 0%, #2b1f5e 45%, #3a2a7a 100%); color: #fff; border-bottom: none; }
+.hero h1 { color: #fff; }
+.hero-subtitle { color: #d9d3ee; }
+.hero-subtitle a, .hero-verdict a { color: #b9b0f2; }
+.hero-corr { color: #cdc5ee; }
+.hero-label { color: #5b50d6; background: #fff; }
+.hero::before { background: radial-gradient(circle, rgba(123,108,255,0.28) 0%, transparent 70%); }
+.hero::after  { background: radial-gradient(circle, rgba(91,80,214,0.20) 0%, transparent 70%); }
+
+/* stat-карточки — фирменная фиолетовая полоска сверху */
+.stat { border-top: 3px solid var(--brand-violet); }
+.stat.accent-green { background: linear-gradient(135deg, #d8efe0 0%, #f1f9f4 100%); border-color: #bfe6cf; }
+.stat.accent-amber { background: linear-gradient(135deg, #fde3d2 0%, #fff4ec 100%); border-color: #f6cbae; }
+.stat.accent-red   { background: linear-gradient(135deg, #fadcde 0%, #fdf2f3 100%); border-color: #f3c0c5; }
+.stat.accent-blue  { background: linear-gradient(135deg, #ece9f9 0%, #f3effc 100%); border-color: #cfc8f3; }
+
+/* заголовки секций — тёмная линейка (slide-rule) под шапкой */
+.section-head { border-bottom: 2px solid var(--brand-ink); }
+.section-icon.blue, .section-icon.purple { background: #ece9f9; color: #5b50d6; }
+
+/* Тигр / разбор / таблицы — фиолетовые акценты */
+.tm-pill { border-color: #cfc8f3; color: #5b50d6; }
+.razbor-score { background: #ece9f9; color: #5b50d6; }
+.razbor-verdict { background: #f3effc; border-left-color: #5b50d6; }
+
+/* подвал — фирменный марк Belberry (фиолетовая точка) */
+.footer::before {
+  content: 'Belberry';
+  display: block;
+  font-family: 'Manrope', sans-serif;
+  font-weight: 800;
+  font-size: 18px;
+  color: var(--brand-ink);
+  letter-spacing: -0.3px;
+  margin-bottom: 6px;
+}
+.footer::after {
+  content: '•';
+  color: #5b50d6;
+}
