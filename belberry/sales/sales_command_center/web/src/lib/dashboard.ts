@@ -117,6 +117,13 @@ export function monthHealth(
   return Math.max(0, Math.min(100, Math.round(attainment - penalty)));
 }
 
+const SALES_DEPT_KEYS = ['продаж', 'телемарк', 'роп'];
+/** Менеджер из отдела продаж/ТМ по должности (dept = WORK_POSITION). */
+export function isSalesDept(dept: string | null | undefined): boolean {
+  const d = (dept || '').toLowerCase();
+  return SALES_DEPT_KEYS.some((k) => d.includes(k));
+}
+
 interface FunnelRow {
   stage: string;
   opportunity: number;
@@ -188,9 +195,9 @@ export async function getDashboardData(): Promise<DashboardData> {
 
   // Имена/роли сотрудников.
   const userRows = await db
-    .select({ id: users.bitrixId, name: users.name, role: users.role })
+    .select({ id: users.bitrixId, name: users.name, dept: users.dept })
     .from(users);
-  const userMap = new Map(userRows.map((u) => [u.id, { name: u.name, role: u.role }]));
+  const userMap = new Map(userRows.map((u) => [u.id, { name: u.name, dept: u.dept ?? '' }]));
 
   // Воронка — открытые сделки кат.10 на последнем снимке.
   const snapRows = await db
@@ -290,11 +297,11 @@ export async function getDashboardData(): Promise<DashboardData> {
     }
   }
 
-  const team: TeamMember[] = actRows
+  const teamAll: TeamMember[] = actRows
     .map((r) => ({
       managerId: r.managerId,
       name: userMap.get(r.managerId)?.name ?? `id ${r.managerId}`,
-      role: userMap.get(r.managerId)?.role ?? '',
+      role: userMap.get(r.managerId)?.dept ?? '',
       meetingsSet: Number(r.meetingsSet),
       meetingsHeld: Number(r.meetingsHeld),
       dials: Number(r.dials),
@@ -307,6 +314,11 @@ export async function getDashboardData(): Promise<DashboardData> {
       meetings: meetingsByMgr.get(r.managerId) ?? [],
     }))
     .sort((a, b) => b.meetingsHeld - a.meetingsHeld || b.dials - a.dials);
+
+  // Только отдел продаж + телемаркетинг (по должности из dept). Если справочник
+  // ещё не наполнен (dept пуст у всех) — показываем всех, чтобы не опустеть.
+  const sales = teamAll.filter((m) => isSalesDept(m.role));
+  const team: TeamMember[] = sales.length ? sales : teamAll;
 
   const meetingsHeldTotal = team.reduce((s, x) => s + x.meetingsHeld, 0);
   const dialsTotal = team.reduce((s, x) => s + x.dials, 0);

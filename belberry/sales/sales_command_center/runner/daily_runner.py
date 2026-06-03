@@ -30,6 +30,29 @@ def build_extras(raw: dict, now) -> dict:
     }
 
 
+def _user_directory_rows(raw: dict) -> list[dict]:
+    """Справочник для веб-витрины: id → имя → должность (WORK_POSITION → dept).
+    Email — плейсхолдер (auth матчит живой Bitrix, не это поле); writer на
+    конфликте обновляет только name+dept, не трогая auth-поля."""
+    names = raw.get("users") or {}
+    roles = raw.get("user_roles") or {}
+    out: list[dict] = []
+    for uid, name in names.items():
+        suid = str(uid)
+        if not suid.isdigit():
+            continue
+        out.append(
+            {
+                "bitrix_id": int(suid),
+                "email": f"{suid}@belberrycrm.local",
+                "name": str(name or suid).strip() or suid,
+                "dept": str(roles.get(uid) or roles.get(suid) or "").strip(),
+                "is_active": True,
+            }
+        )
+    return out
+
+
 def already_done(conn, target: date) -> bool:
     with conn.cursor() as cursor:
         cursor.execute(
@@ -82,6 +105,7 @@ def run(
         raw = collect_day(target, bx=bx)
         raw.setdefault("report_date", target.isoformat())
         rows = build_db_rows(raw, target, now)
+        rows["_users"] = _user_directory_rows(raw)
         extras = build_extras(raw, now)
         extras["deltas"] = compute_deltas(conn, target, rows)
         extras["promises_loop"] = compute_promises_loop(conn, target, rows)

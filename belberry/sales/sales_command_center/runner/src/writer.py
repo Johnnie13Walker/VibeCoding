@@ -45,4 +45,11 @@ def write_day(
             counts[table] = upsert(conn, table, table_rows, conflict_cols, update_cols)
         else:
             counts[table] = 0
+
+    # Справочник сотрудников (id → имя → должность) для веб-витрины. Обновляем
+    # только name+dept; auth-поля (email/role/is_active) на конфликте НЕ трогаем,
+    # чтобы не задеть identity-таблицу логина.
+    user_rows = rows.get("_users") or []
+    counts["users"] = upsert(conn, "users", user_rows, ["bitrix_id"], ["name", "dept"]) if user_rows else 0
+
     return counts
