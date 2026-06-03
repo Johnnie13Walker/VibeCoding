@@ -49,6 +49,13 @@ describe('middleware', () => {
     expect(mocks.getIronSession).not.toHaveBeenCalled();
   });
 
+  it('allows public brand assets', async () => {
+    const response = await middleware(request('/belberry-logo.svg'));
+
+    expect(response.status).toBe(200);
+    expect(mocks.getIronSession).not.toHaveBeenCalled();
+  });
+
   it('allows authenticated root', async () => {
     mocks.getIronSession.mockResolvedValueOnce({ bitrixId: 42 });
 

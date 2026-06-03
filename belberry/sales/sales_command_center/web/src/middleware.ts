@@ -12,6 +12,8 @@ function isPublicPath(pathname: string): boolean {
     pathname.startsWith('/api/auth/') ||
     pathname.startsWith('/_next/') ||
     pathname === '/favicon.ico' ||
+    pathname === '/favicon.svg' ||
+    pathname === '/belberry-logo.svg' ||
     pathname === '/robots.txt'
   );
 }
