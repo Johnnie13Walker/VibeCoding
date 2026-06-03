@@ -176,6 +176,10 @@ input {
   margin-left: auto; background: rgba(255, 255, 255, 0.12); color: #cfcce8; font-size: 10px;
   font-weight: 700; border-radius: 999px; padding: 1px 7px; text-transform: lowercase;
 }
+.bb-nav-count {
+  margin-left: auto; background: var(--bb-red); color: #fff; font-size: 11px; font-weight: 700;
+  border-radius: 999px; min-width: 19px; height: 19px; padding: 0 6px; display: inline-grid; place-items: center; line-height: 1;
+}
 .bb-rail-foot {
   margin-top: auto; display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 12px;
   background: rgba(255, 255, 255, 0.05); position: relative;
@@ -237,6 +241,43 @@ input {
 
 .bb-pf-bar { height: 9px; border-radius: 6px; background: #f0ece7; overflow: hidden; margin-top: 7px; }
 .bb-pf-bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--bb-violet), var(--bb-indigo)); transition: width 0.9s cubic-bezier(.22,1,.36,1); }
+
+/* ===== Sidebar: поиск ⌘K ===== */
+.bb-nav-search {
+  display: flex; align-items: center; gap: 9px; width: 100%; margin-bottom: 6px; padding: 9px 12px;
+  border-radius: 11px; border: 1px solid rgba(255, 255, 255, 0.14); background: rgba(255, 255, 255, 0.06);
+  color: #a7a2d6; font: inherit; font-size: 13.5px; cursor: pointer; transition: background 0.15s, color 0.15s;
+}
+.bb-nav-search:hover { background: rgba(255, 255, 255, 0.12); color: #fff; }
+.bb-nav-search kbd {
+  margin-left: auto; background: rgba(255, 255, 255, 0.12); border-radius: 6px; padding: 1px 6px;
+  font-size: 11px; font-family: inherit; color: #cfcce8;
+}
+
+/* ===== ⌘K палитра ===== */
+.bb-cmdk-scrim {
+  position: fixed; inset: 0; background: rgba(20, 18, 50, 0.4); backdrop-filter: blur(3px); z-index: 50;
+  display: flex; align-items: flex-start; justify-content: center;
+}
+.bb-cmdk {
+  margin-top: 12vh; width: 560px; max-width: 92vw; background: #fff; border-radius: 18px; overflow: hidden;
+  box-shadow: 0 30px 80px -20px rgba(20, 18, 50, 0.5); animation: bb-cmdk-pop 0.18s ease;
+}
+@keyframes bb-cmdk-pop { from { opacity: 0; transform: scale(0.97) translateY(-6px); } to { opacity: 1; transform: none; } }
+.bb-cmdk-input { display: flex; align-items: center; gap: 10px; padding: 15px 18px; border-bottom: 1px solid var(--bb-line); }
+.bb-cmdk-input input { border: 0; outline: 0; font: inherit; font-size: 16px; flex: 1; color: var(--bb-ink); background: transparent; }
+.bb-cmdk-kbd { background: var(--bb-canvas); border: 1px solid var(--bb-line); border-radius: 6px; padding: 1px 6px; font-size: 11px; color: var(--bb-muted); font-family: inherit; }
+.bb-cmdk-res { max-height: 340px; overflow: auto; padding: 8px; }
+.bb-cmdk-empty { padding: 22px; text-align: center; color: var(--bb-faint); font-size: 14px; }
+.bb-cmdk-item {
+  display: flex; align-items: center; gap: 11px; width: 100%; padding: 10px 12px; border-radius: 11px;
+  border: 0; background: transparent; font: inherit; font-size: 14px; color: var(--bb-ink); cursor: pointer; text-align: left;
+}
+.bb-cmdk-item svg { color: var(--bb-faint); flex: 0 0 auto; }
+.bb-cmdk-item.sel { background: var(--bb-violet-soft); color: var(--bb-violet); }
+.bb-cmdk-item.sel svg { color: var(--bb-violet); }
+.bb-cmdk-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bb-cmdk-meta { margin-left: auto; font-size: 11.5px; color: var(--bb-faint); flex: 0 0 auto; }
 
 /* ===== Воронка (градиентные бары) ===== */
 .bb-funnel { display: flex; flex-direction: column; gap: 9px; }

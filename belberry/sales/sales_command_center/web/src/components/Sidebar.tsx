@@ -1,8 +1,9 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, CalendarDays, Radio, BellRing, LogOut } from 'lucide-react';
+import { LayoutDashboard, CalendarDays, Radio, BellRing, LogOut, Search } from 'lucide-react';
 
 const NAV = [
   { href: '/dashboard', label: 'Dashboard', Icon: LayoutDashboard },
@@ -29,6 +30,20 @@ export function Sidebar({ user }: { user?: { email?: string; role?: string } }) 
   const pathname = usePathname();
   const email = user?.email ?? '';
   const role = user?.role ? (ROLE_LABEL[user.role] ?? user.role) : '';
+  const [alertCount, setAlertCount] = useState(0);
+
+  useEffect(() => {
+    let alive = true;
+    fetch('/api/alerts/count')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (alive && d && typeof d.count === 'number') setAlertCount(d.count);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   return (
     <aside className="bb-rail">
@@ -40,6 +55,15 @@ export function Sidebar({ user }: { user?: { email?: string; role?: string } }) 
       </div>
 
       <nav className="bb-nav">
+        <button
+          type="button"
+          className="bb-nav-search"
+          onClick={() => window.dispatchEvent(new CustomEvent('bb-cmdk-open'))}
+        >
+          <Search size={16} strokeWidth={2} />
+          Поиск
+          <kbd>⌘K</kbd>
+        </button>
         <div className="bb-nav-label">Обзор</div>
         {NAV.map(({ href, label, Icon }) => {
           const active = pathname === href || pathname.startsWith(`${href}/`);
@@ -52,6 +76,7 @@ export function Sidebar({ user }: { user?: { email?: string; role?: string } }) 
             >
               <Icon size={18} strokeWidth={2} />
               {label}
+              {href === '/alerts' && alertCount > 0 ? <span className="bb-nav-count">{alertCount}</span> : null}
             </Link>
           );
         })}

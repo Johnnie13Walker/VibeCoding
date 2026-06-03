@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { ChevronRight, X, PhoneCall, Handshake, FileText, Zap, Clock } from 'lucide-react';
 import { Sparkline } from './Sparkline';
 import type { TeamMember } from '@/lib/dashboard';
@@ -22,6 +23,13 @@ function Stat({ icon, value, label }: { icon: React.ReactNode; value: React.Reac
 export function TeamList({ team, meetingsPlan }: { team: TeamMember[]; meetingsPlan: number }) {
   const [openId, setOpenId] = useState<number | null>(null);
   const active = team.find((m) => m.managerId === openId) ?? null;
+  const searchParams = useSearchParams();
+
+  // Переход из ⌘K: /dashboard?m=<id> открывает разбор менеджера.
+  useEffect(() => {
+    const m = searchParams.get('m');
+    if (m && team.some((t) => t.managerId === Number(m))) setOpenId(Number(m));
+  }, [searchParams, team]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
