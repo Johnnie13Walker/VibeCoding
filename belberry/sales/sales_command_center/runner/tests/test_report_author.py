@@ -103,6 +103,8 @@ def test_build_payload_shapes_day():
     assert payload["stats"]["calls_total"] == 89
     # «Опер»: empty 59×1.5=88.5 + call 30×15=450 + meet 1×50=50 = 588.5 → cap 10.0
     assert payload["telephony"][0]["operational_score"] == 10.0
+    assert payload["health_score"]["score"] > 0
+    assert payload["health_score"]["level"] in {"green", "amber", "red"}
     assert payload["tm_funnel"]["count"] == 0
 
 

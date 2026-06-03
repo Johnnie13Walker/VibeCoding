@@ -20,6 +20,7 @@ from collections import Counter
 
 from . import analyze_llm, oper
 from .deltas import delta_label
+from .health import compute_health_score
 
 PORTAL_BASE = "https://belberrycrm.bitrix24.ru"
 
@@ -80,6 +81,12 @@ SYSTEM_PROMPT = """
     <div class="hstat"><div class="hstat-num">7</div><div class="hstat-lbl">Встречи</div><div class="stat-sub">+75% к прошлому рабочему дню</div></div>
     … 5-7 плиток из payload.hero_stats …
   </div>
+  <div class="hero-health health-green|health-amber|health-red" title="{payload.health_score.formula}">
+    <div class="health-score">74</div><div><div class="health-label">здоровье дня</div><div class="health-note">Опер 82%, встречи 75%, факт 100%, штраф риска −8</div></div>
+  </div>
+  <nav class="anchor-nav">
+    <a class="anchor-chip" href="#main">Главное</a><a class="anchor-chip" href="#tiger">Тигр</a><a class="anchor-chip" href="#meetings-done">Встречи</a><a class="anchor-chip" href="#meeting-analysis">Разбор</a><a class="anchor-chip" href="#risks">Риски</a>
+  </nav>
   <div class="stats">
     <div class="stat accent-green"><div class="stat-value">4</div><div class="stat-label">Встречи проведены</div><div class="stat-sub">разбивка/детали со ссылками</div></div>
     … 6-8 карточек, accent: green|blue|amber|red …
@@ -94,40 +101,42 @@ SYSTEM_PROMPT = """
   В section-icon — ЭМОДЗИ (📞 🎯 🚫 🔁 ✅ 🔧 💰 🐅 📋 ⚠️), НЕ латинские буквы.
   …тело секции…
 </section></div>
+Цветовая семантика везде одна: green = выигрыш/хорошо, amber = риск/внимание, red = горит/срочно. Не используй purple/blue для статуса риска — только для нейтральных акцентов.
+Каждой секции ставь id для якорей: main, tiger, action-items, risks, tm-funnel, managers, meetings-done, meetings-today, meeting-analysis. В карточках менеджеров добавляй id="manager-<manager_id>"; если разбор встречи связан с менеджером, можно ссылаться на этот якорь.
 
 Секции по порядку (опускай те, где нет данных):
-1. «Главное за 30 секунд» — <div class="cards-3"> три карточки:
+1. «Главное за 30 секунд» — section id="main"; <div class="cards-3"> три карточки:
    <div class="card-30 c-red"><div class="c30-title">🔥 Горит сегодня</div><ul><li>…</li></ul></div>
    <div class="card-30 c-amber"><div class="c30-title">💰 Денег под риском</div><div class="c30-big">&gt; X млн ₽</div><p>…</p></div>
    <div class="card-30 c-amber"><div class="c30-title">🔧 Исправить системно</div><ul><li>…</li></ul></div>
-2. «Тигр дня» (section tinted-green) — менеджер с МАКС. operational_score («Опер»)
+2. «Тигр дня» (section id="tiger" tinted-green) — менеджер с МАКС. operational_score («Опер»)
    из telephony (НЕ по числу наборов!): <div class="tiger-wrap"><img class="tiger-photo" src="photo:<manager_id>" alt="Имя"><div class="tiger-body"><div class="tiger-name">Имя <span class="tiger-role">· роль</span></div><div class="tiger-quote">…</div><div class="tiger-metrics"><span class="tm-pill">Опер 10.0</span><span class="tm-pill">28% конверсия</span><span class="tm-pill">89 наборов</span>…</div><div class="tiger-note">рейтинг по операционной оценке «Опер»; рядом: следующие по Опер</div></div></div>
-3. «Кого пинать сегодня» — ТАБЛИЦА (не список):
+3. «Кого пинать сегодня» (section id="action-items") — ТАБЛИЦА (не список):
    <div class="tbl-wrap"><table><thead><tr><th>Менеджер</th><th>Что сделать</th><th>Сделка</th><th>Почему горит</th><th>Срочность</th></tr></thead><tbody>
    <tr><td>Фамилия Имя<br><span class="muted">роль</span></td><td>конкретное действие</td><td><a href="...">домены через запятую, кликабельно</a></td><td>почему</td><td><span class="badge b-red">сейчас</span></td></tr>
    …</tbody></table></div>
    Срочность: <span class="badge b-red">сейчас</span> / <span class="badge b-amber">сегодня</span> / <span class="badge b-blue">на неделе</span>.
-4. «Где могут сорваться сделки» (tinted-amber) — лид-абзац (сколько сделок превысили норму на стадии + ядро затора) + ТАБЛИЦА:
+4. «Где могут сорваться сделки» (section id="risks" tinted-amber) — лид-абзац (сколько сделок превысили норму на стадии + ядро затора) + ТАБЛИЦА:
    <div class="tbl-wrap"><table><thead><tr><th>Сделка</th><th>Сумма</th><th>Менеджер</th><th>На стадии</th><th>Посл. контакт</th><th>Риск</th></tr></thead><tbody>
    <tr><td><a href="{deal-ссылка}">домен</a></td><td>304 тыс.</td><td>Фамилия Имя</td><td>31 раб.дн</td><td>1 дн назад</td><td><span class="badge b-red">высокий</span></td></tr>
    …топ-10 по сумме…</tbody></table></div>
    Риск: показывай stale[].risk_reason отдельным бейджем причины. Цвет возраста бери по stale[].age_level: critical — красный и текст «31 рабочий день!», warning — amber, normal — обычный. Сумма — из stale[].opportunity; возраст — age+age_unit; контакт — last_contact_days. Сделки ВСЕГДА кликабельны (deal-ссылка по id).
-5. «ТМ-воронка» — если payload.tm_funnel.count > 0, покажи компактную воронку телемаркетинга:
+5. «ТМ-воронка» (section id="tm-funnel") — если payload.tm_funnel.count > 0, покажи компактную воронку телемаркетинга:
    наборы → дозвоны → 120с+ → встречи назначено → встречи проведено → сделки.
    Используй ТОЛЬКО payload.tm_funnel: реальные числа и проценты answered_percent, long_call_percent, meeting_set_percent, deal_create_percent. Не добавляй продукт/нишу и не делай новых выводов из Bitrix.
-6. «Активность менеджеров» — карточки, ОТСОРТИРОВАНЫ по «Опер» убыв. (порядок telephony):
+6. «Активность менеджеров» (section id="managers") — карточки, ОТСОРТИРОВАНЫ по «Опер» убыв. (порядок telephony):
    <div class="mgr hero-mgr"><img class="mgr-ava" src="photo:<manager_id>"><div class="mgr-name">Имя</div><div class="mgr-role">роль · Опер 10.0</div><div class="mgr-row"><span class="mgr-row-label">Наборы</span><span class="mgr-row-value">89</span></div><div class="mgr-row"><span class="mgr-row-label">Дозвоны</span><span class="mgr-row-value">40 (11%)</span></div><div class="mgr-row"><span class="mgr-row-label">120с+</span><span class="mgr-row-value">8</span></div><div class="mgr-row"><span class="mgr-row-label">Встречи</span><span class="mgr-row-value">0</span></div><div class="mgr-row"><span class="mgr-row-label">Опер</span><span class="mgr-row-value">10.0</span></div></div>
    Строки mgr-row: Наборы (dials_total), Дозвоны «40 (11%)» (calls_answered, connect_percent), 120с+ (calls_120s_plus), Чаты (messenger_dialogs), Часы (hours), Встречи (meetings_held), Новых сделок (new_deals), Опер (operational_score). Данные из telephony.
    Если away=true (поле telephony) — карточка <div class="mgr away">, строка «Заморожено сделок: frozen_deals». Если vacation_until НЕ пуст — роль «роль · в отпуске до {vacation_until}» (по графику Bitrix). Если vacation_until пуст — «роль · в простое» (нет активности; «в отпуске» НЕ писать без vacation_until).
-7. «Встречи дня — проведено N» — СВОДНАЯ ТАБЛИЦА перед разбором:
+7. «Встречи дня — проведено N» (section id="meetings-done") — СВОДНАЯ ТАБЛИЦА перед разбором:
    <div class="tbl-wrap"><table><thead><tr><th>Сделка/встреча</th><th>Тип</th><th>Проводит</th><th>Статус</th><th>Балл</th></tr></thead><tbody>
    <tr><td><a href="{встреча}">домен</a></td><td>Защита КП</td><td>Имя</td><td><span class="badge b-green">проведена</span></td><td><b>8/10</b></td></tr></tbody></table></div>
    Балл = meetings[].analysis.score (X/10); если score=null — «—».
-8. «Встречи сегодня — N запланировано» (если meetings_today непустой) — ТАБЛИЦА:
+8. «Встречи сегодня — N запланировано» (section id="meetings-today"; если meetings_today непустой) — ТАБЛИЦА:
    <div class="tbl-wrap"><table><thead><tr><th>Время</th><th>Сделка</th><th>Проводит</th><th>Статус</th></tr></thead><tbody>
    <tr><td>12:00</td><td><a href="{встреча}">домен</a></td><td>Имя</td><td><span class="badge b-blue">запланирована</span></td></tr></tbody></table></div>
    Время — из meetings_today[].scheduled_at (только HH:MM, МСК).
-9. «Содержательный разбор встреч» — по каждой встрече с analysis. Формат ближе к
+9. «Содержательный разбор встреч» (section id="meeting-analysis") — по каждой встрече с analysis. Формат ближе к
    ручному эталону, НЕ сухой чек-лист:
    <div class="razbor-card" id="meeting-<id>">
      <div class="razbor-head"><h3>домен · тип · Имя · N мин</h3><div class="razbor-score">8/10</div></div>
@@ -298,6 +307,7 @@ def build_payload(rows: dict[str, Any], extras: dict[str, Any]) -> dict[str, Any
 
     stats = _stats(rows, extras)
     deltas = extras.get("deltas") or {}
+    health_score = compute_health_score(mgr_activity, meetings, stale)
     return {
         "report_date": extras.get("report_date") or raw.get("report_date"),
         "weekday_date_ru": _ru_date(extras.get("report_date") or raw.get("report_date") or ""),
@@ -311,6 +321,7 @@ def build_payload(rows: dict[str, Any], extras: dict[str, Any]) -> dict[str, Any
         "stats": stats,
         "deltas": deltas,
         "hero_stats": _hero_stats(stats, deltas),
+        "health_score": health_score,
         "stale": extras.get("stale") or {},
         "rejections": rejections,
         "rejections_summary": dict(Counter(r.get("reason_label") for r in rejections)),

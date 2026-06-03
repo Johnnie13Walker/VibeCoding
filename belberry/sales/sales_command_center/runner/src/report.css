@@ -498,9 +498,19 @@
   .hero-stats{display:flex;flex-wrap:wrap;gap:14px;margin:28px 0 24px;}
   .hstat{background:#fff;border:1px solid var(--border);box-shadow:var(--shadow-sm);border-radius:14px;padding:16px 22px;min-width:150px;flex:1;}
   .hstat-num{font-size:34px;font-weight:800;letter-spacing:-1px;line-height:1;color:var(--text);}
-  .hstat:last-child .hstat-num{color:var(--red);}
   .hstat-lbl{font-size:13px;color:var(--text);margin-top:6px;font-weight:700;}
   .hstat-lbl span{display:block;font-size:11px;color:var(--text-muted);font-weight:400;margin-top:2px;}
+  .hero-health{display:flex;align-items:center;gap:16px;background:#fff;border:1px solid var(--border);border-left:5px solid var(--green);box-shadow:var(--shadow-sm);border-radius:14px;padding:16px 20px;margin:0 0 16px;max-width:560px;}
+  .health-score{font-size:42px;font-weight:800;letter-spacing:-1.2px;line-height:1;color:var(--green);}
+  .health-label{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text);}
+  .health-note{font-size:12px;color:var(--text-secondary);line-height:1.45;margin-top:2px;}
+  .health-green{border-left-color:var(--green)}.health-green .health-score{color:var(--green)}
+  .health-amber{border-left-color:var(--amber)}.health-amber .health-score{color:var(--amber)}
+  .health-red{border-left-color:var(--red)}.health-red .health-score{color:var(--red)}
+  .anchor-nav{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 22px;}
+  .anchor-chip{display:inline-flex;align-items:center;min-height:34px;padding:7px 13px;border-radius:999px;background:#fff;border:1px solid var(--border);box-shadow:var(--shadow-sm);font-size:13px;font-weight:700;color:var(--brand-ink, var(--text));text-decoration:none;}
+  .anchor-chip:hover{border-color:var(--brand-violet, var(--blue));color:var(--brand-violet, var(--blue));}
+  .age-critical{color:var(--red);font-weight:800}.age-warning{color:var(--amber);font-weight:800}
   /* блок, НЕ flex: иначе каждая ссылка/фрагмент становится колонкой ("криво") */
   .hero-verdict{background:#fff;border:1px solid #fecaca;border-left:4px solid var(--red);box-shadow:var(--shadow-sm);border-radius:14px;padding:16px 20px;font-size:15px;color:var(--text);line-height:1.6;}
   .hero-verdict b{color:var(--red);}
