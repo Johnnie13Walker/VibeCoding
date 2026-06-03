@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Filter, Flame, Users, Goal, FileText } from 'lucide-react';
-import { FunnelChart } from '@/components/dashboard/FunnelChart';
+import { FunnelBars } from '@/components/dashboard/FunnelBars';
+import { TeamList } from '@/components/dashboard/TeamList';
 import { KpiCard } from '@/components/dashboard/KpiCard';
 import { Gauge } from '@/components/dashboard/Gauge';
 import { getDashboardData } from '@/lib/dashboard';
@@ -69,7 +70,7 @@ export default async function DashboardPage() {
       {/* Воронка + затор */}
       <div className="bb-card" style={{ marginBottom: 16 }}>
         <SectionHead icon={<Filter size={17} />} title="Воронка продаж" hint={`снимок ${data.snapshotDate ?? '—'}`} />
-        <FunnelChart data={data.funnel} />
+        <FunnelBars data={data.funnel} />
 
         {data.stuck.length > 0 ? (
           <div style={{ marginTop: 22, borderTop: '1px solid var(--bb-line)', paddingTop: 18 }}>
@@ -96,45 +97,10 @@ export default async function DashboardPage() {
         ) : null}
       </div>
 
-      {/* Команда */}
+      {/* Команда — кликабельные карточки → дрилл-даун */}
       <div className="bb-card" style={{ marginBottom: 16 }}>
-        <SectionHead icon={<Users size={17} />} title="Команда" hint={`активность за ${data.monthLabel}`} />
-        {data.team.length === 0 ? (
-          <p style={{ color: 'var(--bb-muted)' }}>Нет данных активности за период.</p>
-        ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table className="bb-table">
-              <thead>
-                <tr>
-                  <th>Менеджер</th>
-                  <th className="r">Встречи</th>
-                  <th className="r">Наборы</th>
-                  <th className="r">120с+</th>
-                  <th className="r">КП</th>
-                  <th className="r">Сделок</th>
-                  <th className="r">Часы</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.team.map((m) => (
-                  <tr key={m.managerId}>
-                    <td style={{ fontWeight: 600 }}>{m.name}</td>
-                    <td className="r">
-                      <span style={{ fontWeight: m.meetingsHeld >= data.meetingsPlan ? 700 : 400, color: m.meetingsHeld >= data.meetingsPlan ? '#2c7a4a' : 'var(--bb-ink)' }}>
-                        {m.meetingsHeld}
-                      </span>
-                    </td>
-                    <td className="r">{m.dials}</td>
-                    <td className="r">{m.calls120}</td>
-                    <td className="r">{m.kpSent}</td>
-                    <td className="r">{m.dealsCreated}</td>
-                    <td className="r">{m.talkHours}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <SectionHead icon={<Users size={17} />} title="Команда" hint="клик по строке → разбор менеджера" />
+        <TeamList team={data.team} meetingsPlan={data.meetingsPlan} />
       </div>
 
       {/* План / факт */}

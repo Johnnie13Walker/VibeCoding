@@ -1,8 +1,8 @@
 import 'server-only';
 
-import { and, eq, gte, lte, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, lte, sql } from 'drizzle-orm';
 import { db } from '@/db';
-import { dealsSnapshot, managerActivity, plans, reports, users } from '@/db/schema';
+import { dealsSnapshot, managerActivity, meetings, plans, reports, users } from '@/db/schema';
 
 // Зеркало STAGE_RULES/STAGE_ORDER из runner/src/transform.py — воронка «Продажи» (CATEGORY_ID=10).
 // Порядок = реальная последовательность стадий в Bitrix.
@@ -31,6 +31,12 @@ export interface StuckDeal {
   manager: string;
 }
 
+export interface ManagerMeeting {
+  date: string;
+  score: number | null;
+  note: string;
+}
+
 export interface TeamMember {
   managerId: number;
   name: string;
@@ -43,6 +49,10 @@ export interface TeamMember {
   briefs: number;
   dealsCreated: number;
   talkHours: number;
+  /** Тренд встреч по дням месяца — для спарклайна в дрилл-дауне. */
+  trend: number[];
+  /** Последние разобранные встречи (балл + заметка) — для дрилл-дауна. */
+  meetings: ManagerMeeting[];
 }
 
 export interface DashboardData {
@@ -234,6 +244,52 @@ export async function getDashboardData(): Promise<DashboardData> {
     .where(and(gte(managerActivity.reportDate, start), lte(managerActivity.reportDate, end)))
     .groupBy(managerActivity.managerId);
 
+  // Дрилл-даун: тренд встреч по дням на менеджера.
+  const trendByMgrRows = await db
+    .select({
+      managerId: managerActivity.managerId,
+      date: managerActivity.reportDate,
+      meetings: sql<number>`coalesce(sum(${managerActivity.meetingsHeld}),0)`,
+    })
+    .from(managerActivity)
+    .where(and(gte(managerActivity.reportDate, start), lte(managerActivity.reportDate, end)))
+    .groupBy(managerActivity.managerId, managerActivity.reportDate)
+    .orderBy(managerActivity.reportDate);
+  const trendByMgr = new Map<number, number[]>();
+  for (const r of trendByMgrRows) {
+    const arr = trendByMgr.get(r.managerId) ?? [];
+    arr.push(Number(r.meetings));
+    trendByMgr.set(r.managerId, arr);
+  }
+
+  // Дрилл-даун: последние разобранные встречи на менеджера (балл + заметка).
+  const anRows = await db
+    .select({
+      managerId: meetings.managerId,
+      date: meetings.reportDate,
+      analysis: meetings.analysisJson,
+    })
+    .from(meetings)
+    .where(and(gte(meetings.reportDate, start), lte(meetings.reportDate, end), sql`${meetings.analysisJson} is not null`))
+    .orderBy(desc(meetings.reportDate));
+  const meetingsByMgr = new Map<number, ManagerMeeting[]>();
+  for (const r of anRows) {
+    if (r.managerId == null) continue;
+    const a = (r.analysis ?? {}) as {
+      score?: number;
+      observations?: { kind?: string; text?: string }[];
+      verdict?: string;
+      systemic_conclusion?: string;
+    };
+    const risk = (a.observations ?? []).find((o) => o.kind === 'risk' && o.text);
+    const note = (risk?.text || a.verdict || a.systemic_conclusion || '').toString().trim();
+    const list = meetingsByMgr.get(r.managerId) ?? [];
+    if (list.length < 5) {
+      list.push({ date: String(r.date), score: a.score ?? null, note });
+      meetingsByMgr.set(r.managerId, list);
+    }
+  }
+
   const team: TeamMember[] = actRows
     .map((r) => ({
       managerId: r.managerId,
@@ -247,6 +303,8 @@ export async function getDashboardData(): Promise<DashboardData> {
       briefs: Number(r.briefs),
       dealsCreated: Number(r.dealsCreated),
       talkHours: Math.round(Number(r.talkSeconds) / 360) / 10,
+      trend: trendByMgr.get(r.managerId) ?? [],
+      meetings: meetingsByMgr.get(r.managerId) ?? [],
     }))
     .sort((a, b) => b.meetingsHeld - a.meetingsHeld || b.dials - a.dials);
 
