@@ -38,8 +38,8 @@ def already_done(conn, target: date) -> bool:
     return bool(row and row[0] == "done")
 
 
-def run_llm_phase(raw, rows, extras, *, client_factory=None) -> dict:
-    enriched = enrich_meetings(raw)
+def run_llm_phase(raw, rows, extras, *, client_factory=None, bx=None) -> dict:
+    enriched = enrich_meetings(raw, bx=bx, refresh=True)
     meetings_meta = {int(item["id"]): item for item in raw.get("meet_day", [])}
     for row in rows.get("meetings", []):
         meeting_id = int(row["meeting_id"])
@@ -83,7 +83,7 @@ def run(
         extras = build_extras(raw, now)
         llm_status = "done"
         try:
-            llm_result = run_llm_phase(raw, rows, extras, client_factory=llm_client_factory)
+            llm_result = run_llm_phase(raw, rows, extras, client_factory=llm_client_factory, bx=bx)
             extras["analyses"] = llm_result["analyses"]
             extras["narrative"] = llm_result["narrative"]
         except Exception as exc:

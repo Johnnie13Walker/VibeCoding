@@ -3,6 +3,11 @@ import time
 import urllib.request
 from typing import Any
 
+from . import bx_client
+
+# Смарт-процесс «Встречи» в Bitrix (entityTypeId), откуда берём UF_CRM_16_TRANSCRIPT.
+MEETING_ENTITY_TYPE_ID = 1048
+
 TOKEN_RE = re.compile(r"(auth|token|downloadToken|access_token)=([^&\s]+)", re.IGNORECASE)
 
 
@@ -19,6 +24,23 @@ def _extract_transcript_url(meeting: dict[str, Any]) -> str | None:
             if isinstance(item, dict) and item.get("urlMachine"):
                 return item["urlMachine"]
     return None
+
+
+def _refresh_transcript_url(meeting_id: int, client) -> str | None:
+    """Свежий urlMachine транскрипта через crm.item.get.
+
+    Токен во вшитом в сборе urlMachine короткоживущий и протухает за время
+    долгого collect (особенно Wazzup ~5 мин) → к моменту скачивания 401.
+    Поэтому перед загрузкой берём ссылку заново непосредственно перед download.
+    """
+    try:
+        response = client.call(
+            "crm.item.get", {"entityTypeId": MEETING_ENTITY_TYPE_ID, "id": meeting_id}
+        )
+    except Exception:
+        return None
+    item = (response.get("result") or {}).get("item") or {}
+    return _extract_transcript_url(item)
 
 
 def _download_transcript(
@@ -79,13 +101,21 @@ def enrich_meetings(
     *,
     cache: dict[int, dict[str, Any]] | None = None,
     opener=urllib.request.urlopen,
+    bx=None,
+    refresh: bool = False,
 ) -> dict[int, dict[str, Any]]:
     cache = cache if cache is not None else {}
+    client = bx or bx_client
     for meeting in raw.get("meet_day", []):
         meeting_id = int(meeting["id"])
         if meeting_id in cache:
             continue
         url = _extract_transcript_url(meeting)
+        # Перед скачиванием обновляем ссылку: токен из времени сбора уже мог протухнуть.
+        if refresh and url:
+            fresh = _refresh_transcript_url(meeting_id, client)
+            if fresh:
+                url = fresh
         if not url:
             cache[meeting_id] = {
                 "text": "",

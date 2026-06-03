@@ -146,7 +146,7 @@ def test_llm_success_marks_done_and_transcripts_written(monkeypatch):
     monkeypatch.setattr(daily_runner, "collect_day", lambda target, bx=None: {"report_date": target.isoformat(), "deals_open": [], "meet_day": [{"id": 2180}]})
     monkeypatch.setattr(daily_runner, "build_db_rows", lambda raw, target, now: rows)
 
-    def fake_llm(raw, rows, extras, client_factory=None):
+    def fake_llm(raw, rows, extras, client_factory=None, bx=None):
         rows["meetings"][0]["transcript_text"] = "текст"
         return {"analyses": {2180: {"transcript_status": "ok"}}, "narrative": {}}
 

@@ -50,6 +50,27 @@ def test_transcript_downloaded_for_valid_meeting():
     assert result[2180]["url"] == "http://x"
 
 
+def test_transcript_url_refreshed_before_download():
+    # Токен во вшитом urlMachine протухает за время долгого сбора → перед скачиванием
+    # берём свежую ссылку через crm.item.get и качаем именно по ней.
+    body = FIXTURE.read_bytes()
+    calls: list[str] = []
+
+    class FakeBx:
+        def call(self, method, params):
+            assert method == "crm.item.get"
+            assert params == {"entityTypeId": 1048, "id": 2180}
+            return {"result": {"item": {"ufCrm16Transcript": {"urlMachine": "http://fresh"}}}}
+
+    raw = {"meet_day": [{"id": 2180, "ufCrm16Transcript": {"urlMachine": "http://stale"}}]}
+
+    result = enrich_meetings(raw, opener=opener_for(body, calls), bx=FakeBx(), refresh=True)
+
+    assert result[2180]["transcript_status"] == "ok"
+    assert result[2180]["url"] == "http://fresh"
+    assert calls == ["http://fresh"]
+
+
 def test_transcript_missing_when_field_empty():
     result = enrich_meetings({"meet_day": [{"id": 1, "ufCrm16Transcript": None}]})
 
