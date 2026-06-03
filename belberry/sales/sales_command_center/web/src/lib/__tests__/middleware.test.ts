@@ -42,6 +42,13 @@ describe('middleware', () => {
     expect(mocks.getIronSession).not.toHaveBeenCalled();
   });
 
+  it('allows auth api parent path instead of turning it into login redirect target', async () => {
+    const response = await middleware(request('/api/auth'));
+
+    expect(response.status).toBe(200);
+    expect(mocks.getIronSession).not.toHaveBeenCalled();
+  });
+
   it('allows authenticated root', async () => {
     mocks.getIronSession.mockResolvedValueOnce({ bitrixId: 42 });
 

@@ -7,6 +7,7 @@ const NOINDEX = 'noindex, nofollow';
 function isPublicPath(pathname: string): boolean {
   return (
     pathname === '/login' ||
+    pathname === '/api/auth' ||
     pathname.startsWith('/api/auth/') ||
     pathname.startsWith('/_next/') ||
     pathname === '/favicon.ico' ||
