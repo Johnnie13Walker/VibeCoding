@@ -2,7 +2,8 @@
 
 import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { format } from 'date-fns';
+import { format, subMonths } from 'date-fns';
+import { ru } from 'date-fns/locale';
 import React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CalendarView } from '../CalendarView';
@@ -45,5 +46,16 @@ describe('CalendarView', () => {
     fireEvent.click(dayButton(15));
 
     expect(open).toHaveBeenCalledWith(`/day/${available}`, '_blank', 'noopener');
+  });
+
+  it('navigates to the previous month from the calendar controls', () => {
+    const currentMonthReport = format(visibleDate(15), 'yyyy-MM-dd');
+    const previousMonth = subMonths(visibleDate(15), 1);
+    const previousMonthReport = format(previousMonth, 'yyyy-MM-dd');
+
+    render(<CalendarView availableDates={[currentMonthReport, previousMonthReport]} />);
+    fireEvent.click(screen.getByLabelText('Go to the Previous Month'));
+
+    expect(screen.getByText(format(previousMonth, 'LLLL yyyy', { locale: ru }))).toBeInTheDocument();
   });
 });
