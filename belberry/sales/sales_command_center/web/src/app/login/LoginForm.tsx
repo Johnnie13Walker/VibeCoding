@@ -61,20 +61,20 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
   }
 
   return (
-    <section className="w-full max-w-sm rounded-lg border border-[#e8e4f2] bg-white p-6 shadow-sm">
-      <div className="mb-6 flex flex-col items-center text-center">
+    <section className="w-full max-w-sm rounded-3xl border border-[#e8e8ed] bg-white p-8 shadow-[0_4px_24px_rgba(0,0,0,0.06)]">
+      <div className="mb-7 flex flex-col items-center text-center">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/belberry-logo.svg" alt="Belberry" className="h-9 w-auto" />
-        <p className="mt-4 text-xs font-semibold uppercase tracking-wider text-[#5b50d6]">Командный центр продаж</p>
-        <h1 className="mt-1 text-2xl font-extrabold text-[#1a1f3a]">Вход по Bitrix24</h1>
+        <p className="mt-5 text-xs font-medium uppercase tracking-wider text-[#6e6e73]">Командный центр продаж</p>
+        <h1 className="mt-1.5 text-2xl font-semibold tracking-[-0.02em] text-[#1d1d1f]">Вход по Bitrix24</h1>
       </div>
 
       {step === 'email' ? (
         <form className="grid gap-4" onSubmit={requestCode}>
-          <label className="grid gap-2 text-sm font-medium text-slate-700">
+          <label className="grid gap-2 text-sm font-medium text-[#1d1d1f]">
             Email
             <input
-              className="rounded-md border border-slate-300 px-3 py-2 outline-none focus:border-[#5b50d6]"
+              className="rounded-xl border border-[#d2d2d7] px-3.5 py-2.5 outline-none transition focus:border-[#5b50d6] focus:ring-2 focus:ring-[#5b50d6]/20"
               autoComplete="email"
               inputMode="email"
               type="email"
@@ -84,7 +84,7 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
             />
           </label>
           <button
-            className="rounded-lg bg-[#5b50d6] px-4 py-2 font-semibold text-white transition hover:bg-[#4a3fc5] disabled:cursor-not-allowed disabled:bg-[#b8b2ea]"
+            className="rounded-full bg-[#5b50d6] px-4 py-2.5 font-semibold text-white transition hover:bg-[#4a3fc5] disabled:cursor-not-allowed disabled:bg-[#b8b2ea]"
             disabled={loading}
           >
             Получить код
@@ -92,10 +92,10 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
         </form>
       ) : (
         <form className="grid gap-4" onSubmit={verify}>
-          <label className="grid gap-2 text-sm font-medium text-slate-700">
+          <label className="grid gap-2 text-sm font-medium text-[#1d1d1f]">
             Код из Bitrix24
             <input
-              className="rounded-md border border-slate-300 px-3 py-2 tracking-widest outline-none focus:border-[#5b50d6]"
+              className="rounded-xl border border-[#d2d2d7] px-3.5 py-2.5 tracking-widest outline-none transition focus:border-[#5b50d6] focus:ring-2 focus:ring-[#5b50d6]/20"
               autoComplete="one-time-code"
               inputMode="numeric"
               pattern="\d{6}"
@@ -106,13 +106,13 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
             />
           </label>
           <button
-            className="rounded-lg bg-[#5b50d6] px-4 py-2 font-semibold text-white transition hover:bg-[#4a3fc5] disabled:cursor-not-allowed disabled:bg-[#b8b2ea]"
+            className="rounded-full bg-[#5b50d6] px-4 py-2.5 font-semibold text-white transition hover:bg-[#4a3fc5] disabled:cursor-not-allowed disabled:bg-[#b8b2ea]"
             disabled={loading}
           >
             Войти
           </button>
           <button
-            className="text-sm font-medium text-slate-600 hover:text-slate-950"
+            className="text-sm font-medium text-[#6e6e73] transition hover:text-[#1d1d1f]"
             type="button"
             onClick={() => setStep('email')}
           >

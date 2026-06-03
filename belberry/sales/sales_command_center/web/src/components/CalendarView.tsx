@@ -49,8 +49,10 @@ export function CalendarView({ availableDates }: CalendarViewProps) {
           available: (date) => availableSet.has(toReportDateKey(date)),
         }}
         modifiersClassNames={{
+          // Стилизуем саму кнопку дня (она круглая) — мягкая фиолетовая «таблетка»
+          // как в Apple Calendar; подсветка попадает на круг, а не на прямоугольную ячейку.
           available:
-            'bg-[#ece9f9] text-[#4a3fc5] font-semibold hover:bg-[#ddd6f7] cursor-pointer rounded-lg',
+            'cursor-pointer [&>button]:bg-[#ece9f9] [&>button]:font-semibold [&>button]:text-[#5b50d6] [&>button:hover]:bg-[#e0dbf7]',
         }}
         defaultMonth={initialMonth}
         onDayClick={openReport}
