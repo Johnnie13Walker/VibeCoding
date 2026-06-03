@@ -44,11 +44,29 @@ SYSTEM_PROMPT = """
 - Поставь встрече итоговый балл score — целое 1..10 по качеству проработки
   (чек-лист + следующий шаг + аргументация). Эталон: сильная защита ≈8, тяжёлый
   брифинг без бюджета ≈5-6.
+- observations — 3–6 конкретных наблюдений из разговора: good/risk, что именно
+  произошло, и metric = цифра/факт из встречи. Не придумывай цифры.
+- next_step — только структурно: что сделать, кто владелец, дедлайн. Если клиент
+  не дал явного шага, верни null.
+- objections — реальные возражения клиента и отработаны ли они.
+- commitment — сила обязательства клиента: взял_обязательство / подумает / нет.
+- duration_min — длительность встречи в минутах, если выводима из метаданных или
+  транскрипта; иначе null.
+- meeting_segment — primary для первичного брифинга/защиты, repeat для повторной
+  встречи с движением от прошлого контакта.
+- transcript_based — true только если разбор построен по реальному транскрипту.
 - Верни JSON по схеме:
 {
   "meeting_type": "defense|briefing|other",
   "score": 1,
   "checklist": [{"item": "...", "mark": "✅|⚠️|❌", "note": "..."}],
+  "observations": [{"kind": "good|risk", "text": "...", "metric": "..." | null}],
+  "next_step": {"what": "...", "who": "...", "deadline": "..." | null} | null,
+  "objections": [{"objection": "...", "handled": true|false, "note": "..."}],
+  "commitment": "взял_обязательство|подумает|нет",
+  "duration_min": 28 | null,
+  "meeting_segment": "primary|repeat",
+  "transcript_based": true,
   "client_quote": "..." | null,
   "systemic_conclusion": "...",
   "status_discrepancy": true|false,
@@ -209,6 +227,13 @@ def _unavailable(status: str, reason: str) -> dict[str, Any]:
         "analysis_available": False,
         "reason": reason,
         "control_flag": True,
+        "observations": [],
+        "next_step": None,
+        "objections": [],
+        "commitment": "нет",
+        "duration_min": None,
+        "meeting_segment": "primary",
+        "transcript_based": False,
     }
 
 
@@ -218,7 +243,80 @@ def _parse_fallback(status: str = "ok") -> dict[str, Any]:
         "analysis_available": False,
         "reason": "LLM вернул невалидный JSON",
         "control_flag": True,
+        "observations": [],
+        "next_step": None,
+        "objections": [],
+        "commitment": "нет",
+        "duration_min": None,
+        "meeting_segment": "primary",
+        "transcript_based": status == "ok",
     }
+
+
+def _normalize_observations(value: Any) -> list[dict[str, Any]]:
+    output = []
+    for item in value or []:
+        if not isinstance(item, dict):
+            continue
+        kind = str(item.get("kind") or "").lower()
+        output.append(
+            {
+                "kind": kind if kind in {"good", "risk"} else "risk",
+                "text": str(item.get("text") or "").strip(),
+                "metric": item.get("metric") if item.get("metric") not in ("", None) else None,
+            }
+        )
+    return [item for item in output if item["text"]][:6]
+
+
+def _normalize_next_step(value: Any) -> dict[str, Any] | None:
+    if not isinstance(value, dict):
+        return None
+    what = str(value.get("what") or "").strip()
+    who = str(value.get("who") or "").strip()
+    if not what and not who:
+        return None
+    return {
+        "what": what,
+        "who": who,
+        "deadline": value.get("deadline") if value.get("deadline") not in ("", None) else None,
+    }
+
+
+def _normalize_objections(value: Any) -> list[dict[str, Any]]:
+    output = []
+    for item in value or []:
+        if not isinstance(item, dict):
+            continue
+        objection = str(item.get("objection") or "").strip()
+        if not objection:
+            continue
+        output.append(
+            {
+                "objection": objection,
+                "handled": bool(item.get("handled")),
+                "note": str(item.get("note") or "").strip(),
+            }
+        )
+    return output
+
+
+def _normalize_commitment(value: Any) -> str:
+    value = str(value or "").strip().lower()
+    return value if value in {"взял_обязательство", "подумает", "нет"} else "нет"
+
+
+def _normalize_duration(value: Any) -> int | None:
+    try:
+        duration = int(value)
+    except (TypeError, ValueError):
+        return None
+    return duration if duration > 0 else None
+
+
+def _normalize_segment(value: Any) -> str:
+    value = str(value or "").strip().lower()
+    return value if value in {"primary", "repeat"} else "primary"
 
 
 def _normalize_analysis(parsed: dict[str, Any]) -> dict[str, Any]:
@@ -241,6 +339,13 @@ def _normalize_analysis(parsed: dict[str, Any]) -> dict[str, Any]:
         "meeting_type": parsed.get("meeting_type") or "other",
         "score": score,
         "checklist": checklist,
+        "observations": _normalize_observations(parsed.get("observations")),
+        "next_step": _normalize_next_step(parsed.get("next_step")),
+        "objections": _normalize_objections(parsed.get("objections")),
+        "commitment": _normalize_commitment(parsed.get("commitment")),
+        "duration_min": _normalize_duration(parsed.get("duration_min")),
+        "meeting_segment": _normalize_segment(parsed.get("meeting_segment")),
+        "transcript_based": bool(parsed.get("transcript_based", True)),
         "client_quote": parsed.get("client_quote"),
         "systemic_conclusion": parsed.get("systemic_conclusion") or "",
         "status_discrepancy": bool(parsed.get("status_discrepancy")),

@@ -7,6 +7,16 @@ from src import analyze_llm
 FIXED_ANALYSIS = {
     "meeting_type": "defense",
     "checklist": [{"item": "кейсы", "mark": "❌", "note": "кейсы не показаны"}],
+    "observations": [
+        {"kind": "good", "text": "Менеджер показал расчёт окупаемости.", "metric": "ROI 177%"},
+        {"kind": "risk", "text": "Клиент не подтвердил бюджет.", "metric": "бюджет не назван"},
+    ],
+    "next_step": {"what": "Отправить прогноз и кейс", "who": "Иванов Иван", "deadline": "понедельник"},
+    "objections": [{"objection": "Нет понятного кейса", "handled": False, "note": "Кейс не показали"}],
+    "commitment": "подумает",
+    "duration_min": 28,
+    "meeting_segment": "repeat",
+    "transcript_based": True,
     "client_quote": "Без кейса я не понимаю, какой результат можно ожидать.",
     "systemic_conclusion": "Нужна памятка по модели оплаты и кейсам.",
     "status_discrepancy": True,
@@ -70,6 +80,13 @@ def test_analyze_meeting_returns_structured_json():
     assert result["client_quote"]
     assert result["status_discrepancy"] is True
     assert result["transcript_status"] == "ok"
+    assert result["observations"][0]["metric"] == "ROI 177%"
+    assert result["next_step"] == {"what": "Отправить прогноз и кейс", "who": "Иванов Иван", "deadline": "понедельник"}
+    assert result["objections"][0]["handled"] is False
+    assert result["commitment"] == "подумает"
+    assert result["duration_min"] == 28
+    assert result["meeting_segment"] == "repeat"
+    assert result["transcript_based"] is True
 
 
 def test_system_prompt_uses_cache_control():
@@ -90,6 +107,9 @@ def test_missing_transcript_skips_llm():
     assert client.messages.calls == 0
     assert result["analysis_available"] is False
     assert result["control_flag"] is True
+    assert result["transcript_based"] is False
+    assert result["next_step"] is None
+    assert result["observations"] == []
 
 
 def test_mismatch_transcript_skips_llm():
