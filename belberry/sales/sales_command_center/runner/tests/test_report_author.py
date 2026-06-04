@@ -19,6 +19,58 @@ class _Client:
         return _Client._Messages(self._text)
 
 
+def test_daily_kpis_counts_and_excludes_spam():
+    rows = {"meetings": [{"meeting_id": 1}, {"meeting_id": 2}]}
+    raw = {
+        "user_roles": {"10": "Менеджер по продажам", "20": "Телемаркетолог"},
+        "deals_created": [
+            {"ID": "1", "UF_CRM_1771495464": None},
+            {"ID": "2", "UF_CRM_1771495464": "8588"},  # СПАМ
+            {"ID": "3", "UF_CRM_1771495464": "8574"},
+        ],
+        "briefs": [{"id": 1}, {"id": 2}],
+        "kp": [{"id": 1}],
+        "meet_created_day": [{"assignedById": 20}, {"assignedById": 20}, {"assignedById": 10}],
+        "stagehistory": [
+            {"OWNER_ID": "100", "STAGE_ID": "C10:LOSE"},
+            {"OWNER_ID": "101", "STAGE_ID": "C10:LOSE"},
+            {"OWNER_ID": "200", "STAGE_ID": "C50:APOLOGY"},  # ТМ-отвал, не воронка Продажи
+        ],
+        "rejected_deals": [
+            {"ID": "100", "UF_CRM_1771495464": "8588"},  # СПАМ
+            {"ID": "101", "UF_CRM_1771495464": "8580"},
+        ],
+    }
+    k = report_author._daily_kpis(rows, raw)
+    assert k["meetings_held"] == 2
+    assert k["briefs"] == 2 and k["kp"] == 1
+    assert k["new_deals"] == 2 and k["new_deals_total"] == 3 and k["new_deals_spam"] == 1
+    assert k["meetings_set_tm"] == 2 and k["meetings_set_op"] == 1
+    assert k["sales_rejects"] == 1 and k["sales_rejects_total"] == 2 and k["sales_rejects_spam"] == 1
+
+
+def test_build_kpi_strip_renders():
+    k = report_author._daily_kpis({"meetings": [{"x": 1}]}, {})
+    out = report_author.build_kpi_strip(k)
+    assert 'id="kpi-strip"' in out
+    assert "Встречи проведены" in out and "Отказы в воронке Продажи" in out
+
+
+def test_build_kpi_strip_empty():
+    assert report_author.build_kpi_strip(None) == ""
+
+
+def test_inject_blocks_replaces_both_placeholders():
+    body = '<div class="hero"></div>[[KPI_STRIP]]<section id="tiger">T</section>[[OPER_SCORECARD]]'
+    payload = {
+        "daily_kpis": report_author._daily_kpis({"meetings": []}, {}),
+        "telephony": [{"manager": "A", "role": "x", "operational_score": 1.0, "oper_status": "СТОП"}],
+    }
+    out = report_author._inject_blocks(body, payload)
+    assert "[[KPI_STRIP]]" not in out and "[[OPER_SCORECARD]]" not in out
+    assert 'id="kpi-strip"' in out and 'id="oper-scorecard"' in out
+
+
 def test_build_oper_scorecard_renders_rows():
     tel = [
         {"manager": "Семенихин Егор", "role": "Менеджер по продажам", "dials_total": 9,
@@ -42,7 +94,7 @@ def test_build_oper_scorecard_empty():
 
 def test_inject_scorecard_replaces_placeholder():
     body = '<div class="hero"></div>[[OPER_SCORECARD]]<section>x</section>'
-    out = report_author._inject_scorecard(
+    out = report_author._inject_blocks(
         body, {"telephony": [{"manager": "A", "role": "x", "operational_score": 1.0, "oper_status": "СТОП"}]}
     )
     assert "[[OPER_SCORECARD]]" not in out
@@ -51,7 +103,7 @@ def test_inject_scorecard_replaces_placeholder():
 
 def test_inject_scorecard_fallback_after_tiger():
     body = '<section id="tiger">T</section><section id="x">Y</section>'
-    out = report_author._inject_scorecard(
+    out = report_author._inject_blocks(
         body, {"telephony": [{"manager": "A", "role": "x", "operational_score": 1.0, "oper_status": "СТОП"}]}
     )
     assert out.index("oper-scorecard") > out.index("tiger")

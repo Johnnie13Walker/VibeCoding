@@ -366,7 +366,7 @@ def collect_rejected_deals(stagehistory: list[dict[str, Any]], bx=None) -> list[
     return _fetch_all(
         bx,
         "crm.deal.list",
-        {"filter": {"@ID": ids}, "select": ["ID", "TITLE", "ASSIGNED_BY_ID", "OPPORTUNITY"]},
+        {"filter": {"@ID": ids}, "select": ["ID", "TITLE", "ASSIGNED_BY_ID", "OPPORTUNITY", "UF_CRM_1771495464"]},
     )
 
 
@@ -391,6 +391,7 @@ def collect_day(target: date, bx=None) -> dict[str, Any]:
                 "SOURCE_ID",
                 "COMPANY_ID",
                 "CONTACT_ID",
+                "UF_CRM_1771495464",  # причина отказа (8588 = СПАМ)
             ],
         },
     )

@@ -89,23 +89,17 @@ SYSTEM_PROMPT = """
   <div class="hero-label">Сводка отдела продаж · отчёт за вчера</div>
   <h1>{Деньнедели, D месяца YYYY}</h1>
   <div class="hero-subtitle">Связный абзац-резюме дня со ссылками на сделки/встречи.</div>
-  <div class="hero-stats">
-    <div class="hstat"><div class="hstat-num">7</div><div class="hstat-lbl">Встречи</div><div class="stat-sub">+75% к прошлому рабочему дню</div></div>
-    … 5-7 плиток из payload.hero_stats …
-  </div>
   <div class="hero-health health-green|health-amber|health-red" title="{payload.health_score.formula}">
     <div class="health-score">74</div><div><div class="health-label">здоровье дня</div><div class="health-note">Опер 82%, встречи 75%, факт 100%, штраф риска −8</div></div>
   </div>
   <nav class="anchor-nav">
-    <a class="anchor-chip" href="#main">Главное</a><a class="anchor-chip" href="#tiger">Тигр</a><a class="anchor-chip" href="#meetings-done">Встречи</a><a class="anchor-chip" href="#meeting-analysis">Разбор</a><a class="anchor-chip" href="#risks">Риски</a>
+    <a class="anchor-chip" href="#kpi-strip">Итоги</a><a class="anchor-chip" href="#tiger">Тигр</a><a class="anchor-chip" href="#oper-scorecard">Опер</a><a class="anchor-chip" href="#meetings-done">Встречи</a><a class="anchor-chip" href="#risks">Риски</a>
   </nav>
-  <div class="stats">
-    <div class="stat accent-green"><div class="stat-value">4</div><div class="stat-label">Встречи проведены</div><div class="stat-sub">разбивка/детали со ссылками</div></div>
-    … 6-8 карточек, accent: green|blue|amber|red …
-  </div>
   <div class="hero-verdict"><span class="hv-icon">⚠️</span><b>Итог за ночь:</b> связный абзац-вывод со ссылками (НЕ список фрагментов).</div>
   <div class="hero-corr">Источник данных и оговорки.</div>
 </div></div>
+
+Сразу ПОСЛЕ hero (до первой секции) выведи ровно строку-плейсхолдер [[KPI_STRIP]] отдельным абзацем — система заменит её на детерминированную KPI-полосу «Итоги дня» (встречи проведены, брифы, КП, новые сделки, назначено встреч ТМ/ОП, отказы Продажи; СПАМ исключён). САМ эти карточки НЕ рисуй и эти числа в других местах НЕ дублируй.
 
 Дальше каждая секция:
 <div class="wrap"><section [class="tinted-green|tinted-amber|tinted-red"]>
@@ -114,14 +108,10 @@ SYSTEM_PROMPT = """
   …тело секции…
 </section></div>
 Цветовая семантика везде одна: green = выигрыш/хорошо, amber = риск/внимание, red = горит/срочно. Не используй purple/blue для статуса риска — только для нейтральных акцентов.
-Каждой секции ставь id для якорей: main, tiger, action-items, risks, tm-funnel, promises-loop, managers, meetings-done, meetings-today, meeting-analysis. В карточках менеджеров добавляй id="manager-<manager_id>"; если разбор встречи связан с менеджером, можно ссылаться на этот якорь.
+Каждой секции ставь id для якорей: tiger, action-items, risks, tm-funnel, promises-loop, managers, meetings-done, meetings-today, meeting-analysis. (KPI-полоса с id="kpi-strip" и таблица id="oper-scorecard" вставляются системой — их не делай.) В карточках менеджеров добавляй id="manager-<manager_id>"; если разбор встречи связан с менеджером, можно ссылаться на этот якорь.
 
 Секции по порядку (опускай те, где нет данных):
-1. «Главное за 30 секунд» — section id="main"; <div class="cards-3"> три карточки:
-   <div class="card-30 c-red"><div class="c30-title">🔥 Горит сегодня</div><ul><li>…</li></ul></div>
-   <div class="card-30 c-amber"><div class="c30-title">💰 Денег под риском</div><div class="c30-big">&gt; X млн ₽</div><p>…</p></div>
-   <div class="card-30 c-amber"><div class="c30-title">🔧 Исправить системно</div><ul><li>…</li></ul></div>
-2. «Тигр дня» (section id="tiger" tinted-green) — менеджер с МАКС. operational_score («Опер»)
+1. «Тигр дня» (section id="tiger" tinted-green) — менеджер с МАКС. operational_score («Опер»)
    из telephony. «Опер» = реальные рабочие минуты дня (звонок 60с+ = 5 мин, чат = 10 мин, письмо = 5 мин, встреча = 60 мин, набор = 0.25 мин), нормированные к 300 мин = 10 баллов. Тигр НЕ по числу наборов — побеждает тот, кто реально потратил больше живого времени на работу с клиентами: <div class="tiger-wrap"><img class="tiger-photo" src="photo:<manager_id>" alt="Имя"><div class="tiger-body"><div class="tiger-name">Имя <span class="tiger-role">· роль</span></div><div class="tiger-quote">…</div><div class="tiger-metrics"><span class="tm-pill">Опер 7.1</span><span class="tm-pill">2 встречи</span><span class="tm-pill">15 разговоров 60с+</span><span class="tm-pill">8 чатов</span>…</div><div class="tiger-note">рейтинг по «Опер» — сумме реальных рабочих минут; рядом: следующие по Опер</div></div></div>
    Если payload.quote_of_day.text есть — сразу после Тигра добавь блок:
    <div class="quote-day"><div class="quote-day-text">«дословная цитата»</div><div class="quote-day-meta">кто/сделка/контекст из payload.quote_of_day.meta</div></div>
@@ -380,7 +370,59 @@ def build_payload(rows: dict[str, Any], extras: dict[str, Any]) -> dict[str, Any
         "deals_created": raw.get("deals_created", []),
         "telephony": _telephony(rows, users),
         "tm_funnel": _tm_funnel(rows.get("manager_activity", [])),
+        "daily_kpis": _daily_kpis(rows, raw),
 }
+
+
+SPAM_REASON_ID = "8588"
+REASON_FIELD = "UF_CRM_1771495464"
+
+
+def _deal_is_spam(deal: dict[str, Any]) -> bool:
+    """Сделка помечена причиной отказа «СПАМ» (UF_CRM_1771495464 = 8588)."""
+    value = deal.get(REASON_FIELD)
+    if isinstance(value, (list, tuple)):
+        return SPAM_REASON_ID in [str(x) for x in value]
+    return str(value) == SPAM_REASON_ID
+
+
+def _daily_kpis(rows: dict[str, Any], raw: dict[str, Any]) -> dict[str, Any]:
+    """Фиксированные KPI дня (детерминированно, не LLM). СПАМ исключаем."""
+    roles = raw.get("user_roles") or {}
+    deals_created = raw.get("deals_created") or []
+    new_total = len(deals_created)
+    new_spam = sum(1 for d in deals_created if _deal_is_spam(d))
+
+    set_tm = set_op = 0
+    for m in raw.get("meet_created_day") or []:
+        role = (roles.get(str(m.get("assignedById")), "") or "").lower()
+        if "телемаркет" in role:
+            set_tm += 1
+        elif any(k in role for k in _SALES_TM_ROLE_KEYS):
+            set_op += 1
+
+    reason_by_id = {str(d.get("ID")): d for d in (raw.get("rejected_deals") or [])}
+    sales_ids = {
+        str(h.get("OWNER_ID"))
+        for h in (raw.get("stagehistory") or [])
+        if h.get("STAGE_ID") == "C10:LOSE" and h.get("OWNER_ID")
+    }
+    rej_total = len(sales_ids)
+    rej_spam = sum(1 for i in sales_ids if _deal_is_spam(reason_by_id.get(i, {})))
+
+    return {
+        "meetings_held": len(rows.get("meetings") or []),
+        "briefs": len(raw.get("briefs") or []),
+        "kp": len(raw.get("kp") or []),
+        "new_deals": new_total - new_spam,
+        "new_deals_total": new_total,
+        "new_deals_spam": new_spam,
+        "meetings_set_tm": set_tm,
+        "meetings_set_op": set_op,
+        "sales_rejects": rej_total - rej_spam,
+        "sales_rejects_total": rej_total,
+        "sales_rejects_spam": rej_spam,
+    }
 
 
 def _hero_stats(stats: dict[str, Any], deltas: dict[str, Any]) -> list[dict[str, Any]]:
@@ -795,21 +837,91 @@ def build_oper_scorecard(telephony: list[dict[str, Any]]) -> str:
     )
 
 
-def _inject_scorecard(body: str, payload: dict[str, Any]) -> str:
-    """Подставляет детерминированную таблицу «Опер» вместо плейсхолдера.
-    Если плейсхолдер не сгенерился — вставляет после секции Тигра / первой секции."""
+_KPI_PLACEHOLDER = "[[KPI_STRIP]]"
+
+_KPI_STYLE = (
+    "<style>"
+    ".bbk{margin:6px 0 2px}"
+    ".bbk-grouplbl{font-size:11px;letter-spacing:.13em;text-transform:uppercase;"
+    "font-weight:700;color:#8a8699;margin:16px 2px 10px}"
+    ".bbk-grid{display:grid;gap:13px}"
+    ".bbk-g4{grid-template-columns:repeat(4,1fr)}"
+    ".bbk-g2{grid-template-columns:repeat(2,1fr);max-width:545px}"
+    ".bbk-g1{grid-template-columns:repeat(1,1fr);max-width:265px}"
+    ".bbk-card{background:#fff;border-radius:15px;padding:16px 18px;"
+    "box-shadow:0 1px 3px rgba(20,18,40,.06),0 8px 22px rgba(20,18,40,.04);"
+    "border:1px solid #ece9f2;border-left:3px solid #ccc}"
+    ".bbk-ic{font-size:17px;margin-bottom:8px;display:block}"
+    ".bbk-num{font-size:30px;font-weight:800;letter-spacing:-.03em;line-height:1}"
+    ".bbk-lbl{font-size:12.5px;font-weight:600;color:#4a4760;margin-top:7px}"
+    ".bbk-sub{font-size:11px;color:#9c98ab;margin-top:3px}"
+    ".bbk-g{border-left-color:#2f9e6e}.bbk-v{border-left-color:#6b5fd6}"
+    ".bbk-r{border-left-color:#d6584e}.bbk-r .bbk-num{color:#c5483f}"
+    "@media(max-width:720px){.bbk-g4{grid-template-columns:repeat(2,1fr)}}"
+    "</style>"
+)
+
+
+def _kpi_card(cls: str, ic: str, num: Any, lbl: str, sub: str) -> str:
+    sub_html = f'<div class="bbk-sub">{sub}</div>' if sub else ""
+    return (
+        f'<div class="bbk-card {cls}"><span class="bbk-ic">{ic}</span>'
+        f'<div class="bbk-num">{num}</div><div class="bbk-lbl">{lbl}</div>{sub_html}</div>'
+    )
+
+
+def build_kpi_strip(k: dict[str, Any] | None) -> str:
+    """Детерминированная KPI-полоса «Итоги дня» (данные, не LLM)."""
+    if not k:
+        return ""
+    new_sub = (
+        f'из {k["new_deals_total"]} · {k["new_deals_spam"]} СПАМ исключён'
+        if k.get("new_deals_spam")
+        else "вчера"
+    )
+    rej_sub = (
+        f'из {k["sales_rejects_total"]} · {k["sales_rejects_spam"]} СПАМ исключён'
+        if k.get("sales_rejects_spam")
+        else "воронка Продажи"
+    )
+    return (
+        _KPI_STYLE
+        + '<div class="wrap"><div class="bbk" id="kpi-strip">'
+        '<div class="bbk-grouplbl">Результат дня</div><div class="bbk-grid bbk-g4">'
+        + _kpi_card("bbk-g", "🤝", k.get("meetings_held", 0), "Встречи проведены", "вчера")
+        + _kpi_card("bbk-g", "📝", k.get("briefs", 0), "Брифы заполнены", "вчера")
+        + _kpi_card("bbk-g", "📄", k.get("kp", 0), "КП получено", "вчера")
+        + _kpi_card("bbk-g", "⚡", k.get("new_deals", 0), "Новые сделки", new_sub)
+        + '</div><div class="bbk-grouplbl">Назначено встреч</div><div class="bbk-grid bbk-g2">'
+        + _kpi_card("bbk-v", "📞", k.get("meetings_set_tm", 0), "Назначено Телемаркетингом", "встреч на будущее")
+        + _kpi_card("bbk-v", "💼", k.get("meetings_set_op", 0), "Назначено отделом продаж", "встреч на будущее")
+        + '</div><div class="bbk-grouplbl">Потери</div><div class="bbk-grid bbk-g1">'
+        + _kpi_card("bbk-r", "✖️", k.get("sales_rejects", 0), "Отказы в воронке Продажи", rej_sub)
+        + "</div></div></div>"
+    )
+
+
+def _inject_blocks(body: str, payload: dict[str, Any]) -> str:
+    """Подставляет детерминированные блоки (KPI-полоса, таблица «Опер») вместо
+    плейсхолдеров. Если плейсхолдер не сгенерился — вставляет в разумное место."""
+    # KPI-полоса «Итоги дня» — сразу под hero
+    strip = build_kpi_strip(payload.get("daily_kpis"))
+    if _KPI_PLACEHOLDER in body:
+        body = body.replace(_KPI_PLACEHOLDER, strip)
+    elif strip:
+        m = re.search(r'<div class="wrap"><section', body)
+        idx = m.start() if m else body.find("<section")
+        if idx != -1:
+            body = body[:idx] + strip + body[idx:]
+    # Таблица «Операционная вовлечённость» — под Тигром
     table = build_oper_scorecard(payload.get("telephony") or [])
     if _OPER_PLACEHOLDER in body:
-        return body.replace(_OPER_PLACEHOLDER, table)
-    if not table:
-        return body
-    m = re.search(r'<section id="tiger".*?</section>', body, re.S)
-    if m:
-        return body[: m.end()] + table + body[m.end():]
-    idx = body.find("</section>")
-    if idx != -1:
-        return body[: idx + 10] + table + body[idx + 10:]
-    return body + table
+        body = body.replace(_OPER_PLACEHOLDER, table)
+    elif table:
+        m = re.search(r'<section id="tiger".*?</section>', body, re.S)
+        if m:
+            body = body[: m.end()] + table + body[m.end():]
+    return body
 
 
 def author_report(payload: dict[str, Any], *, client, model: str | None = None) -> str | None:
@@ -837,7 +949,7 @@ def author_report(payload: dict[str, Any], *, client, model: str | None = None) 
         return None
     body = _strip_fence(analyze_llm._response_text(response))
     if _validate(body):
-        return _inject_scorecard(body, payload)
+        return _inject_blocks(body, payload)
     has_hero = 'class="hero"' in body
     print(
         f"[author] invalid body: len={len(body)} has_hero={has_hero} "
