@@ -6,12 +6,11 @@ import { usePathname } from 'next/navigation';
 import { LayoutDashboard, CalendarDays, Radio, BellRing, LogOut, Search } from 'lucide-react';
 
 const NAV = [
-  { href: '/dashboard', label: 'Dashboard', Icon: LayoutDashboard },
-  { href: '/daily', label: 'Дневной отчёт', Icon: CalendarDays },
-  { href: '/alerts', label: 'Алерты', Icon: BellRing },
+  { href: '/dashboard', label: 'Dashboard', Icon: LayoutDashboard, tag: undefined },
+  { href: '/today', label: 'Сегодня', Icon: Radio, tag: 'live' },
+  { href: '/daily', label: 'Дневной отчёт', Icon: CalendarDays, tag: undefined },
+  { href: '/alerts', label: 'Алерты', Icon: BellRing, tag: undefined },
 ];
-
-const SOON = [{ label: 'Сегодня', Icon: Radio, tag: 'live' }];
 
 const ROLE_LABEL: Record<string, string> = {
   director: 'Руководитель',
@@ -65,7 +64,7 @@ export function Sidebar({ user }: { user?: { email?: string; role?: string } }) 
           <kbd>⌘K</kbd>
         </button>
         <div className="bb-nav-label">Обзор</div>
-        {NAV.map(({ href, label, Icon }) => {
+        {NAV.map(({ href, label, Icon, tag }) => {
           const active = pathname === href || pathname.startsWith(`${href}/`);
           return (
             <Link
@@ -77,17 +76,10 @@ export function Sidebar({ user }: { user?: { email?: string; role?: string } }) 
               <Icon size={18} strokeWidth={2} />
               {label}
               {href === '/alerts' && alertCount > 0 ? <span className="bb-nav-count">{alertCount}</span> : null}
+              {tag ? <span className="bb-nav-tag">{tag}</span> : null}
             </Link>
           );
         })}
-        <div className="bb-nav-label">Скоро</div>
-        {SOON.map(({ label, Icon, tag }) => (
-          <span key={label} className="bb-nav-item soon" aria-disabled>
-            <Icon size={18} strokeWidth={2} />
-            {label}
-            <span className="bb-nav-tag">{tag}</span>
-          </span>
-        ))}
       </nav>
 
       <div className="bb-rail-foot">

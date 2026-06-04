@@ -52,6 +52,13 @@ export const sessions = pgTable('sessions', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
 });
 
+export const liveSnapshot = pgTable('live_snapshot', {
+  id: smallint('id').primaryKey(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }),
+  reportDate: date('report_date'),
+  payload: jsonb('payload'),
+});
+
 export const reports = pgTable('reports', {
   reportDate: date('report_date').primaryKey(),
   status: text('status').notNull().default('pending'),
