@@ -21,12 +21,12 @@ function Calendar({
     <DayPicker
       className={cn('p-4', className)}
       classNames={{
-        root: 'w-full',
+        root: 'relative w-full',
         months: 'flex justify-center',
-        month: 'relative w-full space-y-3',
+        month: 'w-full space-y-3',
         month_caption: 'relative flex h-10 items-center justify-center',
         caption_label: 'text-[0.95rem] font-semibold capitalize text-[#1d1d1f]',
-        nav: 'absolute inset-x-0 top-0 z-10 flex h-10 items-center justify-between px-1',
+        nav: 'absolute inset-x-4 top-4 z-10 flex h-10 items-center justify-between',
         button_previous:
           'inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#e8e4f2] bg-white text-[#5b50d6] shadow-sm transition hover:bg-[#f0eefb] hover:border-[#d6cffb] disabled:opacity-30 disabled:hover:bg-white',
         button_next:
