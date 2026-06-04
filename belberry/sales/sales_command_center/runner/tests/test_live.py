@@ -13,8 +13,8 @@ def test_build_live_payload_aggregates_with_briefs_and_meetings():
             {"PORTAL_USER_ID": 12, "CALL_DURATION": 60},
         ],
         "meetings": [
-            {"id": 1, "assignedById": 10, "title": "kandela.ru", "ufCrm16_1751009238": "2026-06-04T10:00:00", "parentId2": 555},
-            {"id": 2, "assignedById": 12, "title": "renewal.ru", "ufCrm16_1751009238": "2026-06-04T18:00:00", "parentId2": 556},
+            {"id": 1, "assignedById": 10, "title": "kandela.ru", "ufCrm16_1751009238": "2026-06-04T10:00:00", "parentId2": 555, "stageId": "DT1048_24:SUCCESS"},
+            {"id": 2, "assignedById": 12, "title": "renewal.ru", "ufCrm16_1751009238": "2026-06-04T18:00:00", "parentId2": 556, "stageId": "DT1048_24:NEW"},
         ],
         "briefs": [
             {"id": 1530, "assignedById": 10, "title": "rant.ru", "parentId2": 777, "ufCrm20_1753290430": 2726},
@@ -33,7 +33,8 @@ def test_build_live_payload_aggregates_with_briefs_and_meetings():
 
     assert p["totals"] == {
         "dials": 3, "answered": 2, "calls60": 2,
-        "meetings": 2, "meetings_done": 1, "briefs": 2, "kp": 1, "deals": 1, "emails": 1,
+        "meetings": 2, "meetings_held": 1, "meetings_scheduled": 1, "meetings_cancelled": 0,
+        "briefs": 2, "kp": 1, "deals": 1, "emails": 1,
     }
     by_id = {m["manager_id"]: m for m in p["managers"]}
     assert by_id[10]["calls60"] == 1 and by_id[10]["briefs"] == 1 and by_id[10]["meetings"] == 1 and by_id[10]["deals"] == 1
@@ -42,10 +43,10 @@ def test_build_live_payload_aggregates_with_briefs_and_meetings():
     # Лента: встречи(2)+брифы(2)+КП(1)+сделки(1) = 6
     assert len(p["feed"]) == 6
 
-    # списки
+    # списки: статусы встреч (SUCCESS→held, NEW→scheduled)
     assert len(p["meetings_list"]) == 2
-    done = {m["id"]: m["done"] for m in p["meetings_list"]}
-    assert done[1] is True and done[2] is False  # 10:00 прошло, 18:00 впереди
+    status = {m["id"]: m["status"] for m in p["meetings_list"]}
+    assert status[1] == "held" and status[2] == "scheduled"
     briefs = {b["id"]: b for b in p["briefs_list"]}
     assert briefs[1530]["service"] == "Контекстная реклама" and briefs[1530]["deal_id"] == 777
     assert briefs[1526]["service"] == "SEO"  # строковый enum-id тоже мапится

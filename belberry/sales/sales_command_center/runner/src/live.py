@@ -8,7 +8,7 @@ from datetime import date, datetime
 from typing import Any
 
 from .collect import SEL_1048, _fetch_all, _range, collect_voximplant
-from .transform import aggregate_calls, _to_int, parse_dt
+from .transform import aggregate_calls, _to_int
 
 # Поле брифа (1056) «Список услуг» — enumeration ufCrm20_1753290430.
 BRIEF_SERVICE_FIELD = "ufCrm20_1753290430"
@@ -17,6 +17,16 @@ SERVICE_MAP = {
     2730: "SEO", 2732: "ORM", 2734: "SMM", 2736: "Разработка сайта",
     2738: "Техподдержка", 2740: "Лендинг", 2742: "Фирменный стиль", 9538: "AEO",
 }
+
+
+def meeting_status(stage_id: Any) -> str:
+    """Статус встречи (1048) по стадии: SUCCESS→проведена, FAIL→отменена, иначе назначена."""
+    code = str(stage_id or "").rsplit(":", 1)[-1].upper()
+    if code == "SUCCESS":
+        return "held"
+    if code == "FAIL":
+        return "cancelled"
+    return "scheduled"
 
 
 def collect_live(today: date, bx=None) -> dict[str, Any]:
@@ -66,26 +76,24 @@ def build_live_payload(today: date, raw: dict[str, Any], now: datetime) -> dict[
             return None
         return per.setdefault(
             uid,
-            {"manager_id": uid, "dials": 0, "answered": 0, "calls60": 0, "meetings": 0, "briefs": 0, "deals": 0, "kp": 0, "emails": 0},
+            {"manager_id": uid, "dials": 0, "answered": 0, "calls60": 0, "meetings": 0,
+             "m_held": 0, "m_scheduled": 0, "m_cancelled": 0, "briefs": 0, "deals": 0, "kp": 0, "emails": 0},
         )
 
     for uid, s in call_stats.items():
         slot(uid).update(dials=s.get("dials_total", 0), answered=s.get("calls_answered", 0), calls60=s.get("calls_60s_plus", 0))
 
     meetings_list = []
-    meetings_done = 0
     for m in meetings:
         uid = _to_int(m.get("assignedById"))
         cell = slot(uid)
+        st = meeting_status(m.get("stageId"))  # held / scheduled / cancelled
         if cell:
             cell["meetings"] += 1
-        dt = parse_dt(m.get("ufCrm16_1751009238"))
-        done = bool(dt and dt <= now)
-        if done:
-            meetings_done += 1
+            cell[f"m_{st}"] += 1
         meetings_list.append(
             {"id": _to_int(m.get("id")), "title": m.get("title") or "Встреча", "manager_id": uid,
-             "at": str(m.get("ufCrm16_1751009238") or ""), "done": done, "deal_id": _to_int(m.get("parentId2"))}
+             "at": str(m.get("ufCrm16_1751009238") or ""), "status": st, "deal_id": _to_int(m.get("parentId2"))}
         )
 
     briefs_list = []
@@ -122,7 +130,9 @@ def build_live_payload(today: date, raw: dict[str, Any], now: datetime) -> dict[
         "answered": sum(x["answered"] for x in managers),
         "calls60": sum(x["calls60"] for x in managers),
         "meetings": len(meetings),
-        "meetings_done": meetings_done,
+        "meetings_held": sum(x["m_held"] for x in managers),
+        "meetings_scheduled": sum(x["m_scheduled"] for x in managers),
+        "meetings_cancelled": sum(x["m_cancelled"] for x in managers),
         "briefs": len(briefs),
         "kp": len(kp),
         "deals": len(deals),

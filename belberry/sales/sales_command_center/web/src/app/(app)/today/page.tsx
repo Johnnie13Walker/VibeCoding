@@ -40,7 +40,11 @@ export default async function TodayPage() {
   const data = await getLive();
   const t = data.totals;
   const connect = t.dials ? Math.round((t.answered / t.dials) * 100) : 0;
-  const scheduled = data.meetings.filter((m) => !m.done);
+  const MSTATUS: Record<string, { label: string; bg: string; color: string }> = {
+    held: { label: 'проведена', bg: '#e7f4ec', color: 'var(--bb-green)' },
+    scheduled: { label: 'назначена', bg: 'var(--bb-violet-soft)', color: 'var(--bb-violet)' },
+    cancelled: { label: 'отменена', bg: '#fdeced', color: 'var(--bb-red)' },
+  };
 
   return (
     <div className="bb-page bb-fade">
@@ -63,7 +67,7 @@ export default async function TodayPage() {
             <Tile icon={<PhoneForwarded size={14} />} label="Дозвоны" value={t.answered} sub={`${connect}% конверсия`} />
             <Tile icon={<Timer size={14} />} label="Звонки 60с+" value={t.calls60} />
             <Tile icon={<MessageCircle size={14} />} label="Чаты Wazzup" value={t.chats} sub={data.chatsUpdatedAt ? `обновлено ${fmtMsk(data.chatsUpdatedAt)}` : 'ждёт сбора'} />
-            <Tile icon={<Handshake size={14} />} label="Встречи" value={t.meetings} sub={`проведено ${t.meetingsDone}`} />
+            <Tile icon={<Handshake size={14} />} label="Встречи проведено" value={t.meetingsHeld} sub={`назначено ${t.meetingsScheduled} · отменено ${t.meetingsCancelled}`} />
             <Tile icon={<FileText size={14} />} label="Брифы" value={t.briefs} />
             <Tile icon={<FileText size={14} />} label="КП" value={t.kp} />
             <Tile icon={<Mail size={14} />} label="Письма" value={t.emails} />
@@ -77,14 +81,15 @@ export default async function TodayPage() {
             ) : (
               <div style={{ overflowX: 'auto' }}>
                 <table className="bb-table">
-                  <thead><tr><th>Менеджер</th><th className="r">Наборы</th><th className="r">Дозвоны</th><th className="r">60с+</th><th className="r">Чаты</th><th className="r">Письма</th><th className="r">Встречи</th><th className="r">Брифы</th><th className="r">КП</th></tr></thead>
+                  <thead><tr><th>Менеджер</th><th className="r">Наборы</th><th className="r">Дозвоны</th><th className="r">60с+</th><th className="r">Чаты</th><th className="r">Письма</th><th className="r" title="проведено · назначено · отменено">Встречи<br /><span style={{ fontWeight: 400, fontSize: 9 }}>пр·наз·отм</span></th><th className="r">Брифы</th><th className="r">КП</th></tr></thead>
                   <tbody>
                     {data.managers.map((m) => (
                       <tr key={m.managerId}>
                         <td style={{ fontWeight: 600 }}>{m.name}</td>
                         <td className="r">{m.dials}</td><td className="r">{m.answered}</td><td className="r">{m.calls60}</td>
                         <td className="r">{m.chats}</td><td className="r">{m.emails}</td>
-                        <td className="r">{m.meetings}</td><td className="r">{m.briefs}</td><td className="r">{m.kp}</td>
+                        <td className="r tabular"><b style={{ color: 'var(--bb-green)' }}>{m.mHeld}</b>·{m.mScheduled}·<span style={{ color: m.mCancelled ? 'var(--bb-red)' : 'inherit' }}>{m.mCancelled}</span></td>
+                        <td className="r">{m.briefs}</td><td className="r">{m.kp}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -96,7 +101,7 @@ export default async function TodayPage() {
           <div className="bb-grid k2" style={{ gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             {/* Назначенные встречи */}
             <div className="bb-card">
-              <div className="bb-sect-head"><span className="bb-sect-ic"><CalendarClock size={17} /></span><h2>Встречи сегодня</h2><small>{scheduled.length} впереди · {t.meetingsDone} проведено</small></div>
+              <div className="bb-sect-head"><span className="bb-sect-ic"><CalendarClock size={17} /></span><h2>Встречи сегодня</h2><small>{t.meetingsHeld} провед. · {t.meetingsScheduled} назнач. · {t.meetingsCancelled} отмен.</small></div>
               {data.meetings.length === 0 ? (
                 <p style={{ color: 'var(--bb-muted)' }}>Встреч на сегодня нет.</p>
               ) : (
@@ -108,7 +113,7 @@ export default async function TodayPage() {
                         {m.dealId ? <a className="bb-alert-title" href={dealUrl(m.dealId)} target="_blank" rel="noopener noreferrer">{m.title} <ExternalLink size={12} /></a> : <span style={{ fontWeight: 600, fontSize: 14 }}>{m.title}</span>}
                         <p className="bb-alert-meta">{m.manager}</p>
                       </div>
-                      <span className="bb-reason" style={{ background: m.done ? '#e7f4ec' : 'var(--bb-violet-soft)', color: m.done ? 'var(--bb-green)' : 'var(--bb-violet)' }}>{m.done ? 'проведена' : 'назначена'}</span>
+                      <span className="bb-reason" style={{ background: MSTATUS[m.status].bg, color: MSTATUS[m.status].color }}>{MSTATUS[m.status].label}</span>
                     </li>
                   ))}
                 </ul>
