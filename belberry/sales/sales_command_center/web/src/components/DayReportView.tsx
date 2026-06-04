@@ -14,7 +14,38 @@ function label(date: string): string {
   }
 }
 
-export function DayReportView({ availableDates, initialDate }: { availableDates: string[]; initialDate?: string }) {
+interface TigerLeader { name: string; count: number }
+interface TigerStats { monthLabel: string; days: number; leaders: TigerLeader[] }
+const MEDALS = ['🥇', '🥈', '🥉'];
+
+function TigerBoard({ tigers }: { tigers?: TigerStats }) {
+  if (!tigers || tigers.leaders.length === 0) {
+    return (
+      <div className="bb-card bb-tiger-board">
+        <div className="bb-sect-head"><span className="bb-sect-ic">🐅</span><h2>Тигры месяца</h2></div>
+        <p style={{ color: 'var(--bb-muted)', fontSize: 13 }}>Пока нет данных за месяц.</p>
+      </div>
+    );
+  }
+  const max = tigers.leaders[0].count || 1;
+  return (
+    <div className="bb-card bb-tiger-board">
+      <div className="bb-sect-head"><span className="bb-sect-ic">🐅</span><h2>Тигры месяца</h2><small>{tigers.monthLabel} · {tigers.days} дн.</small></div>
+      <ul className="bb-tiger-list">
+        {tigers.leaders.map((l, i) => (
+          <li key={l.name}>
+            <span className="bb-tiger-rank">{MEDALS[i] ?? `${i + 1}.`}</span>
+            <span className="bb-tiger-name">{l.name}</span>
+            <span className="bb-tiger-bar"><i style={{ width: `${Math.max(8, (l.count / max) * 100)}%` }} /></span>
+            <span className="bb-tiger-cnt tabular">{l.count}×</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+export function DayReportView({ availableDates, initialDate, tigers }: { availableDates: string[]; initialDate?: string; tigers?: TigerStats }) {
   // availableDates отсортированы desc (свежие сверху).
   const [selected, setSelected] = useState<string | null>(initialDate ?? null);
   const frameRef = useRef<HTMLIFrameElement>(null);
@@ -22,13 +53,16 @@ export function DayReportView({ availableDates, initialDate }: { availableDates:
   if (!selected) {
     const latest = availableDates[0];
     return (
-      <div>
-        {latest ? (
-          <button className="bb-rbtn" style={{ marginBottom: 16 }} onClick={() => setSelected(latest)}>
-            <FileText size={15} /> Открыть последний отчёт · {label(latest)}
-          </button>
-        ) : null}
-        <CalendarView availableDates={availableDates} onSelect={setSelected} />
+      <div className="bb-archive-grid">
+        <div className="bb-card">
+          {latest ? (
+            <button className="bb-rbtn" style={{ marginBottom: 16 }} onClick={() => setSelected(latest)}>
+              <FileText size={15} /> Открыть последний отчёт · {label(latest)}
+            </button>
+          ) : null}
+          <CalendarView availableDates={availableDates} onSelect={setSelected} />
+        </div>
+        <TigerBoard tigers={tigers} />
       </div>
     );
   }

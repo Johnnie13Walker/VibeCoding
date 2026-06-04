@@ -344,6 +344,19 @@ input {
 .bb-score.mid { background: #fdf2e7; color: #b5651d; }
 .bb-score.lo { background: #fdeced; color: var(--bb-red); }
 
+/* ===== Архив отчётов: календарь + Тигры месяца ===== */
+.bb-archive-grid { display: grid; grid-template-columns: minmax(300px, 400px) 1fr; gap: 16px; align-items: start; }
+@media (max-width: 820px) { .bb-archive-grid { grid-template-columns: 1fr; } }
+.bb-tiger-board .bb-sect-ic { background: #fdf2e7; font-size: 17px; }
+.bb-tiger-list { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.bb-tiger-list li { display: flex; align-items: center; gap: 10px; }
+.bb-tiger-rank { width: 26px; flex: 0 0 26px; text-align: center; font-size: 16px; font-weight: 700; color: var(--bb-faint); }
+.bb-tiger-name { flex: 0 0 160px; font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bb-tiger-bar { flex: 1; height: 9px; border-radius: 6px; background: #f0ece7; overflow: hidden; }
+.bb-tiger-bar i { display: block; height: 100%; border-radius: 6px; background: linear-gradient(90deg, #e88a3b, #d4202e); }
+.bb-tiger-cnt { flex: 0 0 auto; font-size: 13px; font-weight: 800; color: var(--bb-ink); }
+@media (max-width: 520px) { .bb-tiger-name { flex-basis: 110px; } }
+
 /* ===== Алерты ===== */
 .bb-alert-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--bb-line); }
 .bb-alert-row:last-child { border-bottom: 0; }
