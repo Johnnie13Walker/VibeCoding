@@ -2,7 +2,7 @@ import 'server-only';
 
 import { eq } from 'drizzle-orm';
 import { db } from '@/db';
-import { liveSnapshot, users } from '@/db/schema';
+import { liveChats, liveSnapshot, users } from '@/db/schema';
 import { isSalesDept } from './dashboard';
 
 export interface LiveManager {
@@ -11,6 +11,7 @@ export interface LiveManager {
   dials: number;
   answered: number;
   calls60: number;
+  chats: number;
   meetings: number;
   briefs: number;
   kp: number;
@@ -43,8 +44,9 @@ export interface LiveBrief {
 
 export interface LiveData {
   updatedAt: string | null;
+  chatsUpdatedAt: string | null;
   reportDate: string | null;
-  totals: { dials: number; answered: number; calls60: number; meetings: number; meetingsDone: number; briefs: number; kp: number; deals: number; emails: number };
+  totals: { dials: number; answered: number; calls60: number; chats: number; meetings: number; meetingsDone: number; briefs: number; kp: number; deals: number; emails: number };
   managers: LiveManager[];
   meetings: LiveMeeting[];
   briefs: LiveBrief[];
@@ -60,8 +62,8 @@ interface RawBrief { id: number | null; title: string; manager_id: number | null
 interface RawFeed { kind: LiveFeedItem['kind']; manager_id: number | null; title: string; at: string }
 
 const EMPTY: LiveData = {
-  updatedAt: null, reportDate: null,
-  totals: { dials: 0, answered: 0, calls60: 0, meetings: 0, meetingsDone: 0, briefs: 0, kp: 0, deals: 0, emails: 0 },
+  updatedAt: null, chatsUpdatedAt: null, reportDate: null,
+  totals: { dials: 0, answered: 0, calls60: 0, chats: 0, meetings: 0, meetingsDone: 0, briefs: 0, kp: 0, deals: 0, emails: 0 },
   managers: [], meetings: [], briefs: [], feed: [],
 };
 
@@ -97,9 +99,27 @@ export async function getLive(): Promise<LiveData> {
   const salesIds = new Set(shown.map((m) => m.managerId));
   const keep = (mid: number | null) => sales.length === 0 || (mid != null && salesIds.has(mid));
 
+  // Wazzup-чаты — отдельный часовой снимок live_chats (мягко, если таблицы нет).
+  let chatsMap = new Map<number, number>();
+  let chatsUpdatedAt: string | null = null;
+  try {
+    const cr = await db
+      .select({ updatedAt: liveChats.updatedAt, payload: liveChats.payload })
+      .from(liveChats)
+      .where(eq(liveChats.id, 1))
+      .limit(1);
+    if (cr[0]?.payload) {
+      const cp = cr[0].payload as { managers?: Record<string, number> };
+      chatsMap = new Map(Object.entries(cp.managers ?? {}).map(([k, v]) => [Number(k), Number(v)]));
+      chatsUpdatedAt = cr[0].updatedAt ? new Date(cr[0].updatedAt).toISOString() : null;
+    }
+  } catch {
+    /* live_chats ещё не создана */
+  }
+
   const managers: LiveManager[] = shown.map((m) => ({
     managerId: m.managerId, name: m.name, dials: m.dials, answered: m.answered,
-    calls60: m.calls60, meetings: m.meetings, briefs: m.briefs, kp: m.kp, emails: m.emails,
+    calls60: m.calls60, chats: chatsMap.get(m.managerId) ?? 0, meetings: m.meetings, briefs: m.briefs, kp: m.kp, emails: m.emails,
   }));
 
   const meetings: LiveMeeting[] = (payload.meetings_list ?? [])
@@ -121,6 +141,7 @@ export async function getLive(): Promise<LiveData> {
     meetings: meetings.length,
     meetingsDone: meetings.filter((m) => m.done).length,
     briefs: briefs.length,
+    chats: shown.reduce((s, m) => s + (chatsMap.get(m.managerId) ?? 0), 0),
     kp: shown.reduce((s, m) => s + m.kp, 0),
     deals: shown.reduce((s, m) => s + m.deals, 0),
     emails: shown.reduce((s, m) => s + m.emails, 0),
@@ -128,6 +149,7 @@ export async function getLive(): Promise<LiveData> {
 
   return {
     updatedAt: rows[0].updatedAt ? new Date(rows[0].updatedAt).toISOString() : null,
+    chatsUpdatedAt,
     reportDate: rows[0].reportDate ? String(rows[0].reportDate) : null,
     totals, managers, meetings, briefs, feed,
   };

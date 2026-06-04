@@ -5,19 +5,25 @@ from typing import Any
 from .db import build_upsert_sql, upsert
 
 
-def write_live(conn, payload: dict, report_date: str, now) -> None:
-    """Снимок «Сегодня» — одна строка (id=1), частое обновление."""
+def _write_single(conn, table: str, payload: dict, report_date: str, now) -> None:
     sql_text = build_upsert_sql(
-        "live_snapshot",
-        ["id", "updated_at", "report_date", "payload"],
-        ["id"],
-        ["updated_at", "report_date", "payload"],
+        table, ["id", "updated_at", "report_date", "payload"], ["id"], ["updated_at", "report_date", "payload"]
     )
     with conn.cursor() as cursor:
         cursor.execute(
             sql_text,
             (1, now.isoformat() if hasattr(now, "isoformat") else now, report_date, json.dumps(payload, ensure_ascii=False)),
         )
+
+
+def write_live(conn, payload: dict, report_date: str, now) -> None:
+    """Снимок «Сегодня» (лёгкий, 20 мин) — одна строка id=1."""
+    _write_single(conn, "live_snapshot", payload, report_date, now)
+
+
+def write_live_chats(conn, payload: dict, report_date: str, now) -> None:
+    """Wazzup-чаты «Сегодня» (часовой проход) — одна строка id=1."""
+    _write_single(conn, "live_chats", payload, report_date, now)
 
 
 def write_day(

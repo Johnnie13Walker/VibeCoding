@@ -10,5 +10,8 @@ TZ=Europe/Moscow
 # Пн–Пт каждые 20 мин 09:00–20:55 МСК: лёгкий снимок «Сегодня» (live).
 */20 9-20 * * 1-5 /path/to/runner/scripts/run_live.sh
 
+# Пн–Пт раз в час 09:00–20:00 МСК: тяжёлый проход Wazzup-чатов «Сегодня».
+0 9-20 * * 1-5 /path/to/runner/scripts/run_live_wazzup.sh
+
 # Ежедневно 03:00 МСК: Postgres backup + ротация.
 0 3 * * * /path/to/runner/scripts/backup_postgres.sh

@@ -1,4 +1,4 @@
-import { PhoneCall, PhoneForwarded, Timer, Handshake, FileText, Zap, Activity, CalendarClock, ExternalLink, Mail } from 'lucide-react';
+import { PhoneCall, PhoneForwarded, Timer, Handshake, FileText, Zap, Activity, CalendarClock, ExternalLink, Mail, MessageCircle } from 'lucide-react';
 import { getLive } from '@/lib/live';
 
 export const dynamic = 'force-dynamic';
@@ -62,6 +62,7 @@ export default async function TodayPage() {
             <Tile icon={<PhoneCall size={14} />} label="Наборы" value={t.dials} />
             <Tile icon={<PhoneForwarded size={14} />} label="Дозвоны" value={t.answered} sub={`${connect}% конверсия`} />
             <Tile icon={<Timer size={14} />} label="Звонки 60с+" value={t.calls60} />
+            <Tile icon={<MessageCircle size={14} />} label="Чаты Wazzup" value={t.chats} sub={data.chatsUpdatedAt ? `обновлено ${fmtMsk(data.chatsUpdatedAt)}` : 'ждёт сбора'} />
             <Tile icon={<Handshake size={14} />} label="Встречи" value={t.meetings} sub={`проведено ${t.meetingsDone}`} />
             <Tile icon={<FileText size={14} />} label="Брифы" value={t.briefs} />
             <Tile icon={<FileText size={14} />} label="КП" value={t.kp} />
@@ -76,13 +77,13 @@ export default async function TodayPage() {
             ) : (
               <div style={{ overflowX: 'auto' }}>
                 <table className="bb-table">
-                  <thead><tr><th>Менеджер</th><th className="r">Наборы</th><th className="r">Дозвоны</th><th className="r">60с+</th><th className="r">Письма</th><th className="r">Встречи</th><th className="r">Брифы</th><th className="r">КП</th></tr></thead>
+                  <thead><tr><th>Менеджер</th><th className="r">Наборы</th><th className="r">Дозвоны</th><th className="r">60с+</th><th className="r">Чаты</th><th className="r">Письма</th><th className="r">Встречи</th><th className="r">Брифы</th><th className="r">КП</th></tr></thead>
                   <tbody>
                     {data.managers.map((m) => (
                       <tr key={m.managerId}>
                         <td style={{ fontWeight: 600 }}>{m.name}</td>
                         <td className="r">{m.dials}</td><td className="r">{m.answered}</td><td className="r">{m.calls60}</td>
-                        <td className="r">{m.emails}</td>
+                        <td className="r">{m.chats}</td><td className="r">{m.emails}</td>
                         <td className="r">{m.meetings}</td><td className="r">{m.briefs}</td><td className="r">{m.kp}</td>
                       </tr>
                     ))}
