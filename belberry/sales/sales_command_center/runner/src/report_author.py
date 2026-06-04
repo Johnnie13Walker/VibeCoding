@@ -126,11 +126,7 @@ SYSTEM_PROMPT = """
    Если payload.quote_of_day.text есть — сразу после Тигра добавь блок:
    <div class="quote-day"><div class="quote-day-text">«дословная цитата»</div><div class="quote-day-meta">кто/сделка/контекст из payload.quote_of_day.meta</div></div>
    НЕ используй .ach-* классы, стрики или ачивки.
-2a. «Операционная вовлечённость» (section id="oper-scorecard") — СРАЗУ под Тигром (после quote-day): компактная таблица-рейтинг по ВСЕМ payload.telephony (уже отсортирован по «Опер» убыв.) — показывает, из чего сложился балл каждого по новой модели реальных рабочих минут. Перед таблицей строка-легенда: <p class="muted">Статус: <span class="badge b-green">НОРМ</span> <span class="badge b-amber">РИСК</span> <span class="badge b-red">СТОП</span> · «Опер» = реальные рабочие минуты / 300 × 10 (звонок 60с+ = 5 мин, чат = 10, письмо = 5, встреча = 60, набор = 0.25)</p>
-   <div class="tbl-wrap"><table><thead><tr><th>Статус</th><th>Менеджер</th><th>Роль</th><th>Наб</th><th>Дзв</th><th>60с+</th><th>Чаты</th><th>Письма</th><th>Встр</th><th>Опер</th></tr></thead><tbody>
-   <tr><td><span class="badge b-green">НОРМ</span></td><td>Фамилия Имя</td><td>ТМ</td><td>84</td><td>22</td><td>15</td><td>8</td><td>7</td><td>0</td><td><b>7.0</b></td></tr>
-   …строка на каждого менеджера из telephony…</tbody></table></div>
-   Статус-бейдж по oper_status: НОРМ=<span class="badge b-green">, РИСК=<span class="badge b-amber">, СТОП=<span class="badge b-red">. Роль: телемаркетинг→«ТМ», иначе→«ОП». Колонки строго из telephony: Наб (dials_total), Дзв (calls_answered), 60с+ (calls_60s_plus — именно они идут в «Опер» по 5 мин), Чаты (messenger_dialogs), Письма (emails_sent), Встр (meetings_held), Опер (operational_score, жирным). away-менеджеров тоже включай (Опер 0.0, СТОП). НЕ выдумывай числа — бери как есть.
+   Сразу под Тигром (после quote-day) оставь ровно строку-плейсхолдер [[OPER_SCORECARD]] отдельным абзацем — её заменит система на детерминированную таблицу операционной вовлечённости. САМ таблицу НЕ рисуй.
 3. «Кого пинать сегодня» (section id="action-items") — ТАБЛИЦА (не список) по payload.action_items:
    <div class="tbl-wrap"><table><thead><tr><th>Владелец</th><th>Что сделать</th><th>Дедлайн</th><th>Сделка</th><th>Почему горит</th><th>Срочность</th></tr></thead><tbody>
    <tr><td>Фамилия Имя<br><span class="muted">роль</span></td><td>конкретное действие</td><td>сегодня 18:00</td><td><a href="...">домен</a></td><td>почему</td><td><span class="badge b-red">сейчас</span></td></tr>
@@ -757,6 +753,65 @@ def _validate(body: str) -> bool:
     return 'class="hero"' in body or "<section" in body
 
 
+_OPER_PLACEHOLDER = "[[OPER_SCORECARD]]"
+_OPER_STATUS_BADGE = {"НОРМ": "b-green", "РИСК": "b-amber", "СТОП": "b-red"}
+
+
+def build_oper_scorecard(telephony: list[dict[str, Any]]) -> str:
+    """Детерминированная таблица «Операционная вовлечённость» (данные, не LLM)."""
+    if not telephony:
+        return ""
+    rows_html = []
+    for t in telephony:
+        st = t.get("oper_status") or "СТОП"
+        role = "ТМ" if oper.is_telemarketing(t.get("role")) else "ОП"
+        name = html.escape(str(t.get("manager") or t.get("manager_id") or "—"))
+        rows_html.append(
+            "<tr>"
+            f'<td><span class="badge {_OPER_STATUS_BADGE.get(st, "b-red")}">{st}</span></td>'
+            f"<td>{name}</td><td>{role}</td>"
+            f"<td>{t.get('dials_total', 0)}</td>"
+            f"<td>{t.get('calls_answered', 0)}</td>"
+            f"<td>{t.get('calls_60s_plus', 0)}</td>"
+            f"<td>{t.get('messenger_dialogs', 0)}</td>"
+            f"<td>{t.get('emails_sent', 0)}</td>"
+            f"<td>{t.get('meetings_held', 0)}</td>"
+            f"<td><b>{t.get('operational_score', 0)}</b></td>"
+            "</tr>"
+        )
+    legend = (
+        '<p class="muted">Статус: <span class="badge b-green">НОРМ</span> '
+        '<span class="badge b-amber">РИСК</span> <span class="badge b-red">СТОП</span> · '
+        '«Опер» = реальные рабочие минуты / 300 × 10 '
+        "(разговор 60с+ = 5 мин, чат = 10, письмо = 5, встреча = 60, набор = 0.25)</p>"
+    )
+    return (
+        '<section id="oper-scorecard"><h2>Операционная вовлечённость</h2>'
+        + legend
+        + '<div class="tbl-wrap"><table><thead><tr>'
+        "<th>Статус</th><th>Менеджер</th><th>Роль</th><th>Наб</th><th>Дзв</th>"
+        "<th>60с+</th><th>Чаты</th><th>Письма</th><th>Встр</th><th>Опер</th>"
+        "</tr></thead><tbody>" + "".join(rows_html) + "</tbody></table></div></section>"
+    )
+
+
+def _inject_scorecard(body: str, payload: dict[str, Any]) -> str:
+    """Подставляет детерминированную таблицу «Опер» вместо плейсхолдера.
+    Если плейсхолдер не сгенерился — вставляет после секции Тигра / первой секции."""
+    table = build_oper_scorecard(payload.get("telephony") or [])
+    if _OPER_PLACEHOLDER in body:
+        return body.replace(_OPER_PLACEHOLDER, table)
+    if not table:
+        return body
+    m = re.search(r'<section id="tiger".*?</section>', body, re.S)
+    if m:
+        return body[: m.end()] + table + body[m.end():]
+    idx = body.find("</section>")
+    if idx != -1:
+        return body[: idx + 10] + table + body[idx + 10:]
+    return body + table
+
+
 def author_report(payload: dict[str, Any], *, client, model: str | None = None) -> str | None:
     """Просит LLM написать тело отчёта. Возвращает HTML-тело или None при сбое."""
     user_message = "\n\n".join(
@@ -782,7 +837,7 @@ def author_report(payload: dict[str, Any], *, client, model: str | None = None) 
         return None
     body = _strip_fence(analyze_llm._response_text(response))
     if _validate(body):
-        return body
+        return _inject_scorecard(body, payload)
     has_hero = 'class="hero"' in body
     print(
         f"[author] invalid body: len={len(body)} has_hero={has_hero} "

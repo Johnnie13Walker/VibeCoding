@@ -19,6 +19,45 @@ class _Client:
         return _Client._Messages(self._text)
 
 
+def test_build_oper_scorecard_renders_rows():
+    tel = [
+        {"manager": "Семенихин Егор", "role": "Менеджер по продажам", "dials_total": 9,
+         "calls_answered": 3, "calls_60s_plus": 3, "messenger_dialogs": 1, "emails_sent": 1,
+         "meetings_held": 3, "operational_score": 7.0, "oper_status": "НОРМ"},
+        {"manager": "Исаева Дарья", "role": "Телемаркетолог", "dials_total": 84,
+         "calls_answered": 22, "calls_60s_plus": 15, "messenger_dialogs": 8, "emails_sent": 7,
+         "meetings_held": 0, "operational_score": 5.7, "oper_status": "РИСК"},
+    ]
+    out = report_author.build_oper_scorecard(tel)
+    assert 'id="oper-scorecard"' in out
+    assert "Семенихин Егор" in out and ">ОП<" in out
+    assert "Исаева Дарья" in out and ">ТМ<" in out
+    assert "b-green" in out and "b-amber" in out
+    assert "<b>7.0</b>" in out
+
+
+def test_build_oper_scorecard_empty():
+    assert report_author.build_oper_scorecard([]) == ""
+
+
+def test_inject_scorecard_replaces_placeholder():
+    body = '<div class="hero"></div>[[OPER_SCORECARD]]<section>x</section>'
+    out = report_author._inject_scorecard(
+        body, {"telephony": [{"manager": "A", "role": "x", "operational_score": 1.0, "oper_status": "СТОП"}]}
+    )
+    assert "[[OPER_SCORECARD]]" not in out
+    assert 'id="oper-scorecard"' in out
+
+
+def test_inject_scorecard_fallback_after_tiger():
+    body = '<section id="tiger">T</section><section id="x">Y</section>'
+    out = report_author._inject_scorecard(
+        body, {"telephony": [{"manager": "A", "role": "x", "operational_score": 1.0, "oper_status": "СТОП"}]}
+    )
+    assert out.index("oper-scorecard") > out.index("tiger")
+    assert out.index("oper-scorecard") < out.index('id="x"')
+
+
 def test_substitute_photos_injects_and_clears():
     body = '<img class="tiger-photo" src="photo:2806"><img class="mgr-ava" src="photo:999" alt="Нет фото">'
     out = report_author.substitute_photos(body, {"2806": "data:image/jpeg;base64,AAA"})
