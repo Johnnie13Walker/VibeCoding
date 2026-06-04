@@ -77,7 +77,7 @@ def test_build_payload_shapes_day():
     rows = {
         "deals_snapshot": [],
         "meetings": [{"meeting_id": 2180, "deal_id": 24304, "meeting_type": "defense", "manager_id": 10, "status": "success"}],
-        "manager_activity": [{"manager_id": 10, "dials_total": 89, "calls_answered": 30, "calls_120s_plus": 8}],
+        "manager_activity": [{"manager_id": 10, "dials_total": 89, "calls_answered": 30, "calls_60s_plus": 20, "calls_120s_plus": 8, "emails_sent": 0}],
         "kp_briefs": [],
     }
     extras = {
@@ -119,8 +119,9 @@ def test_build_payload_shapes_day():
     assert payload["action_items"][0]["urgency"] == "сегодня"
     assert payload["rejections"][0]["reason_label"] == "Отказ (воронка Продажи)"  # не код F
     assert payload["stats"]["calls_total"] == 89
-    # «Опер»: empty 59×1.5=88.5 + call 30×15=450 + meet 1×50=50 = 588.5 → cap 10.0
-    assert payload["telephony"][0]["operational_score"] == 10.0
+    # «Опер»: short 69×0.25=17.25 + 60с+ 20×5=100 + meet 1×60=60 = 177.25 → 5.9
+    assert payload["telephony"][0]["operational_score"] == 5.9
+    assert payload["telephony"][0]["calls_60s_plus"] == 20
     assert payload["health_score"]["score"] > 0
     assert payload["health_score"]["level"] in {"green", "amber", "red"}
     assert payload["tm_funnel"]["count"] == 0

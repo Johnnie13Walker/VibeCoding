@@ -1,23 +1,34 @@
 from src import oper
 
 
-def test_operational_score_sm_with_meeting():
-    # ОП: dials=10, answered=8 → empty=2×1.5=3; call=8×15=120; meet=1×50=50 → 173 → 5.8
-    assert oper.operational_score(dials=10, normal_calls=8, meetings_count=1, is_tm=False) == 5.8
+def test_operational_score_with_meeting():
+    # dials=10, 60с+=8 → short=2×0.25=0.5; call=8×5=40; meet=1×60=60 → 100.5 → 3.35→3.4
+    assert oper.operational_score(dials=10, calls_60s=8, meetings_count=1) == 3.4
 
 
-def test_operational_score_tm_no_meetings():
-    # ТМ: empty=2×1.5=3; call=8×12=96 → 99 → 3.3; встречи не учитываются
-    assert oper.operational_score(dials=10, normal_calls=8, meetings_count=5, is_tm=True) == 3.3
+def test_meetings_count_for_any_role():
+    # роль на балл больше не влияет: 2 встречи = 120 мин → 4.0
+    assert oper.operational_score(dials=0, calls_60s=0, meetings_count=2) == 4.0
 
 
-def test_empty_dial_minutes_capped_at_90():
-    # 1000 пустых наборов → cap 90 мин → 90/300×10 = 3.0
-    assert oper.operational_score(dials=1000, normal_calls=0, is_tm=False) == 3.0
+def test_emails_and_chats_count():
+    # 6 чатов×10=60 + 4 письма×5=20 = 80 → 2.7
+    assert oper.operational_score(dials=0, calls_60s=0, messenger_dialogs=6, emails=4) == 2.7
+
+
+def test_short_dials_capped_at_90():
+    # 1000 коротких наборов → cap 90 мин → 90/300×10 = 3.0
+    assert oper.operational_score(dials=1000, calls_60s=0) == 3.0
 
 
 def test_score_capped_at_10():
-    assert oper.operational_score(dials=74, normal_calls=40, is_tm=True) == 10.0
+    # 8 встреч×60=480 мин → cap 10.0
+    assert oper.operational_score(dials=0, calls_60s=0, meetings_count=8) == 10.0
+
+
+def test_operational_minutes_raw():
+    # 84 набора (60 коротких×0.25=15) + 24 звонка60с+×5=120 + 8 чатов×10=80 = 215
+    assert oper.operational_minutes(dials=84, calls_60s=24, messenger_dialogs=8) == 215.0
 
 
 def test_status_thresholds():

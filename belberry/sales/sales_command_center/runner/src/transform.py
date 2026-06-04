@@ -162,6 +162,20 @@ def aggregate_calls(calls: list[dict[str, Any]]) -> dict[int, dict[str, int]]:
     return {uid: dict(counter) for uid, counter in stats.items()}
 
 
+def aggregate_emails(activities: list[dict[str, Any]]) -> dict[int, int]:
+    """Исходящие письма (CRM_EMAIL) по автору — для «Опер» (письмо = 5 мин)."""
+    counts: Counter = Counter()
+    for act in activities or []:
+        if str(act.get("PROVIDER_ID")) != "CRM_EMAIL":
+            continue
+        if str(act.get("DIRECTION")) not in ("2", "O"):  # 2/O — исходящее
+            continue
+        uid = _to_int(act.get("AUTHOR_ID")) or _to_int(act.get("RESPONSIBLE_ID"))
+        if uid:
+            counts[uid] += 1
+    return dict(counts)
+
+
 def manager_name(users: dict[Any, str], uid: Any) -> str:
     return users.get(str(uid)) or users.get(uid) or str(uid)
 
@@ -213,7 +227,9 @@ def build_db_rows(raw: dict[str, Any], target_date: date, now: datetime) -> dict
     ]
 
     calls = aggregate_calls(raw.get("calls", []))
+    emails_sent = aggregate_emails(raw.get("activities", []))
     manager_ids = set(calls)
+    manager_ids.update(emails_sent)
     for key in ["meet_day", "meet_created_day", "briefs", "kp"]:
         manager_ids.update(_to_int(item.get("assignedById")) for item in raw.get(key, []))
     manager_ids.update(_to_int(d.get("ASSIGNED_BY_ID")) for d in raw.get("deals_created", []))
@@ -234,9 +250,11 @@ def build_db_rows(raw: dict[str, Any], target_date: date, now: datetime) -> dict
                 "manager_id": manager_id,
                 "calls_total": call_stats.get("calls_total", 0),
                 "calls_answered": call_stats.get("calls_answered", 0),
+                "calls_60s_plus": call_stats.get("calls_60s_plus", 0),
                 "calls_120s_plus": call_stats.get("calls_120s_plus", 0),
                 "dials_total": call_stats.get("dials_total", 0),
                 "talk_seconds": call_stats.get("talk_seconds", 0),
+                "emails_sent": emails_sent.get(manager_id, 0),
                 "meetings_set": meetings_set[manager_id],
                 "meetings_held": meetings_held[manager_id],
                 "briefs_created": briefs_created[manager_id],

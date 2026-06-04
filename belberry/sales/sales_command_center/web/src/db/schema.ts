@@ -147,6 +147,7 @@ export const managerActivity = pgTable(
     managerId: integer('manager_id').notNull(),
     callsTotal: integer('calls_total').default(0),
     callsAnswered: integer('calls_answered').default(0),
+    calls60sPlus: integer('calls_60s_plus').default(0),
     calls120sPlus: integer('calls_120s_plus').default(0),
     dialsTotal: integer('dials_total').default(0),
     meetingsSet: integer('meetings_set').default(0),
@@ -154,6 +155,7 @@ export const managerActivity = pgTable(
     briefsCreated: integer('briefs_created').default(0),
     kpSent: integer('kp_sent').default(0),
     talkSeconds: integer('talk_seconds').default(0),
+    emailsSent: integer('emails_sent').default(0),
     dealsCreatedCount: integer('deals_created_count').default(0),
   },
   (table) => [

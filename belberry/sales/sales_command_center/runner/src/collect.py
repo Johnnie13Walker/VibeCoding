@@ -515,6 +515,7 @@ def collect_day(target: date, bx=None) -> dict[str, Any]:
                 "SUBJECT",
                 "COMPLETED",
                 "RESPONSIBLE_ID",
+                "AUTHOR_ID",
                 "CREATED",
                 "DIRECTION",
                 "START_TIME",
