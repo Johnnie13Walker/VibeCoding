@@ -155,6 +155,8 @@ def aggregate_calls(calls: list[dict[str, Any]]) -> dict[int, dict[str, int]]:
         stats[uid]["talk_seconds"] += duration
         if duration > 0:
             stats[uid]["calls_answered"] += 1
+        if duration >= 60:
+            stats[uid]["calls_60s_plus"] += 1
         if duration >= 120:
             stats[uid]["calls_120s_plus"] += 1
     return {uid: dict(counter) for uid, counter in stats.items()}
