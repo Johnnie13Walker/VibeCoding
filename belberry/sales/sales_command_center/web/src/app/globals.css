@@ -215,6 +215,10 @@ input {
   text-decoration: none; transition: background 0.15s, border-color 0.15s;
 }
 .bb-hero-btn:hover { background: rgba(255, 255, 255, 0.22); border-color: rgba(255, 255, 255, 0.4); }
+.bb-seg { display: inline-flex; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 11px; padding: 3px; }
+.bb-seg a { padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; color: #c9c5f0; text-decoration: none; transition: background 0.15s, color 0.15s; }
+.bb-seg a.on { background: #fff; color: var(--bb-indigo); }
+.bb-seg a:not(.on):hover { color: #fff; }
 
 .bb-grid { display: grid; gap: 16px; }
 .bb-grid-4 { grid-template-columns: repeat(4, 1fr); }

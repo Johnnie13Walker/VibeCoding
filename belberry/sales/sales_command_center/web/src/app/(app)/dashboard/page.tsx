@@ -34,10 +34,17 @@ function SectionHead({ icon, title, hint }: { icon: React.ReactNode; title: stri
   );
 }
 
-export default async function DashboardPage() {
-  const data = await getDashboardData();
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ period?: string }>;
+}) {
+  const params = await searchParams;
+  const range: 'month' | 'week' = params.period === 'week' ? 'week' : 'month';
+  const data = await getDashboardData(range);
   const meetingsTrend = data.trend.map((t) => t.meetings);
   const dialsTrend = data.trend.map((t) => t.dials);
+  const per = range === 'week' ? 'за 7 дней' : 'за месяц';
 
   return (
     <div className="bb-page bb-fade">
@@ -51,9 +58,15 @@ export default async function DashboardPage() {
               Снимок воронки {data.snapshotDate ?? '—'} · {data.funnelCount} открытых сделок на {rub(data.funnelAmount)}
               {data.generatedAt ? ` · отчёт сформирован ${fmtMsk(data.generatedAt)} МСК` : ''}
             </div>
-            <Link href="/daily?open=last" className="bb-hero-btn">
-              <FileText size={15} /> Открыть последний отчёт
-            </Link>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 14, flexWrap: 'wrap' }}>
+              <div className="bb-seg">
+                <Link href="/dashboard?period=month" className={range === 'month' ? 'on' : ''}>Месяц</Link>
+                <Link href="/dashboard?period=week" className={range === 'week' ? 'on' : ''}>Неделя</Link>
+              </div>
+              <Link href="/daily?open=last" className="bb-hero-btn" style={{ marginTop: 0 }}>
+                <FileText size={15} /> Открыть последний отчёт
+              </Link>
+            </div>
           </div>
           <Gauge value={data.health} label="здоровье" />
         </div>
@@ -62,9 +75,9 @@ export default async function DashboardPage() {
       {/* KPI */}
       <div className="bb-grid bb-grid-4" style={{ marginBottom: 22 }}>
         <KpiCard label="Сумма воронки" value={data.funnelAmount} money icon="wallet" />
-        <KpiCard label="Встречи за месяц" value={data.meetingsHeldTotal} icon="handshake" delta={data.deltas.meetings} trend={meetingsTrend} />
-        <KpiCard label="Наборы за месяц" value={data.dialsTotal} icon="phone" delta={data.deltas.dials} trend={dialsTrend} />
-        <KpiCard label="Сделок создано" value={data.dealsCreatedTotal} icon="zap" delta={data.deltas.deals} />
+        <KpiCard label={`Встречи ${per}`} value={data.meetingsHeldTotal} icon="handshake" delta={data.deltas.meetings} trend={meetingsTrend} />
+        <KpiCard label={`Наборы ${per}`} value={data.dialsTotal} icon="phone" delta={data.deltas.dials} trend={dialsTrend} />
+        <KpiCard label={`Сделки ${per}`} value={data.dealsCreatedTotal} icon="zap" delta={data.deltas.deals} />
       </div>
 
       {/* Воронка + затор */}

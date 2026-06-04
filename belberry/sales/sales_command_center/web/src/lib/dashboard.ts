@@ -162,7 +162,49 @@ function monthBounds(day: string): { start: string; end: string; label: string }
   return { start, end, label: `${MONTHS_RU[m - 1]} ${y}` };
 }
 
-export async function getDashboardData(): Promise<DashboardData> {
+export type Period = 'month' | 'week';
+
+interface Window {
+  start: string;
+  end: string;
+  label: string;
+  prevStart: string;
+  prevEnd: string;
+}
+
+function ddmm(d: Date): string {
+  return `${String(d.getUTCDate()).padStart(2, '0')}.${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
+/** Окно периода + предыдущее окно для Δ. Месяц — календарный; неделя — 7 дней до снимка. */
+function computeWindow(snapshotDate: string, range: Period): Window {
+  if (range === 'week') {
+    const [y, m, d] = snapshotDate.split('-').map(Number);
+    const endD = new Date(Date.UTC(y, m - 1, d));
+    const startD = new Date(endD);
+    startD.setUTCDate(endD.getUTCDate() - 6);
+    const pEndD = new Date(startD);
+    pEndD.setUTCDate(startD.getUTCDate() - 1);
+    const pStartD = new Date(pEndD);
+    pStartD.setUTCDate(pEndD.getUTCDate() - 6);
+    const iso = (x: Date) => x.toISOString().slice(0, 10);
+    return {
+      start: iso(startD),
+      end: snapshotDate,
+      label: `7 дней · ${ddmm(startD)}–${ddmm(endD)}`,
+      prevStart: iso(pStartD),
+      prevEnd: iso(pEndD),
+    };
+  }
+  const mb = monthBounds(snapshotDate);
+  const [py, pm] = mb.start.split('-').map(Number);
+  const prevStart = `${pm === 1 ? py - 1 : py}-${String(pm === 1 ? 12 : pm - 1).padStart(2, '0')}-01`;
+  const prevEndDay = new Date(Date.UTC(py, pm - 1, 0)).getUTCDate();
+  const prevEnd = `${prevStart.slice(0, 7)}-${String(prevEndDay).padStart(2, '0')}`;
+  return { ...mb, prevStart, prevEnd };
+}
+
+export async function getDashboardData(range: Period = 'month'): Promise<DashboardData> {
   // Опорная дата = самый свежий снимок сделок; от него берём текущий месяц.
   const latest = await db
     .select({ d: sql<string>`max(${dealsSnapshot.reportDate})` })
@@ -191,7 +233,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     };
   }
 
-  const { start, end, label } = monthBounds(snapshotDate);
+  const { start, end, label, prevStart, prevEnd } = computeWindow(snapshotDate, range);
 
   // Имена/роли сотрудников.
   const userRows = await db
@@ -325,11 +367,7 @@ export async function getDashboardData(): Promise<DashboardData> {
   const kpTotal = team.reduce((s, x) => s + x.kpSent, 0);
   const dealsCreatedTotal = team.reduce((s, x) => s + x.dealsCreated, 0);
 
-  // Δ к прошлому месяцу — суммы активности за предыдущий календарный месяц.
-  const [py, pm] = start.split('-').map(Number);
-  const prevStart = `${pm === 1 ? py - 1 : py}-${String(pm === 1 ? 12 : pm - 1).padStart(2, '0')}-01`;
-  const prevEndDay = new Date(Date.UTC(py, pm - 1, 0)).getUTCDate();
-  const prevEnd = `${prevStart.slice(0, 7)}-${String(prevEndDay).padStart(2, '0')}`;
+  // Δ к предыдущему окну (месяц→прошлый месяц, неделя→прошлая неделя).
   const prevRows = await db
     .select({
       meetings: sql<number>`coalesce(sum(${managerActivity.meetingsHeld}),0)`,
@@ -364,14 +402,16 @@ export async function getDashboardData(): Promise<DashboardData> {
     dials: Number(r.dials),
   }));
 
-  // План ТМ по встречам из таблицы plans (period 'YYYY-MM', metric 'meetings', глобальный).
-  const period = start.slice(0, 7);
+  // План ТМ по встречам из таблицы plans (period 'YYYY-MM' месяца снимка, не
+  // окна — у недели start может быть в прошлом месяце). Для недели — ~1/4 месяца.
+  const planPeriod = snapshotDate.slice(0, 7);
   const planRows = await db
     .select({ target: plans.target })
     .from(plans)
-    .where(and(eq(plans.period, period), eq(plans.metric, 'meetings')))
+    .where(and(eq(plans.period, planPeriod), eq(plans.metric, 'meetings')))
     .limit(1);
-  const meetingsPlan = planRows[0] ? Number(planRows[0].target) : 20;
+  const monthlyPlan = planRows[0] ? Number(planRows[0].target) : 20;
+  const meetingsPlan = range === 'week' ? Math.max(1, Math.round(monthlyPlan / 4)) : monthlyPlan;
 
   const health = monthHealth(meetingsHeldTotal, meetingsPlan, team.length, stuck.length);
 
