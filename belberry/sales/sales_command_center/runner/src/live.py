@@ -37,6 +37,13 @@ def collect_live(today: date, bx=None) -> dict[str, Any]:
         {"entityTypeId": 1048, "filter": {">=ufCrm16_1751009238": d0, "<=ufCrm16_1751009238": d1}, "select": SEL_1048},
         idfield="id",
     )
+    # Встречи, НАЗНАЧЕННЫЕ сегодня (по дате создания) — даже если сама встреча на
+    # будущую дату. Без этого «назначено сегодня на потом» не видно в /today.
+    meetings_set = _fetch_all(
+        bx, "crm.item.list",
+        {"entityTypeId": 1048, "filter": {">=createdTime": d0, "<=createdTime": d1}, "select": SEL_1048},
+        idfield="id",
+    )
     deals_created = _fetch_all(
         bx, "crm.deal.list",
         {"filter": {">=DATE_CREATE": d0, "<=DATE_CREATE": d1},
@@ -59,7 +66,8 @@ def collect_live(today: date, bx=None) -> dict[str, Any]:
         {"filter": {">=CREATED": d0, "<=CREATED": d1},
          "select": ["ID", "TYPE_ID", "PROVIDER_ID", "DIRECTION", "RESPONSIBLE_ID", "AUTHOR_ID"]},
     )
-    return {"calls": calls, "meetings": meetings, "deals_created": deals_created, "kp": kp, "briefs": briefs, "activities": activities}
+    return {"calls": calls, "meetings": meetings, "meetings_set": meetings_set,
+            "deals_created": deals_created, "kp": kp, "briefs": briefs, "activities": activities}
 
 
 def build_live_payload(today: date, raw: dict[str, Any], now: datetime) -> dict[str, Any]:
@@ -83,17 +91,33 @@ def build_live_payload(today: date, raw: dict[str, Any], now: datetime) -> dict[
     for uid, s in call_stats.items():
         slot(uid).update(dials=s.get("dials_total", 0), answered=s.get("calls_answered", 0), calls60=s.get("calls_60s_plus", 0))
 
+    # meetings = встречи с датой=сегодня (проведено/отменено сегодня);
+    # meetings_set = встречи, СОЗДАННЫЕ сегодня (назначено сегодня, дата любая).
+    meetings_set = raw.get("meetings_set") or []
+    today_ids = {_to_int(m.get("id")) for m in meetings}
+    set_ids = {_to_int(m.get("id")) for m in meetings_set}
+    merged: dict[Any, dict[str, Any]] = {}
+    for m in [*meetings, *meetings_set]:
+        merged.setdefault(_to_int(m.get("id")), m)
+
     meetings_list = []
-    for m in meetings:
+    for mid, m in merged.items():
         uid = _to_int(m.get("assignedById"))
         cell = slot(uid)
         st = meeting_status(m.get("stageId"))  # held / scheduled / cancelled
+        set_today = mid in set_ids
         if cell:
             cell["meetings"] += 1
-            cell[f"m_{st}"] += 1
+            if mid in today_ids and st == "held":
+                cell["m_held"] += 1
+            elif mid in today_ids and st == "cancelled":
+                cell["m_cancelled"] += 1
+            elif set_today and st == "scheduled":
+                cell["m_scheduled"] += 1  # назначено сегодня (ещё не проведено)
         meetings_list.append(
-            {"id": _to_int(m.get("id")), "title": m.get("title") or "Встреча", "manager_id": uid,
-             "at": str(m.get("ufCrm16_1751009238") or ""), "status": st, "deal_id": _to_int(m.get("parentId2"))}
+            {"id": mid, "title": m.get("title") or "Встреча", "manager_id": uid,
+             "at": str(m.get("ufCrm16_1751009238") or ""), "status": st,
+             "deal_id": _to_int(m.get("parentId2")), "set_today": set_today}
         )
 
     briefs_list = []
@@ -129,7 +153,7 @@ def build_live_payload(today: date, raw: dict[str, Any], now: datetime) -> dict[
         "dials": sum(x["dials"] for x in managers),
         "answered": sum(x["answered"] for x in managers),
         "calls60": sum(x["calls60"] for x in managers),
-        "meetings": len(meetings),
+        "meetings": len(merged),
         "meetings_held": sum(x["m_held"] for x in managers),
         "meetings_scheduled": sum(x["m_scheduled"] for x in managers),
         "meetings_cancelled": sum(x["m_cancelled"] for x in managers),

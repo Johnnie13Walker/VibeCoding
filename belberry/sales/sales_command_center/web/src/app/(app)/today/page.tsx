@@ -101,14 +101,14 @@ export default async function TodayPage() {
           <div className="bb-grid k2" style={{ gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             {/* Назначенные встречи */}
             <div className="bb-card">
-              <div className="bb-sect-head"><span className="bb-sect-ic"><CalendarClock size={17} /></span><h2>Встречи сегодня</h2><small>{t.meetingsHeld} провед. · {t.meetingsScheduled} назнач. · {t.meetingsCancelled} отмен.</small></div>
+              <div className="bb-sect-head"><span className="bb-sect-ic"><CalendarClock size={17} /></span><h2>Встречи</h2><small>{t.meetingsHeld} провед. · {t.meetingsScheduled} назнач. сегодня · {t.meetingsCancelled} отмен.</small></div>
               {data.meetings.length === 0 ? (
                 <p style={{ color: 'var(--bb-muted)' }}>Встреч на сегодня нет.</p>
               ) : (
                 <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column' }}>
                   {data.meetings.map((m, i) => (
                     <li key={i} className="bb-alert-row" style={{ gap: 10 }}>
-                      <span className="tabular" style={{ fontWeight: 700, fontSize: 13, color: 'var(--bb-violet)', flex: '0 0 auto' }}>{timeOnly(m.at)}</span>
+                      <span className="tabular" style={{ fontWeight: 700, fontSize: 13, color: 'var(--bb-violet)', flex: '0 0 auto' }}>{fmtMsk(m.at)}</span>
                       <div style={{ minWidth: 0, flex: 1 }}>
                         {m.dealId ? <a className="bb-alert-title" href={dealUrl(m.dealId)} target="_blank" rel="noopener noreferrer">{m.title} <ExternalLink size={12} /></a> : <span style={{ fontWeight: 600, fontSize: 14 }}>{m.title}</span>}
                         <p className="bb-alert-meta">{m.manager}</p>

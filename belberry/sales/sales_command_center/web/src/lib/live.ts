@@ -35,6 +35,7 @@ export interface LiveMeeting {
   at: string;
   status: 'held' | 'scheduled' | 'cancelled';
   dealId: number | null;
+  setToday: boolean;
 }
 
 export interface LiveBrief {
@@ -62,7 +63,7 @@ interface RawManager {
   m_held?: number; m_scheduled?: number; m_cancelled?: number;
   briefs?: number; kp?: number; deals?: number; emails?: number;
 }
-interface RawMeeting { id: number | null; title: string; manager_id: number | null; at: string; status: LiveMeeting['status']; deal_id: number | null }
+interface RawMeeting { id: number | null; title: string; manager_id: number | null; at: string; status: LiveMeeting['status']; deal_id: number | null; set_today?: boolean }
 interface RawBrief { id: number | null; title: string; manager_id: number | null; deal_id: number | null; service: string }
 interface RawFeed { kind: LiveFeedItem['kind']; manager_id: number | null; title: string; at: string }
 
@@ -132,7 +133,7 @@ export async function getLive(): Promise<LiveData> {
 
   const meetings: LiveMeeting[] = (payload.meetings_list ?? [])
     .filter((m) => keep(m.manager_id))
-    .map((m) => ({ id: m.id, title: m.title, manager: nameOf(m.manager_id), at: m.at, status: m.status ?? 'scheduled', dealId: m.deal_id }));
+    .map((m) => ({ id: m.id, title: m.title, manager: nameOf(m.manager_id), at: m.at, status: m.status ?? 'scheduled', dealId: m.deal_id, setToday: m.set_today ?? false }));
 
   const briefs: LiveBrief[] = (payload.briefs_list ?? [])
     .filter((b) => keep(b.manager_id))

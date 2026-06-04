@@ -12,9 +12,14 @@ def test_build_live_payload_aggregates_with_briefs_and_meetings():
             {"PORTAL_USER_ID": 10, "CALL_DURATION": 0},
             {"PORTAL_USER_ID": 12, "CALL_DURATION": 60},
         ],
+        # дата встречи = сегодня (проведено/отменено сегодня)
         "meetings": [
             {"id": 1, "assignedById": 10, "title": "kandela.ru", "ufCrm16_1751009238": "2026-06-04T10:00:00", "parentId2": 555, "stageId": "DT1048_24:SUCCESS"},
-            {"id": 2, "assignedById": 12, "title": "renewal.ru", "ufCrm16_1751009238": "2026-06-04T18:00:00", "parentId2": 556, "stageId": "DT1048_24:NEW"},
+            {"id": 2, "assignedById": 12, "title": "renewal.ru", "ufCrm16_1751009238": "2026-06-04T18:00:00", "parentId2": 556, "stageId": "DT1048_24:FAIL"},
+        ],
+        # созданы сегодня (назначено сегодня) — встреча на будущую дату
+        "meetings_set": [
+            {"id": 3, "assignedById": 10, "title": "future.ru", "ufCrm16_1751009238": "2026-06-08T11:00:00", "parentId2": 557, "stageId": "DT1048_24:NEW"},
         ],
         "briefs": [
             {"id": 1530, "assignedById": 10, "title": "rant.ru", "parentId2": 777, "ufCrm20_1753290430": 2726},
@@ -33,20 +38,23 @@ def test_build_live_payload_aggregates_with_briefs_and_meetings():
 
     assert p["totals"] == {
         "dials": 3, "answered": 2, "calls60": 2,
-        "meetings": 2, "meetings_held": 1, "meetings_scheduled": 1, "meetings_cancelled": 0,
+        "meetings": 3, "meetings_held": 1, "meetings_scheduled": 1, "meetings_cancelled": 1,
         "briefs": 2, "kp": 1, "deals": 1, "emails": 1,
     }
     by_id = {m["manager_id"]: m for m in p["managers"]}
-    assert by_id[10]["calls60"] == 1 and by_id[10]["briefs"] == 1 and by_id[10]["meetings"] == 1 and by_id[10]["deals"] == 1
+    # У 10: встреча проведена сегодня (id1) + назначена сегодня на будущее (id3)
+    assert by_id[10]["m_held"] == 1 and by_id[10]["m_scheduled"] == 1 and by_id[10]["meetings"] == 2
+    assert by_id[10]["calls60"] == 1 and by_id[10]["briefs"] == 1 and by_id[10]["deals"] == 1
     assert by_id[10]["emails"] == 1 and by_id[12]["emails"] == 0
-    assert by_id[12]["calls60"] == 1 and by_id[12]["briefs"] == 1 and by_id[12]["kp"] == 1
-    # Лента: встречи(2)+брифы(2)+КП(1)+сделки(1) = 6
+    assert by_id[12]["m_cancelled"] == 1 and by_id[12]["calls60"] == 1 and by_id[12]["briefs"] == 1 and by_id[12]["kp"] == 1
+    # Лента: встречи дня(2)+брифы(2)+КП(1)+сделки(1) = 6 (назначенная на будущее в ленту не идёт)
     assert len(p["feed"]) == 6
 
-    # списки: статусы встреч (SUCCESS→held, NEW→scheduled)
-    assert len(p["meetings_list"]) == 2
-    status = {m["id"]: m["status"] for m in p["meetings_list"]}
-    assert status[1] == "held" and status[2] == "scheduled"
+    # списки: SUCCESS→held, FAIL→cancelled, назначенная сегодня→scheduled + флаг set_today
+    assert len(p["meetings_list"]) == 3
+    by_mid = {m["id"]: m for m in p["meetings_list"]}
+    assert by_mid[1]["status"] == "held" and by_mid[2]["status"] == "cancelled" and by_mid[3]["status"] == "scheduled"
+    assert by_mid[3]["set_today"] is True and by_mid[1]["set_today"] is False
     briefs = {b["id"]: b for b in p["briefs_list"]}
     assert briefs[1530]["service"] == "Контекстная реклама" and briefs[1530]["deal_id"] == 777
     assert briefs[1526]["service"] == "SEO"  # строковый enum-id тоже мапится
