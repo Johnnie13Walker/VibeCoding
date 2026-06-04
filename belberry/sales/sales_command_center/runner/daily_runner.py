@@ -13,7 +13,7 @@ from src.promises import compute_promises_loop
 from src.collect import collect_day
 from src.enrich import enrich_meetings
 from src.render import extract_rejections, render_report, _load_css
-from src.report_author import author_report, build_payload, substitute_photos, wrap_document
+from src.report_author import author_report, build_payload, build_telegram_digest, substitute_photos, wrap_document
 from src.transform import build_db_rows, compute_stale_deals, resolve_target_date
 from src.timeutil import now_msk
 from src.writer import write_day
@@ -145,11 +145,21 @@ def run(
         }
         counts = write_day(conn, target, rows, html, summary, status=llm_status)
         conn.commit()
+        # Дайджест для личной Telegram-доставки (детерминированно из payload +
+        # проза из готового HTML). Сбой дайджеста не должен валить прогон.
+        digest = None
+        if html and llm_status == "done":
+            try:
+                digest = build_telegram_digest(build_payload(rows, extras), html)
+            except Exception as exc:  # noqa: BLE001
+                print(f"[digest] build failed: {type(exc).__name__}: {str(exc)[:160]}", flush=True)
         return {
             "status": "done",
             "report_date": target.isoformat(),
             "counts": counts,
             "llm_status": llm_status,
+            "html": html,
+            "digest": digest,
         }
     finally:
         conn.close()
@@ -259,6 +269,7 @@ def cron_entry(
     lock_ctx=single_instance,
     notify_link=notify.send_report_link,
     notify_alert=notify.send_alert,
+    notify_dm=notify.send_report_dm,
 ) -> int:
     try:
         with lock_ctx():
@@ -282,6 +293,7 @@ def cron_entry(
 
     if result.get("status") == "done" and report_date:
         notify_link(report_date)
+        notify_dm(report_date, result.get("digest"), result.get("html"))
 
     return 0
 

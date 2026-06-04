@@ -71,6 +71,26 @@ def test_inject_blocks_replaces_both_placeholders():
     assert 'id="kpi-strip"' in out and 'id="oper-scorecard"' in out
 
 
+def test_build_telegram_digest():
+    payload = {
+        "weekday_date_ru": "Среда, 3 июня 2026",
+        "daily_kpis": {"meetings_held": 4, "briefs": 6, "kp": 6, "new_deals": 4, "new_deals_total": 12,
+                       "new_deals_spam": 8, "meetings_set_tm": 0, "meetings_set_op": 3,
+                       "sales_rejects": 0, "sales_rejects_total": 6, "sales_rejects_spam": 6},
+        "telephony": [
+            {"manager": "Семенихин Егор", "operational_score": 7.0, "oper_status": "НОРМ"},
+            {"manager": "Исаева Дарья", "operational_score": 5.7, "oper_status": "РИСК"},
+        ],
+    }
+    html_body = '<div class="hero-subtitle">День спокойный, темп в норме.</div><div class="hero-verdict"><span class="hv-icon">⚠️</span><b>Итог за ночь:</b> фокус на КП.</div>'
+    d = report_author.build_telegram_digest(payload, html_body)
+    assert "Сводка отдела продаж — Среда, 3 июня 2026" in d
+    assert "Тигр дня" in d and "Семенихин Егор" in d
+    assert "−8 спам" in d
+    assert "День спокойный, темп в норме." in d
+    assert "Итог за ночь" in d
+
+
 def test_build_oper_scorecard_renders_rows():
     tel = [
         {"manager": "Семенихин Егор", "role": "Менеджер по продажам", "dials_total": 9,

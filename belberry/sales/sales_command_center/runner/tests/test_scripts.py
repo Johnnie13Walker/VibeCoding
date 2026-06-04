@@ -35,7 +35,7 @@ def test_crontab_schedule():
     text = read_script("crontab.scc")
 
     assert "TZ=Europe/Moscow" in text
-    assert "0 9 * * 1-5" in text
+    assert "0 8 * * 1-5" in text
     assert "run_daily.sh" in text
     assert "backup_postgres.sh" in text
 

@@ -924,6 +924,58 @@ def _inject_blocks(body: str, payload: dict[str, Any]) -> str:
     return body
 
 
+_OPER_EMO = {"НОРМ": "🔥", "РИСК": "⚠️", "СТОП": "❌"}
+
+
+def _html_text(s: str) -> str:
+    """HTML-фрагмент → плоский текст (для Telegram-дайджеста)."""
+    s = re.sub(r"<[^>]+>", " ", s or "")
+    return re.sub(r"\s+", " ", html.unescape(s)).strip()
+
+
+def _extract_text(html_body: str, pattern: str) -> str:
+    m = re.search(pattern, html_body or "", re.S)
+    return _html_text(m.group(1)) if m else ""
+
+
+def build_telegram_digest(payload: dict[str, Any], html_body: str = "") -> str:
+    """Текстовый дайджест дня для Telegram (parse_mode=HTML). Данные из payload
+    (новая модель «Опер»), прозу (резюме/итог) тянем из готового HTML."""
+    e = html.escape
+    k = payload.get("daily_kpis") or {}
+    tel = payload.get("telephony") or []
+    date_ru = payload.get("weekday_date_ru") or str(payload.get("report_date") or "")
+    lines = [f"📊 <b>Сводка отдела продаж — {e(date_ru)}</b>"]
+
+    subtitle = _extract_text(html_body, r'class="hero-subtitle">(.*?)</div>')
+    if subtitle:
+        lines += ["", e(subtitle)]
+
+    spam_new = f" (−{k['new_deals_spam']} спам)" if k.get("new_deals_spam") else ""
+    spam_rej = f" (−{k['sales_rejects_spam']} спам)" if k.get("sales_rejects_spam") else ""
+    lines += [
+        "",
+        f"🤝 Встречи проведено: <b>{k.get('meetings_held', 0)}</b> · назначено ТМ {k.get('meetings_set_tm', 0)} / ОП {k.get('meetings_set_op', 0)}",
+        f"📝 Брифы {k.get('briefs', 0)} · 📄 КП {k.get('kp', 0)} · ⚡ Новые сделки <b>{k.get('new_deals', 0)}</b>{spam_new}",
+        f"✖️ Отказы в воронке Продажи: {k.get('sales_rejects', 0)}{spam_rej}",
+    ]
+
+    bits = [
+        f"{_OPER_EMO.get(t.get('oper_status'), '❌')} {e(str(t.get('manager')))} {t.get('operational_score')}"
+        for t in tel[:4]
+    ]
+    if bits:
+        lines += ["", "👥 Опер: " + " · ".join(bits)]
+    if tel:
+        tg = tel[0]
+        lines.append(f"🐅 Тигр дня — <b>{e(str(tg.get('manager')))}</b> (Опер {tg.get('operational_score')})")
+
+    verdict = _extract_text(html_body, r'class="hero-verdict">(.*?)</div>')
+    if verdict:
+        lines += ["", e(verdict)]
+    return "\n".join(lines)
+
+
 def author_report(payload: dict[str, Any], *, client, model: str | None = None) -> str | None:
     """Просит LLM написать тело отчёта. Возвращает HTML-тело или None при сбое."""
     user_message = "\n\n".join(
