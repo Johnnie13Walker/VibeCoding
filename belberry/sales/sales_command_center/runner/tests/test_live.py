@@ -22,16 +22,22 @@ def test_build_live_payload_aggregates_with_briefs_and_meetings():
         ],
         "deals_created": [{"ASSIGNED_BY_ID": 10, "TITLE": "newdeal.ru", "DATE_CREATE": "2026-06-04T11:00:00"}],
         "kp": [{"assignedById": 12, "title": "КП", "updatedTime": "2026-06-04T12:00:00"}],
+        "activities": [
+            {"PROVIDER_ID": "CRM_EMAIL", "DIRECTION": "2", "AUTHOR_ID": 10},
+            {"PROVIDER_ID": "CRM_EMAIL", "DIRECTION": "1", "AUTHOR_ID": 12},  # входящее — не считаем
+            {"PROVIDER_ID": "VOXIMPLANT_CALL", "DIRECTION": "2", "AUTHOR_ID": 10},  # звонок — не письмо
+        ],
     }
 
     p = build_live_payload(date(2026, 6, 4), raw, now)
 
     assert p["totals"] == {
         "dials": 3, "answered": 2, "calls60": 2,
-        "meetings": 2, "meetings_done": 1, "briefs": 2, "kp": 1, "deals": 1,
+        "meetings": 2, "meetings_done": 1, "briefs": 2, "kp": 1, "deals": 1, "emails": 1,
     }
     by_id = {m["manager_id"]: m for m in p["managers"]}
     assert by_id[10]["calls60"] == 1 and by_id[10]["briefs"] == 1 and by_id[10]["meetings"] == 1 and by_id[10]["deals"] == 1
+    assert by_id[10]["emails"] == 1 and by_id[12]["emails"] == 0
     assert by_id[12]["calls60"] == 1 and by_id[12]["briefs"] == 1 and by_id[12]["kp"] == 1
     # Лента: встречи(2)+брифы(2)+КП(1)+сделки(1) = 6
     assert len(p["feed"]) == 6

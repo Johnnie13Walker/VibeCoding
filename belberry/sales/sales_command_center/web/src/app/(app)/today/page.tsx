@@ -1,4 +1,4 @@
-import { PhoneCall, PhoneForwarded, Timer, Handshake, FileText, Zap, Activity, CalendarClock, ExternalLink } from 'lucide-react';
+import { PhoneCall, PhoneForwarded, Timer, Handshake, FileText, Zap, Activity, CalendarClock, ExternalLink, Mail } from 'lucide-react';
 import { getLive } from '@/lib/live';
 
 export const dynamic = 'force-dynamic';
@@ -65,6 +65,7 @@ export default async function TodayPage() {
             <Tile icon={<Handshake size={14} />} label="Встречи" value={t.meetings} sub={`проведено ${t.meetingsDone}`} />
             <Tile icon={<FileText size={14} />} label="Брифы" value={t.briefs} />
             <Tile icon={<FileText size={14} />} label="КП" value={t.kp} />
+            <Tile icon={<Mail size={14} />} label="Письма" value={t.emails} />
             <Tile icon={<Zap size={14} />} label="Сделок создано" value={t.deals} />
           </div>
 
@@ -75,12 +76,13 @@ export default async function TodayPage() {
             ) : (
               <div style={{ overflowX: 'auto' }}>
                 <table className="bb-table">
-                  <thead><tr><th>Менеджер</th><th className="r">Наборы</th><th className="r">Дозвоны</th><th className="r">60с+</th><th className="r">Встречи</th><th className="r">Брифы</th><th className="r">КП</th></tr></thead>
+                  <thead><tr><th>Менеджер</th><th className="r">Наборы</th><th className="r">Дозвоны</th><th className="r">60с+</th><th className="r">Письма</th><th className="r">Встречи</th><th className="r">Брифы</th><th className="r">КП</th></tr></thead>
                   <tbody>
                     {data.managers.map((m) => (
                       <tr key={m.managerId}>
                         <td style={{ fontWeight: 600 }}>{m.name}</td>
                         <td className="r">{m.dials}</td><td className="r">{m.answered}</td><td className="r">{m.calls60}</td>
+                        <td className="r">{m.emails}</td>
                         <td className="r">{m.meetings}</td><td className="r">{m.briefs}</td><td className="r">{m.kp}</td>
                       </tr>
                     ))}

@@ -44,7 +44,12 @@ def collect_live(today: date, bx=None) -> dict[str, Any]:
          "select": ["id", "title", "assignedById", "parentId2", BRIEF_SERVICE_FIELD, "createdTime"]},
         idfield="id",
     )
-    return {"calls": calls, "meetings": meetings, "deals_created": deals_created, "kp": kp, "briefs": briefs}
+    activities = _fetch_all(
+        bx, "crm.activity.list",
+        {"filter": {">=CREATED": d0, "<=CREATED": d1},
+         "select": ["ID", "TYPE_ID", "PROVIDER_ID", "DIRECTION", "RESPONSIBLE_ID", "AUTHOR_ID"]},
+    )
+    return {"calls": calls, "meetings": meetings, "deals_created": deals_created, "kp": kp, "briefs": briefs, "activities": activities}
 
 
 def build_live_payload(today: date, raw: dict[str, Any], now: datetime) -> dict[str, Any]:
@@ -61,7 +66,7 @@ def build_live_payload(today: date, raw: dict[str, Any], now: datetime) -> dict[
             return None
         return per.setdefault(
             uid,
-            {"manager_id": uid, "dials": 0, "answered": 0, "calls60": 0, "meetings": 0, "briefs": 0, "deals": 0, "kp": 0},
+            {"manager_id": uid, "dials": 0, "answered": 0, "calls60": 0, "meetings": 0, "briefs": 0, "deals": 0, "kp": 0, "emails": 0},
         )
 
     for uid, s in call_stats.items():
@@ -104,6 +109,13 @@ def build_live_payload(today: date, raw: dict[str, Any], now: datetime) -> dict[
         if cell:
             cell["kp"] += 1
 
+    # Отправленные письма — исходящие активности CRM_EMAIL (атрибуция автору письма).
+    for a in raw.get("activities") or []:
+        if str(a.get("PROVIDER_ID")) == "CRM_EMAIL" and str(a.get("DIRECTION")) in ("2", "O"):
+            cell = slot(_to_int(a.get("AUTHOR_ID")) or _to_int(a.get("RESPONSIBLE_ID")))
+            if cell:
+                cell["emails"] += 1
+
     managers = sorted(per.values(), key=lambda x: (x["meetings"], x["briefs"], x["dials"]), reverse=True)
     totals = {
         "dials": sum(x["dials"] for x in managers),
@@ -114,6 +126,7 @@ def build_live_payload(today: date, raw: dict[str, Any], now: datetime) -> dict[
         "briefs": len(briefs),
         "kp": len(kp),
         "deals": len(deals),
+        "emails": sum(x["emails"] for x in managers),
     }
 
     # Лента активности: встречи + брифы + КП + созданные сделки (события с временем).
