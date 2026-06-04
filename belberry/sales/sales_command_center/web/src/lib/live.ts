@@ -56,11 +56,17 @@ const EMPTY: LiveData = {
 };
 
 export async function getLive(): Promise<LiveData> {
-  const rows = await db
-    .select({ updatedAt: liveSnapshot.updatedAt, reportDate: liveSnapshot.reportDate, payload: liveSnapshot.payload })
-    .from(liveSnapshot)
-    .where(eq(liveSnapshot.id, 1))
-    .limit(1);
+  let rows: { updatedAt: Date | null; reportDate: string | null; payload: unknown }[] = [];
+  try {
+    rows = await db
+      .select({ updatedAt: liveSnapshot.updatedAt, reportDate: liveSnapshot.reportDate, payload: liveSnapshot.payload })
+      .from(liveSnapshot)
+      .where(eq(liveSnapshot.id, 1))
+      .limit(1);
+  } catch {
+    // Таблица live_snapshot ещё не создана (миграция не применена) — мягко пусто.
+    return EMPTY;
+  }
   if (!rows[0]?.payload) return EMPTY;
 
   const payload = rows[0].payload as { managers?: RawManager[]; feed?: RawFeed[] };
