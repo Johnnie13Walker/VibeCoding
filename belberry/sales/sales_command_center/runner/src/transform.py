@@ -19,22 +19,6 @@ STAGE_ORDER = [
     "Подготовка договора",
 ]
 
-# Разрез созданных сделок вход/холод (решение пользователя 07.06.2026):
-# вся воронка ТМ (CATEGORY_ID=50) = холод; воронка Продажи (CATEGORY_ID=10)
-# делится по источнику — outbound-источники = холод, остальное = вход.
-# SOURCE_ID: 12 Телемаркетинг, 1 Холодный звонок, 8 E-mail Outreach.
-OUTBOUND_SOURCES = {"1", "8", "12"}
-
-
-def deal_origin(deal: dict[str, Any]) -> str | None:
-    """Происхождение созданной сделки: 'cold' | 'incoming' | None (прочие воронки)."""
-    cat = _to_int(deal.get("CATEGORY_ID"))
-    if cat == 50:
-        return "cold"
-    if cat == 10:
-        return "cold" if str(deal.get("SOURCE_ID")) in OUTBOUND_SOURCES else "incoming"
-    return None
-
 
 def parse_dt(value: Any) -> datetime | None:
     if not value:
@@ -248,7 +232,6 @@ def build_db_rows(raw: dict[str, Any], target_date: date, now: datetime) -> dict
     manager_ids.update(emails_sent)
     for key in ["meet_day", "meet_created_day", "briefs", "kp"]:
         manager_ids.update(_to_int(item.get("assignedById")) for item in raw.get(key, []))
-    manager_ids.update(_to_int(d.get("ASSIGNED_BY_ID")) for d in raw.get("deals_created", []))
     manager_ids.update(_to_int(d.get("ASSIGNED_BY_ID")) for d in raw.get("won_deals", []))
     manager_ids.discard(None)
 
@@ -259,17 +242,38 @@ def build_db_rows(raw: dict[str, Any], target_date: date, now: datetime) -> dict
     meetings_held = Counter(_to_int(item.get("assignedById")) for item in raw.get("meet_day", []))
     briefs_created = Counter(_to_int(item.get("assignedById")) for item in raw.get("briefs", []))
     kp_sent = Counter(_to_int(item.get("assignedById")) for item in raw.get("kp", []))
-    deals_created_cnt = Counter(_to_int(d.get("ASSIGNED_BY_ID")) for d in raw.get("deals_created", []))
 
-    # Разрез созданных сделок вход/холод (только воронки Продажи+ТМ; прочие — мимо).
-    deals_cold_cnt: Counter = Counter()
-    deals_incoming_cnt: Counter = Counter()
-    for d in raw.get("deals_created", []):
-        origin = deal_origin(d)
-        if origin == "cold":
-            deals_cold_cnt[_to_int(d.get("ASSIGNED_BY_ID"))] += 1
-        elif origin == "incoming":
-            deals_incoming_cnt[_to_int(d.get("ASSIGNED_BY_ID"))] += 1
+    # «Сделки» = попавшие в воронку Продажи (CATEGORY_ID=10) за день:
+    #   вход   — созданы напрямую в cat10;
+    #   холод  — переведены из ТМ (вошли в C10:NEW, но не созданы сегодня в cat10).
+    # Признак входа в воронку — запись C10:NEW в истории стадий (есть у обоих случаев).
+    created_cat10 = {
+        str(d.get("ID")): _to_int(d.get("ASSIGNED_BY_ID"))
+        for d in raw.get("deals_created", [])
+        if _to_int(d.get("CATEGORY_ID")) == 10 and d.get("ID")
+    }
+    entered_new_ids = {
+        str(h.get("OWNER_ID"))
+        for h in raw.get("stagehistory", [])
+        if _to_int(h.get("CATEGORY_ID")) == 10 and h.get("STAGE_ID") == "C10:NEW" and h.get("OWNER_ID")
+    }
+    transferred_assignee = {
+        str(d.get("ID")): _to_int(d.get("ASSIGNED_BY_ID")) for d in raw.get("transferred_deals", [])
+    }
+    transferred_ids = entered_new_ids - set(created_cat10)
+
+    deals_incoming_cnt: Counter = Counter(v for v in created_cat10.values() if v is not None)
+    deals_cold_cnt: Counter = Counter(
+        transferred_assignee[i]
+        for i in transferred_ids
+        if transferred_assignee.get(i) is not None
+    )
+    deals_created_cnt: Counter = Counter()
+    for mid, n in deals_incoming_cnt.items():
+        deals_created_cnt[mid] += n
+    for mid, n in deals_cold_cnt.items():
+        deals_created_cnt[mid] += n
+    manager_ids.update(k for k in deals_created_cnt if k is not None)
 
     # Оплаты (выигранные сделки C10:WON) — шт и сумма по ответственному.
     deals_won_cnt: Counter = Counter()

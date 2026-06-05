@@ -8,7 +8,6 @@ from src.transform import (
     age_level,
     build_db_rows,
     compute_stale_deals,
-    deal_origin,
     manager_name,
     resolve_target_date,
     risk_reason,
@@ -143,28 +142,27 @@ def test_build_db_rows_matches_phase_one_schema_keys():
     assert rows["meetings"][0]["analysis_json"] is None
 
 
-def test_deal_origin_splits_cold_and_incoming():
-    # ТМ-воронка (CAT 50) — всегда холод, независимо от источника.
-    assert deal_origin({"CATEGORY_ID": "50", "SOURCE_ID": "STORE"}) == "cold"
-    # Продажи (CAT 10): outbound-источники = холод.
-    assert deal_origin({"CATEGORY_ID": "10", "SOURCE_ID": "12"}) == "cold"  # Телемаркетинг
-    assert deal_origin({"CATEGORY_ID": "10", "SOURCE_ID": "1"}) == "cold"   # Холодный звонок
-    # Продажи (CAT 10): остальные источники = вход.
-    assert deal_origin({"CATEGORY_ID": "10", "SOURCE_ID": "STORE"}) == "incoming"  # Контекст
-    assert deal_origin({"CATEGORY_ID": "10", "SOURCE_ID": None}) == "incoming"
-    # Прочие воронки в разрез не попадают.
-    assert deal_origin({"CATEGORY_ID": "7", "SOURCE_ID": "12"}) is None
-
-
-def test_build_db_rows_aggregates_won_and_origin_split():
+def test_build_db_rows_counts_cat10_entries_vhod_holod():
     raw = {
         "deals_created": [
-            {"ID": "1", "ASSIGNED_BY_ID": "100", "CATEGORY_ID": "50", "SOURCE_ID": "12"},  # cold (ТМ)
-            {"ID": "2", "ASSIGNED_BY_ID": "100", "CATEGORY_ID": "10", "SOURCE_ID": "1"},   # cold (outbound)
-            {"ID": "3", "ASSIGNED_BY_ID": "100", "CATEGORY_ID": "10", "SOURCE_ID": "STORE"},  # incoming
+            # созданы напрямую в cat10 = вход (2 шт у менеджера 100)
+            {"ID": "1", "ASSIGNED_BY_ID": "100", "CATEGORY_ID": "10"},
+            {"ID": "2", "ASSIGNED_BY_ID": "100", "CATEGORY_ID": "10"},
+            # создан в ТМ (cat50) — сам по себе НЕ сделка Продаж
+            {"ID": "3", "ASSIGNED_BY_ID": "100", "CATEGORY_ID": "50"},
         ],
+        "stagehistory": [
+            # вход в C10:NEW: deal 1, 2 (созданы в cat10) + deal 9 (переведён из ТМ)
+            {"OWNER_ID": "1", "CATEGORY_ID": "10", "STAGE_ID": "C10:NEW"},
+            {"OWNER_ID": "2", "CATEGORY_ID": "10", "STAGE_ID": "C10:NEW"},
+            {"OWNER_ID": "9", "CATEGORY_ID": "10", "STAGE_ID": "C10:NEW"},
+            # внутренний переход — не вход в воронку, игнор
+            {"OWNER_ID": "1", "CATEGORY_ID": "10", "STAGE_ID": "C10:EXECUTING"},
+        ],
+        # ответственный за переведённую сделку 9
+        "transferred_deals": [{"ID": "9", "ASSIGNED_BY_ID": "100"}],
         "won_deals": [
-            {"ID": "2", "ASSIGNED_BY_ID": "100", "OPPORTUNITY": "150000"},
+            {"ID": "1", "ASSIGNED_BY_ID": "100", "OPPORTUNITY": "150000"},
             {"ID": "9", "ASSIGNED_BY_ID": "100", "OPPORTUNITY": "50000.50"},
         ],
         "deals_open": [],
@@ -173,7 +171,8 @@ def test_build_db_rows_aggregates_won_and_origin_split():
     by_mgr = {r["manager_id"]: r for r in rows["manager_activity"]}
     assert 100 in by_mgr
     m = by_mgr[100]
-    assert m["deals_cold_count"] == 2
-    assert m["deals_incoming_count"] == 1
+    assert m["deals_incoming_count"] == 2  # вход: deal 1, 2
+    assert m["deals_cold_count"] == 1      # холод: deal 9 (переведён из ТМ)
+    assert m["deals_created_count"] == 3   # всего в Продажи = вход + холод
     assert m["deals_won_count"] == 2
     assert m["deals_won_amount"] == 200000.5

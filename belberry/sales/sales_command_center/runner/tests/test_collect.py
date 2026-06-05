@@ -5,7 +5,12 @@ from pathlib import Path
 import pytest
 
 from src import bx_client
-from src.collect import collect_day, collect_users_and_photos, collect_won_deals
+from src.collect import (
+    collect_day,
+    collect_transferred_deals,
+    collect_users_and_photos,
+    collect_won_deals,
+)
 from src.timeutil import next_working_day
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "2026-05-29"
@@ -110,6 +115,35 @@ def test_collect_won_deals_filters_c10_won_only():
 
 def test_collect_won_deals_empty_without_won():
     assert collect_won_deals([{"OWNER_ID": 1, "STAGE_ID": "C10:LOSE"}], bx=None) == []
+
+
+def test_collect_transferred_deals_excludes_created_in_cat10():
+    stagehistory = [
+        {"OWNER_ID": "1", "CATEGORY_ID": "10", "STAGE_ID": "C10:NEW"},   # создан сегодня в cat10
+        {"OWNER_ID": "9", "CATEGORY_ID": "10", "STAGE_ID": "C10:NEW"},   # переведён из ТМ
+        {"OWNER_ID": "5", "CATEGORY_ID": "50", "STAGE_ID": "C50:NEW"},   # ТМ, не Продажи
+    ]
+    captured = {}
+
+    def fake_fetch(bx, method, params, idfield="ID"):
+        captured["filter"] = params["filter"]
+        return [{"ID": "9", "ASSIGNED_BY_ID": "100"}]
+
+    import src.collect as collect_mod
+
+    orig = collect_mod._fetch_all
+    collect_mod._fetch_all = fake_fetch
+    try:
+        out = collect_transferred_deals(stagehistory, {"1"}, bx=None)
+    finally:
+        collect_mod._fetch_all = orig
+
+    assert captured["filter"] == {"@ID": ["9"]}  # только переведённый, без созданного в cat10
+    assert out[0]["ID"] == "9"
+
+
+def test_collect_transferred_deals_empty_without_entries():
+    assert collect_transferred_deals([{"OWNER_ID": 1, "CATEGORY_ID": "50", "STAGE_ID": "C50:NEW"}], set(), bx=None) == []
 
 
 def test_seed_fixture_has_data_contract_keys():
