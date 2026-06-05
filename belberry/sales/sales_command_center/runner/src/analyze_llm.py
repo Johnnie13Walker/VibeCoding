@@ -90,6 +90,10 @@ SYSTEM_PROMPT = """
 - meeting_segment — primary для первичного брифинга/защиты, repeat для повторной
   встречи с движением от прошлого контакта.
 - transcript_based — true только если разбор построен по реальному транскрипту.
+- summary_sent — true, если по транскрипту/переписке менеджер ОТПРАВИЛ клиенту итоги
+  встречи (резюме договорённостей, следующие шаги). Если этого не видно — false.
+- budget_named — true, если на встрече НАЗВАН бюджет клиента (хотя бы ориентир суммы).
+  Если бюджет не вскрыт/не обсуждался — false.
 - Верни JSON по схеме:
 {
   "meeting_type": "defense|briefing|other",
@@ -108,6 +112,8 @@ SYSTEM_PROMPT = """
   "status_discrepancy": true|false,
   "status_discrepancy_note": "..." | null,
   "verdict": "...",
+  "summary_sent": true,
+  "budget_named": true,
   "transcript_status": "ok"
 }
 """
@@ -395,6 +401,15 @@ def _normalize_segment(value: Any) -> str:
     return value if value in {"primary", "repeat"} else "primary"
 
 
+def _opt_bool(value: Any) -> bool | None:
+    """Дискретный флаг качества: True/False, либо None если LLM не вернул."""
+    if isinstance(value, bool):
+        return value
+    if value in (None, ""):
+        return None
+    return str(value).strip().lower() in {"true", "1", "да", "yes"}
+
+
 def _normalize_analysis(parsed: dict[str, Any]) -> dict[str, Any]:
     checklist = []
     for item in parsed.get("checklist") or []:
@@ -428,6 +443,8 @@ def _normalize_analysis(parsed: dict[str, Any]) -> dict[str, Any]:
         "status_discrepancy": bool(parsed.get("status_discrepancy")),
         "status_discrepancy_note": parsed.get("status_discrepancy_note"),
         "verdict": parsed.get("verdict") or "",
+        "summary_sent": _opt_bool(parsed.get("summary_sent")),
+        "budget_named": _opt_bool(parsed.get("budget_named")),
         "transcript_status": "ok",
     }
 

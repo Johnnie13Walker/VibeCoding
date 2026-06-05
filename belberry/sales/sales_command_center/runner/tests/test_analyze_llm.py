@@ -22,6 +22,8 @@ FIXED_ANALYSIS = {
     "status_discrepancy": True,
     "status_discrepancy_note": "В Bitrix успех, но клиент попросил материалы и не согласовал следующий шаг.",
     "verdict": "Защита не закрыта.",
+    "summary_sent": False,
+    "budget_named": False,
     "transcript_status": "ok",
 }
 FIXED_NARRATIVE = {
@@ -88,6 +90,8 @@ def test_analyze_meeting_returns_structured_json():
     assert result["duration_min"] == 28
     assert result["meeting_segment"] == "repeat"
     assert result["transcript_based"] is True
+    assert result["summary_sent"] is False
+    assert result["budget_named"] is False
 
 
 def test_system_prompt_uses_cache_control():
