@@ -17,7 +17,7 @@ from .collect import SEL_1048, _collect_wazzup, _fetch_all, _range
 from .db import connect, upsert
 from .enrich import enrich_meetings
 from .timeutil import MSK
-from .transform import build_db_rows
+from .transform import build_db_rows, build_post_meeting_comms
 
 _EMPTY_RAW_KEYS = {
     "deals_open": [], "deals_created": [], "stagehistory": [], "won_deals": [],
@@ -36,7 +36,20 @@ def collect_meetings_raw(target: date, bx=None) -> dict:
     )
     deal_ids = {item.get("parentId2") for item in meet_day if item.get("parentId2")}
     wazzup = _collect_wazzup(deal_ids, bx) if deal_ids else {}
-    return {"report_date": target.isoformat(), "meet_day": meet_day, "wazzup": wazzup, **_EMPTY_RAW_KEYS}
+    # Исходящие письма по сделкам встреч — для детекта «итоги отправлены».
+    activities: list = []
+    if deal_ids:
+        activities = _fetch_all(
+            bx,
+            "crm.activity.list",
+            {
+                "filter": {"OWNER_TYPE_ID": 2, "@OWNER_ID": [str(i) for i in deal_ids], "PROVIDER_ID": "CRM_EMAIL"},
+                "select": ["ID", "OWNER_ID", "OWNER_TYPE_ID", "PROVIDER_ID", "SUBJECT", "DIRECTION", "CREATED"],
+            },
+        )
+    raw = {"report_date": target.isoformat(), "meet_day": meet_day, "wazzup": wazzup, **_EMPTY_RAW_KEYS}
+    raw["activities"] = activities
+    return raw
 
 
 def reanalyze_day(target: date, conn=None, bx=None, dry_run: bool = False) -> dict[str, int]:
@@ -56,8 +69,9 @@ def reanalyze_day(target: date, conn=None, bx=None, dry_run: bool = False) -> di
         row["transcript_text"] = tr.get("text")
         row["transcript_ok"] = tr.get("transcript_status") == "ok"
 
+    post_comms = build_post_meeting_comms(raw["meet_day"], raw.get("wazzup"), raw.get("activities"))
     client = analyze_llm.get_client()
-    analyses = analyze_llm.analyze_day(enriched, meetings_meta, client=client, wazzup=raw.get("wazzup"))
+    analyses = analyze_llm.analyze_day(enriched, meetings_meta, client=client, wazzup=post_comms)
     analyzed = 0
     for row in meetings_rows:
         mid = int(row["meeting_id"])

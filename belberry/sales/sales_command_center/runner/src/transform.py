@@ -335,6 +335,48 @@ def build_db_rows(raw: dict[str, Any], target_date: date, now: datetime) -> dict
     }
 
 
+def build_post_meeting_comms(
+    meet_day: list[dict[str, Any]] | None,
+    wazzup: dict[Any, list[dict[str, Any]]] | None,
+    activities: list[dict[str, Any]] | None,
+) -> dict[str, str]:
+    """Пост-встречная коммуникация по каждой встрече: Wazzup-сообщения и исходящие
+    письма по сделке, отправленные ПОСЛЕ времени встречи. По ней LLM судит, отправлены
+    ли клиенту итоги встречи. Ключ — meeting_id (str), как ждёт analyze_day."""
+    emails_by_deal: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for act in activities or []:
+        if str(act.get("PROVIDER_ID")) != "CRM_EMAIL":
+            continue
+        if str(act.get("DIRECTION")) not in ("2", "O"):  # исходящее
+            continue
+        if str(act.get("OWNER_TYPE_ID")) != "2":  # сделка
+            continue
+        emails_by_deal[str(act.get("OWNER_ID"))].append(act)
+
+    out: dict[str, str] = {}
+    for item in meet_day or []:
+        mid = item.get("id")
+        if mid is None:
+            continue
+        deal = str(item.get("parentId2") or "")
+        mtime = str(item.get("ufCrm16_1751009238") or "")
+        parts: list[str] = []
+        for c in (wazzup or {}).get(deal, []) or []:
+            created = str(c.get("CREATED") or c.get("created") or "")
+            if mtime and created <= mtime:
+                continue
+            body = str(c.get("COMMENT") or "").strip()
+            if body:
+                parts.append(f"[Wazzup {created}] {body}")
+        for e in emails_by_deal.get(deal, []):
+            created = str(e.get("CREATED") or "")
+            if mtime and created <= mtime:
+                continue
+            parts.append(f"[Письмо {created}] тема: {e.get('SUBJECT') or ''}")
+        out[str(mid)] = "\n".join(parts)[:4000]
+    return out
+
+
 def _meeting_type(item: dict[str, Any]) -> str | None:
     title = (item.get("title") or "").lower()
     if "защ" in title:

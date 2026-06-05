@@ -7,6 +7,7 @@ from src.transform import (
     aggregate_calls,
     age_level,
     build_db_rows,
+    build_post_meeting_comms,
     compute_stale_deals,
     manager_name,
     resolve_target_date,
@@ -140,6 +141,26 @@ def test_build_db_rows_matches_phase_one_schema_keys():
         "analysis_status",
     }
     assert rows["meetings"][0]["analysis_json"] is None
+
+
+def test_build_post_meeting_comms_only_after_meeting():
+    meet_day = [{"id": 10, "parentId2": 100, "ufCrm16_1751009238": "2026-06-04T16:00:00+03:00"}]
+    wazzup = {
+        "100": [
+            {"CREATED": "2026-06-04T15:00:00+03:00", "COMMENT": "до встречи — не итоги"},
+            {"CREATED": "2026-06-04T17:30:00+03:00", "COMMENT": "Итоги встречи: договорились о КП"},
+        ]
+    }
+    activities = [
+        {"PROVIDER_ID": "CRM_EMAIL", "DIRECTION": "2", "OWNER_TYPE_ID": "2", "OWNER_ID": "100", "CREATED": "2026-06-04T18:00:00+03:00", "SUBJECT": "Итоги встречи и КП"},
+        {"PROVIDER_ID": "CRM_EMAIL", "DIRECTION": "1", "OWNER_TYPE_ID": "2", "OWNER_ID": "100", "CREATED": "2026-06-04T19:00:00+03:00", "SUBJECT": "входящее — игнор"},
+    ]
+    out = build_post_meeting_comms(meet_day, wazzup, activities)
+    text = out["10"]
+    assert "Итоги встречи: договорились" in text  # Wazzup после встречи
+    assert "Итоги встречи и КП" in text           # исходящее письмо после встречи
+    assert "до встречи" not in text               # сообщение до встречи отброшено
+    assert "входящее" not in text                 # входящее письмо отброшено
 
 
 def test_build_db_rows_counts_cat10_entries_vhod_holod():
