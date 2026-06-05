@@ -1,7 +1,9 @@
 import Link from 'next/link';
-import { Filter, FileText, TrendingUp } from 'lucide-react';
+import { Filter, FileText, TrendingUp, Target, Star } from 'lucide-react';
 import { FunnelBars } from '@/components/dashboard/FunnelBars';
 import { SalesFunnel } from '@/components/dashboard/SalesFunnel';
+import { ForecastView } from '@/components/dashboard/Forecast';
+import { MeetingQualityView } from '@/components/dashboard/MeetingQuality';
 import { KpiCard } from '@/components/dashboard/KpiCard';
 import { Gauge } from '@/components/dashboard/Gauge';
 import { getDashboardData } from '@/lib/dashboard';
@@ -80,6 +82,12 @@ export default async function DashboardPage({
         <KpiCard label={`Сделки ${per}`} value={data.dealsCreatedTotal} icon="zap" delta={data.deltas.deals} />
       </div>
 
+      {/* Прогноз закрытия месяца + pacing (КД-хедлайн) */}
+      <div className="bb-card" style={{ marginBottom: 16 }}>
+        <SectionHead icon={<Target size={17} />} title="Прогноз закрытия месяца" hint="взвешенная воронка + темп" />
+        <ForecastView data={data.forecast} />
+      </div>
+
       {/* Воронка продаж — снимок открытых сделок по стадиям */}
       <div className="bb-card" style={{ marginBottom: 16 }}>
         <SectionHead icon={<Filter size={17} />} title="Воронка продаж" hint={`снимок ${data.snapshotDate ?? '—'}`} />
@@ -92,7 +100,13 @@ export default async function DashboardPage({
         <SalesFunnel data={data.salesFunnel} />
       </div>
 
-      {/* Ниже будут новые блоки v1: помесячная динамика/Day2Day, план/факт. */}
+      {/* Качество встреч — из LLM-разбора транскриптов */}
+      <div className="bb-card" style={{ marginBottom: 16 }}>
+        <SectionHead icon={<Star size={17} />} title="Качество встреч" hint="разбор по транскриптам" />
+        <MeetingQualityView data={data.meetingQuality} />
+      </div>
+
+      {/* Дальше: блоки по менеджерам/ТМ, скорость+возраст, win rate, динамика, план/факт. */}
     </div>
   );
 }

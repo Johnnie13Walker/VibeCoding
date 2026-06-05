@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 // Не поднимаем реальный postgres-клиент при импорте модуля.
 vi.mock('@/db', () => ({ db: {} }));
 
-import { buildFunnel, buildSalesFunnel } from '../dashboard';
+import { buildFunnel, buildSalesFunnel, buildForecast, buildMeetingQuality } from '../dashboard';
 
 describe('buildFunnel', () => {
   it('группирует открытые сделки по стадиям, считает количество и суммы', () => {
@@ -101,5 +101,59 @@ describe('buildSalesFunnel', () => {
     expect(f.steps.every((s) => s.count === 0)).toBe(true);
     expect(f.steps[1].convFromPrev).toBeNull();
     expect(f.avgCheck).toBe(0);
+  });
+});
+
+describe('buildForecast', () => {
+  const funnel = [
+    { stage: 'C10:UC_KC7195', label: 'Подготовка договора', order: 5, count: 1, amount: 250000 },
+    { stage: 'C10:FINAL_INVOICE', label: 'Догрев и переговоры', order: 4, count: 3, amount: 4000000 },
+    { stage: 'C10:EXECUTING', label: 'Подготовка КП', order: 3, count: 2, amount: 2000000 },
+  ];
+
+  it('взвешивает воронку по стадиям и добавляет оплаченное', () => {
+    // 250k*0.8=200k + 4M*0.25=1M + 2M*0.15=300k = 1.5M взвешенно; +0.3M оплачено = 1.8M
+    const f = buildForecast(funnel, 300000, 1500000, 15, 30);
+    expect(f.weighted).toBe(1_500_000);
+    expect(f.forecastClose).toBe(1_800_000);
+    expect(f.pct).toBe(120); // 1.8M / 1.5M
+    // pacing: ожид. = 1.5M * 15/30 = 750k; факт 300k → 40%
+    expect(f.paceExpected).toBe(750_000);
+    expect(f.pacePct).toBe(40);
+    // стадии отсортированы по взвешенному убыванию (Догрев первым)
+    expect(f.byStage[0].label).toBe('Догрев и переговоры');
+  });
+
+  it('без плана выручки не делит на ноль', () => {
+    const f = buildForecast(funnel, 0, 0, 10, 30);
+    expect(f.pct).toBeNull();
+    expect(f.paceExpected).toBe(0);
+    expect(f.pacePct).toBeNull();
+  });
+});
+
+describe('buildMeetingQuality', () => {
+  it('средний балл, % со след.шагом, балл по типам, топ проблемных', () => {
+    const q = buildMeetingQuality([
+      { score: 8, hasNextStep: true, type: 'defense', note: 'сильная защита', date: '2026-06-03', manager: 'А' },
+      { score: 4, hasNextStep: false, type: 'briefing', note: 'анкета вместо диалога', date: '2026-06-02', manager: 'Б' },
+      { score: 6, hasNextStep: true, type: 'briefing', note: '', date: '2026-06-01', manager: 'В' },
+      { score: null, hasNextStep: false, type: 'other', note: '', date: '2026-06-01', manager: 'Г' },
+    ]);
+    expect(q.count).toBe(4);
+    expect(q.avgScore).toBe(6); // (8+4+6)/3
+    expect(q.pctNextStep).toBe(50); // 2 из 4
+    expect(q.defenseAvg).toBe(8);
+    expect(q.briefingAvg).toBe(5); // (4+6)/2
+    expect(q.problematic[0].score).toBe(4); // худшая первой
+    expect(q.problematic[0].manager).toBe('Б');
+  });
+
+  it('пустой ввод не падает', () => {
+    const q = buildMeetingQuality([]);
+    expect(q.count).toBe(0);
+    expect(q.avgScore).toBeNull();
+    expect(q.pctNextStep).toBeNull();
+    expect(q.problematic).toEqual([]);
   });
 });

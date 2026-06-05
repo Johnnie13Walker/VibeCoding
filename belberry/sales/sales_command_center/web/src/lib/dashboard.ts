@@ -73,6 +73,8 @@ export interface DashboardData {
   kpTotal: number;
   dealsCreatedTotal: number;
   salesFunnel: SalesFunnel;
+  forecast: Forecast;
+  meetingQuality: MeetingQuality;
   deltas: { meetings: KpiDelta; dials: KpiDelta; kp: KpiDelta; deals: KpiDelta };
   trend: TrendPoint[];
   health: number;
@@ -219,6 +221,104 @@ export function buildSalesFunnel(input: SalesFunnelInput): SalesFunnel {
   };
 }
 
+// Вероятность закрытия по стадии воронки Продажи — для взвешенного прогноза.
+// Эвристика (калибруется по историческому win rate): чем ближе к договору, тем выше.
+const STAGE_PROB: Record<string, number> = {
+  'C10:NEW': 0.05,
+  'C10:PREPAYMENT_INVOIC': 0.08,
+  'C10:EXECUTING': 0.15,
+  'C10:FINAL_INVOICE': 0.25,
+  'C10:UC_KC7195': 0.8,
+};
+
+export interface ForecastStage {
+  label: string;
+  amount: number;
+  prob: number;
+  weighted: number;
+}
+
+export interface Forecast {
+  paid: number;
+  weighted: number;
+  forecastClose: number;
+  planRevenue: number;
+  pct: number | null;
+  byStage: ForecastStage[];
+  paceExpected: number;
+  pacePct: number | null;
+}
+
+/** Прогноз закрытия месяца: оплачено + взвешенная открытая воронка. Чистая функция. */
+export function buildForecast(
+  funnel: FunnelStage[],
+  paid: number,
+  planRevenue: number,
+  dayOfMonth: number,
+  daysInMonth: number,
+): Forecast {
+  const byStage = funnel
+    .map((s) => {
+      const prob = STAGE_PROB[s.stage] ?? 0;
+      return { label: s.label, amount: s.amount, prob, weighted: Math.round(s.amount * prob) };
+    })
+    .sort((a, b) => b.weighted - a.weighted);
+  const weighted = byStage.reduce((acc, x) => acc + x.weighted, 0);
+  const forecastClose = paid + weighted;
+  const pct = planRevenue > 0 ? Math.round((forecastClose / planRevenue) * 100) : null;
+  const paceExpected = planRevenue > 0 ? Math.round((planRevenue * dayOfMonth) / Math.max(1, daysInMonth)) : 0;
+  const pacePct = paceExpected > 0 ? Math.round((paid / paceExpected) * 100) : null;
+  return { paid, weighted, forecastClose, planRevenue, pct, byStage, paceExpected, pacePct };
+}
+
+export interface ProblemMeeting {
+  date: string;
+  manager: string;
+  score: number | null;
+  note: string;
+}
+
+export interface MeetingQuality {
+  count: number;
+  avgScore: number | null;
+  pctNextStep: number | null;
+  briefingAvg: number | null;
+  defenseAvg: number | null;
+  problematic: ProblemMeeting[];
+}
+
+export interface MeetingQualityInput {
+  score: number | null;
+  hasNextStep: boolean;
+  type: string | null;
+  note: string;
+  date: string;
+  manager: string;
+}
+
+/** Качество встреч из LLM-разбора: средний балл, % со след.шагом, балл по типам,
+ *  топ проблемных. Чистая функция — тестируема. */
+export function buildMeetingQuality(items: MeetingQualityInput[]): MeetingQuality {
+  const avg = (arr: number[]): number | null =>
+    arr.length ? Math.round((arr.reduce((a, b) => a + b, 0) / arr.length) * 10) / 10 : null;
+  const scored = items.filter((i) => typeof i.score === 'number') as (MeetingQualityInput & { score: number })[];
+  const pctNextStep = items.length
+    ? Math.round((items.filter((i) => i.hasNextStep).length / items.length) * 100)
+    : null;
+  const problematic = [...scored]
+    .sort((a, b) => a.score - b.score)
+    .slice(0, 5)
+    .map((i) => ({ date: i.date, manager: i.manager, score: i.score, note: i.note }));
+  return {
+    count: items.length,
+    avgScore: avg(scored.map((i) => i.score)),
+    pctNextStep,
+    briefingAvg: avg(scored.filter((i) => i.type === 'briefing').map((i) => i.score)),
+    defenseAvg: avg(scored.filter((i) => i.type === 'defense').map((i) => i.score)),
+    problematic,
+  };
+}
+
 const MONTHS_RU = [
   'январь', 'февраль', 'март', 'апрель', 'май', 'июнь',
   'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь',
@@ -300,6 +400,8 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
         dealsTotal: 0, dealsCold: 0, dealsIncoming: 0, firstMeetings: 0,
         presentations: 0, kpSent: 0, wonCount: 0, wonAmount: 0,
       }),
+      forecast: buildForecast([], 0, 0, 1, 30),
+      meetingQuality: buildMeetingQuality([]),
       deltas: { meetings: zeroDelta, dials: zeroDelta, kp: zeroDelta, deals: zeroDelta },
       trend: [],
       health: 0,
@@ -394,6 +496,7 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
     .select({
       managerId: meetings.managerId,
       date: meetings.reportDate,
+      type: meetings.meetingType,
       analysis: meetings.analysisJson,
     })
     .from(meetings)
@@ -482,6 +585,44 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
     wonAmount: team.reduce((s, x) => s + x.dealsWonAmount, 0),
   });
 
+  // Качество встреч (LLM-разбор) — по разобранным встречам отдела за период.
+  const salesIdSet = new Set(salesIds);
+  const mqInputs: MeetingQualityInput[] = anRows
+    .filter((r) => r.managerId != null && salesIdSet.has(r.managerId))
+    .map((r) => {
+      const a = (r.analysis ?? {}) as {
+        score?: number;
+        observations?: { kind?: string; text?: string }[];
+        verdict?: string;
+        systemic_conclusion?: string;
+        next_step?: unknown;
+        next_steps?: unknown[];
+      };
+      const risk = (a.observations ?? []).find((o) => o.kind === 'risk' && o.text);
+      const note = (risk?.text || a.verdict || a.systemic_conclusion || '').toString().trim();
+      const hasNextStep = a.next_step != null || (Array.isArray(a.next_steps) && a.next_steps.length > 0);
+      return {
+        score: typeof a.score === 'number' ? a.score : null,
+        hasNextStep,
+        type: r.type,
+        note,
+        date: String(r.date),
+        manager: userMap.get(r.managerId as number)?.name ?? `id ${r.managerId}`,
+      };
+    });
+  const meetingQuality = buildMeetingQuality(mqInputs);
+
+  // Прогноз закрытия месяца: оплачено + взвешенная воронка; pacing к плану выручки.
+  const revPlanRows = await db
+    .select({ target: plans.target })
+    .from(plans)
+    .where(and(eq(plans.period, snapshotDate.slice(0, 7)), eq(plans.metric, 'revenue'), sql`${plans.managerId} is null`))
+    .limit(1);
+  const planRevenue = revPlanRows[0] ? Number(revPlanRows[0].target) : 0;
+  const [fy, fm, fd] = snapshotDate.split('-').map(Number);
+  const daysInMonth = new Date(Date.UTC(fy, fm, 0)).getUTCDate();
+  const forecast = buildForecast(funnel, salesFunnel.wonAmount, planRevenue, fd, daysInMonth);
+
   // Δ к предыдущему окну (месяц→прошлый месяц, неделя→прошлая неделя).
   const prevRows = await db
     .select({
@@ -552,6 +693,8 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
     kpTotal,
     dealsCreatedTotal,
     salesFunnel,
+    forecast,
+    meetingQuality,
     deltas,
     trend,
     health,
