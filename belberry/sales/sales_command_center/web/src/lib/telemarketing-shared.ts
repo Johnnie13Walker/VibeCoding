@@ -115,14 +115,14 @@ export interface TmManagerRow {
   calls60: number;
   talkHours: number;
   meetingsSet: number;
-  meetingsHeld: number;
   /** Конверсия дозвон→встреча, %. */
   convDialToMeeting: number | null;
-  /** Явка = проведено / назначено, %. */
-  heldPct: number | null;
 }
 
-/** Таблица по звонарям, сортировка по наборам. Чистая функция. */
+/** Таблица по звонарям, сортировка по наборам. Чистая функция.
+ * Намеренно БЕЗ «проведено/явка»: meetings_held атрибутируется ответственному
+ * (продавцу), а не создателю-ТМ → для ТМ ≈0 (недостоверно). Явка по ТМ-встречам
+ * требует атрибуции исхода на создателя в раннере (fast-follow). */
 export function buildTmManagerTable(members: TmMember[]): TmManagerRow[] {
   return members
     .map((m) => ({
@@ -135,9 +135,7 @@ export function buildTmManagerTable(members: TmMember[]): TmManagerRow[] {
       calls60: m.calls60,
       talkHours: Math.round((m.talkSeconds / 3600) * 10) / 10,
       meetingsSet: m.meetingsSet,
-      meetingsHeld: m.meetingsHeld,
       convDialToMeeting: pct1(m.meetingsSet, m.calls60),
-      heldPct: pct1(m.meetingsHeld, m.meetingsSet),
     }))
     .sort((a, b) => b.dials - a.dials);
 }

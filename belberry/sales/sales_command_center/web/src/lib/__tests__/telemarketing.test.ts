@@ -69,15 +69,13 @@ describe('buildTmKpis', () => {
 });
 
 describe('buildTmManagerTable', () => {
-  it('сортирует по наборам, считает % дозвона/конверсию/явку и несёт должность', () => {
+  it('сортирует по наборам, считает % дозвона/конверсию и несёт должность', () => {
     const rows = buildTmManagerTable([vostretsov, isaeva]);
     expect(rows[0].name).toBe('Дарья Исаева'); // 1336 > 1220
     expect(rows[0].dept).toBe('Телемаркетолог');
     expect(rows[0].convDialToMeeting).toBeCloseTo(3.8, 1); // 14/370
     expect(rows[1].convDialToMeeting).toBeCloseTo(6.4, 1); // 14/219
     expect(rows[0].answerPct).toBeCloseTo(69.5, 0);
-    expect(rows[0].heldPct).toBeCloseTo(85.7, 0); // 12/14
-    expect(rows[1].heldPct).toBeCloseTo(78.6, 0); // 11/14
   });
 });
 
