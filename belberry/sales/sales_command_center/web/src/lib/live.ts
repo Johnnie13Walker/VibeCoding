@@ -2,7 +2,7 @@ import 'server-only';
 
 import { eq } from 'drizzle-orm';
 import { db } from '@/db';
-import { liveChats, liveSnapshot, users } from '@/db/schema';
+import { liveChats, liveSnapshot, users, managerActivity, meetings, kpBriefs, dealsSnapshot } from '@/db/schema';
 import { isSalesDept } from './dashboard';
 
 export interface LiveManager {
@@ -165,5 +165,133 @@ export async function getLive(): Promise<LiveData> {
     chatsUpdatedAt,
     reportDate: rows[0].reportDate ? String(rows[0].reportDate) : null,
     totals, managers, meetings, briefs, feed,
+  };
+}
+
+function meetingStatusFrom(stage: string | null): LiveMeeting['status'] {
+  const code = String(stage ?? '').split(':').pop()?.toUpperCase() ?? '';
+  if (code === 'SUCCESS') return 'held';
+  if (code === 'FAIL') return 'cancelled';
+  return 'scheduled';
+}
+
+const MEETING_TYPE_LABEL: Record<string, string> = {
+  briefing: 'Первичная встреча',
+  defense: 'Защита КП',
+};
+
+/**
+ * Структурный разбор за конкретный прошлый день — из сохранённых таблиц
+ * (manager_activity / meetings / kp_briefs / deals_snapshot). Та же форма LiveData,
+ * что и live-снимок, чтобы /today рендерил без изменений. Чаты и лента событий
+ * за прошлые дни не сохраняются (chats=0, feed=[]).
+ */
+export async function getDayBreakdown(date: string): Promise<LiveData | null> {
+  let maRows: Array<typeof managerActivity.$inferSelect>;
+  let mtRows: Array<typeof meetings.$inferSelect>;
+  let kbRows: Array<typeof kpBriefs.$inferSelect>;
+  let dsRows: Array<{ dealId: number; title: string | null }>;
+  try {
+    [maRows, mtRows, kbRows, dsRows] = await Promise.all([
+      db.select().from(managerActivity).where(eq(managerActivity.reportDate, date)),
+      db.select().from(meetings).where(eq(meetings.reportDate, date)),
+      db.select().from(kpBriefs).where(eq(kpBriefs.reportDate, date)),
+      db.select({ dealId: dealsSnapshot.dealId, title: dealsSnapshot.title }).from(dealsSnapshot).where(eq(dealsSnapshot.reportDate, date)),
+    ]);
+  } catch {
+    return null;
+  }
+  if (!maRows.length && !mtRows.length) return null;
+
+  const userRows = await db.select({ id: users.bitrixId, name: users.name, dept: users.dept }).from(users);
+  const dir = new Map(userRows.map((u) => [u.id, { name: u.name, dept: u.dept ?? '' }]));
+  const nameOf = (id: number | null) => (id ? (dir.get(id)?.name ?? `id ${id}`) : '—');
+  const dealTitle = new Map(dsRows.map((d) => [d.dealId, d.title]));
+
+  // отменённые встречи по ответственному (manager_activity их не хранит)
+  const cancelledByMgr = new Map<number, number>();
+  for (const r of mtRows) {
+    if (meetingStatusFrom(r.status) === 'cancelled' && r.managerId != null) {
+      cancelledByMgr.set(r.managerId, (cancelledByMgr.get(r.managerId) ?? 0) + 1);
+    }
+  }
+
+  const all = maRows.map((r) => ({
+    managerId: r.managerId,
+    name: nameOf(r.managerId),
+    dept: dir.get(r.managerId)?.dept ?? '',
+    dials: r.dialsTotal ?? 0,
+    answered: r.callsAnswered ?? 0,
+    calls60: r.calls60sPlus ?? 0,
+    mHeld: r.meetingsHeld ?? 0,
+    mScheduled: r.meetingsSet ?? 0,
+    mCancelled: cancelledByMgr.get(r.managerId) ?? 0,
+    briefs: r.briefsCreated ?? 0,
+    kp: r.kpSent ?? 0,
+    emails: r.emailsSent ?? 0,
+    deals: r.dealsCreatedCount ?? 0,
+  }));
+  const sales = all.filter((m) => isSalesDept(m.dept));
+  const shown = sales.length ? sales : all;
+  const salesIds = new Set(shown.map((m) => m.managerId));
+  const keep = (mid: number | null) => sales.length === 0 || (mid != null && salesIds.has(mid));
+
+  const managers: LiveManager[] = shown.map((m) => ({
+    managerId: m.managerId, name: m.name, dials: m.dials, answered: m.answered, calls60: m.calls60,
+    chats: 0, meetings: m.mHeld + m.mScheduled + m.mCancelled, mHeld: m.mHeld, mScheduled: m.mScheduled,
+    mCancelled: m.mCancelled, briefs: m.briefs, kp: m.kp, emails: m.emails,
+  }));
+
+  const meetingsList: LiveMeeting[] = mtRows
+    .filter((r) => keep(r.managerId))
+    .map((r) => {
+      const label = MEETING_TYPE_LABEL[String(r.meetingType ?? '')] ?? 'Встреча';
+      const dt = r.dealId != null ? dealTitle.get(r.dealId) : null;
+      return {
+        id: r.meetingId,
+        title: dt ? `${dt} · ${label}` : label,
+        manager: nameOf(r.managerId),
+        at: r.scheduledAt ? new Date(r.scheduledAt).toISOString() : '',
+        status: meetingStatusFrom(r.status),
+        dealId: r.dealId,
+        setToday: false,
+      };
+    });
+
+  const briefsList: LiveBrief[] = kbRows
+    .filter((r) => r.itemType === 'brief' && keep(r.managerId))
+    .map((r) => ({
+      id: r.itemId,
+      title: r.title ?? 'Бриф',
+      manager: nameOf(r.managerId),
+      dealId: r.dealId,
+      service: '',
+    }));
+
+  const totals = {
+    dials: shown.reduce((s, m) => s + m.dials, 0),
+    answered: shown.reduce((s, m) => s + m.answered, 0),
+    calls60: shown.reduce((s, m) => s + m.calls60, 0),
+    chats: 0,
+    meetings: meetingsList.length,
+    meetingsHeld: shown.reduce((s, m) => s + m.mHeld, 0),
+    meetingsScheduled: shown.reduce((s, m) => s + m.mScheduled, 0),
+    meetingsCancelled: shown.reduce((s, m) => s + m.mCancelled, 0),
+    briefs: briefsList.length,
+    kp: shown.reduce((s, m) => s + m.kp, 0),
+    deals: shown.reduce((s, m) => s + m.deals, 0),
+    dealsSpam: 0,
+    emails: shown.reduce((s, m) => s + m.emails, 0),
+  };
+
+  return {
+    updatedAt: `${date}T12:00:00+03:00`,
+    chatsUpdatedAt: null,
+    reportDate: date,
+    totals,
+    managers,
+    meetings: meetingsList,
+    briefs: briefsList,
+    feed: [],
   };
 }
