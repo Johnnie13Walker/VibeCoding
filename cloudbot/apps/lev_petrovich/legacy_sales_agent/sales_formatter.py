@@ -21,13 +21,16 @@ MOSCOW_TZ = ZoneInfo("Europe/Moscow")
 DEFAULT_TELEMARKETING_MIN_DIALS = 40
 DEFAULT_TELEMARKETING_HIGH_DIALS = 30
 DEFAULT_TELEMARKETING_VERY_LOW_CALLS = 1
+# Модель «реальных рабочих минут» (синхронно с GSD runner/src/oper.py, 2026-06-04):
+# набор 0.25 · разговор 60с+ (normal_calls тут уже = звонки ≥60с) 5 · чат 10 · встреча 60;
+# роль на балл не влияет. Писем легаси не собирает (минорный фактор, тигр не меняется).
 DEFAULT_ACTIVE_CLIENT_MINUTES_TARGET = 300
-DEFAULT_EMPTY_DIAL_MINUTES = 1.5
+DEFAULT_EMPTY_DIAL_MINUTES = 0.25
 DEFAULT_EMPTY_DIAL_MINUTES_CAP = 90
-DEFAULT_SM_CALL_MINUTES = 15
-DEFAULT_TM_CALL_MINUTES = 12
+DEFAULT_SM_CALL_MINUTES = 5
+DEFAULT_TM_CALL_MINUTES = 5
 DEFAULT_CHAT_DIALOG_MINUTES = 10
-DEFAULT_MEETING_MINUTES = 50
+DEFAULT_MEETING_MINUTES = 60
 TOP_OPERATIONAL_ENGAGEMENT_MIN = 9.0
 SURNAME_SUFFIXES = (
     "ов",
@@ -1513,8 +1516,9 @@ def _communications_scorecard(
     connect_rate = item.get("connect_rate")
     connect_percent = int(round(float(connect_rate) * 100)) if connect_rate is not None else 0
 
-    effective_meetings = 0 if role == "telemarketing" else meetings_count
-    meetings_label = "-" if role == "telemarketing" else str(effective_meetings)
+    # Встречи учитываем для всех ролей (модель реальных минут): у ТМ их обычно 0.
+    effective_meetings = meetings_count
+    meetings_label = "-" if (role == "telemarketing" and effective_meetings == 0) else str(effective_meetings)
     empty_dials = max(dials - normal_calls, 0)
     empty_dial_minutes = min(empty_dials * DEFAULT_EMPTY_DIAL_MINUTES, DEFAULT_EMPTY_DIAL_MINUTES_CAP)
     call_minutes = normal_calls * (DEFAULT_TM_CALL_MINUTES if role == "telemarketing" else DEFAULT_SM_CALL_MINUTES)

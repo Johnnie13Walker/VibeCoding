@@ -642,17 +642,14 @@ class LevPetrovichRuntimeTests(unittest.TestCase):
             "overdue_deal_tasks": [],
             "overdue_deal_tasks_by_manager": [],
             "deadline_reschedule_focus_tasks": [],
+            # 5 встреч × 60 мин = 300 → «Опер» 10/10 по модели реальных минут
             "conducted_meetings": [
                 {
                     "assigned_id": "sales-1",
                     "assigned_name": "Елизавета Деговцова",
                     "yesterday_moved": True,
-                },
-                {
-                    "assigned_id": "sales-1",
-                    "assigned_name": "Елизавета Деговцова",
-                    "yesterday_moved": True,
-                },
+                }
+                for _ in range(5)
             ],
         }
         communications_summary = {
@@ -1138,7 +1135,8 @@ class LevPetrovichRuntimeTests(unittest.TestCase):
         self.assertEqual(risks["summary_totals"]["risk_amount"], 150000.0)
         self.assertTrue(any("stagnant" in item.get("categories", []) for item in risks["deal_risks"]))
 
-    def test_operational_score_ignores_meetings_for_tm_and_counts_them_for_sm(self) -> None:
+    def test_operational_score_counts_meetings_for_all_roles(self) -> None:
+        # Модель реальных минут: встречи учитываются и для ТМ (роль на балл не влияет).
         telemarketing_without_meetings = _communications_scorecard(
             {
                 "employee_role": "telemarketing",
@@ -1149,7 +1147,7 @@ class LevPetrovichRuntimeTests(unittest.TestCase):
             },
             meetings_count=0,
         )
-        telemarketing_with_fake_meetings = _communications_scorecard(
+        telemarketing_with_meetings = _communications_scorecard(
             {
                 "employee_role": "telemarketing",
                 "dials": 20,
@@ -1172,16 +1170,20 @@ class LevPetrovichRuntimeTests(unittest.TestCase):
 
         self.assertEqual(telemarketing_without_meetings["meetings_count"], 0)
         self.assertEqual(telemarketing_without_meetings["meetings_label"], "-")
-        self.assertEqual(
-            telemarketing_without_meetings["operational_score_label"],
-            telemarketing_with_fake_meetings["operational_score_label"],
+        # встреча теперь добавляет минуты и телемаркетингу → балл выше
+        self.assertGreater(
+            float(telemarketing_with_meetings["operational_score"]),
+            float(telemarketing_without_meetings["operational_score"]),
         )
-        self.assertEqual(sales_with_meeting["meeting_minutes"], 100)
-        self.assertEqual(sales_with_meeting["operational_minutes"], 100)
+        self.assertEqual(telemarketing_with_meetings["meeting_minutes"], 120)
+        # ОП: 2 встречи × 60 = 120 мин → 4.0 → РИСК
+        self.assertEqual(sales_with_meeting["meeting_minutes"], 120)
+        self.assertEqual(sales_with_meeting["operational_minutes"], 120)
         self.assertEqual(sales_with_meeting["meetings_label"], "2")
         self.assertEqual(sales_with_meeting["status_code"], "РИСК")
 
-    def test_operational_score_uses_tm_active_minutes_formula(self) -> None:
+    def test_operational_score_uses_real_minutes_formula(self) -> None:
+        # набор 0.25 · разговор 60с+ 5 · чат 10 · /300×10
         scorecard = _communications_scorecard(
             {
                 "employee_role": "telemarketing",
@@ -1193,12 +1195,12 @@ class LevPetrovichRuntimeTests(unittest.TestCase):
             meetings_count=0,
         )
 
-        self.assertEqual(scorecard["empty_dial_minutes"], 90)
-        self.assertEqual(scorecard["call_minutes"], 180)
-        self.assertEqual(scorecard["chat_minutes"], 40)
-        self.assertEqual(scorecard["operational_minutes"], 310)
-        self.assertEqual(scorecard["operational_score_label"], "10.0")
-        self.assertEqual(scorecard["status_code"], "НОРМ")
+        self.assertEqual(scorecard["empty_dial_minutes"], 22.5)  # (105−15)×0.25
+        self.assertEqual(scorecard["call_minutes"], 75)  # 15×5
+        self.assertEqual(scorecard["chat_minutes"], 40)  # 4×10
+        self.assertEqual(scorecard["operational_minutes"], 137.5)
+        self.assertEqual(scorecard["operational_score_label"], "4.6")
+        self.assertEqual(scorecard["status_code"], "РИСК")
 
     def test_operational_score_uses_sm_active_minutes_formula(self) -> None:
         scorecard = _communications_scorecard(
@@ -1212,12 +1214,12 @@ class LevPetrovichRuntimeTests(unittest.TestCase):
             meetings_count=2,
         )
 
-        self.assertEqual(scorecard["empty_dial_minutes"], 43.5)
-        self.assertEqual(scorecard["call_minutes"], 60)
-        self.assertEqual(scorecard["chat_minutes"], 100)
-        self.assertEqual(scorecard["meeting_minutes"], 100)
-        self.assertEqual(scorecard["operational_minutes"], 303.5)
-        self.assertEqual(scorecard["operational_score_label"], "10.0")
+        self.assertEqual(scorecard["empty_dial_minutes"], 7.25)  # (33−4)×0.25
+        self.assertEqual(scorecard["call_minutes"], 20)  # 4×5
+        self.assertEqual(scorecard["chat_minutes"], 100)  # 10×10
+        self.assertEqual(scorecard["meeting_minutes"], 120)  # 2×60
+        self.assertEqual(scorecard["operational_minutes"], 247.25)
+        self.assertEqual(scorecard["operational_score_label"], "8.2")
         self.assertEqual(scorecard["status_code"], "НОРМ")
 
     def test_operational_score_does_not_depend_on_conversion(self) -> None:
@@ -1299,12 +1301,12 @@ class LevPetrovichRuntimeTests(unittest.TestCase):
         block_rows = lines[1].removeprefix("<pre>").removesuffix("</pre>").splitlines()
         self.assertTrue(all(len(row) == len(block_rows[0]) for row in block_rows))
         self.assertIn("Роль", lines[1])
-        self.assertRegex(lines[1], r"СТОП\s+Иван Телемаркетолог\s+TM.+\s-\s+2\.4")
+        self.assertRegex(lines[1], r"СТОП\s+Иван Телемаркетолог\s+TM.+\s-\s+0\.7")
         self.assertLess(lines[1].find("РИСК"), lines[1].find("СТОП"))
-        self.assertRegex(lines[1], r"РИСК\s+Гудинова Анна\s+SM.+\s1\s+5\.4")
+        self.assertRegex(lines[1], r"РИСК\s+Гудинова Анна\s+SM.+\s1\s+4\.1")
         self.assertIn("Итого по отделу:", lines[3])
         self.assertIn("Наб   71 | Дзв    6 | Конв  8.5% | Чаты    8 | Встр    1", lines[4])
-        self.assertIn("Опер  3.5", lines[4])
+        self.assertIn("Опер  2.1", lines[4])
         self.assertEqual(lines[6], "Чистой клиентской активности по команде ниже целевого уровня")
         self.assertNotIn("Расшифровка расчета активности:", lines)
         self.assertNotIn("пустой набор = 1.5 мин", lines)
