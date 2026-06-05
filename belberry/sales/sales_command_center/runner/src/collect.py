@@ -392,6 +392,93 @@ def collect_won_deals(stagehistory: list[dict[str, Any]], bx=None) -> list[dict[
     )
 
 
+def collect_flow_day(target: date, bx=None) -> dict[str, Any]:
+    """Лёгкий сбор ТОЛЬКО потоковых данных для backfill истории: сделки/встречи/
+    КП/брифы/звонки/письма/оплаты за конкретный день. БЕЗ снимка воронки
+    (deals_snapshot нельзя восстановить за прошлое), без LLM-анализа, без фото/
+    справочников/wazzup. Все фильтры — по дате целевого дня, поэтому историю
+    можно перегнать задним числом. Идемпотентно через build_db_rows + upsert."""
+    d0, d1 = _range(target)
+    deals_created = _fetch_all(
+        bx,
+        "crm.deal.list",
+        {
+            "filter": {">=DATE_CREATE": d0, "<=DATE_CREATE": d1},
+            "select": [
+                "ID", "TITLE", "CATEGORY_ID", "STAGE_ID", "OPPORTUNITY",
+                "ASSIGNED_BY_ID", "DATE_CREATE", "SOURCE_ID", "COMPANY_ID",
+                "CONTACT_ID", "UF_CRM_1771495464",
+            ],
+        },
+    )
+    stagehistory = _fetch_all(
+        bx,
+        "crm.stagehistory.list",
+        {
+            "entityTypeId": 2,
+            "filter": {">=CREATED_TIME": d0, "<=CREATED_TIME": d1},
+            "select": ["ID", "TYPE_ID", "OWNER_ID", "CREATED_TIME", "STAGE_SEMANTIC_ID", "STAGE_ID", "CATEGORY_ID"],
+        },
+    )
+    meet_day = _fetch_all(
+        bx,
+        "crm.item.list",
+        {"entityTypeId": 1048, "filter": {">=ufCrm16_1751009238": d0, "<=ufCrm16_1751009238": d1}, "select": SEL_1048},
+        idfield="id",
+    )
+    meet_created_day = _fetch_all(
+        bx,
+        "crm.item.list",
+        {"entityTypeId": 1048, "filter": {">=createdTime": d0, "<=createdTime": d1}, "select": SEL_1048},
+        idfield="id",
+    )
+    briefs = _fetch_all(
+        bx,
+        "crm.item.list",
+        {
+            "entityTypeId": 1056,
+            "filter": {">=updatedTime": d0, "<=updatedTime": d1},
+            "select": ["id", "title", "stageId", "createdTime", "updatedTime", "assignedById", "ufCrm20_1754044185200", "parentId2"],
+        },
+        idfield="id",
+    )
+    kp = _fetch_all(
+        bx,
+        "crm.item.list",
+        {
+            "entityTypeId": 1106,
+            "filter": {">=updatedTime": d0, "<=updatedTime": d1},
+            "select": ["id", "title", "stageId", "createdTime", "updatedTime", "assignedById", "opportunity", "parentId2", "begindate"],
+        },
+        idfield="id",
+    )
+    activities = _fetch_all(
+        bx,
+        "crm.activity.list",
+        {
+            "filter": {">=CREATED": d0, "<=CREATED": d1},
+            "select": ["ID", "OWNER_ID", "OWNER_TYPE_ID", "TYPE_ID", "PROVIDER_ID", "PROVIDER_TYPE_ID", "SUBJECT", "COMPLETED", "RESPONSIBLE_ID", "AUTHOR_ID", "CREATED", "DIRECTION", "START_TIME", "END_TIME"],
+        },
+    )
+    calls = collect_voximplant(target, bx)
+    return {
+        "report_date": target.isoformat(),
+        "deals_created": deals_created,
+        "deals_open": [],  # снимок за прошлое не восстанавливаем
+        "stagehistory": stagehistory,
+        "won_deals": collect_won_deals(stagehistory, bx),
+        "meet_day": meet_day,
+        "meet_created_day": meet_created_day,
+        "meet_today": [],
+        "briefs": briefs,
+        "kp": kp,
+        "activities": activities,
+        "calls": calls,
+        "wazzup": {},
+        "messenger_dialogs": {},
+    }
+
+
 def collect_day(target: date, bx=None) -> dict[str, Any]:
     d0, d1 = _range(target)
     today = next_working_day(target)
