@@ -5,6 +5,7 @@ import argparse
 from datetime import date
 
 from src import bx_client
+from src import tasks as bx_tasks
 from src.config import load_config
 from src.db import connect
 from src.lock import AlreadyRunning, single_instance
@@ -26,6 +27,12 @@ def run_live(today: date | None = None, *, bx=None, connect_fn=connect, now_fn=n
         payload = build_live_payload(target, raw, now)
         write_live(conn, payload, target.isoformat(), now)
         conn.commit()
+        # Синк статусов автозадач из Bitrix (принятые/завершённые скрываются из дашборда).
+        # Best-effort: сбой синка не должен валить live-снимок.
+        try:
+            bx_tasks.sync_task_statuses(conn, bx_client)
+        except Exception as exc:  # noqa: BLE001
+            print(f"[tasks] sync failed: {type(exc).__name__}: {str(exc)[:160]}", flush=True)
         return {"status": "done", "report_date": target.isoformat(), "totals": payload["totals"]}
     finally:
         conn.close()

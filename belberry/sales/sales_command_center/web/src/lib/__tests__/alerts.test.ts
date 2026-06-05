@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dealReason, dealSeverity, isPromiseOverdue } from '@/lib/alerts';
+import { dealReason, dealSeverity, isOverdue } from '@/lib/alerts';
 
 describe('dealReason', () => {
   it('нет бюджета при нулевой сумме', () => {
@@ -25,17 +25,15 @@ describe('dealSeverity', () => {
   });
 });
 
-describe('isPromiseOverdue', () => {
-  it('дата-дедлайн в прошлом → просрочено', () => {
-    expect(isPromiseOverdue('2026-06-01', '2026-06-03')).toBe(true);
+describe('isOverdue', () => {
+  const now = new Date('2026-06-03T12:00:00+03:00');
+  it('дедлайн в прошлом → просрочено', () => {
+    expect(isOverdue('2026-06-01T15:00:00+03:00', now)).toBe(true);
   });
-  it('дата-дедлайн в будущем → нет', () => {
-    expect(isPromiseOverdue('2026-06-05', '2026-06-03')).toBe(false);
-  });
-  it('свободный текст не считаем просрочкой', () => {
-    expect(isPromiseOverdue('на этой неделе', '2026-06-03')).toBe(false);
+  it('дедлайн в будущем → нет', () => {
+    expect(isOverdue('2026-06-05T15:00:00+03:00', now)).toBe(false);
   });
   it('пустой дедлайн → нет', () => {
-    expect(isPromiseOverdue(null, '2026-06-03')).toBe(false);
+    expect(isOverdue(null, now)).toBe(false);
   });
 });

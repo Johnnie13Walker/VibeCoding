@@ -208,3 +208,23 @@ export const plans = pgTable(
     ),
   ],
 );
+
+export const meetingTasks = pgTable(
+  'meeting_tasks',
+  {
+    id: serial('id').primaryKey(),
+    reportDate: date('report_date').notNull(),
+    meetingId: integer('meeting_id').notNull(),
+    dealId: integer('deal_id'),
+    stepKey: text('step_key').notNull(),
+    taskId: integer('task_id').notNull(),
+    responsibleId: integer('responsible_id'),
+    title: text('title'),
+    deadline: timestamp('deadline', { withTimezone: true }),
+    status: integer('status'),
+    closed: boolean('closed').notNull().default(false),
+    createdAt: timestamp('created_at', { withTimezone: true }),
+    updatedAt: timestamp('updated_at', { withTimezone: true }),
+  },
+  (table) => [unique('meeting_tasks_meeting_id_step_key_unique').on(table.meetingId, table.stepKey)],
+);

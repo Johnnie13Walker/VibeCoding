@@ -64,6 +64,20 @@ SYSTEM_PROMPT = """
   произошло, и metric = цифра/факт из встречи. Не придумывай цифры.
 - next_step — только структурно: что сделать, кто владелец, дедлайн. Если клиент
   не дал явного шага, верни null.
+- next_steps — СПИСОК атомарных открытых действий после встречи (одно действие = один
+  пункт), для постановки задач менеджеру. Жёсткие правила:
+  * Включай ТОЛЬКО то, что ещё НЕ сделано. Если действие уже выполнено на встрече или
+    до неё (доступ к Метрике уже получен, материалы уже отправлены) — НЕ включай.
+  * НЕ включай «подготовить/сформировать/составить КП (коммерческое предложение)» —
+    это ставится автоматически при переходе сделки на стадию КП. (Но «отправить КП»,
+    «защитить КП» — это нормальные действия, их включай.)
+  * Дроби составные обещания на отдельные пункты («отправить доступ к Метрике» и
+    «получить ответ клиента» = два пункта).
+  * kind: "operational" — быстрая отправка/подготовка-и-отправка материалов (письмо,
+    доступ, кейсы, отчёт, ссылки). "scheduled" — привязано к конкретной дате/встрече,
+    о которой договорились (созвон в понедельник, защита КП на дату).
+  * deadline — дословная формулировка срока из разговора, если есть, иначе null.
+  Если открытых действий нет — пустой список [].
 - objections — реальные возражения клиента и отработаны ли они.
 - commitment — сила обязательства клиента: взял_обязательство / подумает / нет.
 - duration_min — длительность встречи в минутах, если выводима из метаданных или
@@ -78,6 +92,7 @@ SYSTEM_PROMPT = """
   "checklist": [{"item": "...", "mark": "✅|⚠️|❌", "note": "..."}],
   "observations": [{"kind": "good|risk", "text": "...", "metric": "..." | null}],
   "next_step": {"what": "...", "who": "...", "deadline": "..." | null} | null,
+  "next_steps": [{"what": "...", "owner": "...", "kind": "operational|scheduled", "deadline": "..." | null}],
   "objections": [{"objection": "...", "handled": true|false, "note": "..."}],
   "commitment": "взял_обязательство|подумает|нет",
   "duration_min": 28 | null,
@@ -261,6 +276,7 @@ def _unavailable(status: str, reason: str) -> dict[str, Any]:
         "control_flag": True,
         "observations": [],
         "next_step": None,
+        "next_steps": [],
         "objections": [],
         "commitment": "нет",
         "duration_min": None,
@@ -277,6 +293,7 @@ def _parse_fallback(status: str = "ok") -> dict[str, Any]:
         "control_flag": True,
         "observations": [],
         "next_step": None,
+        "next_steps": [],
         "objections": [],
         "commitment": "нет",
         "duration_min": None,
@@ -313,6 +330,28 @@ def _normalize_next_step(value: Any) -> dict[str, Any] | None:
         "who": who,
         "deadline": value.get("deadline") if value.get("deadline") not in ("", None) else None,
     }
+
+
+def _normalize_next_steps(value: Any) -> list[dict[str, Any]]:
+    """Атомарные открытые действия для постановки задач. Фильтр формирования КП и
+    уже сделанного — на стороне tasks.py (детерминированно), здесь только структура."""
+    out: list[dict[str, Any]] = []
+    for item in value or []:
+        if not isinstance(item, dict):
+            continue
+        what = str(item.get("what") or "").strip()
+        if not what:
+            continue
+        kind = str(item.get("kind") or "").strip().lower()
+        out.append(
+            {
+                "what": what,
+                "owner": str(item.get("owner") or item.get("who") or "").strip(),
+                "kind": kind if kind in {"operational", "scheduled"} else "operational",
+                "deadline": item.get("deadline") if item.get("deadline") not in ("", None) else None,
+            }
+        )
+    return out[:10]
 
 
 def _normalize_objections(value: Any) -> list[dict[str, Any]]:
@@ -373,6 +412,7 @@ def _normalize_analysis(parsed: dict[str, Any]) -> dict[str, Any]:
         "checklist": checklist,
         "observations": _normalize_observations(parsed.get("observations")),
         "next_step": _normalize_next_step(parsed.get("next_step")),
+        "next_steps": _normalize_next_steps(parsed.get("next_steps")),
         "objections": _normalize_objections(parsed.get("objections")),
         "commitment": _normalize_commitment(parsed.get("commitment")),
         "duration_min": _normalize_duration(parsed.get("duration_min")),

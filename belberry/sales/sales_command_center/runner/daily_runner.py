@@ -1,10 +1,12 @@
 import argparse
 import json
+import os
 from datetime import date
 
 from src import bx_client
 from src import analyze_llm
 from src import notify
+from src import tasks as bx_tasks
 from src.config import load_config
 from src.db import connect
 from src.deltas import compute_deltas
@@ -295,6 +297,18 @@ def cron_entry(
     if result.get("status") == "done" and report_date:
         notify_link(report_date)
         notify_dm(report_date, result.get("digest"), result.get("html"))
+        # Автозадачи из разбора встреч — только в боевом утреннем прогоне (SCC_CREATE_TASKS=1),
+        # чтобы ручные --force/бэкафилл не создавали задачи. Идемпотентно (meeting_tasks).
+        if os.environ.get("SCC_CREATE_TASKS") == "1":
+            try:
+                conn = connect()
+                try:
+                    res = bx_tasks.create_tasks_for_day(conn, bx_client, date.fromisoformat(report_date))
+                    print(f"[tasks] создано {sum(1 for r in res if r.get('status') == 'created')} задач за {report_date}", flush=True)
+                finally:
+                    conn.close()
+            except Exception as exc:  # noqa: BLE001
+                print(f"[tasks] create failed: {_mask(str(exc))[:200]}", flush=True)
 
     return 0
 

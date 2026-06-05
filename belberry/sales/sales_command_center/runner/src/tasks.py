@@ -12,6 +12,7 @@ Live-запись в Bitrix делает create_task(); build_* — чистые
 
 from __future__ import annotations
 
+import hashlib
 import re
 from datetime import date, datetime, timedelta
 from typing import Any
@@ -100,6 +101,34 @@ def _short(text: Any, limit: int = 400) -> str:
     return s[: limit - 1] + "…" if len(s) > limit else s
 
 
+# Формирование КП ставится автозадачей при переходе сделки на стадию КП — НЕ дублируем.
+# «Отправить/защитить/презентовать КП» — это нормальные действия, их оставляем.
+_KP_FORM_RE = re.compile(r"(подготов|сформир|состав|формир|готов|сдела|написа|разраб)\w*\s+(кп|коммерческ|предложен)", re.I)
+_KP_KEEP_RE = re.compile(r"(отправ|защит|презент|выслать|показа|обсуд|согласова)", re.I)
+
+
+def is_kp_formation(what: str | None) -> bool:
+    t = str(what or "")
+    if _KP_KEEP_RE.search(t):
+        return False
+    return bool(_KP_FORM_RE.search(t))
+
+
+def actionable_steps(steps: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
+    """Отбираем шаги под автозадачи: убираем формирование КП (стадийная автозадача).
+    Уже выполненные шаги отсекает LLM на этапе разбора (next_steps)."""
+    out = []
+    for s in steps or []:
+        if not isinstance(s, dict):
+            continue
+        if not str(s.get("what") or "").strip():
+            continue
+        if is_kp_formation(s.get("what")):
+            continue
+        out.append(s)
+    return out
+
+
 def build_description(deal_id: int, deal_title: str | None, analysis: dict[str, Any], step: dict[str, Any], deadline_text: str | None) -> str:
     """Полный контекст в описании задачи."""
     lines = [
@@ -111,8 +140,9 @@ def build_description(deal_id: int, deal_title: str | None, analysis: dict[str, 
     mt_label = {"briefing": "первичная встреча", "defense": "защита КП"}.get(str(mt), "встреча")
     score = analysis.get("score")
     lines.append(f"Встреча: {mt_label}" + (f", оценка {score}/10" if score else ""))
-    if step.get("who"):
-        lines.append(f"Ответственный по договорённости: {_short(step.get('who'), 120)}")
+    owner = step.get("owner") or step.get("who")
+    if owner:
+        lines.append(f"Ответственный по договорённости: {_short(owner, 120)}")
     if deadline_text:
         lines.append(f"Срок по договорённости (из разговора): «{_short(deadline_text, 120)}»")
     if analysis.get("verdict"):
@@ -137,7 +167,12 @@ def build_task_fields(
 ) -> dict[str, Any]:
     """Поля для tasks.task.add. TASK_CONTROL=Y → задача требует принятия постановщиком."""
     deadline_text = step.get("deadline")
-    deadline, _recognized = parse_deadline(deadline_text, base_date)
+    # Операционные обещания → следующий рабочий день (даже если на словах «через неделю»).
+    # Запланированные/легаси → парсим дату из формулировки.
+    if step.get("kind") == "operational":
+        deadline = _add_business_days(base_date, FALLBACK_BUSINESS_DAYS)
+    else:
+        deadline, _recognized = parse_deadline(deadline_text, base_date)
     what = _short(step.get("what"), 90) or "Следующий шаг по сделке"
     title = f"{deal_title or f'Сделка #{deal_id}'}: {what}"
     return {
@@ -165,3 +200,143 @@ def create_task(bx, fields: dict[str, Any]) -> int:
 
 def task_url(task_id: int) -> str:
     return f"{PORTAL}/company/personal/user/{DEFAULT_CREATOR_ID}/tasks/task/view/{task_id}/"
+
+
+# ── Идемпотентность: храним созданные задачи в meeting_tasks (migration 0009) ──
+
+def step_key(what: str | None) -> str:
+    """Стабильный ключ шага для дедупликации: нормализованный текст → sha1[:20]."""
+    norm = re.sub(r"\s+", " ", str(what or "").strip().lower())
+    return hashlib.sha1(norm.encode("utf-8")).hexdigest()[:20]
+
+
+def _steps_for_meeting(analysis: dict[str, Any]) -> list[dict[str, Any]]:
+    """next_steps[] (атомарные, без формирования КП); fallback на единичный next_step."""
+    steps = analysis.get("next_steps")
+    if isinstance(steps, list) and steps:
+        return actionable_steps(steps)
+    ns = analysis.get("next_step")
+    if isinstance(ns, dict) and str(ns.get("what") or "").strip() and not is_kp_formation(ns.get("what")):
+        return [ns]
+    return []
+
+
+def _load_day_meetings(conn, target: date, meeting_id: int | None = None):
+    q = (
+        "SELECT m.meeting_id, m.deal_id, m.manager_id, m.analysis_json, d.title "
+        "FROM meetings m LEFT JOIN deals_snapshot d "
+        "ON d.report_date=m.report_date AND d.deal_id=m.deal_id "
+        "WHERE m.report_date=%s AND m.analysis_json IS NOT NULL"
+    )
+    params: list[Any] = [target.isoformat()]
+    if meeting_id:
+        q += " AND m.meeting_id=%s"
+        params.append(meeting_id)
+    with conn.cursor() as cur:
+        cur.execute(q, tuple(params))
+        return cur.fetchall()
+
+
+def create_tasks_for_day(conn, bx, target: date, *, creator_id: int = DEFAULT_CREATOR_ID, meeting_id: int | None = None, dry_run: bool = False) -> list[dict[str, Any]]:
+    """Создаёт задачи Bitrix по следующим шагам встреч за день. Идемпотентно:
+    пропускает шаги, по которым задача уже создана (meeting_tasks.step_key).
+    dry_run=True — только собрать план, без записи. Возвращает список результатов."""
+    import json as _json
+
+    results: list[dict[str, Any]] = []
+    for meeting_id_, deal_id, manager_id, analysis_json, deal_title in _load_day_meetings(conn, target, meeting_id):
+        if not deal_id or not manager_id:
+            continue
+        analysis = analysis_json if isinstance(analysis_json, dict) else _json.loads(analysis_json or "{}")
+        steps = _steps_for_meeting(analysis)
+        if not steps:
+            continue
+        done_keys = set() if dry_run else existing_step_keys(conn, meeting_id_)
+        for step in steps:
+            sk = step_key(step.get("what"))
+            entry = {"meeting_id": meeting_id_, "deal_id": deal_id, "what": step.get("what"), "step_key": sk}
+            if sk in done_keys:
+                entry["status"] = "skip_exists"
+                results.append(entry)
+                continue
+            fields = build_task_fields(
+                deal_id=deal_id, deal_title=deal_title, responsible_id=manager_id,
+                step=step, analysis=analysis, base_date=target, creator_id=creator_id,
+            )
+            entry["fields"] = fields
+            if dry_run:
+                entry["status"] = "planned"
+                results.append(entry)
+                continue
+            tid = create_task(bx, fields)
+            record_task(
+                conn, report_date=target.isoformat(), meeting_id=meeting_id_, deal_id=deal_id,
+                step_key=sk, task_id=tid, responsible_id=manager_id, title=fields["TITLE"], deadline=fields["DEADLINE"],
+            )
+            conn.commit()
+            done_keys.add(sk)
+            entry["status"] = "created"
+            entry["task_id"] = tid
+            results.append(entry)
+    return results
+
+
+# Статусы Bitrix-задач: 2 ждёт выполнения, 3 выполняется, 4 ждёт контроля,
+# 5 завершена, 6 отложена, 7 отклонена. Закрываем (скрываем из дашборда) при 5/7.
+CLOSED_STATUSES = {5, 7}
+
+
+def sync_task_statuses(conn, bx, limit: int = 300) -> int:
+    """Синкает статус/дедлайн открытых задач из Bitrix в meeting_tasks.
+    closed=true при завершении/отклонении (или если задача удалена в Bitrix)."""
+    with conn.cursor() as cur:
+        cur.execute("SELECT task_id FROM meeting_tasks WHERE closed=false ORDER BY id LIMIT %s", (limit,))
+        ids = [row[0] for row in cur.fetchall()]
+    if not ids:
+        return 0
+    r = bx.call("tasks.task.list", {"filter": {"ID": ids}, "select": ["ID", "STATUS", "DEADLINE"]})
+    items = (r or {}).get("result", {}).get("tasks", []) or []
+    found: dict[int, dict] = {}
+    for t in items:
+        tid = t.get("id") or t.get("ID")
+        if tid is not None:
+            found[int(tid)] = t
+    updated = 0
+    with conn.cursor() as cur:
+        for tid in ids:
+            t = found.get(tid)
+            if t is None:  # задача удалена в Bitrix → закрываем
+                cur.execute("UPDATE meeting_tasks SET closed=true, updated_at=now() WHERE task_id=%s", (tid,))
+                updated += 1
+                continue
+            try:
+                status = int(t.get("status") or t.get("STATUS") or 0)
+            except (TypeError, ValueError):
+                status = 0
+            deadline = t.get("deadline") or t.get("DEADLINE") or None
+            cur.execute(
+                "UPDATE meeting_tasks SET status=%s, deadline=COALESCE(%s, deadline), closed=%s, updated_at=now() WHERE task_id=%s",
+                (status, deadline, status in CLOSED_STATUSES, tid),
+            )
+            updated += 1
+    conn.commit()
+    return updated
+
+
+def existing_step_keys(conn, meeting_id: int) -> set[str]:
+    with conn.cursor() as cur:
+        cur.execute("SELECT step_key FROM meeting_tasks WHERE meeting_id=%s", (int(meeting_id),))
+        return {row[0] for row in cur.fetchall()}
+
+
+def record_task(conn, *, report_date, meeting_id, deal_id, step_key, task_id, responsible_id, title, deadline) -> None:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO meeting_tasks
+              (report_date, meeting_id, deal_id, step_key, task_id, responsible_id, title, deadline, status, closed, created_at)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s, now())
+            ON CONFLICT (meeting_id, step_key) DO NOTHING
+            """,
+            (report_date, int(meeting_id), deal_id, step_key, int(task_id), responsible_id, title, deadline, 2, False),
+        )

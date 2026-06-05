@@ -1,8 +1,8 @@
 import 'server-only';
 
-import { and, desc, eq, gte, sql } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 import { db } from '@/db';
-import { dealsSnapshot, meetings, users } from '@/db/schema';
+import { dealsSnapshot, meetingTasks, users } from '@/db/schema';
 import { STAGE_META } from './dashboard';
 
 export interface BurningDeal {
@@ -16,22 +16,21 @@ export interface BurningDeal {
   reason: string;
 }
 
-export interface PromiseItem {
-  meetingId: number;
+export interface TaskItem {
+  taskId: number;
+  title: string;
   dealId: number | null;
-  dealTitle: string | null;
-  what: string;
-  who: string | null;
-  deadline: string | null;
   manager: string;
-  reportDate: string;
+  deadline: string | null;
+  status: number | null;
+  statusLabel: string;
   overdue: boolean;
 }
 
 export interface AlertsData {
   snapshotDate: string | null;
   burning: BurningDeal[];
-  promises: PromiseItem[];
+  tasks: TaskItem[];
   count: number;
 }
 
@@ -47,51 +46,47 @@ export function dealSeverity(amount: number, stuckDays: number): 'critical' | 'w
   return 'warning';
 }
 
-/** Просрочено ли обещание: дедлайн-дата уже прошла (today в МСК). Свободный текст → не считаем. */
-export function isPromiseOverdue(deadline: string | null | undefined, today: string): boolean {
-  if (!deadline) return false;
-  const iso = String(deadline).trim().slice(0, 10);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return false;
-  return iso < today;
-}
+// Статусы Bitrix-задач: 2 ждёт выполнения, 3 выполняется, 4 ждёт контроля, 6 отложена.
+const STATUS_LABEL: Record<number, string> = {
+  2: 'ждёт выполнения',
+  3: 'в работе',
+  4: 'ждёт контроля',
+  6: 'отложена',
+};
 
-function todayMsk(): string {
-  // Дата в МСК в формате YYYY-MM-DD.
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'Europe/Moscow',
-  }).format(new Date());
-  return parts;
+export function isOverdue(deadline: Date | string | null | undefined, now: Date): boolean {
+  if (!deadline) return false;
+  const d = deadline instanceof Date ? deadline : new Date(deadline);
+  return !Number.isNaN(d.getTime()) && d.getTime() < now.getTime();
 }
 
 export async function getAlerts(): Promise<AlertsData> {
   const latest = await db.select({ d: sql<string>`max(${dealsSnapshot.reportDate})` }).from(dealsSnapshot);
   const snapshotDate = latest[0]?.d ?? null;
-  if (!snapshotDate) {
-    return { snapshotDate: null, burning: [], promises: [], count: 0 };
-  }
 
   const userRows = await db.select({ id: users.bitrixId, name: users.name }).from(users);
   const userMap = new Map(userRows.map((u) => [u.id, u.name]));
 
   // Горящие сделки — открытые кат.10 на последнем снимке, застрявшие.
-  const snapRows = await db
-    .select({
-      dealId: dealsSnapshot.dealId,
-      stage: dealsSnapshot.stage,
-      opportunity: dealsSnapshot.opportunity,
-      stuckDays: dealsSnapshot.stuckDays,
-      managerId: dealsSnapshot.managerId,
-      title: dealsSnapshot.title,
-    })
-    .from(dealsSnapshot)
-    .where(and(eq(dealsSnapshot.reportDate, snapshotDate), eq(dealsSnapshot.categoryId, 10)));
+  const burning: BurningDeal[] = [];
+  if (snapshotDate) {
+    const snapRows = await db
+      .select({
+        dealId: dealsSnapshot.dealId,
+        stage: dealsSnapshot.stage,
+        opportunity: dealsSnapshot.opportunity,
+        stuckDays: dealsSnapshot.stuckDays,
+        managerId: dealsSnapshot.managerId,
+        title: dealsSnapshot.title,
+      })
+      .from(dealsSnapshot)
+      .where(and(eq(dealsSnapshot.reportDate, snapshotDate), eq(dealsSnapshot.categoryId, 10)));
 
-  const burning: BurningDeal[] = snapRows
-    .filter((r) => STAGE_META[r.stage] && (r.stuckDays ?? 0) > 0)
-    .map((r) => {
+    for (const r of snapRows) {
+      if (!STAGE_META[r.stage] || (r.stuckDays ?? 0) <= 0) continue;
       const amount = Number(r.opportunity ?? 0);
       const stuckDays = r.stuckDays ?? 0;
-      return {
+      burning.push({
         dealId: r.dealId,
         title: r.title ?? `Сделка #${r.dealId}`,
         stageLabel: STAGE_META[r.stage]?.label ?? r.stage,
@@ -100,56 +95,44 @@ export async function getAlerts(): Promise<AlertsData> {
         manager: (r.managerId && userMap.get(r.managerId)) || '—',
         severity: dealSeverity(amount, stuckDays),
         reason: dealReason(amount, stuckDays),
-      };
-    })
-    .sort((a, b) => {
+      });
+    }
+    burning.sort((a, b) => {
       if (a.severity !== b.severity) return a.severity === 'critical' ? -1 : 1;
       return b.stuckDays - a.stuckDays || b.amount - a.amount;
-    })
-    .slice(0, 12);
-
-  // Обещания клиентам — следующие шаги из разборов встреч за последние ~21 день.
-  const [sy, sm, sd] = snapshotDate.split('-').map(Number);
-  const since = new Date(Date.UTC(sy, sm - 1, sd)); // месяц 0-индексный
-  since.setUTCDate(since.getUTCDate() - 21);
-  const sinceStr = since.toISOString().slice(0, 10);
-  const today = todayMsk();
-
-  const titleByDeal = new Map(snapRows.map((r) => [r.dealId, r.title ?? null]));
-
-  const meetingRows = await db
-    .select({
-      meetingId: meetings.meetingId,
-      dealId: meetings.dealId,
-      managerId: meetings.managerId,
-      reportDate: meetings.reportDate,
-      step: sql<unknown>`${meetings.analysisJson} -> 'next_step'`,
-    })
-    .from(meetings)
-    .where(and(gte(meetings.reportDate, sinceStr), sql`${meetings.analysisJson} -> 'next_step' is not null`))
-    .orderBy(desc(meetings.reportDate))
-    .limit(20);
-
-  const promises: PromiseItem[] = [];
-  for (const m of meetingRows) {
-    const step = (m.step ?? null) as { what?: string; who?: string; deadline?: string } | null;
-    const what = step && typeof step === 'object' ? String(step.what ?? '').trim() : '';
-    if (!what) continue;
-    const deadline = step?.deadline ? String(step.deadline) : null;
-    promises.push({
-      meetingId: m.meetingId,
-      dealId: m.dealId,
-      dealTitle: (m.dealId != null ? titleByDeal.get(m.dealId) : null) ?? null,
-      what,
-      who: step?.who ? String(step.who) : null,
-      deadline,
-      manager: (m.managerId && userMap.get(m.managerId)) || '—',
-      reportDate: String(m.reportDate),
-      overdue: isPromiseOverdue(deadline, today),
     });
   }
 
-  const count = burning.filter((b) => b.severity === 'critical').length + promises.filter((p) => p.overdue).length;
+  // Задачи на контроле — открытые автозадачи из разбора встреч (meeting_tasks.closed=false).
+  const now = new Date();
+  const taskRows = await db
+    .select({
+      taskId: meetingTasks.taskId,
+      title: meetingTasks.title,
+      dealId: meetingTasks.dealId,
+      responsibleId: meetingTasks.responsibleId,
+      deadline: meetingTasks.deadline,
+      status: meetingTasks.status,
+    })
+    .from(meetingTasks)
+    .where(eq(meetingTasks.closed, false))
+    .orderBy(asc(meetingTasks.deadline))
+    .limit(50);
 
-  return { snapshotDate, burning, promises, count };
+  const tasks: TaskItem[] = taskRows.map((t) => {
+    const deadline = t.deadline ? new Date(t.deadline) : null;
+    return {
+      taskId: t.taskId,
+      title: t.title ?? `Задача #${t.taskId}`,
+      dealId: t.dealId,
+      manager: (t.responsibleId && userMap.get(t.responsibleId)) || '—',
+      deadline: deadline ? deadline.toISOString() : null,
+      status: t.status,
+      statusLabel: (t.status != null && STATUS_LABEL[t.status]) || 'в работе',
+      overdue: isOverdue(deadline, now),
+    };
+  });
+
+  const count = burning.filter((b) => b.severity === 'critical').length + tasks.filter((t) => t.overdue).length;
+  return { snapshotDate, burning: burning.slice(0, 12), tasks, count };
 }
