@@ -244,6 +244,15 @@ def build_db_rows(raw: dict[str, Any], target_date: date, now: datetime) -> dict
     kp_sent = Counter(_to_int(item.get("assignedById")) for item in raw.get("kp", []))
     deals_created_cnt = Counter(_to_int(d.get("ASSIGNED_BY_ID")) for d in raw.get("deals_created", []))
 
+    # Чаты Wazzup (messenger_dialogs) — посчитаны в collect_day, лежат в raw.
+    # Сохраняем их в дневную статистику, чтобы они были видны в архиве за прошлый день.
+    messenger: dict[int, int] = {}
+    for mk, mv in (raw.get("messenger_dialogs") or {}).items():
+        ki = _to_int(mk)
+        if ki is not None:
+            messenger[ki] = messenger.get(ki, 0) + int(mv or 0)
+    manager_ids.update(messenger.keys())
+
     manager_activity = []
     for manager_id in sorted(manager_ids):
         call_stats = calls.get(manager_id, {})
@@ -258,6 +267,7 @@ def build_db_rows(raw: dict[str, Any], target_date: date, now: datetime) -> dict
                 "dials_total": call_stats.get("dials_total", 0),
                 "talk_seconds": call_stats.get("talk_seconds", 0),
                 "emails_sent": emails_sent.get(manager_id, 0),
+                "messenger_dialogs": messenger.get(manager_id, 0),
                 "meetings_set": meetings_set[manager_id],
                 "meetings_held": meetings_held[manager_id],
                 "briefs_created": briefs_created[manager_id],

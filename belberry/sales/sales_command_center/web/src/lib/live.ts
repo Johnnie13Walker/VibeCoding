@@ -49,6 +49,7 @@ export interface LiveBrief {
 export interface LiveData {
   updatedAt: string | null;
   chatsUpdatedAt: string | null;
+  chatsTracked: boolean;
   reportDate: string | null;
   totals: { dials: number; answered: number; calls60: number; chats: number; meetings: number; meetingsHeld: number; meetingsScheduled: number; meetingsCancelled: number; briefs: number; kp: number; deals: number; dealsSpam: number; emails: number };
   managers: LiveManager[];
@@ -68,7 +69,7 @@ interface RawBrief { id: number | null; title: string; manager_id: number | null
 interface RawFeed { kind: LiveFeedItem['kind']; manager_id: number | null; title: string; at: string }
 
 const EMPTY: LiveData = {
-  updatedAt: null, chatsUpdatedAt: null, reportDate: null,
+  updatedAt: null, chatsUpdatedAt: null, chatsTracked: false, reportDate: null,
   totals: { dials: 0, answered: 0, calls60: 0, chats: 0, meetings: 0, meetingsHeld: 0, meetingsScheduled: 0, meetingsCancelled: 0, briefs: 0, kp: 0, deals: 0, dealsSpam: 0, emails: 0 },
   managers: [], meetings: [], briefs: [], feed: [],
 };
@@ -163,6 +164,7 @@ export async function getLive(): Promise<LiveData> {
   return {
     updatedAt: rows[0].updatedAt ? new Date(rows[0].updatedAt).toISOString() : null,
     chatsUpdatedAt,
+    chatsTracked: true,
     reportDate: rows[0].reportDate ? String(rows[0].reportDate) : null,
     totals, managers, meetings, briefs, feed,
   };
@@ -216,6 +218,9 @@ export async function getDayBreakdown(date: string): Promise<LiveData | null> {
     }
   }
 
+  // чаты сохраняются с миграции 0008: NULL = за день не собирались (старые дни), число = собрано
+  const chatsTracked = maRows.some((r) => r.messengerDialogs != null);
+
   const all = maRows.map((r) => ({
     managerId: r.managerId,
     name: nameOf(r.managerId),
@@ -223,6 +228,7 @@ export async function getDayBreakdown(date: string): Promise<LiveData | null> {
     dials: r.dialsTotal ?? 0,
     answered: r.callsAnswered ?? 0,
     calls60: r.calls60sPlus ?? 0,
+    chats: r.messengerDialogs ?? 0,
     mHeld: r.meetingsHeld ?? 0,
     mScheduled: r.meetingsSet ?? 0,
     mCancelled: cancelledByMgr.get(r.managerId) ?? 0,
@@ -238,7 +244,7 @@ export async function getDayBreakdown(date: string): Promise<LiveData | null> {
 
   const managers: LiveManager[] = shown.map((m) => ({
     managerId: m.managerId, name: m.name, dials: m.dials, answered: m.answered, calls60: m.calls60,
-    chats: 0, meetings: m.mHeld + m.mScheduled + m.mCancelled, mHeld: m.mHeld, mScheduled: m.mScheduled,
+    chats: m.chats, meetings: m.mHeld + m.mScheduled + m.mCancelled, mHeld: m.mHeld, mScheduled: m.mScheduled,
     mCancelled: m.mCancelled, briefs: m.briefs, kp: m.kp, emails: m.emails,
   }));
 
@@ -272,7 +278,7 @@ export async function getDayBreakdown(date: string): Promise<LiveData | null> {
     dials: shown.reduce((s, m) => s + m.dials, 0),
     answered: shown.reduce((s, m) => s + m.answered, 0),
     calls60: shown.reduce((s, m) => s + m.calls60, 0),
-    chats: 0,
+    chats: shown.reduce((s, m) => s + m.chats, 0),
     meetings: meetingsList.length,
     meetingsHeld: shown.reduce((s, m) => s + m.mHeld, 0),
     meetingsScheduled: shown.reduce((s, m) => s + m.mScheduled, 0),
@@ -287,6 +293,7 @@ export async function getDayBreakdown(date: string): Promise<LiveData | null> {
   return {
     updatedAt: `${date}T12:00:00+03:00`,
     chatsUpdatedAt: null,
+    chatsTracked,
     reportDate: date,
     totals,
     managers,

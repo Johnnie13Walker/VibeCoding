@@ -45,7 +45,11 @@ function Tile({ icon, label, value, sub }: { icon: React.ReactNode; label: strin
 export default async function TodayPage({ searchParams }: { searchParams: Promise<{ date?: string }> }) {
   const params = await searchParams;
   const dates = await availableReportDates();
-  const selected = typeof params.date === 'string' && dates.includes(params.date) ? params.date : null;
+  const todayMsk = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Moscow' }).format(new Date());
+  // принимаем любую корректную дату (ввод вручную), кроме сегодня (сегодня = live)
+  const raw = typeof params.date === 'string' ? params.date : '';
+  const validDate = /^\d{4}-\d{2}-\d{2}$/.test(raw) && !Number.isNaN(Date.parse(raw));
+  const selected = validDate && raw !== todayMsk ? raw : null;
   const isArchive = selected !== null;
 
   const data: LiveData | null = isArchive ? await getDayBreakdown(selected) : await getLive();
@@ -75,7 +79,7 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
             </div>
           </div>
           <div style={{ flex: '0 0 auto', paddingTop: 4 }}>
-            <DaySelect dates={dates} selected={selected} />
+            <DaySelect dates={dates} selected={selected} maxDate={todayMsk} />
           </div>
         </div>
       </div>
@@ -92,7 +96,7 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
             <Tile icon={<PhoneCall size={14} />} label="Наборы" value={t.dials} />
             <Tile icon={<PhoneForwarded size={14} />} label="Снял трубку" value={t.answered} sub={`${connect}% от наборов`} />
             <Tile icon={<Timer size={14} />} label="Дозвоны ≥60с" value={t.calls60} sub={t.dials ? `${Math.round((t.calls60 / t.dials) * 100)}% от наборов` : undefined} />
-            <Tile icon={<MessageCircle size={14} />} label="Чаты Wazzup" value={isArchive ? '—' : t.chats} sub={isArchive ? 'только в «Сегодня»' : (data!.chatsUpdatedAt ? `обновлено ${fmtMsk(data!.chatsUpdatedAt)}` : 'ждёт сбора')} />
+            <Tile icon={<MessageCircle size={14} />} label="Чаты Wazzup" value={data!.chatsTracked ? t.chats : '—'} sub={!data!.chatsTracked ? (isArchive ? 'за этот день не собирались' : 'ждёт сбора') : (isArchive ? undefined : (data!.chatsUpdatedAt ? `обновлено ${fmtMsk(data!.chatsUpdatedAt)}` : 'ждёт сбора'))} />
             <Tile icon={<Handshake size={14} />} label="Встречи проведено" value={t.meetingsHeld} sub={`назначено ${t.meetingsScheduled} · отменено ${t.meetingsCancelled}`} />
             <Tile icon={<FileText size={14} />} label="Брифы" value={t.briefs} />
             <Tile icon={<FileText size={14} />} label="КП" value={t.kp} />
@@ -113,7 +117,7 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
                       <tr key={m.managerId}>
                         <td style={{ fontWeight: 600 }}>{m.name}</td>
                         <td className="r">{m.dials}</td><td className="r">{m.answered}</td><td className="r">{m.calls60}</td>
-                        <td className="r">{isArchive ? '—' : m.chats}</td><td className="r">{m.emails}</td>
+                        <td className="r">{data!.chatsTracked ? m.chats : '—'}</td><td className="r">{m.emails}</td>
                         <td className="r tabular"><b style={{ color: 'var(--bb-green)' }}>{m.mHeld}</b>·{m.mScheduled}·<span style={{ color: m.mCancelled ? 'var(--bb-red)' : 'inherit' }}>{m.mCancelled}</span></td>
                         <td className="r">{m.briefs}</td><td className="r">{m.kp}</td>
                       </tr>
