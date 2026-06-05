@@ -1,7 +1,6 @@
 import Link from 'next/link';
-import { Filter, Flame, Users, Goal, FileText } from 'lucide-react';
+import { Filter, FileText } from 'lucide-react';
 import { FunnelBars } from '@/components/dashboard/FunnelBars';
-import { TeamList } from '@/components/dashboard/TeamList';
 import { KpiCard } from '@/components/dashboard/KpiCard';
 import { Gauge } from '@/components/dashboard/Gauge';
 import { getDashboardData } from '@/lib/dashboard';
@@ -80,62 +79,13 @@ export default async function DashboardPage({
         <KpiCard label={`Сделки ${per}`} value={data.dealsCreatedTotal} icon="zap" delta={data.deltas.deals} />
       </div>
 
-      {/* Воронка + затор */}
+      {/* Воронка продаж */}
       <div className="bb-card" style={{ marginBottom: 16 }}>
         <SectionHead icon={<Filter size={17} />} title="Воронка продаж" hint={`снимок ${data.snapshotDate ?? '—'}`} />
         <FunnelBars data={data.funnel} />
-
-        {data.stuck.length > 0 ? (
-          <div style={{ marginTop: 22, borderTop: '1px solid var(--bb-line)', paddingTop: 18 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-              <Flame size={16} color="#d4202e" />
-              <h3 style={{ fontSize: 14.5, fontWeight: 700 }}>Застрявшие сделки</h3>
-              <small style={{ color: 'var(--bb-faint)', fontSize: 12.5 }}>дольше всего без движения</small>
-            </div>
-            <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column' }}>
-              {data.stuck.map((d) => (
-                <li key={d.dealId} className="bb-stuck-row">
-                  <div style={{ minWidth: 0 }}>
-                    <p className="bb-ellipsis" style={{ fontSize: 14, fontWeight: 600 }}>{d.title}</p>
-                    <p style={{ fontSize: 12, color: 'var(--bb-faint)' }}>{d.stageLabel} · {d.manager}</p>
-                  </div>
-                  <div style={{ textAlign: 'right', flex: '0 0 auto' }}>
-                    <p className="tabular" style={{ fontSize: 14, fontWeight: 700 }}>{rub(d.amount)}</p>
-                    <p style={{ fontSize: 12, fontWeight: 600, color: '#d4202e' }}>{d.stuckDays} дн. без движения</p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
       </div>
 
-      {/* Команда — кликабельные карточки → дрилл-даун */}
-      <div className="bb-card" style={{ marginBottom: 16 }}>
-        <SectionHead icon={<Users size={17} />} title="Команда" hint="клик по строке → разбор менеджера" />
-        <TeamList team={data.team} meetingsPlan={data.meetingsPlan} />
-      </div>
-
-      {/* План / факт */}
-      {data.team.length > 0 ? (
-        <div className="bb-card" style={{ marginBottom: 16 }}>
-          <SectionHead icon={<Goal size={17} />} title="План / факт встреч" hint={`цель ${data.meetingsPlan}/чел`} />
-          <div className="bb-grid" style={{ gridTemplateColumns: 'repeat(2,1fr)', gap: 16 }}>
-            {data.team.slice(0, 4).map((m) => {
-              const pct = Math.min(100, Math.round((m.meetingsHeld / data.meetingsPlan) * 100));
-              return (
-                <div key={m.managerId}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13.5, fontWeight: 600 }}>
-                    <span>{m.name}</span>
-                    <span className="tabular" style={{ color: 'var(--bb-muted)' }}>{m.meetingsHeld} / {data.meetingsPlan}</span>
-                  </div>
-                  <div className="bb-pf-bar"><i style={{ width: `${pct}%` }} /></div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      ) : null}
+      {/* Ниже будут новые блоки v1: воронка вход→оплата, помесячная динамика/Day2Day, план/факт. */}
     </div>
   );
 }
