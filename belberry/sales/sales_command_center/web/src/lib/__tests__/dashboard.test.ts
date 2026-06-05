@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 // Не поднимаем реальный postgres-клиент при импорте модуля.
 vi.mock('@/db', () => ({ db: {} }));
 
-import { buildFunnel } from '../dashboard';
+import { buildFunnel, buildSalesFunnel } from '../dashboard';
 
 describe('buildFunnel', () => {
   it('группирует открытые сделки по стадиям, считает количество и суммы', () => {
@@ -43,5 +43,63 @@ describe('buildFunnel', () => {
       'Подготовка КП',
       'Подготовка договора',
     ]);
+  });
+});
+
+describe('buildSalesFunnel', () => {
+  it('считает шаги, конверсии между ними и средний чек', () => {
+    const f = buildSalesFunnel({
+      dealsTotal: 40,
+      dealsCold: 30,
+      dealsIncoming: 10,
+      firstMeetings: 20,
+      presentations: 16,
+      kpSent: 12,
+      wonCount: 3,
+      wonAmount: 600000,
+    });
+
+    expect(f.steps.map((s) => [s.key, s.count])).toEqual([
+      ['deals', 40],
+      ['first', 20],
+      ['kp', 12],
+      ['present', 16],
+      ['won', 3],
+    ]);
+    // Первый шаг — без конверсии.
+    expect(f.steps[0].convFromPrev).toBeNull();
+    // first/deals=20/40, kp/first=12/20, present/kp=16/12, won/present=3/16.
+    expect(f.steps[1].convFromPrev).toBe(50);
+    expect(f.steps[2].convFromPrev).toBe(60);
+    expect(f.steps[3].convFromPrev).toBe(133);
+    expect(f.steps[4].convFromPrev).toBe(19);
+    expect(f.steps[4].amount).toBe(600000);
+    expect(f.avgCheck).toBe(200000);
+    expect(f.dealsCold).toBe(30);
+    expect(f.dealsIncoming).toBe(10);
+  });
+
+  it('конверсии не ограничены 100% (встречи опережают сделки)', () => {
+    const f = buildSalesFunnel({
+      dealsTotal: 9,
+      dealsCold: 5,
+      dealsIncoming: 4,
+      firstMeetings: 14, // 14/9 = 156%
+      presentations: 10,
+      kpSent: 0,
+      wonCount: 0,
+      wonAmount: 0,
+    });
+    expect(f.steps[1].convFromPrev).toBe(156);
+  });
+
+  it('пустые данные не делят на ноль', () => {
+    const f = buildSalesFunnel({
+      dealsTotal: 0, dealsCold: 0, dealsIncoming: 0, firstMeetings: 0,
+      presentations: 0, kpSent: 0, wonCount: 0, wonAmount: 0,
+    });
+    expect(f.steps.every((s) => s.count === 0)).toBe(true);
+    expect(f.steps[1].convFromPrev).toBeNull();
+    expect(f.avgCheck).toBe(0);
   });
 });

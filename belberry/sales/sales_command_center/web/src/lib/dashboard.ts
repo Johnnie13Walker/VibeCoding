@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { and, desc, eq, gte, lte, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { dealsSnapshot, managerActivity, meetings, plans, reports, users } from '@/db/schema';
 
@@ -48,6 +48,10 @@ export interface TeamMember {
   kpSent: number;
   briefs: number;
   dealsCreated: number;
+  dealsCold: number;
+  dealsIncoming: number;
+  dealsWon: number;
+  dealsWonAmount: number;
   talkHours: number;
   /** Тренд встреч по дням месяца — для спарклайна в дрилл-дауне. */
   trend: number[];
@@ -68,6 +72,7 @@ export interface DashboardData {
   dialsTotal: number;
   kpTotal: number;
   dealsCreatedTotal: number;
+  salesFunnel: SalesFunnel;
   deltas: { meetings: KpiDelta; dials: KpiDelta; kp: KpiDelta; deals: KpiDelta };
   trend: TrendPoint[];
   health: number;
@@ -154,6 +159,66 @@ export function buildFunnel(rows: FunnelRow[]): FunnelStage[] {
   return Array.from(acc.values()).sort((a, b) => a.order - b.order);
 }
 
+export interface SalesFunnelStep {
+  key: string;
+  label: string;
+  count: number;
+  /** Конверсия из предыдущего шага, % (целое). null — для первого шага. */
+  convFromPrev: number | null;
+  /** Сумма ₽ — только для шага «Оплаты». */
+  amount?: number;
+}
+
+export interface SalesFunnel {
+  /** Шаги потока: сделки → первых встреч → презентаций → КП → оплаты. */
+  steps: SalesFunnelStep[];
+  dealsCold: number;
+  dealsIncoming: number;
+  wonAmount: number;
+  /** Средний чек оплаченной сделки, ₽ (0 если оплат нет). */
+  avgCheck: number;
+}
+
+export interface SalesFunnelInput {
+  /** Всего создано сделок (deals_created_count) — база воронки и шага «Сделки».
+   *  Есть историческая глубина; холод/вход — разрез поверх (новые колонки). */
+  dealsTotal: number;
+  dealsCold: number;
+  dealsIncoming: number;
+  firstMeetings: number;
+  presentations: number;
+  kpSent: number;
+  wonCount: number;
+  wonAmount: number;
+}
+
+/** Воронка-поток вход→оплата за период. Чистая функция — тестируема.
+ *  Конверсии не ограничиваем 100%: встречи/КП периода могут опережать сделки
+ *  по таймингу (так же как в старом дашборде «Новый даш»: 113%, 156%). */
+export function buildSalesFunnel(input: SalesFunnelInput): SalesFunnel {
+  const deals = input.dealsTotal;
+  const conv = (cur: number, prev: number): number | null =>
+    prev > 0 ? Math.round((cur / prev) * 100) : null;
+
+  // Порядок = реальный путь сделки: брифинг → готовят и отправляют КП →
+  // защита КП (презентация) → оплата.
+  const steps: SalesFunnelStep[] = [
+    { key: 'deals', label: 'Сделки', count: deals, convFromPrev: null },
+    { key: 'first', label: 'Первых встреч', count: input.firstMeetings, convFromPrev: conv(input.firstMeetings, deals) },
+    { key: 'kp', label: 'КП отправлено', count: input.kpSent, convFromPrev: conv(input.kpSent, input.firstMeetings) },
+    { key: 'present', label: 'Презентаций', count: input.presentations, convFromPrev: conv(input.presentations, input.kpSent) },
+    { key: 'won', label: 'Оплаты', count: input.wonCount, convFromPrev: conv(input.wonCount, input.presentations), amount: input.wonAmount },
+  ];
+
+  return {
+    steps,
+    dealsCold: input.dealsCold,
+    dealsIncoming: input.dealsIncoming,
+    wonAmount: input.wonAmount,
+    avgCheck: input.wonCount > 0 ? Math.round(input.wonAmount / input.wonCount) : 0,
+  };
+}
+
 const MONTHS_RU = [
   'январь', 'февраль', 'март', 'апрель', 'май', 'июнь',
   'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь',
@@ -231,6 +296,10 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
       dialsTotal: 0,
       kpTotal: 0,
       dealsCreatedTotal: 0,
+      salesFunnel: buildSalesFunnel({
+        dealsTotal: 0, dealsCold: 0, dealsIncoming: 0, firstMeetings: 0,
+        presentations: 0, kpSent: 0, wonCount: 0, wonAmount: 0,
+      }),
       deltas: { meetings: zeroDelta, dials: zeroDelta, kp: zeroDelta, deals: zeroDelta },
       trend: [],
       health: 0,
@@ -292,6 +361,10 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
       kpSent: sql<number>`coalesce(sum(${managerActivity.kpSent}),0)`,
       briefs: sql<number>`coalesce(sum(${managerActivity.briefsCreated}),0)`,
       dealsCreated: sql<number>`coalesce(sum(${managerActivity.dealsCreatedCount}),0)`,
+      dealsCold: sql<number>`coalesce(sum(${managerActivity.dealsColdCount}),0)`,
+      dealsIncoming: sql<number>`coalesce(sum(${managerActivity.dealsIncomingCount}),0)`,
+      dealsWon: sql<number>`coalesce(sum(${managerActivity.dealsWonCount}),0)`,
+      dealsWonAmount: sql<number>`coalesce(sum(${managerActivity.dealsWonAmount}),0)`,
       talkSeconds: sql<number>`coalesce(sum(${managerActivity.talkSeconds}),0)`,
     })
     .from(managerActivity)
@@ -356,6 +429,10 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
       kpSent: Number(r.kpSent),
       briefs: Number(r.briefs),
       dealsCreated: Number(r.dealsCreated),
+      dealsCold: Number(r.dealsCold),
+      dealsIncoming: Number(r.dealsIncoming),
+      dealsWon: Number(r.dealsWon),
+      dealsWonAmount: Number(r.dealsWonAmount),
       talkHours: Math.round(Number(r.talkSeconds) / 360) / 10,
       trend: trendByMgr.get(r.managerId) ?? [],
       meetings: meetingsByMgr.get(r.managerId) ?? [],
@@ -371,6 +448,39 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
   const dialsTotal = team.reduce((s, x) => s + x.dials, 0);
   const kpTotal = team.reduce((s, x) => s + x.kpSent, 0);
   const dealsCreatedTotal = team.reduce((s, x) => s + x.dealsCreated, 0);
+
+  // Воронка-поток вход→оплата за период (только отдел продаж + ТМ).
+  // Первых встреч/презентаций берём по типу из таблицы meetings (брифинг/защита).
+  const salesIds = team.map((m) => m.managerId);
+  let firstMeetings = 0;
+  let presentations = 0;
+  if (salesIds.length) {
+    const mtRows = await db
+      .select({ type: meetings.meetingType, n: sql<number>`count(*)` })
+      .from(meetings)
+      .where(
+        and(
+          gte(meetings.reportDate, start),
+          lte(meetings.reportDate, end),
+          inArray(meetings.managerId, salesIds),
+        ),
+      )
+      .groupBy(meetings.meetingType);
+    for (const r of mtRows) {
+      if (r.type === 'briefing') firstMeetings = Number(r.n);
+      else if (r.type === 'defense') presentations = Number(r.n);
+    }
+  }
+  const salesFunnel = buildSalesFunnel({
+    dealsTotal: dealsCreatedTotal,
+    dealsCold: team.reduce((s, x) => s + x.dealsCold, 0),
+    dealsIncoming: team.reduce((s, x) => s + x.dealsIncoming, 0),
+    firstMeetings,
+    presentations,
+    kpSent: kpTotal,
+    wonCount: team.reduce((s, x) => s + x.dealsWon, 0),
+    wonAmount: team.reduce((s, x) => s + x.dealsWonAmount, 0),
+  });
 
   // Δ к предыдущему окну (месяц→прошлый месяц, неделя→прошлая неделя).
   const prevRows = await db
@@ -441,6 +551,7 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
     dialsTotal,
     kpTotal,
     dealsCreatedTotal,
+    salesFunnel,
     deltas,
     trend,
     health,

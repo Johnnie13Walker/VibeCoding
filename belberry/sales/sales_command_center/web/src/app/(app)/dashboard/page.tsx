@@ -1,6 +1,7 @@
 import Link from 'next/link';
-import { Filter, FileText } from 'lucide-react';
+import { Filter, FileText, TrendingUp } from 'lucide-react';
 import { FunnelBars } from '@/components/dashboard/FunnelBars';
+import { SalesFunnel } from '@/components/dashboard/SalesFunnel';
 import { KpiCard } from '@/components/dashboard/KpiCard';
 import { Gauge } from '@/components/dashboard/Gauge';
 import { getDashboardData } from '@/lib/dashboard';
@@ -79,13 +80,19 @@ export default async function DashboardPage({
         <KpiCard label={`Сделки ${per}`} value={data.dealsCreatedTotal} icon="zap" delta={data.deltas.deals} />
       </div>
 
-      {/* Воронка продаж */}
+      {/* Воронка продаж — снимок открытых сделок по стадиям */}
       <div className="bb-card" style={{ marginBottom: 16 }}>
         <SectionHead icon={<Filter size={17} />} title="Воронка продаж" hint={`снимок ${data.snapshotDate ?? '—'}`} />
         <FunnelBars data={data.funnel} />
       </div>
 
-      {/* Ниже будут новые блоки v1: воронка вход→оплата, помесячная динамика/Day2Day, план/факт. */}
+      {/* Путь сделки вход→оплата — поток за период с конверсиями */}
+      <div className="bb-card" style={{ marginBottom: 16 }}>
+        <SectionHead icon={<TrendingUp size={17} />} title="Путь сделки: вход → оплата" hint={per} />
+        <SalesFunnel data={data.salesFunnel} />
+      </div>
+
+      {/* Ниже будут новые блоки v1: помесячная динамика/Day2Day, план/факт. */}
     </div>
   );
 }
