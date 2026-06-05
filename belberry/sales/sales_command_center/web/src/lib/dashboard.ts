@@ -44,6 +44,7 @@ export interface TeamMember {
   meetingsSet: number;
   meetingsHeld: number;
   dials: number;
+  calls60: number;
   calls120: number;
   kpSent: number;
   briefs: number;
@@ -52,6 +53,8 @@ export interface TeamMember {
   dealsIncoming: number;
   dealsWon: number;
   dealsWonAmount: number;
+  messenger: number;
+  emails: number;
   talkHours: number;
   /** Тренд встреч по дням месяца — для спарклайна в дрилл-дауне. */
   trend: number[];
@@ -77,6 +80,8 @@ export interface DashboardData {
   meetingQuality: MeetingQuality;
   managerConversions: { managers: ManagerConversion[]; total: ManagerConversion };
   managerPipeline: ManagerPipeline;
+  tmActivity: TmActivity;
+  messaging: Messaging;
   deltas: { meetings: KpiDelta; dials: KpiDelta; kp: KpiDelta; deals: KpiDelta };
   trend: TrendPoint[];
   health: number;
@@ -424,6 +429,113 @@ export function buildManagerPipeline(
   };
 }
 
+export interface TmRow {
+  managerId: number;
+  name: string;
+  dials: number;
+  calls60: number;
+  meetingsSet: number;
+  /** Конверсия наборов во встречу, % (с десятыми). */
+  convToMeeting: number | null;
+}
+
+export interface TmActivity {
+  zvonari: number;
+  dials: number;
+  calls60: number;
+  calls120: number;
+  talkHours: number;
+  meetingsSet: number;
+  dialsPerZvonar: number;
+  calls60PerZvonar: number;
+  dialsPerDay: number;
+  calls60PerDay: number;
+  rows: TmRow[];
+}
+
+export interface TmActivityInput {
+  managerId: number;
+  name: string;
+  dials: number;
+  calls60: number;
+  calls120: number;
+  meetingsSet: number;
+  talkHours: number;
+}
+
+/** Активность телемаркетинга: дозвоны/наборы, на 1 звонаря, в день; по звонарям. Чистая функция. */
+export function buildTmActivity(members: TmActivityInput[], workingDays: number): TmActivity {
+  const z = Math.max(1, members.length);
+  const wd = Math.max(1, workingDays);
+  const sum = (k: 'dials' | 'calls60' | 'calls120' | 'meetingsSet') =>
+    members.reduce((a, m) => a + m[k], 0);
+  const dials = sum('dials');
+  const calls60 = sum('calls60');
+  const calls120 = sum('calls120');
+  const meetingsSet = sum('meetingsSet');
+  const talkHours = Math.round(members.reduce((a, m) => a + m.talkHours, 0) * 10) / 10;
+  return {
+    zvonari: members.length,
+    dials,
+    calls60,
+    calls120,
+    talkHours,
+    meetingsSet,
+    dialsPerZvonar: Math.round(dials / z),
+    calls60PerZvonar: Math.round(calls60 / z),
+    dialsPerDay: Math.round(dials / wd),
+    calls60PerDay: Math.round(calls60 / wd),
+    rows: members
+      .map((m) => ({
+        managerId: m.managerId,
+        name: m.name,
+        dials: m.dials,
+        calls60: m.calls60,
+        meetingsSet: m.meetingsSet,
+        convToMeeting: m.dials > 0 ? Math.round((m.meetingsSet / m.dials) * 1000) / 10 : null,
+      }))
+      .sort((a, b) => b.dials - a.dials),
+  };
+}
+
+export interface MessagingRow {
+  managerId: number;
+  name: string;
+  messenger: number;
+  emails: number;
+}
+
+export interface Messaging {
+  messengerTotal: number;
+  emailTotal: number;
+  rows: MessagingRow[];
+}
+
+/** Мессенджеры и почта по менеджерам. Чистая функция. */
+export function buildMessaging(members: MessagingRow[]): Messaging {
+  const rows = members
+    .filter((r) => r.messenger > 0 || r.emails > 0)
+    .sort((a, b) => b.messenger - a.messenger || b.emails - a.emails);
+  return {
+    messengerTotal: rows.reduce((a, r) => a + r.messenger, 0),
+    emailTotal: rows.reduce((a, r) => a + r.emails, 0),
+    rows,
+  };
+}
+
+/** Число рабочих дней (пн-пт) в диапазоне [start, end] включительно. */
+function countWeekdays(start: string, end: string): number {
+  const cur = new Date(`${start}T00:00:00Z`);
+  const e = new Date(`${end}T00:00:00Z`);
+  let n = 0;
+  while (cur <= e) {
+    const d = cur.getUTCDay();
+    if (d >= 1 && d <= 5) n += 1;
+    cur.setUTCDate(cur.getUTCDate() + 1);
+  }
+  return n;
+}
+
 const MONTHS_RU = [
   'январь', 'февраль', 'март', 'апрель', 'май', 'июнь',
   'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь',
@@ -509,6 +621,8 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
       meetingQuality: buildMeetingQuality([]),
       managerConversions: buildManagerConversions([]),
       managerPipeline: buildManagerPipeline([], {}),
+      tmActivity: buildTmActivity([], 1),
+      messaging: buildMessaging([]),
       deltas: { meetings: zeroDelta, dials: zeroDelta, kp: zeroDelta, deals: zeroDelta },
       trend: [],
       health: 0,
@@ -566,7 +680,10 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
       meetingsSet: sql<number>`coalesce(sum(${managerActivity.meetingsSet}),0)`,
       meetingsHeld: sql<number>`coalesce(sum(${managerActivity.meetingsHeld}),0)`,
       dials: sql<number>`coalesce(sum(${managerActivity.dialsTotal}),0)`,
+      calls60: sql<number>`coalesce(sum(${managerActivity.calls60sPlus}),0)`,
       calls120: sql<number>`coalesce(sum(${managerActivity.calls120sPlus}),0)`,
+      messenger: sql<number>`coalesce(sum(${managerActivity.messengerDialogs}),0)`,
+      emails: sql<number>`coalesce(sum(${managerActivity.emailsSent}),0)`,
       kpSent: sql<number>`coalesce(sum(${managerActivity.kpSent}),0)`,
       briefs: sql<number>`coalesce(sum(${managerActivity.briefsCreated}),0)`,
       dealsCreated: sql<number>`coalesce(sum(${managerActivity.dealsCreatedCount}),0)`,
@@ -635,6 +752,7 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
       meetingsSet: Number(r.meetingsSet),
       meetingsHeld: Number(r.meetingsHeld),
       dials: Number(r.dials),
+      calls60: Number(r.calls60),
       calls120: Number(r.calls120),
       kpSent: Number(r.kpSent),
       briefs: Number(r.briefs),
@@ -643,6 +761,8 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
       dealsIncoming: Number(r.dealsIncoming),
       dealsWon: Number(r.dealsWon),
       dealsWonAmount: Number(r.dealsWonAmount),
+      messenger: Number(r.messenger),
+      emails: Number(r.emails),
       talkHours: Math.round(Number(r.talkSeconds) / 360) / 10,
       trend: trendByMgr.get(r.managerId) ?? [],
       meetings: meetingsByMgr.get(r.managerId) ?? [],
@@ -749,6 +869,25 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
   const managerPipeline = buildManagerPipeline(
     pipelineSales.length ? pipelineSales : pipelineCellsAll,
     startTotalByMgr,
+  );
+
+  // Активность ТМ (звонки) и мессенджеры/почта.
+  const tmActivity = buildTmActivity(
+    team
+      .filter((m) => isTelemarketing(m.role))
+      .map((m) => ({
+        managerId: m.managerId,
+        name: m.name,
+        dials: m.dials,
+        calls60: m.calls60,
+        calls120: m.calls120,
+        meetingsSet: m.meetingsSet,
+        talkHours: m.talkHours,
+      })),
+    countWeekdays(start, end),
+  );
+  const messaging = buildMessaging(
+    team.map((m) => ({ managerId: m.managerId, name: m.name, messenger: m.messenger, emails: m.emails })),
   );
 
   // Качество встреч (LLM-разбор) — по разобранным встречам отдела за период.
@@ -863,6 +1002,8 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
     meetingQuality,
     managerConversions,
     managerPipeline,
+    tmActivity,
+    messaging,
     deltas,
     trend,
     health,

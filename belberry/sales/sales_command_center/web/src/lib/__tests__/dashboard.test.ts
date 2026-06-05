@@ -10,6 +10,8 @@ import {
   buildMeetingQuality,
   buildManagerConversions,
   buildManagerPipeline,
+  buildTmActivity,
+  buildMessaging,
 } from '../dashboard';
 
 describe('buildFunnel', () => {
@@ -216,5 +218,46 @@ describe('buildManagerPipeline', () => {
     expect(p.rows).toEqual([]);
     expect(p.grandTotal).toBe(0);
     expect(p.stages.length).toBe(5);
+  });
+});
+
+describe('buildTmActivity', () => {
+  it('суммы, на 1 звонаря, в день и конверсия во встречу', () => {
+    const a = buildTmActivity(
+      [
+        { managerId: 1, name: 'Д', dials: 1000, calls60: 300, calls120: 200, meetingsSet: 38, talkHours: 40 },
+        { managerId: 2, name: 'Г', dials: 1000, calls60: 300, calls120: 200, meetingsSet: 0, talkHours: 28 },
+      ],
+      20,
+    );
+    expect(a.zvonari).toBe(2);
+    expect(a.dials).toBe(2000);
+    expect(a.calls60).toBe(600);
+    expect(a.dialsPerZvonar).toBe(1000);
+    expect(a.dialsPerDay).toBe(100); // 2000/20
+    expect(a.talkHours).toBe(68);
+    // строки сортированы по наборам; конверсия = meetingsSet/dials
+    expect(a.rows[0].convToMeeting).toBe(3.8); // 38/1000
+    expect(a.rows[1].convToMeeting).toBe(0);
+  });
+
+  it('нет звонарей — нули, без деления на ноль', () => {
+    const a = buildTmActivity([], 0);
+    expect(a.zvonari).toBe(0);
+    expect(a.dialsPerZvonar).toBe(0);
+    expect(a.dialsPerDay).toBe(0);
+  });
+});
+
+describe('buildMessaging', () => {
+  it('итоги и строки без пустых, сортировка по мессенджеру', () => {
+    const m = buildMessaging([
+      { managerId: 1, name: 'А', messenger: 100, emails: 10 },
+      { managerId: 2, name: 'Б', messenger: 0, emails: 0 },
+      { managerId: 3, name: 'В', messenger: 130, emails: 5 },
+    ]);
+    expect(m.messengerTotal).toBe(230);
+    expect(m.emailTotal).toBe(15);
+    expect(m.rows.map((r) => r.name)).toEqual(['В', 'А']); // Б отфильтрован, сорт по messenger
   });
 });
