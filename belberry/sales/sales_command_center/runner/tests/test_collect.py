@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from src import bx_client
-from src.collect import collect_day, collect_users_and_photos
+from src.collect import collect_day, collect_users_and_photos, collect_won_deals
 from src.timeutil import next_working_day
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "2026-05-29"
@@ -80,6 +80,36 @@ class FakeBx:
         if method == "crm.timeline.comment.list":
             return {"result": []}
         return {"result": []}
+
+
+def test_collect_won_deals_filters_c10_won_only():
+    stagehistory = [
+        {"OWNER_ID": 20, "STAGE_ID": "C10:WON"},
+        {"OWNER_ID": 21, "STAGE_ID": "C50:WON"},   # ТМ-успех — НЕ оплата
+        {"OWNER_ID": 22, "STAGE_ID": "C10:LOSE"},  # отказ
+    ]
+
+    captured = {}
+
+    def fake_fetch(bx, method, params, idfield="ID"):
+        captured["filter"] = params["filter"]
+        return [{"ID": "20", "OPPORTUNITY": "150000", "ASSIGNED_BY_ID": "1"}]
+
+    import src.collect as collect_mod
+
+    orig = collect_mod._fetch_all
+    collect_mod._fetch_all = fake_fetch
+    try:
+        won = collect_won_deals(stagehistory, bx=None)
+    finally:
+        collect_mod._fetch_all = orig
+
+    assert captured["filter"] == {"@ID": ["20"]}  # только C10:WON
+    assert won and won[0]["ID"] == "20"
+
+
+def test_collect_won_deals_empty_without_won():
+    assert collect_won_deals([{"OWNER_ID": 1, "STAGE_ID": "C10:LOSE"}], bx=None) == []
 
 
 def test_seed_fixture_has_data_contract_keys():

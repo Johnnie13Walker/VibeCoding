@@ -19,6 +19,22 @@ STAGE_ORDER = [
     "Подготовка договора",
 ]
 
+# Разрез созданных сделок вход/холод (решение пользователя 07.06.2026):
+# вся воронка ТМ (CATEGORY_ID=50) = холод; воронка Продажи (CATEGORY_ID=10)
+# делится по источнику — outbound-источники = холод, остальное = вход.
+# SOURCE_ID: 12 Телемаркетинг, 1 Холодный звонок, 8 E-mail Outreach.
+OUTBOUND_SOURCES = {"1", "8", "12"}
+
+
+def deal_origin(deal: dict[str, Any]) -> str | None:
+    """Происхождение созданной сделки: 'cold' | 'incoming' | None (прочие воронки)."""
+    cat = _to_int(deal.get("CATEGORY_ID"))
+    if cat == 50:
+        return "cold"
+    if cat == 10:
+        return "cold" if str(deal.get("SOURCE_ID")) in OUTBOUND_SOURCES else "incoming"
+    return None
+
 
 def parse_dt(value: Any) -> datetime | None:
     if not value:
@@ -233,6 +249,7 @@ def build_db_rows(raw: dict[str, Any], target_date: date, now: datetime) -> dict
     for key in ["meet_day", "meet_created_day", "briefs", "kp"]:
         manager_ids.update(_to_int(item.get("assignedById")) for item in raw.get(key, []))
     manager_ids.update(_to_int(d.get("ASSIGNED_BY_ID")) for d in raw.get("deals_created", []))
+    manager_ids.update(_to_int(d.get("ASSIGNED_BY_ID")) for d in raw.get("won_deals", []))
     manager_ids.discard(None)
 
     # Назначенную встречу засчитываем СОЗДАТЕЛЮ (createdBy), а не ответственному:
@@ -243,6 +260,24 @@ def build_db_rows(raw: dict[str, Any], target_date: date, now: datetime) -> dict
     briefs_created = Counter(_to_int(item.get("assignedById")) for item in raw.get("briefs", []))
     kp_sent = Counter(_to_int(item.get("assignedById")) for item in raw.get("kp", []))
     deals_created_cnt = Counter(_to_int(d.get("ASSIGNED_BY_ID")) for d in raw.get("deals_created", []))
+
+    # Разрез созданных сделок вход/холод (только воронки Продажи+ТМ; прочие — мимо).
+    deals_cold_cnt: Counter = Counter()
+    deals_incoming_cnt: Counter = Counter()
+    for d in raw.get("deals_created", []):
+        origin = deal_origin(d)
+        if origin == "cold":
+            deals_cold_cnt[_to_int(d.get("ASSIGNED_BY_ID"))] += 1
+        elif origin == "incoming":
+            deals_incoming_cnt[_to_int(d.get("ASSIGNED_BY_ID"))] += 1
+
+    # Оплаты (выигранные сделки C10:WON) — шт и сумма по ответственному.
+    deals_won_cnt: Counter = Counter()
+    deals_won_amount: dict[int, float] = defaultdict(float)
+    for d in raw.get("won_deals", []):
+        mid = _to_int(d.get("ASSIGNED_BY_ID"))
+        deals_won_cnt[mid] += 1
+        deals_won_amount[mid] += _to_float(d.get("OPPORTUNITY")) or 0.0
 
     # Чаты Wazzup (messenger_dialogs) — посчитаны в collect_day, лежат в raw.
     # Сохраняем их в дневную статистику, чтобы они были видны в архиве за прошлый день.
@@ -273,6 +308,10 @@ def build_db_rows(raw: dict[str, Any], target_date: date, now: datetime) -> dict
                 "briefs_created": briefs_created[manager_id],
                 "kp_sent": kp_sent[manager_id],
                 "deals_created_count": deals_created_cnt[manager_id],
+                "deals_cold_count": deals_cold_cnt[manager_id],
+                "deals_incoming_count": deals_incoming_cnt[manager_id],
+                "deals_won_count": deals_won_cnt[manager_id],
+                "deals_won_amount": round(deals_won_amount[manager_id], 2),
             }
         )
 

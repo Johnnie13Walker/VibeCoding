@@ -8,6 +8,7 @@ from src.transform import (
     age_level,
     build_db_rows,
     compute_stale_deals,
+    deal_origin,
     manager_name,
     resolve_target_date,
     risk_reason,
@@ -140,3 +141,39 @@ def test_build_db_rows_matches_phase_one_schema_keys():
         "analysis_status",
     }
     assert rows["meetings"][0]["analysis_json"] is None
+
+
+def test_deal_origin_splits_cold_and_incoming():
+    # ТМ-воронка (CAT 50) — всегда холод, независимо от источника.
+    assert deal_origin({"CATEGORY_ID": "50", "SOURCE_ID": "STORE"}) == "cold"
+    # Продажи (CAT 10): outbound-источники = холод.
+    assert deal_origin({"CATEGORY_ID": "10", "SOURCE_ID": "12"}) == "cold"  # Телемаркетинг
+    assert deal_origin({"CATEGORY_ID": "10", "SOURCE_ID": "1"}) == "cold"   # Холодный звонок
+    # Продажи (CAT 10): остальные источники = вход.
+    assert deal_origin({"CATEGORY_ID": "10", "SOURCE_ID": "STORE"}) == "incoming"  # Контекст
+    assert deal_origin({"CATEGORY_ID": "10", "SOURCE_ID": None}) == "incoming"
+    # Прочие воронки в разрез не попадают.
+    assert deal_origin({"CATEGORY_ID": "7", "SOURCE_ID": "12"}) is None
+
+
+def test_build_db_rows_aggregates_won_and_origin_split():
+    raw = {
+        "deals_created": [
+            {"ID": "1", "ASSIGNED_BY_ID": "100", "CATEGORY_ID": "50", "SOURCE_ID": "12"},  # cold (ТМ)
+            {"ID": "2", "ASSIGNED_BY_ID": "100", "CATEGORY_ID": "10", "SOURCE_ID": "1"},   # cold (outbound)
+            {"ID": "3", "ASSIGNED_BY_ID": "100", "CATEGORY_ID": "10", "SOURCE_ID": "STORE"},  # incoming
+        ],
+        "won_deals": [
+            {"ID": "2", "ASSIGNED_BY_ID": "100", "OPPORTUNITY": "150000"},
+            {"ID": "9", "ASSIGNED_BY_ID": "100", "OPPORTUNITY": "50000.50"},
+        ],
+        "deals_open": [],
+    }
+    rows = build_db_rows(raw, date(2026, 6, 4), NOW)
+    by_mgr = {r["manager_id"]: r for r in rows["manager_activity"]}
+    assert 100 in by_mgr
+    m = by_mgr[100]
+    assert m["deals_cold_count"] == 2
+    assert m["deals_incoming_count"] == 1
+    assert m["deals_won_count"] == 2
+    assert m["deals_won_amount"] == 200000.5

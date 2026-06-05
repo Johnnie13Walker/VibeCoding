@@ -157,6 +157,10 @@ export const managerActivity = pgTable(
     talkSeconds: integer('talk_seconds').default(0),
     emailsSent: integer('emails_sent').default(0),
     dealsCreatedCount: integer('deals_created_count').default(0),
+    dealsColdCount: integer('deals_cold_count').default(0),
+    dealsIncomingCount: integer('deals_incoming_count').default(0),
+    dealsWonCount: integer('deals_won_count').default(0),
+    dealsWonAmount: numeric('deals_won_amount', { precision: 14, scale: 2 }).default('0'),
     messengerDialogs: integer('messenger_dialogs'),
   },
   (table) => [

@@ -349,6 +349,9 @@ def _absence_date_key(dt: Any) -> tuple[int, int, int]:
 
 
 REJECTION_STAGES = {"C10:LOSE", "C50:APOLOGY"}
+# «Оплата получена» = переход сделки в УСПЕХ воронки Продажи (CAT 10). ТМ-воронку
+# (C50:WON «успех») в оплаты НЕ берём — это передача в продажи, а не деньги.
+WON_STAGES = {"C10:WON"}
 
 
 def collect_rejected_deals(stagehistory: list[dict[str, Any]], bx=None) -> list[dict[str, Any]]:
@@ -367,6 +370,25 @@ def collect_rejected_deals(stagehistory: list[dict[str, Any]], bx=None) -> list[
         bx,
         "crm.deal.list",
         {"filter": {"@ID": ids}, "select": ["ID", "TITLE", "ASSIGNED_BY_ID", "OPPORTUNITY", "UF_CRM_1771495464"]},
+    )
+
+
+def collect_won_deals(stagehistory: list[dict[str, Any]], bx=None) -> list[dict[str, Any]]:
+    """Выигранные сегодня сделки (переход в C10:WON) — для метрики «оплаты, шт+руб»
+    и среднего чека. Сумма берётся из OPPORTUNITY сделки."""
+    ids = sorted(
+        {
+            str(h.get("OWNER_ID"))
+            for h in stagehistory
+            if h.get("STAGE_ID") in WON_STAGES and h.get("OWNER_ID")
+        }
+    )
+    if not ids:
+        return []
+    return _fetch_all(
+        bx,
+        "crm.deal.list",
+        {"filter": {"@ID": ids}, "select": ["ID", "TITLE", "ASSIGNED_BY_ID", "OPPORTUNITY"]},
     )
 
 
@@ -568,6 +590,7 @@ def collect_day(target: date, bx=None) -> dict[str, Any]:
         "users": users,
         "photos": photos,
         "rejected_deals": _progress_step("rejected_deals", lambda: collect_rejected_deals(stagehistory, bx)),
+        "won_deals": _progress_step("won_deals", lambda: collect_won_deals(stagehistory, bx)),
         "wazzup": wazzup,
     }
 
