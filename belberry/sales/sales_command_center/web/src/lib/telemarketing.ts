@@ -9,6 +9,8 @@ import { buildTmRejections, type RejectionInput } from './telemarketing-shared';
 const MEETING_HELD_STAGE = 'DT1048_24:SUCCESS';
 const STAGE_REJECTED = 'C50:APOLOGY';
 const STAGE_POSTPONED = 'C50:LOSE';
+// «Выручка <30 млн» — автодисквал по правилу ТМ (не вина менеджера), исключаем.
+const REASON_REVENUE_AUTO = 8542;
 import {
   buildTmFunnel50,
   buildTmKpis,
@@ -170,15 +172,16 @@ export async function getTmDashboardData(
   for (const r of heldRows) if (r.creator != null) heldByCreator.set(r.creator, Number(r.n));
   for (const m of members) m.meetingsHeldByCreator = heldByCreator.get(m.managerId) ?? 0;
 
-  // Причины отвала (deal_rejections, личные закрытия): modified_by ∈ ТМ автоматически
-  // исключает админ/автопроцесс. rejected_at — в МСК.
+  // Причины отвала (deal_rejections) — по ВЛАДЕЛЬЦУ сделки (assigned_by, чья база),
+  // как в отчёте; «Выручка <30» (автодисквал) исключаем. rejected_at — в МСК.
   const nameById = new Map(members.map((m) => [m.managerId, m.name]));
   const rejAtMsk = sql`(${dealRejections.rejectedAt} AT TIME ZONE 'Europe/Moscow')::date`;
+  const notRevenueAuto = sql`${dealRejections.reasonId} IS DISTINCT FROM ${REASON_REVENUE_AUTO}`;
   const rejReasonRows = await db
-    .select({ mgr: dealRejections.modifiedBy, reason: dealRejections.reasonId, n: sql<number>`count(*)` })
+    .select({ mgr: dealRejections.assignedBy, reason: dealRejections.reasonId, n: sql<number>`count(*)` })
     .from(dealRejections)
-    .where(and(eq(dealRejections.stageId, STAGE_REJECTED), inArray(dealRejections.modifiedBy, tmIds)))
-    .groupBy(dealRejections.modifiedBy, dealRejections.reasonId);
+    .where(and(eq(dealRejections.stageId, STAGE_REJECTED), inArray(dealRejections.assignedBy, tmIds), notRevenueAuto))
+    .groupBy(dealRejections.assignedBy, dealRejections.reasonId);
   const rejectionInputs: RejectionInput[] = rejReasonRows
     .filter((r) => r.mgr != null)
     .map((r) => ({
@@ -189,19 +192,20 @@ export async function getTmDashboardData(
     }));
   const rejections = buildTmRejections(rejectionInputs);
 
-  // Личные отвалы за период (для сжигания базы).
+  // Отвалы за период (для сжигания базы) — по владельцу, без автодисквала.
   const rejPeriodRows = await db
-    .select({ mgr: dealRejections.modifiedBy, n: sql<number>`count(*)` })
+    .select({ mgr: dealRejections.assignedBy, n: sql<number>`count(*)` })
     .from(dealRejections)
     .where(
       and(
         eq(dealRejections.stageId, STAGE_REJECTED),
-        inArray(dealRejections.modifiedBy, tmIds),
+        inArray(dealRejections.assignedBy, tmIds),
+        notRevenueAuto,
         gte(rejAtMsk, start),
         lte(rejAtMsk, end),
       ),
     )
-    .groupBy(dealRejections.modifiedBy);
+    .groupBy(dealRejections.assignedBy);
   const rejByMgr = new Map<number, number>();
   for (const r of rejPeriodRows) if (r.mgr != null) rejByMgr.set(r.mgr, Number(r.n));
   for (const m of members) m.rejectionsPeriod = rejByMgr.get(m.managerId) ?? 0;
@@ -264,8 +268,9 @@ export async function getTmDashboardData(
     .from(dealRejections)
     .where(
       and(
-        eq(dealRejections.modifiedBy, selectedManagerId),
+        eq(dealRejections.assignedBy, selectedManagerId),
         inArray(dealRejections.stageId, [STAGE_REJECTED, STAGE_POSTPONED]),
+        notRevenueAuto,
         gte(rejAtMsk, dynStart),
       ),
     )
