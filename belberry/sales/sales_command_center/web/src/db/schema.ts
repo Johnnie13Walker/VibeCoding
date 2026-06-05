@@ -122,6 +122,8 @@ export const meetings = pgTable(
     meetingType: text('meeting_type'),
     status: text('status'),
     managerId: integer('manager_id'),
+    // Создатель встречи (ТМ): событийная атрибуция «встречу назначил ТМ».
+    createdBy: integer('created_by'),
     scheduledAt: timestamp('scheduled_at', { withTimezone: true }),
     analysisJson: jsonb('analysis_json'),
     transcriptUrl: text('transcript_url'),
@@ -152,8 +154,6 @@ export const managerActivity = pgTable(
     dialsTotal: integer('dials_total').default(0),
     meetingsSet: integer('meetings_set').default(0),
     meetingsHeld: integer('meetings_held').default(0),
-    // Состоявшиеся встречи по СОЗДАТЕЛЮ-ТМ (событийная метрика); meetings_held — по продавцу.
-    meetingsHeldCreator: integer('meetings_held_creator'),
     briefsCreated: integer('briefs_created').default(0),
     kpSent: integer('kp_sent').default(0),
     talkSeconds: integer('talk_seconds').default(0),
