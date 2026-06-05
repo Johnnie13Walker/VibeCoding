@@ -26,9 +26,12 @@ def test_parse_deadline_weekday_next_week():
 
 
 def test_parse_deadline_fallback_business_days():
-    base = date(2026, 6, 4)  # чт → +2 раб.дня = пн 8 июня (пропускаем сб/вс)
+    base = date(2026, 6, 4)  # чт → следующий раб.день = пт 5 июня
     d, ok = T.parse_deadline("как получится", base)
-    assert ok is False and d == date(2026, 6, 8)
+    assert ok is False and d == date(2026, 6, 5)
+    # пятница → следующий раб.день = понедельник (пропускаем сб/вс)
+    d2, ok2 = T.parse_deadline("", date(2026, 6, 5))
+    assert ok2 is False and d2 == date(2026, 6, 8)
 
 
 def test_build_task_fields_full():
@@ -44,6 +47,6 @@ def test_build_task_fields_full():
     assert f["RESPONSIBLE_ID"] == 2846 and f["CREATED_BY"] == 12
     assert f["TASK_CONTROL"] == "Y"
     assert f["UF_CRM_TASK"] == ["D_15982"]
-    assert f["DEADLINE"].startswith("2026-06-11T18:00:00")
+    assert f["DEADLINE"].startswith("2026-06-11T15:00:00")
     assert "insightai.ru" in f["TITLE"]
     assert "Метрик" in f["DESCRIPTION"] and "Цитата клиента" in f["DESCRIPTION"]
