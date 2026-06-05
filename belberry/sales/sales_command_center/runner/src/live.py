@@ -19,6 +19,18 @@ SERVICE_MAP = {
 }
 
 
+# СПАМ-сделка: причина отказа UF_CRM_1771495464 = 8588 (как в дневном отчёте).
+SPAM_REASON_FIELD = "UF_CRM_1771495464"
+SPAM_REASON_ID = "8588"
+
+
+def _deal_is_spam(deal: dict[str, Any]) -> bool:
+    value = deal.get(SPAM_REASON_FIELD)
+    if isinstance(value, (list, tuple)):
+        return SPAM_REASON_ID in [str(x) for x in value]
+    return str(value) == SPAM_REASON_ID
+
+
 def meeting_status(stage_id: Any) -> str:
     """Статус встречи (1048) по стадии: SUCCESS→проведена, FAIL→отменена, иначе назначена."""
     code = str(stage_id or "").rsplit(":", 1)[-1].upper()
@@ -47,7 +59,7 @@ def collect_live(today: date, bx=None) -> dict[str, Any]:
     deals_created = _fetch_all(
         bx, "crm.deal.list",
         {"filter": {">=DATE_CREATE": d0, "<=DATE_CREATE": d1},
-         "select": ["ID", "TITLE", "ASSIGNED_BY_ID", "CATEGORY_ID", "OPPORTUNITY", "DATE_CREATE"]},
+         "select": ["ID", "TITLE", "ASSIGNED_BY_ID", "CATEGORY_ID", "OPPORTUNITY", "DATE_CREATE", SPAM_REASON_FIELD]},
     )
     kp = _fetch_all(
         bx, "crm.item.list",
@@ -137,7 +149,10 @@ def build_live_payload(today: date, raw: dict[str, Any], now: datetime) -> dict[
              "deal_id": _to_int(b.get("parentId2")), "service": service}
         )
 
-    for d in deals:
+    # СПАМ-сделки в «создано» не считаем (как в дневном отчёте).
+    deals_real = [d for d in deals if not _deal_is_spam(d)]
+    deals_spam = len(deals) - len(deals_real)
+    for d in deals_real:
         cell = slot(_to_int(d.get("ASSIGNED_BY_ID")))
         if cell:
             cell["deals"] += 1
@@ -164,7 +179,8 @@ def build_live_payload(today: date, raw: dict[str, Any], now: datetime) -> dict[
         "meetings_cancelled": sum(x["m_cancelled"] for x in managers),
         "briefs": len(briefs),
         "kp": len(kp),
-        "deals": len(deals),
+        "deals": len(deals_real),
+        "deals_spam": deals_spam,
         "emails": sum(x["emails"] for x in managers),
     }
 
@@ -179,7 +195,7 @@ def build_live_payload(today: date, raw: dict[str, Any], now: datetime) -> dict[
     for k in kp:
         feed.append({"kind": "kp", "manager_id": _to_int(k.get("assignedById")),
                      "title": k.get("title") or "КП", "at": str(k.get("updatedTime") or "")})
-    for d in deals:
+    for d in deals_real:
         feed.append({"kind": "deal", "manager_id": _to_int(d.get("ASSIGNED_BY_ID")),
                      "title": d.get("TITLE") or "Сделка", "at": str(d.get("DATE_CREATE") or "")})
     feed.sort(key=lambda e: e["at"], reverse=True)

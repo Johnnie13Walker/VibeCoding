@@ -20,6 +20,8 @@ class MemoryLoginCodeRepo implements LoginCodeRepo {
       (row) => row.email === email && row.createdAt.getTime() >= windowStart.getTime(),
     );
   }
+
+  async purgeExpired() {}
 }
 
 function row(attempts: number, createdAt = new Date()): LoginCodeRow {

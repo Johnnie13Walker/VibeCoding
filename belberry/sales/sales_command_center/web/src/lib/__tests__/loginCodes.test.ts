@@ -51,6 +51,10 @@ class MemoryLoginCodeRepo implements LoginCodeRepo {
       (row) => row.email === email && row.createdAt.getTime() >= windowStart.getTime(),
     );
   }
+
+  async purgeExpired(before: Date) {
+    this.rows = this.rows.filter((row) => row.expiresAt.getTime() >= before.getTime());
+  }
 }
 
 describe('login code lifecycle', () => {
@@ -101,6 +105,24 @@ describe('login code lifecycle', () => {
       reason: 'mismatch',
     });
     expect(repo.rows[0].attempts).toBe(1);
+  });
+
+  it('purges codes older than 24h when issuing a new one', async () => {
+    repo.rows.push({
+      id: 1,
+      email: 'manager@example.com',
+      code: hashCode('111111'),
+      expiresAt: new Date(Date.now() - 25 * 60 * 60 * 1000), // протух больше суток назад
+      used: true,
+      attempts: 0,
+      createdAt: new Date(Date.now() - 25 * 60 * 60 * 1000),
+    });
+
+    await issueCode('manager@example.com', repo);
+
+    // старый протухший код удалён, остался только свежевыданный
+    expect(repo.rows).toHaveLength(1);
+    expect(repo.rows[0].used).toBe(false);
   });
 
   it('rejects expired codes', async () => {

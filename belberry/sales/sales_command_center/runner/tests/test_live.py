@@ -39,7 +39,7 @@ def test_build_live_payload_aggregates_with_briefs_and_meetings():
     assert p["totals"] == {
         "dials": 3, "answered": 2, "calls60": 2,
         "meetings": 3, "meetings_held": 1, "meetings_scheduled": 1, "meetings_cancelled": 1,
-        "briefs": 2, "kp": 1, "deals": 1, "emails": 1,
+        "briefs": 2, "kp": 1, "deals": 1, "deals_spam": 0, "emails": 1,
     }
     by_id = {m["manager_id"]: m for m in p["managers"]}
     # У 10: встреча проведена сегодня (id1) + назначена сегодня на будущее (id3)
@@ -81,6 +81,25 @@ def test_live_scheduled_today_credited_to_creator_not_responsible():
     assert 10 not in by_id
     # в ленте встреч владелец — создатель
     assert p["meetings_list"][0]["manager_id"] == 12 and p["meetings_list"][0]["set_today"] is True
+
+
+def test_live_excludes_spam_deals():
+    """СПАМ-сделки (UF_CRM_1771495464=8588) не идут в «сделок создано»."""
+    now = datetime(2026, 6, 4, 15, 0, tzinfo=MSK)
+    raw = {
+        "calls": [{"PORTAL_USER_ID": 10, "CALL_DURATION": 130}],
+        "meetings": [], "meetings_set": [], "briefs": [], "kp": [], "activities": [],
+        "deals_created": [
+            {"ASSIGNED_BY_ID": 10, "TITLE": "real.ru", "DATE_CREATE": "2026-06-04T11:00:00"},
+            {"ASSIGNED_BY_ID": 10, "TITLE": "spam.ru", "DATE_CREATE": "2026-06-04T12:00:00", "UF_CRM_1771495464": "8588"},
+        ],
+    }
+    p = build_live_payload(date(2026, 6, 4), raw, now)
+    assert p["totals"]["deals"] == 1 and p["totals"]["deals_spam"] == 1
+    by_id = {m["manager_id"]: m for m in p["managers"]}
+    assert by_id[10]["deals"] == 1
+    # спам-сделка не попала и в ленту
+    assert all(e["title"] != "spam.ru" for e in p["feed"])
 
 
 def test_build_live_payload_empty():

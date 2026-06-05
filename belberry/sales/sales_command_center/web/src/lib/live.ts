@@ -50,7 +50,7 @@ export interface LiveData {
   updatedAt: string | null;
   chatsUpdatedAt: string | null;
   reportDate: string | null;
-  totals: { dials: number; answered: number; calls60: number; chats: number; meetings: number; meetingsHeld: number; meetingsScheduled: number; meetingsCancelled: number; briefs: number; kp: number; deals: number; emails: number };
+  totals: { dials: number; answered: number; calls60: number; chats: number; meetings: number; meetingsHeld: number; meetingsScheduled: number; meetingsCancelled: number; briefs: number; kp: number; deals: number; dealsSpam: number; emails: number };
   managers: LiveManager[];
   meetings: LiveMeeting[];
   briefs: LiveBrief[];
@@ -69,7 +69,7 @@ interface RawFeed { kind: LiveFeedItem['kind']; manager_id: number | null; title
 
 const EMPTY: LiveData = {
   updatedAt: null, chatsUpdatedAt: null, reportDate: null,
-  totals: { dials: 0, answered: 0, calls60: 0, chats: 0, meetings: 0, meetingsHeld: 0, meetingsScheduled: 0, meetingsCancelled: 0, briefs: 0, kp: 0, deals: 0, emails: 0 },
+  totals: { dials: 0, answered: 0, calls60: 0, chats: 0, meetings: 0, meetingsHeld: 0, meetingsScheduled: 0, meetingsCancelled: 0, briefs: 0, kp: 0, deals: 0, dealsSpam: 0, emails: 0 },
   managers: [], meetings: [], briefs: [], feed: [],
 };
 
@@ -88,6 +88,7 @@ export async function getLive(): Promise<LiveData> {
 
   const payload = rows[0].payload as {
     managers?: RawManager[]; meetings_list?: RawMeeting[]; briefs_list?: RawBrief[]; feed?: RawFeed[];
+    totals?: { deals_spam?: number };
   };
   const userRows = await db.select({ id: users.bitrixId, name: users.name, dept: users.dept }).from(users);
   const dir = new Map(userRows.map((u) => [u.id, { name: u.name, dept: u.dept ?? '' }]));
@@ -155,6 +156,7 @@ export async function getLive(): Promise<LiveData> {
     meetingsCancelled: shown.reduce((s, m) => s + m.mCancelled, 0),
     kp: shown.reduce((s, m) => s + m.kp, 0),
     deals: shown.reduce((s, m) => s + m.deals, 0),
+    dealsSpam: payload.totals?.deals_spam ?? 0,
     emails: shown.reduce((s, m) => s + m.emails, 0),
   };
 

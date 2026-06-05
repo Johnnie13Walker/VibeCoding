@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, lt, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { loginCodes } from '@/db/schema';
 import { generateCode, hashCode, verifyCode } from './code';
@@ -33,6 +33,7 @@ export interface LoginCodeRepo {
   markUsed(id: number): Promise<void>;
   incrementAttempts(id: number): Promise<void>;
   recentByEmail(email: string, windowStart: Date): Promise<LoginCodeRow[]>;
+  purgeExpired(before: Date): Promise<void>;
 }
 
 function normalizeEmail(email: string): string {
@@ -101,6 +102,10 @@ export const drizzleLoginCodeRepo: LoginCodeRepo = {
 
     return rows.map(mapRow);
   },
+
+  async purgeExpired(before) {
+    await db.delete(loginCodes).where(lt(loginCodes.expiresAt, before));
+  },
 };
 
 export async function issueCode(
@@ -112,6 +117,8 @@ export async function issueCode(
   const now = new Date();
 
   await repo.invalidateUnused(normalizedEmail);
+  // Чистим протухшие коды (старше суток), чтобы таблица не росла бесконечно.
+  await repo.purgeExpired(new Date(now.getTime() - 24 * 60 * 60 * 1000));
   await repo.insert({
     email: normalizedEmail,
     code: hashCode(code),

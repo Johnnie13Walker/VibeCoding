@@ -71,7 +71,7 @@ export default async function TodayPage() {
             <Tile icon={<FileText size={14} />} label="Брифы" value={t.briefs} />
             <Tile icon={<FileText size={14} />} label="КП" value={t.kp} />
             <Tile icon={<Mail size={14} />} label="Письма" value={t.emails} />
-            <Tile icon={<Zap size={14} />} label="Сделок создано" value={t.deals} />
+            <Tile icon={<Zap size={14} />} label="Сделок создано" value={t.deals} sub={t.dealsSpam ? `${t.dealsSpam} спам исключён` : undefined} />
           </div>
 
           <div className="bb-card" style={{ marginBottom: 16 }}>
