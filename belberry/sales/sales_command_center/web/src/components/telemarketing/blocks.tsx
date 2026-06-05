@@ -14,6 +14,17 @@ import type {
 const nf = (n: number): string => n.toLocaleString('ru-RU');
 const pp = (v: number | null): string => (v != null ? `${v}%` : '—');
 
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  const chars = parts.length >= 2 ? parts[0][0] + parts[1][0] : name.slice(0, 2);
+  return chars.toUpperCase();
+}
+
+const ava: React.CSSProperties = {
+  width: 30, height: 30, flex: '0 0 30px', borderRadius: '50%', display: 'grid', placeItems: 'center',
+  background: 'linear-gradient(135deg,#8b80ff,#5b50d6)', color: '#fff', fontWeight: 700, fontSize: 11,
+};
+
 const cell: React.CSSProperties = { padding: '10px 10px', borderBottom: '1px solid var(--bb-line)' };
 const head: React.CSSProperties = { ...cell, color: 'var(--bb-faint)', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' };
 
@@ -71,18 +82,28 @@ export function TmManagerTable({ rows }: { rows: TmManagerRow[] }) {
             <th style={{ ...head, textAlign: 'right' }}>Разговор</th>
             <th style={{ ...head, textAlign: 'right' }}>Встреч назн.</th>
             <th style={{ ...head, textAlign: 'right' }}>Конв. дозв→встр</th>
+            <th style={{ ...head, textAlign: 'right' }}>Явка</th>
           </tr>
         </thead>
         <tbody>
           {rows.map((r) => (
             <tr key={r.managerId}>
-              <td style={{ ...cell, fontWeight: 600 }}>{r.name}</td>
+              <td style={cell}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={ava}>{initials(r.name)}</div>
+                  <div>
+                    <b>{r.name}</b>
+                    {r.dept ? <div style={{ color: 'var(--bb-faint)', fontSize: 11.5 }}>{r.dept}</div> : null}
+                  </div>
+                </div>
+              </td>
               <td className="tabular" style={{ ...cell, textAlign: 'right' }}>{nf(r.dials)}</td>
               <td className="tabular" style={{ ...cell, textAlign: 'right' }}>{nf(r.answered)} <span style={{ color: 'var(--bb-faint)' }}>{pp(r.answerPct)}</span></td>
               <td className="tabular" style={{ ...cell, textAlign: 'right', fontWeight: 700 }}>{nf(r.calls60)}</td>
               <td className="tabular" style={{ ...cell, textAlign: 'right' }}>{r.talkHours} ч</td>
               <td className="tabular" style={{ ...cell, textAlign: 'right', fontWeight: 700 }}>{nf(r.meetingsSet)}</td>
               <td className="tabular" style={{ ...cell, textAlign: 'right' }}>{convBadge(r.convDialToMeeting)}</td>
+              <td className="tabular" style={{ ...cell, textAlign: 'right' }}>{pp(r.heldPct)}</td>
             </tr>
           ))}
         </tbody>
@@ -107,18 +128,26 @@ export function TmFunnel50View({ stages }: { stages: TmFunnel50Stage[] }) {
   if (stages.every((s) => s.count === 0)) {
     return <p style={{ color: 'var(--bb-muted)' }}>Снимок воронки [50] пуст на последнюю дату.</p>;
   }
+  // Закрытые стадии (Успех/Отложено/Отвал) в снимок открытых сделок не попадают —
+  // показываем их только если есть данные; иначе скрываем, чтобы не висели нулём.
+  const shown = stages.filter((s) => s.kind === 'open' || s.count > 0);
   return (
-    <div className="bb-funnel">
-      {stages.map((s) => (
-        <div className="bb-fbar" key={s.stage}>
-          <span className="bb-fbar-name">{s.label}</span>
-          <div className="bb-fbar-track">
-            <div className="bb-fbar-fill" style={{ width: `${Math.max(8, (s.count / max) * 100)}%`, background: fill(s.kind) }}>
-              {nf(s.count)}
+    <div>
+      <div className="bb-funnel">
+        {shown.map((s) => (
+          <div className="bb-fbar" key={s.stage}>
+            <span className="bb-fbar-name">{s.label}</span>
+            <div className="bb-fbar-track">
+              <div className="bb-fbar-fill" style={{ width: `${Math.max(8, (s.count / max) * 100)}%`, background: fill(s.kind) }}>
+                {nf(s.count)}
+              </div>
             </div>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
+      <p style={{ fontSize: 12, color: 'var(--bb-faint)', marginTop: 10 }}>
+        Снимок открытых сделок cat50. «Успех / Отвал за месяц» (закрытые) и Δ к началу месяца — со сбором потока в раннере.
+      </p>
     </div>
   );
 }
@@ -241,9 +270,12 @@ export function TmPlanFactView({ rows }: { rows: TmPlanFactRow[] }) {
         const bar = over ? 'linear-gradient(90deg,#3a9c63,#2c7a4a)' : r.pct >= 80 ? 'linear-gradient(90deg,var(--bb-violet),var(--bb-indigo))' : 'linear-gradient(90deg,#e88a3b,#d4202e)';
         return (
           <div key={r.label}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6, gap: 12 }}>
               <span>{r.label} {r.unit ? <span style={{ color: 'var(--bb-faint)', fontSize: 11.5 }}>· {r.unit}</span> : null}</span>
-              <b>{nf(r.fact)} / {nf(r.plan)} <span style={{ color: over ? 'var(--bb-green)' : 'var(--bb-muted)' }}>({r.pct}%)</span></b>
+              <b style={{ whiteSpace: 'nowrap' }}>
+                {r.isPercent ? `${nf(r.fact)}% / ${nf(r.plan)}%` : `${nf(r.fact)} / ${nf(r.plan)}`}{' '}
+                <span style={{ color: over ? 'var(--bb-green)' : 'var(--bb-muted)' }}>({r.pct}%)</span>
+              </b>
             </div>
             <div style={{ height: 10, borderRadius: 6, background: '#f0ece7', overflow: 'hidden' }}>
               <div style={{ height: '100%', width: `${Math.min(100, r.pct)}%`, background: bar }} />
@@ -262,9 +294,10 @@ export function TmOutreachView({ outreach }: { outreach: TmOutreach }) {
     return <p style={{ color: 'var(--bb-muted)' }}>За период нет email/мессенджер-активности у ТМ.</p>;
   }
   return (
-    <div className="bb-grid bb-grid-2" style={{ gap: 14 }}>
+    <div className="bb-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
       <Mini label="Мессенджер-диалоги" value={nf(outreach.messengerTotal)} />
       <Mini label="Email-касания" value={nf(outreach.emailTotal)} />
+      <Mini label="Касаний на встречу" value={outreach.perMeeting != null ? nf(outreach.perMeeting) : '—'} sub="доп. канал к телефону" />
     </div>
   );
 }
