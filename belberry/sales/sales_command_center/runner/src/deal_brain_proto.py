@@ -19,10 +19,11 @@ SEO, контекстная реклама, веб-разработка, Strapi,
 выявление потребности), затем ЗАЩИТА КП. Проанализируй сделку ЦЕЛИКОМ, как коммерческий
 директор. Опирайся ТОЛЬКО на транскрипты, цитируй дословно, ничего не выдумывай.
 
-Верни строго JSON без markdown:
+Верни строго JSON без markdown. Будь ёмким: НЕ более 5 ключевых потребностей,
+evidence — ОДНА короткая цитата. Уложись компактно, без воды.
 {
   "client": "кто клиент, ниша, ситуация — 1-2 фразы",
-  "real_needs": [{"need": "реальная потребность", "pain": "боль за ней", "evidence": "цитата/факт из встречи", "uncovered_at_briefing": true}],
+  "real_needs": [{"need": "реальная потребность", "pain": "боль за ней", "evidence": "ОДНА короткая цитата", "uncovered_at_briefing": true}],
   "main_pain": "ГЛАВНАЯ боль клиента твоими словами",
   "briefing_depth": {"score": 7, "note": "насколько глубоко менеджер выявил потребности; что упустил"},
   "kp_alignment": "соответствует|частично|мимо",
@@ -72,7 +73,7 @@ def analyze_deal(deal_id: int, bx=None) -> dict | None:
     client = analyze_llm.get_client()
     response = client.messages.create(
         model=analyze_llm.MODEL,
-        max_tokens=8000,  # разбор двух транскриптов сразу → большой вывод
+        max_tokens=16000,  # разбор двух транскриптов сразу → большой вывод
         temperature=0,
         system=[{"type": "text", "text": CD_SYSTEM, "cache_control": {"type": "ephemeral"}}],
         messages=[{"role": "user", "content": f"Сделка: {title}\n\n" + "\n\n".join(parts)}],
