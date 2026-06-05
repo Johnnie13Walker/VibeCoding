@@ -102,20 +102,25 @@ def build_live_payload(today: date, raw: dict[str, Any], now: datetime) -> dict[
 
     meetings_list = []
     for mid, m in merged.items():
-        uid = _to_int(m.get("assignedById"))
-        cell = slot(uid)
+        conductor = _to_int(m.get("assignedById"))   # кто проводит встречу
+        creator = _to_int(m.get("createdBy"))          # кто назначил встречу
         st = meeting_status(m.get("stageId"))  # held / scheduled / cancelled
         set_today = mid in set_ids
+        # «Назначено сегодня (ещё не проведено)» засчитываем СОЗДАТЕЛЮ (телемаркетолог),
+        # проведено/отменено — ответственному (продавец, кто реально провёл).
+        scheduled_today = set_today and st == "scheduled" and mid not in today_ids
+        owner = creator if scheduled_today else conductor
+        cell = slot(owner)
         if cell:
             cell["meetings"] += 1
             if mid in today_ids and st == "held":
                 cell["m_held"] += 1
             elif mid in today_ids and st == "cancelled":
                 cell["m_cancelled"] += 1
-            elif set_today and st == "scheduled":
+            elif scheduled_today:
                 cell["m_scheduled"] += 1  # назначено сегодня (ещё не проведено)
         meetings_list.append(
-            {"id": mid, "title": m.get("title") or "Встреча", "manager_id": uid,
+            {"id": mid, "title": m.get("title") or "Встреча", "manager_id": owner,
              "at": str(m.get("ufCrm16_1751009238") or ""), "status": st,
              "deal_id": _to_int(m.get("parentId2")), "set_today": set_today}
         )

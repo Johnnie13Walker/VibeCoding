@@ -128,16 +128,17 @@ SYSTEM_PROMPT = """
    …топ-10 по сумме…</tbody></table></div>
    Риск: показывай stale[].risk_reason отдельным бейджем причины. Цвет возраста бери по stale[].age_level: critical — красный и текст «31 рабочий день!», warning — amber, normal — обычный. Сумма — из stale[].opportunity; возраст — age+age_unit; контакт — last_contact_days. Сделки ВСЕГДА кликабельны (deal-ссылка по id).
 5. «ТМ-воронка» (section id="tm-funnel") — если payload.tm_funnel.count > 0, покажи компактную воронку телемаркетинга:
-   наборы → дозвоны → 120с+ → встречи назначено → встречи проведено → сделки.
-   Используй ТОЛЬКО payload.tm_funnel: реальные числа и проценты answered_percent, long_call_percent, meeting_set_percent, deal_create_percent. Не добавляй продукт/нишу и не делай новых выводов из Bitrix.
+   наборы → снял трубку → дозвоны (разговоры ≥60с) → встречи назначено → встречи проведено → сделки.
+   ВАЖНО: «дозвон» = разговор ≥60 секунд (payload.tm_funnel.dozvon), НЕ просто снятая трубка. Конверсия во встречу считается от дозвонов (meeting_set_percent = встречи назначено / дозвоны).
+   Используй ТОЛЬКО payload.tm_funnel: реальные числа и проценты answered_percent (снял трубку/наборы), dozvon_percent (дозвоны/наборы), meeting_set_percent (встречи/дозвоны), deal_create_percent. Не добавляй продукт/нишу и не делай новых выводов из Bitrix.
 5a. «Вчера обещали → сегодня» (section id="promises-loop") — таблица по payload.promises_loop.items:
    <div class="tbl-wrap"><table><thead><tr><th>Обещание</th><th>Владелец</th><th>Дедлайн</th><th>Статус</th><th>Сделка</th></tr></thead><tbody>
    <tr><td>что обещали</td><td>кто</td><td>дедлайн</td><td><span class="badge b-green|b-amber|b-red">✅ выполнено</span></td><td><a href="{deal-ссылка}">сделка</a></td></tr>
    </tbody></table></div>
    Статусы и сигналы бери только из payload.promises_loop: done=green, on_time=amber, overdue=red, unknown=amber. Если items пустой — покажи payload.promises_loop.message.
 6. «Активность менеджеров» (section id="managers") — карточки, ОТСОРТИРОВАНЫ по «Опер» убыв. (порядок telephony):
-   <div class="mgr hero-mgr"><img class="mgr-ava" src="photo:<manager_id>"><div class="mgr-name">Имя</div><div class="mgr-role">роль · Опер 7.1</div><div class="mgr-row"><span class="mgr-row-label">Наборы</span><span class="mgr-row-value">89</span></div><div class="mgr-row"><span class="mgr-row-label">Дозвоны</span><span class="mgr-row-value">40 (11%)</span></div><div class="mgr-row"><span class="mgr-row-label">Разговоры 60с+</span><span class="mgr-row-value">15</span></div><div class="mgr-row"><span class="mgr-row-label">Чаты</span><span class="mgr-row-value">8</span></div><div class="mgr-row"><span class="mgr-row-label">Письма</span><span class="mgr-row-value">4</span></div><div class="mgr-row"><span class="mgr-row-label">Встречи</span><span class="mgr-row-value">2</span></div><div class="mgr-row"><span class="mgr-row-label">Опер</span><span class="mgr-row-value">7.1</span></div></div>
-   Строки mgr-row: Наборы (dials_total), Дозвоны «40 (11%)» (calls_answered, connect_percent), Разговоры 60с+ (calls_60s_plus) — это «дозвоны», что идут в «Опер» по 5 мин, Чаты (messenger_dialogs), Письма (emails_sent), Встречи (meetings_held), Новых сделок (new_deals), Опер (operational_score). Данные из telephony. Звонки 120с+ (calls_120s_plus) можно опустить.
+   <div class="mgr hero-mgr"><img class="mgr-ava" src="photo:<manager_id>"><div class="mgr-name">Имя</div><div class="mgr-role">роль · Опер 7.1</div><div class="mgr-row"><span class="mgr-row-label">Наборы</span><span class="mgr-row-value">89</span></div><div class="mgr-row"><span class="mgr-row-label">Снял трубку</span><span class="mgr-row-value">40 (11%)</span></div><div class="mgr-row"><span class="mgr-row-label">Дозвоны ≥60с</span><span class="mgr-row-value">15</span></div><div class="mgr-row"><span class="mgr-row-label">Чаты</span><span class="mgr-row-value">8</span></div><div class="mgr-row"><span class="mgr-row-label">Письма</span><span class="mgr-row-value">4</span></div><div class="mgr-row"><span class="mgr-row-label">Встречи</span><span class="mgr-row-value">2</span></div><div class="mgr-row"><span class="mgr-row-label">Опер</span><span class="mgr-row-value">7.1</span></div></div>
+   Строки mgr-row: Наборы (dials_total), Снял трубку «40 (11%)» (calls_answered, connect_percent — любая длительность), Дозвоны ≥60с (calls_60s_plus) — это и есть «дозвоны», идут в «Опер» по 5 мин, Чаты (messenger_dialogs), Письма (emails_sent), Встречи (meetings_held), Новых сделок (new_deals), Опер (operational_score). Данные из telephony. Звонки 120с+ (calls_120s_plus) можно опустить.
    Если для manager_id есть payload.manager_coaching[] — добавь в карточку <div class="mgr-note"><b>Коучинг:</b> конкретный совет; <span class="muted">основание</span></div>.
    Если away=true (поле telephony) — карточка <div class="mgr away">, строка «Заморожено сделок: frozen_deals». Если vacation_until НЕ пуст — роль «роль · в отпуске до {vacation_until}» (по графику Bitrix). Если vacation_until пуст — «роль · в простое» (нет активности; «в отпуске» НЕ писать без vacation_until).
 7. «Встречи дня — проведено N» (section id="meetings-done") — СВОДНАЯ ТАБЛИЦА перед разбором:
@@ -395,7 +396,8 @@ def _daily_kpis(rows: dict[str, Any], raw: dict[str, Any]) -> dict[str, Any]:
 
     set_tm = set_op = 0
     for m in raw.get("meet_created_day") or []:
-        role = (roles.get(str(m.get("assignedById")), "") or "").lower()
+        # засчитываем создателю встречи (createdBy), не ответственному продавцу
+        role = (roles.get(str(m.get("createdBy")), "") or "").lower()
         if "телемаркет" in role:
             set_tm += 1
         elif any(k in role for k in _SALES_TM_ROLE_KEYS):
@@ -755,7 +757,8 @@ def _tm_funnel(manager_activity: list[dict[str, Any]]) -> dict[str, Any]:
     tm_rows = [item for item in manager_activity if oper.is_telemarketing(item.get("role"))]
     dials = sum(item.get("dials_total", 0) or 0 for item in tm_rows)
     answered = sum(item.get("calls_answered", 0) or 0 for item in tm_rows)
-    long_calls = sum(item.get("calls_120s_plus", 0) or 0 for item in tm_rows)
+    # Дозвон = разговор ≥60 секунд (calls_60s_plus). Короткие соединения (<60с) — не дозвон.
+    dozvon = sum(item.get("calls_60s_plus", 0) or 0 for item in tm_rows)
     meetings_set = sum(item.get("meetings_set", 0) or 0 for item in tm_rows)
     meetings_held = sum(item.get("meetings_held", 0) or 0 for item in tm_rows)
     deals_created = sum(item.get("deals_created_count", 0) or 0 for item in tm_rows)
@@ -764,13 +767,14 @@ def _tm_funnel(manager_activity: list[dict[str, Any]]) -> dict[str, Any]:
         "count": len(tm_rows),
         "dials_total": dials,
         "calls_answered": answered,
-        "calls_120s_plus": long_calls,
+        "dozvon": dozvon,
+        "calls_60s_plus": dozvon,
         "meetings_set": meetings_set,
         "meetings_held": meetings_held,
         "deals_created_count": deals_created,
         "answered_percent": _pct(answered, dials),
-        "long_call_percent": _pct(long_calls, answered),
-        "meeting_set_percent": _pct(meetings_set, long_calls),
+        "dozvon_percent": _pct(dozvon, dials),
+        "meeting_set_percent": _pct(meetings_set, dozvon),
         "deal_create_percent": _pct(deals_created, meetings_held),
     }
 
@@ -825,14 +829,15 @@ def build_oper_scorecard(telephony: list[dict[str, Any]]) -> str:
         '<p class="muted">Статус: <span class="badge b-green">НОРМ</span> '
         '<span class="badge b-amber">РИСК</span> <span class="badge b-red">СТОП</span> · '
         '«Опер» = реальные рабочие минуты / 300 × 10 '
-        "(разговор 60с+ = 5 мин, чат = 10, письмо = 5, встреча = 60, набор = 0.25)</p>"
+        "(разговор 60с+ = 5 мин, чат = 10, письмо = 5, встреча = 60, набор = 0.25). "
+        "«Дозв» — дозвоны, то есть разговоры ≥60с; «Снял» — снял трубку (любая длительность).</p>"
     )
     return (
         '<section id="oper-scorecard"><h2>Операционная вовлечённость</h2>'
         + legend
         + '<div class="tbl-wrap"><table><thead><tr>'
-        "<th>Статус</th><th>Менеджер</th><th>Роль</th><th>Наб</th><th>Дзв</th>"
-        "<th>60с+</th><th>Чаты</th><th>Письма</th><th>Встр</th><th>Опер</th>"
+        "<th>Статус</th><th>Менеджер</th><th>Роль</th><th>Наб</th><th>Снял</th>"
+        "<th>Дозв</th><th>Чаты</th><th>Письма</th><th>Встр</th><th>Опер</th>"
         "</tr></thead><tbody>" + "".join(rows_html) + "</tbody></table></div></section>"
     )
 

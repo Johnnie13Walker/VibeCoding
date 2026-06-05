@@ -14,12 +14,12 @@ def test_build_live_payload_aggregates_with_briefs_and_meetings():
         ],
         # дата встречи = сегодня (проведено/отменено сегодня)
         "meetings": [
-            {"id": 1, "assignedById": 10, "title": "kandela.ru", "ufCrm16_1751009238": "2026-06-04T10:00:00", "parentId2": 555, "stageId": "DT1048_24:SUCCESS"},
-            {"id": 2, "assignedById": 12, "title": "renewal.ru", "ufCrm16_1751009238": "2026-06-04T18:00:00", "parentId2": 556, "stageId": "DT1048_24:FAIL"},
+            {"id": 1, "assignedById": 10, "createdBy": 10, "title": "kandela.ru", "ufCrm16_1751009238": "2026-06-04T10:00:00", "parentId2": 555, "stageId": "DT1048_24:SUCCESS"},
+            {"id": 2, "assignedById": 12, "createdBy": 12, "title": "renewal.ru", "ufCrm16_1751009238": "2026-06-04T18:00:00", "parentId2": 556, "stageId": "DT1048_24:FAIL"},
         ],
         # созданы сегодня (назначено сегодня) — встреча на будущую дату
         "meetings_set": [
-            {"id": 3, "assignedById": 10, "title": "future.ru", "ufCrm16_1751009238": "2026-06-08T11:00:00", "parentId2": 557, "stageId": "DT1048_24:NEW"},
+            {"id": 3, "assignedById": 10, "createdBy": 10, "title": "future.ru", "ufCrm16_1751009238": "2026-06-08T11:00:00", "parentId2": 557, "stageId": "DT1048_24:NEW"},
         ],
         "briefs": [
             {"id": 1530, "assignedById": 10, "title": "rant.ru", "parentId2": 777, "ufCrm20_1753290430": 2726},
@@ -58,6 +58,29 @@ def test_build_live_payload_aggregates_with_briefs_and_meetings():
     briefs = {b["id"]: b for b in p["briefs_list"]}
     assert briefs[1530]["service"] == "Контекстная реклама" and briefs[1530]["deal_id"] == 777
     assert briefs[1526]["service"] == "SEO"  # строковый enum-id тоже мапится
+
+
+def test_live_scheduled_today_credited_to_creator_not_responsible():
+    """Встречу, назначенную сегодня на будущее, засчитываем СОЗДАТЕЛЮ (телемаркетолог),
+    а не ответственному продавцу (он её только проведёт)."""
+    now = datetime(2026, 6, 4, 15, 0, tzinfo=MSK)
+    raw = {
+        "calls": [],
+        "meetings": [],
+        # ТМ-сотрудник 12 создал встречу, ответственным поставил продавца 10
+        "meetings_set": [
+            {"id": 9, "assignedById": 10, "createdBy": 12, "title": "lcenter.ru",
+             "ufCrm16_1751009238": "2026-06-08T11:00:00", "parentId2": 11490, "stageId": "DT1048_24:NEW"},
+        ],
+        "briefs": [], "deals_created": [], "kp": [], "activities": [],
+    }
+    p = build_live_payload(date(2026, 6, 4), raw, now)
+    by_id = {m["manager_id"]: m for m in p["managers"]}
+    # назначено засчитано создателю 12, продавец 10 не появляется
+    assert by_id[12]["m_scheduled"] == 1 and by_id[12]["meetings"] == 1
+    assert 10 not in by_id
+    # в ленте встреч владелец — создатель
+    assert p["meetings_list"][0]["manager_id"] == 12 and p["meetings_list"][0]["set_today"] is True
 
 
 def test_build_live_payload_empty():

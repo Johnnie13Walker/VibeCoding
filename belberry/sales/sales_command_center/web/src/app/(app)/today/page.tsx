@@ -64,8 +64,8 @@ export default async function TodayPage() {
         <>
           <div className="bb-grid bb-grid-4" style={{ marginBottom: 16 }}>
             <Tile icon={<PhoneCall size={14} />} label="Наборы" value={t.dials} />
-            <Tile icon={<PhoneForwarded size={14} />} label="Дозвоны" value={t.answered} sub={`${connect}% конверсия`} />
-            <Tile icon={<Timer size={14} />} label="Звонки 60с+" value={t.calls60} />
+            <Tile icon={<PhoneForwarded size={14} />} label="Снял трубку" value={t.answered} sub={`${connect}% от наборов`} />
+            <Tile icon={<Timer size={14} />} label="Дозвоны ≥60с" value={t.calls60} sub={t.dials ? `${Math.round((t.calls60 / t.dials) * 100)}% от наборов` : undefined} />
             <Tile icon={<MessageCircle size={14} />} label="Чаты Wazzup" value={t.chats} sub={data.chatsUpdatedAt ? `обновлено ${fmtMsk(data.chatsUpdatedAt)}` : 'ждёт сбора'} />
             <Tile icon={<Handshake size={14} />} label="Встречи проведено" value={t.meetingsHeld} sub={`назначено ${t.meetingsScheduled} · отменено ${t.meetingsCancelled}`} />
             <Tile icon={<FileText size={14} />} label="Брифы" value={t.briefs} />
@@ -81,7 +81,7 @@ export default async function TodayPage() {
             ) : (
               <div style={{ overflowX: 'auto' }}>
                 <table className="bb-table">
-                  <thead><tr><th>Менеджер</th><th className="r">Наборы</th><th className="r">Дозвоны</th><th className="r">60с+</th><th className="r">Чаты</th><th className="r">Письма</th><th className="r" title="проведено · назначено · отменено">Встречи<br /><span style={{ fontWeight: 400, fontSize: 9 }}>пр·наз·отм</span></th><th className="r">Брифы</th><th className="r">КП</th></tr></thead>
+                  <thead><tr><th>Менеджер</th><th className="r">Наборы</th><th className="r" title="снял трубку, любая длительность">Снял</th><th className="r" title="дозвон = разговор ≥60с">Дозв ≥60с</th><th className="r">Чаты</th><th className="r">Письма</th><th className="r" title="проведено · назначено · отменено">Встречи<br /><span style={{ fontWeight: 400, fontSize: 9 }}>пр·наз·отм</span></th><th className="r">Брифы</th><th className="r">КП</th></tr></thead>
                   <tbody>
                     {data.managers.map((m) => (
                       <tr key={m.managerId}>

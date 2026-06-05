@@ -235,7 +235,10 @@ def build_db_rows(raw: dict[str, Any], target_date: date, now: datetime) -> dict
     manager_ids.update(_to_int(d.get("ASSIGNED_BY_ID")) for d in raw.get("deals_created", []))
     manager_ids.discard(None)
 
-    meetings_set = Counter(_to_int(item.get("assignedById")) for item in raw.get("meet_created_day", []))
+    # Назначенную встречу засчитываем СОЗДАТЕЛЮ (createdBy), а не ответственному:
+    # телемаркетолог создаёт встречу и ставит ответственным продавца — иначе работа
+    # ТМ по назначению встреч уходит в зачёт ОП.
+    meetings_set = Counter(_to_int(item.get("createdBy")) for item in raw.get("meet_created_day", []))
     meetings_held = Counter(_to_int(item.get("assignedById")) for item in raw.get("meet_day", []))
     briefs_created = Counter(_to_int(item.get("assignedById")) for item in raw.get("briefs", []))
     kp_sent = Counter(_to_int(item.get("assignedById")) for item in raw.get("kp", []))
