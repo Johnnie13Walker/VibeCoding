@@ -392,25 +392,23 @@ def collect_won_deals(stagehistory: list[dict[str, Any]], bx=None) -> list[dict[
     )
 
 
-def collect_transferred_deals(
-    stagehistory: list[dict[str, Any]], created_cat10_ids: set[str], bx=None
-) -> list[dict[str, Any]]:
-    """Сделки, ПЕРЕВЕДЁННЫЕ в воронку Продажи (вошли в C10:NEW сегодня), кроме
-    созданных сегодня напрямую в cat10 — это «холодные» из ТМ. Тянем ответственного
-    для атрибуции (в истории стадий ASSIGNED_BY_ID нет)."""
-    entered = {
-        str(h.get("OWNER_ID"))
-        for h in stagehistory
-        if str(h.get("CATEGORY_ID")) == "10" and h.get("STAGE_ID") == "C10:NEW" and h.get("OWNER_ID")
-    }
-    ids = sorted(entered - {str(i) for i in created_cat10_ids})
+def collect_entered_deals(stagehistory: list[dict[str, Any]], bx=None) -> list[dict[str, Any]]:
+    """Сделки, ВОШЕДШИЕ в воронку Продажи за день — есть запись C10:NEW в истории
+    стадий (дата-точно, таймстампы неизменны). Тянем ответственного и дату создания:
+    в transform вход = создана в этот же день, холод = создана раньше (переведена из ТМ).
+    Не опираемся на текущий CATEGORY_ID сделки — он мог измениться после перевода."""
+    ids = sorted(
+        {
+            str(h.get("OWNER_ID"))
+            for h in stagehistory
+            if str(h.get("CATEGORY_ID")) == "10" and h.get("STAGE_ID") == "C10:NEW" and h.get("OWNER_ID")
+        }
+    )
     if not ids:
         return []
-    return _fetch_all(bx, "crm.deal.list", {"filter": {"@ID": ids}, "select": ["ID", "ASSIGNED_BY_ID"]})
-
-
-def _created_cat10_ids(deals_created: list[dict[str, Any]]) -> set[str]:
-    return {str(d.get("ID")) for d in deals_created if str(d.get("CATEGORY_ID")) == "10" and d.get("ID")}
+    return _fetch_all(
+        bx, "crm.deal.list", {"filter": {"@ID": ids}, "select": ["ID", "ASSIGNED_BY_ID", "DATE_CREATE"]}
+    )
 
 
 def collect_flow_day(target: date, bx=None) -> dict[str, Any]:
@@ -488,7 +486,7 @@ def collect_flow_day(target: date, bx=None) -> dict[str, Any]:
         "deals_open": [],  # снимок за прошлое не восстанавливаем
         "stagehistory": stagehistory,
         "won_deals": collect_won_deals(stagehistory, bx),
-        "transferred_deals": collect_transferred_deals(stagehistory, _created_cat10_ids(deals_created), bx),
+        "entered_deals": collect_entered_deals(stagehistory, bx),
         "meet_day": meet_day,
         "meet_created_day": meet_created_day,
         "meet_today": [],
@@ -700,10 +698,7 @@ def collect_day(target: date, bx=None) -> dict[str, Any]:
         "photos": photos,
         "rejected_deals": _progress_step("rejected_deals", lambda: collect_rejected_deals(stagehistory, bx)),
         "won_deals": _progress_step("won_deals", lambda: collect_won_deals(stagehistory, bx)),
-        "transferred_deals": _progress_step(
-            "transferred_deals",
-            lambda: collect_transferred_deals(stagehistory, _created_cat10_ids(deals_created), bx),
-        ),
+        "entered_deals": _progress_step("entered_deals", lambda: collect_entered_deals(stagehistory, bx)),
         "wazzup": wazzup,
     }
 

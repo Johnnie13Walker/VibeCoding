@@ -143,24 +143,15 @@ def test_build_db_rows_matches_phase_one_schema_keys():
 
 
 def test_build_db_rows_counts_cat10_entries_vhod_holod():
+    # «Сделки» = вошедшие в C10:NEW за день; вход = создана в этот день, холод = раньше.
     raw = {
-        "deals_created": [
-            # созданы напрямую в cat10 = вход (2 шт у менеджера 100)
-            {"ID": "1", "ASSIGNED_BY_ID": "100", "CATEGORY_ID": "10"},
-            {"ID": "2", "ASSIGNED_BY_ID": "100", "CATEGORY_ID": "10"},
-            # создан в ТМ (cat50) — сам по себе НЕ сделка Продаж
-            {"ID": "3", "ASSIGNED_BY_ID": "100", "CATEGORY_ID": "50"},
+        "entered_deals": [
+            # созданы 04.06 (день входа) → вход (2 шт)
+            {"ID": "1", "ASSIGNED_BY_ID": "100", "DATE_CREATE": "2026-06-04T10:00:00+03:00"},
+            {"ID": "2", "ASSIGNED_BY_ID": "100", "DATE_CREATE": "2026-06-04T11:00:00+03:00"},
+            # создана раньше (12.02) → переведена из ТМ = холод
+            {"ID": "9", "ASSIGNED_BY_ID": "100", "DATE_CREATE": "2026-02-12T09:00:00+03:00"},
         ],
-        "stagehistory": [
-            # вход в C10:NEW: deal 1, 2 (созданы в cat10) + deal 9 (переведён из ТМ)
-            {"OWNER_ID": "1", "CATEGORY_ID": "10", "STAGE_ID": "C10:NEW"},
-            {"OWNER_ID": "2", "CATEGORY_ID": "10", "STAGE_ID": "C10:NEW"},
-            {"OWNER_ID": "9", "CATEGORY_ID": "10", "STAGE_ID": "C10:NEW"},
-            # внутренний переход — не вход в воронку, игнор
-            {"OWNER_ID": "1", "CATEGORY_ID": "10", "STAGE_ID": "C10:EXECUTING"},
-        ],
-        # ответственный за переведённую сделку 9
-        "transferred_deals": [{"ID": "9", "ASSIGNED_BY_ID": "100"}],
         "won_deals": [
             {"ID": "1", "ASSIGNED_BY_ID": "100", "OPPORTUNITY": "150000"},
             {"ID": "9", "ASSIGNED_BY_ID": "100", "OPPORTUNITY": "50000.50"},
@@ -171,8 +162,8 @@ def test_build_db_rows_counts_cat10_entries_vhod_holod():
     by_mgr = {r["manager_id"]: r for r in rows["manager_activity"]}
     assert 100 in by_mgr
     m = by_mgr[100]
-    assert m["deals_incoming_count"] == 2  # вход: deal 1, 2
-    assert m["deals_cold_count"] == 1      # холод: deal 9 (переведён из ТМ)
+    assert m["deals_incoming_count"] == 2  # вход: создана в день входа
+    assert m["deals_cold_count"] == 1      # холод: создана раньше (переведена)
     assert m["deals_created_count"] == 3   # всего в Продажи = вход + холод
     assert m["deals_won_count"] == 2
     assert m["deals_won_amount"] == 200000.5

@@ -243,31 +243,21 @@ def build_db_rows(raw: dict[str, Any], target_date: date, now: datetime) -> dict
     briefs_created = Counter(_to_int(item.get("assignedById")) for item in raw.get("briefs", []))
     kp_sent = Counter(_to_int(item.get("assignedById")) for item in raw.get("kp", []))
 
-    # «Сделки» = попавшие в воронку Продажи (CATEGORY_ID=10) за день:
-    #   вход   — созданы напрямую в cat10;
-    #   холод  — переведены из ТМ (вошли в C10:NEW, но не созданы сегодня в cat10).
-    # Признак входа в воронку — запись C10:NEW в истории стадий (есть у обоих случаев).
-    created_cat10 = {
-        str(d.get("ID")): _to_int(d.get("ASSIGNED_BY_ID"))
-        for d in raw.get("deals_created", [])
-        if _to_int(d.get("CATEGORY_ID")) == 10 and d.get("ID")
-    }
-    entered_new_ids = {
-        str(h.get("OWNER_ID"))
-        for h in raw.get("stagehistory", [])
-        if _to_int(h.get("CATEGORY_ID")) == 10 and h.get("STAGE_ID") == "C10:NEW" and h.get("OWNER_ID")
-    }
-    transferred_assignee = {
-        str(d.get("ID")): _to_int(d.get("ASSIGNED_BY_ID")) for d in raw.get("transferred_deals", [])
-    }
-    transferred_ids = entered_new_ids - set(created_cat10)
-
-    deals_incoming_cnt: Counter = Counter(v for v in created_cat10.values() if v is not None)
-    deals_cold_cnt: Counter = Counter(
-        transferred_assignee[i]
-        for i in transferred_ids
-        if transferred_assignee.get(i) is not None
-    )
+    # «Сделки» = ВОШЕДШИЕ в воронку Продажи (запись C10:NEW в истории стадий за день).
+    # История стадий неизменна и дата-точна (в отличие от текущего CATEGORY_ID сделки).
+    #   вход   — сделка СОЗДАНА в этот же день (DATE_CREATE = день входа) → прямой вход в Продажи;
+    #   холод  — создана раньше (переведена из ТМ в Продажи).
+    deals_incoming_cnt: Counter = Counter()
+    deals_cold_cnt: Counter = Counter()
+    for d in raw.get("entered_deals", []):
+        mid = _to_int(d.get("ASSIGNED_BY_ID"))
+        if mid is None:
+            continue
+        created = parse_dt(d.get("DATE_CREATE"))
+        if created is not None and created.date().isoformat() == report_date:
+            deals_incoming_cnt[mid] += 1
+        else:
+            deals_cold_cnt[mid] += 1
     deals_created_cnt: Counter = Counter()
     for mid, n in deals_incoming_cnt.items():
         deals_created_cnt[mid] += n
