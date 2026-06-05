@@ -9,6 +9,7 @@ import type {
   TmMonthlyRow,
   TmOutreach,
   TmPlanFactRow,
+  TmRejections,
 } from '@/lib/telemarketing-shared';
 
 const nf = (n: number): string => n.toLocaleString('ru-RU');
@@ -197,6 +198,8 @@ export function TmMonthlyView({ rows, name }: { rows: TmMonthlyRow[]; name: stri
               <th style={{ ...head, textAlign: 'right' }}>Встреч назн.</th>
               <th style={{ ...head, textAlign: 'right' }}>Состоялось</th>
               <th style={{ ...head, textAlign: 'right' }}>Конв.</th>
+              <th style={{ ...head, textAlign: 'right' }}>Отвал</th>
+              <th style={{ ...head, textAlign: 'right' }}>Отлож.</th>
             </tr>
           </thead>
           <tbody>
@@ -210,6 +213,8 @@ export function TmMonthlyView({ rows, name }: { rows: TmMonthlyRow[]; name: stri
                 <td className="tabular" style={{ ...cell, textAlign: 'right', fontWeight: 700 }}>{nf(r.meetingsSet)}</td>
                 <td className="tabular" style={{ ...cell, textAlign: 'right' }}>{nf(r.meetingsHeld)}</td>
                 <td style={{ ...cell, textAlign: 'right' }}>{convBadge(r.conv)}</td>
+                <td className="tabular" style={{ ...cell, textAlign: 'right', color: 'var(--bb-muted)' }}>{nf(r.rejected)}</td>
+                <td className="tabular" style={{ ...cell, textAlign: 'right', color: 'var(--bb-faint)' }}>{nf(r.postponed)}</td>
               </tr>
             ))}
           </tbody>
@@ -261,8 +266,49 @@ export function TmMicroFunnelsView({ funnels }: { funnels: TmMicroFunnel[] }) {
               </div>
             ))}
           </div>
+          {f.burn != null ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 12, padding: '10px 12px', borderRadius: 11, background: '#faf7f2', border: '1px solid var(--bb-line)' }}>
+              <div style={{ fontSize: 20, fontWeight: 800, color: f.burn >= 10 ? 'var(--bb-red)' : f.burn >= 6 ? 'var(--bb-amber)' : 'var(--bb-green)' }}>{nf(f.burn)}</div>
+              <div style={{ fontSize: 12, color: 'var(--bb-muted)' }}><b>лидов сожжено на 1 встречу</b> (личных отвалов за период / назначенных встреч)</div>
+            </div>
+          ) : null}
         </div>
       ))}
+    </div>
+  );
+}
+
+// ───────────────────────── Причины отвала ─────────────────────────
+
+export function TmRejectionsView({ rejections }: { rejections: TmRejections[] }) {
+  if (rejections.length === 0 || rejections.every((r) => r.total === 0)) {
+    return <p style={{ color: 'var(--bb-muted)' }}>Нет личных отвалов по звонарям (массовые/админ-закрытия исключены).</p>;
+  }
+  return (
+    <div className="bb-grid" style={{ gridTemplateColumns: rejections.length > 1 ? 'repeat(2, 1fr)' : '1fr' }}>
+      {rejections.map((r) => {
+        const max = Math.max(...r.reasons.map((x) => x.count), 1);
+        return (
+          <div key={r.managerId} style={{ background: '#fff', border: '1px solid var(--bb-line)', borderRadius: 16, padding: 18, boxShadow: 'var(--bb-shadow)' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>
+              {r.name} <span style={{ color: 'var(--bb-faint)', fontWeight: 500 }}>· {nf(r.total)} отвалов</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {r.reasons.slice(0, 7).map((b, i) => (
+                <div key={`${b.reasonId}`} style={{ display: 'grid', gridTemplateColumns: '150px 1fr 78px', alignItems: 'center', gap: 10 }}>
+                  <div style={{ fontSize: 12.5 }}>{b.label}</div>
+                  <div style={{ height: 18, background: '#f3f0ec', borderRadius: 6, overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${Math.max(3, (b.count / max) * 100)}%`, borderRadius: 6, background: i < 2 ? 'linear-gradient(90deg,#e0606b,#d4202e)' : 'linear-gradient(90deg,#cfcbf2,#8b80ff)' }} />
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--bb-muted)', textAlign: 'right' }}>
+                    <b style={{ color: 'var(--bb-ink)' }}>{nf(b.count)}</b> · {b.pct}%
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

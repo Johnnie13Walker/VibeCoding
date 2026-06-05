@@ -215,6 +215,25 @@ export const plans = pgTable(
   ],
 );
 
+export const dealRejections = pgTable(
+  'deal_rejections',
+  {
+    dealId: integer('deal_id').primaryKey(),
+    categoryId: integer('category_id'),
+    stageId: text('stage_id').notNull(),
+    reasonId: integer('reason_id'),
+    modifiedBy: integer('modified_by'),
+    assignedBy: integer('assigned_by'),
+    rejectedAt: timestamp('rejected_at', { withTimezone: true }),
+    title: text('title'),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+  },
+  (table) => [
+    index('deal_rejections_modified_by_reason_idx').on(table.modifiedBy, table.reasonId),
+    index('deal_rejections_stage_rejected_idx').on(table.stageId, table.rejectedAt),
+  ],
+);
+
 export const meetingTasks = pgTable(
   'meeting_tasks',
   {

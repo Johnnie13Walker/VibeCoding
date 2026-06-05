@@ -2,10 +2,13 @@ import 'server-only';
 
 import { and, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 import { db } from '@/db';
-import { dealsSnapshot, managerActivity, meetings, plans, reports, users } from '@/db/schema';
+import { dealRejections, dealsSnapshot, managerActivity, meetings, plans, reports, users } from '@/db/schema';
+import { buildTmRejections, type RejectionInput } from './telemarketing-shared';
 
 /** Стадия состоявшейся встречи (SP 1048). */
 const MEETING_HELD_STAGE = 'DT1048_24:SUCCESS';
+const STAGE_REJECTED = 'C50:APOLOGY';
+const STAGE_POSTPONED = 'C50:LOSE';
 import {
   buildTmFunnel50,
   buildTmKpis,
@@ -77,6 +80,7 @@ function emptyData(): TmDashboardData {
     microFunnels: [],
     planFact: [],
     outreach: buildTmOutreach([]),
+    rejections: [],
     generatedAt: null,
   };
 }
@@ -130,6 +134,7 @@ export async function getTmDashboardData(
       talkSeconds: Number(r.talkSeconds),
       meetingsSet: Number(r.meetingsSet),
       meetingsHeldByCreator: 0, // наполняется ниже из событий таблицы meetings
+      rejectionsPeriod: 0, // наполняется ниже из deal_rejections
       dealsCold: Number(r.dealsCold),
       messenger: Number(r.messenger),
       emails: Number(r.emails),
@@ -164,6 +169,42 @@ export async function getTmDashboardData(
   const heldByCreator = new Map<number, number>();
   for (const r of heldRows) if (r.creator != null) heldByCreator.set(r.creator, Number(r.n));
   for (const m of members) m.meetingsHeldByCreator = heldByCreator.get(m.managerId) ?? 0;
+
+  // Причины отвала (deal_rejections, личные закрытия): modified_by ∈ ТМ автоматически
+  // исключает админ/автопроцесс. rejected_at — в МСК.
+  const nameById = new Map(members.map((m) => [m.managerId, m.name]));
+  const rejAtMsk = sql`(${dealRejections.rejectedAt} AT TIME ZONE 'Europe/Moscow')::date`;
+  const rejReasonRows = await db
+    .select({ mgr: dealRejections.modifiedBy, reason: dealRejections.reasonId, n: sql<number>`count(*)` })
+    .from(dealRejections)
+    .where(and(eq(dealRejections.stageId, STAGE_REJECTED), inArray(dealRejections.modifiedBy, tmIds)))
+    .groupBy(dealRejections.modifiedBy, dealRejections.reasonId);
+  const rejectionInputs: RejectionInput[] = rejReasonRows
+    .filter((r) => r.mgr != null)
+    .map((r) => ({
+      managerId: r.mgr as number,
+      name: nameById.get(r.mgr as number) ?? `id ${r.mgr}`,
+      reasonId: r.reason,
+      count: Number(r.n),
+    }));
+  const rejections = buildTmRejections(rejectionInputs);
+
+  // Личные отвалы за период (для сжигания базы).
+  const rejPeriodRows = await db
+    .select({ mgr: dealRejections.modifiedBy, n: sql<number>`count(*)` })
+    .from(dealRejections)
+    .where(
+      and(
+        eq(dealRejections.stageId, STAGE_REJECTED),
+        inArray(dealRejections.modifiedBy, tmIds),
+        gte(rejAtMsk, start),
+        lte(rejAtMsk, end),
+      ),
+    )
+    .groupBy(dealRejections.modifiedBy);
+  const rejByMgr = new Map<number, number>();
+  for (const r of rejPeriodRows) if (r.mgr != null) rejByMgr.set(r.mgr, Number(r.n));
+  for (const m of members) m.rejectionsPeriod = rejByMgr.get(m.managerId) ?? 0;
 
   // Снимок воронки [50] на последнем снимке.
   const funnelCells = await db
@@ -216,8 +257,30 @@ export async function getTmDashboardData(
     .groupBy(ymMeetExpr);
   const heldByYm = new Map(heldMonRows.map((r) => [r.ym, Number(r.n)]));
 
+  // Отвал/Отлож по месяцам у выбранного звонаря (личные закрытия).
+  const ymRejExpr = sql<string>`to_char((${dealRejections.rejectedAt} AT TIME ZONE 'Europe/Moscow'), 'YYYY-MM')`;
+  const monRejRows = await db
+    .select({ ym: ymRejExpr, stage: dealRejections.stageId, n: sql<number>`count(*)` })
+    .from(dealRejections)
+    .where(
+      and(
+        eq(dealRejections.modifiedBy, selectedManagerId),
+        inArray(dealRejections.stageId, [STAGE_REJECTED, STAGE_POSTPONED]),
+        gte(rejAtMsk, dynStart),
+      ),
+    )
+    .groupBy(ymRejExpr, dealRejections.stageId);
+  const rejByYm = new Map<string, { rejected: number; postponed: number }>();
+  for (const r of monRejRows) {
+    const e = rejByYm.get(r.ym) ?? { rejected: 0, postponed: 0 };
+    if (r.stage === STAGE_REJECTED) e.rejected = Number(r.n);
+    else if (r.stage === STAGE_POSTPONED) e.postponed = Number(r.n);
+    rejByYm.set(r.ym, e);
+  }
+
   const monthlyInputs: TmMonthlyInput[] = dynMonths.map((mo) => {
     const r = monByYm.get(mo.ym);
+    const rej = rejByYm.get(mo.ym);
     return {
       ym: mo.ym,
       label: mo.label,
@@ -227,6 +290,8 @@ export async function getTmDashboardData(
       talkSeconds: r ? Number(r.talkSeconds) : 0,
       meetingsSet: r ? Number(r.meetingsSet) : 0,
       meetingsHeldByCreator: heldByYm.get(mo.ym) ?? 0,
+      rejected: rej?.rejected ?? 0,
+      postponed: rej?.postponed ?? 0,
     };
   });
 
@@ -276,6 +341,7 @@ export async function getTmDashboardData(
       convPlanPct: 4,
     }),
     outreach: buildTmOutreach(members),
+    rejections,
     generatedAt,
   };
 }
