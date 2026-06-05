@@ -65,6 +65,47 @@ def already_done(conn, target: date) -> bool:
     return bool(row and row[0] == "done")
 
 
+def _analysis_is_empty(obj) -> bool:
+    """Разбор считается пустым/пропущенным (нет содержательной части)."""
+    if not isinstance(obj, dict):
+        return True
+    return not obj.get("checklist") and not obj.get("verdict") and not obj.get("systemic_conclusion")
+
+
+def _preserve_prior_analysis(conn, target, rows, extras) -> None:
+    """Если у встречи свежий разбор пуст (skipped_no_transcript), а в БД есть прежний
+    непустой — восстанавливаем прежний (analysis_json + транскрипт + extras.analyses)."""
+    meetings = rows.get("meetings") or []
+    empty = [m for m in meetings if _analysis_is_empty(_json_load(m.get("analysis_json")))]
+    ids = [int(m["meeting_id"]) for m in empty if m.get("meeting_id")]
+    if not ids:
+        return
+    with conn.cursor() as cursor:
+        cursor.execute(
+            "SELECT meeting_id, analysis_json, transcript_ok, transcript_url, transcript_text "
+            "FROM meetings WHERE report_date = %s AND meeting_id = ANY(%s) AND analysis_json IS NOT NULL",
+            (target.isoformat(), ids),
+        )
+        prior = {row[0]: row for row in cursor.fetchall()}
+    analyses = extras.setdefault("analyses", {})
+    for m in empty:
+        rec = prior.get(int(m.get("meeting_id") or 0))
+        if not rec:
+            continue
+        prior_obj = _json_load(rec[1])
+        if _analysis_is_empty(prior_obj):
+            continue
+        m["analysis_json"] = json.dumps(prior_obj, ensure_ascii=False)
+        m["analysis_status"] = "done"
+        m["transcript_ok"] = rec[2]
+        if rec[3]:
+            m["transcript_url"] = rec[3]
+        if rec[4]:
+            m["transcript_text"] = rec[4]
+        analyses[int(m["meeting_id"])] = prior_obj
+        print(f"[preserve] встреча {m['meeting_id']}: восстановлен прежний разбор (транскрипт не скачался)", flush=True)
+
+
 def run_llm_phase(raw, rows, extras, *, client_factory=None, bx=None) -> dict:
     enriched = enrich_meetings(raw, bx=bx, refresh=True)
     meetings_meta = {int(item["id"]): item for item in raw.get("meet_day", [])}
@@ -121,6 +162,11 @@ def run(
             extras["analyses"] = {}
             extras["narrative"] = {}
             extras["llm_error"] = _mask(str(exc))
+
+        # Защита от транзиентного сбоя транскрипта: если свежий разбор встречи пуст
+        # (транскрипт не скачался), а в БД есть прежний непустой — оставляем прежний.
+        # Иначе теряются разбор и автозадачи по встрече при разовом сбое скачивания.
+        _preserve_prior_analysis(conn, target, rows, extras)
 
         # Архитектура B: финальный отчёт авторит LLM по данным дня (report.css —
         # дизайн-контракт). render_report остаётся fallback-скелетом на сбой.

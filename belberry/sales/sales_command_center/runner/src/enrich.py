@@ -48,17 +48,24 @@ def _download_transcript(
     *,
     opener=urllib.request.urlopen,
     timeout: int = 120,
-    retries: int = 3,
+    retries: int = 5,
 ) -> bytes:
     for attempt in range(retries):
         try:
             with opener(url, timeout=timeout) as response:
-                return response.read()
+                body = response.read()
+            if body:
+                return body
+            # Пустое тело при 200 — частый транзиент (короткоживущий токен/гонка
+            # генерации файла на стороне Bitrix). Ретраим, как и обычную ошибку.
+            if attempt == retries - 1:
+                print("[enrich] download empty body after retries", flush=True)
+                return b""
         except Exception as exc:
             if attempt == retries - 1:
                 print(f"[enrich] download failed: {_mask(str(exc))[:200]}", flush=True)
                 return b""
-            time.sleep(1.5 * (attempt + 1))
+        time.sleep(2.0 * (attempt + 1))
     return b""
 
 
