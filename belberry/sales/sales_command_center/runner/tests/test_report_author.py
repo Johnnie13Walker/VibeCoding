@@ -82,6 +82,10 @@ def test_build_telegram_digest():
             {"manager": "Исаева Дарья", "operational_score": 5.7, "oper_status": "РИСК"},
         ],
     }
+    payload["health_score"] = {"components": {"meeting_score_percent": 60, "stale_count": 26, "risk_money": 3670000}}
+    payload["action_items"] = [{"owner": "Семенихин Егор", "action": "Добить дату решения по phznanie.ru"}]
+    payload["telephony"][0].update({"role": "Менеджер по продажам", "meetings_held": 2, "calls_60s_plus": 9})
+    payload["telephony"][1]["role"] = "Телемаркетолог"
     html_body = '<div class="hero-subtitle">День спокойный, темп в норме.</div><div class="hero-verdict"><span class="hv-icon">⚠️</span><b>Итог за ночь:</b> фокус на КП.</div>'
     d = report_author.build_telegram_digest(payload, html_body)
     assert "Сводка отдела продаж — Среда, 3 июня 2026" in d
@@ -89,6 +93,11 @@ def test_build_telegram_digest():
     assert "−8 спам" in d
     assert "День спокойный, темп в норме." in d
     assert "Итог за ночь" in d
+    assert "ср. балл 6.0/10" in d
+    assert "зависших 26 на 3,7 млн ₽" in d
+    assert "(ОП)" in d and "(ТМ)" in d
+    assert "На сегодня:" in d and "phznanie.ru" in d
+    assert "2 встреч" in d and "9 разговоров 60с+" in d
 
 
 def test_build_oper_scorecard_renders_rows():

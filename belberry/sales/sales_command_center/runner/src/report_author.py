@@ -938,12 +938,18 @@ def _extract_text(html_body: str, pattern: str) -> str:
     return _html_text(m.group(1)) if m else ""
 
 
+def _fmt_mln(rub: Any) -> str:
+    """Рубли → «X,X млн ₽» (ru-запятая)."""
+    return f"{(float(rub or 0) / 1_000_000):.1f}".replace(".", ",") + " млн ₽"
+
+
 def build_telegram_digest(payload: dict[str, Any], html_body: str = "") -> str:
     """Текстовый дайджест дня для Telegram (parse_mode=HTML). Данные из payload
     (новая модель «Опер»), прозу (резюме/итог) тянем из готового HTML."""
     e = html.escape
     k = payload.get("daily_kpis") or {}
     tel = payload.get("telephony") or []
+    hc = (payload.get("health_score") or {}).get("components") or {}
     date_ru = payload.get("weekday_date_ru") or str(payload.get("report_date") or "")
     lines = [f"📊 <b>Сводка отдела продаж — {e(date_ru)}</b>"]
 
@@ -953,22 +959,53 @@ def build_telegram_digest(payload: dict[str, Any], html_body: str = "") -> str:
 
     spam_new = f" (−{k['new_deals_spam']} спам)" if k.get("new_deals_spam") else ""
     spam_rej = f" (−{k['sales_rejects_spam']} спам)" if k.get("sales_rejects_spam") else ""
+    meet_pct = hc.get("meeting_score_percent")
+    meet_q = f" (ср. балл {meet_pct / 10:.1f}/10)" if meet_pct else ""
+    risk_part = (
+        f" · 💰 зависших {hc['stale_count']} на {_fmt_mln(hc.get('risk_money'))}"
+        if hc.get("stale_count")
+        else ""
+    )
     lines += [
         "",
-        f"🤝 Встречи проведено: <b>{k.get('meetings_held', 0)}</b> · назначено ТМ {k.get('meetings_set_tm', 0)} / ОП {k.get('meetings_set_op', 0)}",
+        f"🤝 Встречи: <b>{k.get('meetings_held', 0)}</b> проведено{meet_q} · назначено ТМ {k.get('meetings_set_tm', 0)} / ОП {k.get('meetings_set_op', 0)}",
         f"📝 Брифы {k.get('briefs', 0)} · 📄 КП {k.get('kp', 0)} · ⚡ Новые сделки <b>{k.get('new_deals', 0)}</b>{spam_new}",
-        f"✖️ Отказы в воронке Продажи: {k.get('sales_rejects', 0)}{spam_rej}",
+        f"✖️ Отказы Продажи: {k.get('sales_rejects', 0)}{spam_rej}{risk_part}",
     ]
 
+    def _role(t: dict[str, Any]) -> str:
+        return "ТМ" if oper.is_telemarketing(t.get("role")) else "ОП"
+
     bits = [
-        f"{_OPER_EMO.get(t.get('oper_status'), '❌')} {e(str(t.get('manager')))} {t.get('operational_score')}"
+        f"{_OPER_EMO.get(t.get('oper_status'), '❌')} {e(str(t.get('manager')))} ({_role(t)}) {t.get('operational_score')}"
         for t in tel[:4]
     ]
     if bits:
         lines += ["", "👥 Опер: " + " · ".join(bits)]
     if tel:
         tg = tel[0]
-        lines.append(f"🐅 Тигр дня — <b>{e(str(tg.get('manager')))}</b> (Опер {tg.get('operational_score')})")
+        extra = []
+        if tg.get("meetings_held"):
+            extra.append(f"{tg['meetings_held']} встреч")
+        if tg.get("calls_60s_plus"):
+            extra.append(f"{tg['calls_60s_plus']} разговоров 60с+")
+        if tg.get("messenger_dialogs"):
+            extra.append(f"{tg['messenger_dialogs']} чатов")
+        tail = (": " + " · ".join(extra)) if extra else ""
+        lines.append(
+            f"🐅 Тигр дня — <b>{e(str(tg.get('manager')))}</b> (Опер {tg.get('operational_score')}/10){tail}"
+        )
+
+    foci = []
+    for a in (payload.get("action_items") or [])[:2]:
+        owner = str(a.get("owner") or "").strip()
+        what = str(a.get("action") or "").strip()
+        if owner and what:
+            if len(what) > 70:
+                what = what[:67] + "…"
+            foci.append(f"{e(owner)} — {e(what)}")
+    if foci:
+        lines += ["", "🎯 На сегодня: " + "; ".join(foci)]
 
     verdict = _extract_text(html_body, r'class="hero-verdict">(.*?)</div>')
     if verdict:
