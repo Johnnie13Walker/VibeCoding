@@ -27,6 +27,16 @@ FIXED_ANALYSIS = {
     "products_discussed": ["SEO", "Контекст", "SEO"],
     "kp_assessment": "Преждевременно",
     "kp_assessment_note": "Потребность вскрыта слабо.",
+    "client_needs": [
+        {"need": "Поток заявок", "pain": "Сайт не конвертит", "evidence": "«заявок почти нет»"},
+        {"need": "", "pain": "пусто", "evidence": "x"},
+    ],
+    "decision_makers": "Решает собственник, на встрече был маркетолог",
+    "current_situation": "Работают с фрилансером, недовольны",
+    "budget_signals": "Ориентир 150к/мес",
+    "dialog_quality": "Скорее анкета, менеджер говорил больше",
+    "coaching": "Вскрывать бюджет раньше",
+    "key_quotes": ["«заявок почти нет»", "«заявок почти нет»"],
     "transcript_status": "ok",
 }
 FIXED_NARRATIVE = {
@@ -98,6 +108,11 @@ def test_analyze_meeting_returns_structured_json():
     assert result["products_discussed"] == ["SEO", "Контекст"]  # дедуп
     assert result["kp_assessment"] == "преждевременно"  # нормализован
     assert result["kp_assessment_note"] == "Потребность вскрыта слабо."
+    assert len(result["client_needs"]) == 1  # пустой need отброшен
+    assert result["client_needs"][0]["need"] == "Поток заявок"
+    assert result["decision_makers"] == "Решает собственник, на встрече был маркетолог"
+    assert result["coaching"] == "Вскрывать бюджет раньше"
+    assert result["key_quotes"] == ["«заявок почти нет»"]  # дедуп
 
 
 def test_system_prompt_uses_cache_control():

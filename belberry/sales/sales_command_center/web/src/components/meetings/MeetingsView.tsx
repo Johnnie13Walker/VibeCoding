@@ -323,6 +323,21 @@ function Detail({ m }: { m: MeetingItem }) {
       ) : null}
       {m.kpAssessment ? <KpAssessment value={m.kpAssessment} note={m.kpAssessmentNote} /> : null}
       {m.verdict ? <div style={{ margin: '14px 0', padding: '14px 16px', borderRadius: 12, background: 'var(--bb-soft,#f3f2fb)', fontSize: 15, lineHeight: 1.5, borderLeft: '4px solid #6f5ff2' }}>{m.verdict}</div> : null}
+
+      {m.clientNeeds.length ? (
+        <div style={{ margin: '14px 0' }}>
+          <h3 style={{ fontSize: 14, fontWeight: 800, margin: '0 0 10px' }}>🎯 Реальные потребности и боли</h3>
+          <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {m.clientNeeds.map((n, i) => (
+              <li key={i} style={{ fontSize: 13.5, lineHeight: 1.45 }}>
+                <b>{n.need}</b>{n.pain ? <> — <span style={{ color: 'var(--bb-muted)' }}>{n.pain}</span></> : null}
+                {n.evidence ? <div style={{ fontSize: 12.5, color: 'var(--bb-faint)', marginTop: 2 }}>«{n.evidence.replace(/^«|»$/g, '')}»</div> : null}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
       <div className="bb-grid" style={{ gridTemplateColumns: 'repeat(2,1fr)', gap: 18, margin: '18px 0' }}>
         <div>
           <h3 style={{ fontSize: 14, fontWeight: 800, margin: '0 0 10px' }}>✅ Что прошло хорошо</h3>
@@ -343,7 +358,44 @@ function Detail({ m }: { m: MeetingItem }) {
           </div>
         </div>
       ) : null}
+      {(m.decisionMakers || m.currentSituation || m.budgetSignals || m.dialogQuality) ? (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 12, margin: '6px 0 16px' }}>
+          <Info label="ЛПР и роли" text={m.decisionMakers} />
+          <Info label="Текущая ситуация / конкуренты" text={m.currentSituation} />
+          <Info label="Бюджет и срочность" text={m.budgetSignals} />
+          <Info label="Качество диалога" text={m.dialogQuality} />
+        </div>
+      ) : null}
+
+      {m.coaching ? (
+        <div style={{ margin: '6px 0 16px', padding: '13px 16px', borderRadius: 12, background: '#eef6ff', border: '1px solid #cfe2fb' }}>
+          <div style={{ fontSize: 14, fontWeight: 800, color: '#2563c9' }}>🧭 Коучинг менеджеру</div>
+          <div style={{ fontSize: 13.5, color: 'var(--bb-muted)', marginTop: 4, lineHeight: 1.45, whiteSpace: 'pre-line' }}>{m.coaching}</div>
+        </div>
+      ) : null}
+
+      {m.keyQuotes.length ? (
+        <div style={{ margin: '6px 0 16px' }}>
+          <h3 style={{ fontSize: 14, fontWeight: 800, margin: '0 0 8px' }}>💬 Ключевые цитаты клиента</h3>
+          <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 7 }}>
+            {m.keyQuotes.map((q, i) => (
+              <li key={i} style={{ fontSize: 13.5, color: 'var(--bb-ink,#191730)', borderLeft: '3px solid #d8d5f0', paddingLeft: 12, fontStyle: 'italic' }}>«{q.replace(/^«|»$/g, '')}»</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
       {m.conclusion ? <div style={{ fontSize: 13.5, color: 'var(--bb-muted)', lineHeight: 1.5, borderTop: '1px solid var(--bb-line)', paddingTop: 14 }}><b>Системный вывод:</b> {m.conclusion}</div> : null}
+    </div>
+  );
+}
+
+function Info({ label, text }: { label: string; text: string }) {
+  if (!text) return null;
+  return (
+    <div style={{ border: '1px solid var(--bb-line)', borderRadius: 12, padding: '11px 14px' }}>
+      <div style={{ fontSize: 12, color: 'var(--bb-faint)', fontWeight: 600, marginBottom: 3 }}>{label}</div>
+      <div style={{ fontSize: 13.5, lineHeight: 1.4 }}>{text}</div>
     </div>
   );
 }

@@ -34,6 +34,13 @@ interface RawAnalysis {
   products_discussed?: string[];
   kp_assessment?: string | null;
   kp_assessment_note?: string | null;
+  client_needs?: { need?: string; pain?: string; evidence?: string }[];
+  decision_makers?: string | null;
+  current_situation?: string | null;
+  budget_signals?: string | null;
+  dialog_quality?: string | null;
+  coaching?: string | null;
+  key_quotes?: string[];
 }
 
 /** Загрузка разобранных встреч ОП+РОП за окно (по умолчанию 120 дней). */
@@ -110,6 +117,15 @@ export async function getMeetingsForAnalysis(days = 120): Promise<MeetingItem[]>
       products: Array.isArray(a?.products_discussed) ? a!.products_discussed!.map(String) : [],
       kpAssessment: (a?.kp_assessment as MeetingItem['kpAssessment']) ?? null,
       kpAssessmentNote: (a?.kp_assessment_note ?? '').toString().trim(),
+      clientNeeds: Array.isArray(a?.client_needs)
+        ? a!.client_needs!.filter((n) => n?.need).map((n) => ({ need: String(n.need), pain: String(n.pain ?? ''), evidence: String(n.evidence ?? '') }))
+        : [],
+      decisionMakers: (a?.decision_makers ?? '').toString().trim(),
+      currentSituation: (a?.current_situation ?? '').toString().trim(),
+      budgetSignals: (a?.budget_signals ?? '').toString().trim(),
+      dialogQuality: (a?.dialog_quality ?? '').toString().trim(),
+      coaching: (a?.coaching ?? '').toString().trim(),
+      keyQuotes: Array.isArray(a?.key_quotes) ? a!.key_quotes!.map(String) : [],
     });
   }
   return out;

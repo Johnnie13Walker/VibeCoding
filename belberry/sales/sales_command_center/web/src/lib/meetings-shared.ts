@@ -33,6 +33,14 @@ export interface MeetingItem {
   /** Оценка обоснованности КП: обоснованно | преждевременно | не_применимо. */
   kpAssessment: 'обоснованно' | 'преждевременно' | 'не_применимо' | null;
   kpAssessmentNote: string;
+  // Глубокий разбор:
+  clientNeeds: { need: string; pain: string; evidence: string }[];
+  decisionMakers: string;
+  currentSituation: string;
+  budgetSignals: string;
+  dialogQuality: string;
+  coaching: string;
+  keyQuotes: string[];
 }
 
 export interface ManagerScore {

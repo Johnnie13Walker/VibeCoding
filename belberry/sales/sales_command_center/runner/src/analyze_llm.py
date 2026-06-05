@@ -106,6 +106,20 @@ SYSTEM_PROMPT = """
     диалога-вскрытия не было), КП не нужно или преждевременно;
   * "не_применимо" — про КП речи не шло (другой тип встречи/контекст).
 - kp_assessment_note — 1 фраза: почему КП обоснованно/преждевременно (на что опираешься).
+ГЛУБОКИЙ РАЗБОР (опирайся на транскрипт, цитируй дословно, не выдумывай):
+- client_needs — реальные потребности и боли клиента: что именно болит, чего хочет,
+  скрытые мотивы за словами. 3-6 пунктов, у каждого короткая цитата-доказательство.
+- decision_makers — кто на встрече и кто реально принимает решение; упомянуты ли
+  отсутствующие ЛПР, чьё согласование нужно. Если не выяснено — так и напиши.
+- current_situation — текущая ситуация клиента: с кем работает сейчас, чем недоволен,
+  каких подрядчиков/конкурентов рассматривает, что уже пробовал.
+- budget_signals — сигналы бюджета и срочности: названные суммы, сроки, дедлайны,
+  триггеры («горит», «к сезону»). Если нет — "не озвучено".
+- dialog_quality — качество диалога: вёл диалог или анкету, кто больше говорил
+  (менеджер/клиент), глубина уточняющих вопросов менеджера.
+- coaching — КОНКРЕТНЫЙ совет менеджеру: что сделать иначе/лучше в следующий раз
+  именно по этой встрече (1-3 пункта, по делу, без воды).
+- key_quotes — 2-4 ключевые ДОСЛОВНЫЕ цитаты клиента, раскрывающие потребность/возражение/решение.
 - Верни JSON по схеме:
 {
   "meeting_type": "defense|briefing|other",
@@ -129,6 +143,13 @@ SYSTEM_PROMPT = """
   "products_discussed": ["SEO", "Контекст"],
   "kp_assessment": "обоснованно|преждевременно|не_применимо",
   "kp_assessment_note": "...",
+  "client_needs": [{"need": "...", "pain": "...", "evidence": "цитата"}],
+  "decision_makers": "...",
+  "current_situation": "...",
+  "budget_signals": "...",
+  "dialog_quality": "...",
+  "coaching": "...",
+  "key_quotes": ["...", "..."],
   "transcript_status": "ok"
 }
 """
@@ -442,6 +463,38 @@ def _normalize_kp_assessment(value: Any) -> str | None:
     return v if v in _KP_ASSESSMENTS else None
 
 
+def _normalize_needs(value: Any) -> list[dict[str, str]]:
+    out: list[dict[str, str]] = []
+    for item in value or []:
+        if not isinstance(item, dict):
+            continue
+        need = str(item.get("need") or "").strip()
+        if not need:
+            continue
+        out.append(
+            {
+                "need": need,
+                "pain": str(item.get("pain") or "").strip(),
+                "evidence": str(item.get("evidence") or "").strip(),
+            }
+        )
+    return out[:6]
+
+
+def _normalize_quotes(value: Any) -> list[str]:
+    out: list[str] = []
+    for item in value or []:
+        q = str(item).strip()
+        if q and q not in out:
+            out.append(q)
+    return out[:5]
+
+
+def _opt_str(value: Any) -> str | None:
+    s = str(value or "").strip()
+    return s or None
+
+
 def _normalize_analysis(parsed: dict[str, Any]) -> dict[str, Any]:
     checklist = []
     for item in parsed.get("checklist") or []:
@@ -480,6 +533,13 @@ def _normalize_analysis(parsed: dict[str, Any]) -> dict[str, Any]:
         "products_discussed": _normalize_products(parsed.get("products_discussed")),
         "kp_assessment": _normalize_kp_assessment(parsed.get("kp_assessment")),
         "kp_assessment_note": str(parsed.get("kp_assessment_note") or "").strip() or None,
+        "client_needs": _normalize_needs(parsed.get("client_needs")),
+        "decision_makers": _opt_str(parsed.get("decision_makers")),
+        "current_situation": _opt_str(parsed.get("current_situation")),
+        "budget_signals": _opt_str(parsed.get("budget_signals")),
+        "dialog_quality": _opt_str(parsed.get("dialog_quality")),
+        "coaching": _opt_str(parsed.get("coaching")),
+        "key_quotes": _normalize_quotes(parsed.get("key_quotes")),
         "transcript_status": "ok",
     }
 
@@ -502,9 +562,9 @@ def analyze_meeting(
     response = _call_with_retry(
         client,
         model=MODEL,
-        # 4000, иначе на длинных встречах (транскрипт 40k+ симв.) ответ-JSON
-        # обрезается по лимиту и парсится как невалидный → встреча «пропущена».
-        max_tokens=4000,
+        # 8000 — глубокий разбор (потребности/боли, ЛПР, ситуация, коучинг, цитаты)
+        # даёт большой JSON; на меньшем лимите он обрезается и не парсится.
+        max_tokens=8000,
         temperature=0,
         system=_system(SYSTEM_PROMPT),
         messages=[
