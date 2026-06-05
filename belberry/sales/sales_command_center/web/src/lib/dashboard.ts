@@ -82,6 +82,7 @@ export interface DashboardData {
   managerPipeline: ManagerPipeline;
   tmActivity: TmActivity;
   messaging: Messaging;
+  velocity: Velocity;
   deltas: { meetings: KpiDelta; dials: KpiDelta; kp: KpiDelta; deals: KpiDelta };
   trend: TrendPoint[];
   health: number;
@@ -523,6 +524,71 @@ export function buildMessaging(members: MessagingRow[]): Messaging {
   };
 }
 
+export interface VelocityStage {
+  stage: string;
+  label: string;
+  avgDays: number;
+  count: number;
+}
+
+export interface AgingBucket {
+  key: string;
+  label: string;
+  amount: number;
+  count: number;
+}
+
+export interface Velocity {
+  stages: VelocityStage[];
+  aging: AgingBucket[];
+  /** Грубая оценка цикла = сумма среднего времени на стадиях, дней. */
+  estimatedCycleDays: number;
+  /** Сумма ₽ в сделках старше 30 дней (зона риска). */
+  agingRiskAmount: number;
+}
+
+const AGING_BUCKETS: { key: string; label: string; min: number; max: number }[] = [
+  { key: '0-7', label: 'до 7 дней', min: 0, max: 7 },
+  { key: '7-14', label: '7–14 дней', min: 7, max: 14 },
+  { key: '14-30', label: '14–30 дней', min: 14, max: 30 },
+  { key: '30+', label: 'больше 30', min: 30, max: Infinity },
+];
+
+/** Скорость воронки (среднее время на стадии) и деньги по возрасту. Чистая функция. */
+export function buildVelocity(deals: { stage: string; ageDays: number; amount: number }[]): Velocity {
+  const stageAcc = new Map<string, { sum: number; count: number }>();
+  const agingAcc = new Map<string, { amount: number; count: number }>();
+  for (const d of deals) {
+    if (STAGE_META[d.stage]) {
+      const a = stageAcc.get(d.stage) ?? { sum: 0, count: 0 };
+      a.sum += d.ageDays;
+      a.count += 1;
+      stageAcc.set(d.stage, a);
+    }
+    const bucket = AGING_BUCKETS.find((b) => d.ageDays >= b.min && d.ageDays < b.max) ?? AGING_BUCKETS[0];
+    const ag = agingAcc.get(bucket.key) ?? { amount: 0, count: 0 };
+    ag.amount += d.amount;
+    ag.count += 1;
+    agingAcc.set(bucket.key, ag);
+  }
+  const stages = Object.entries(STAGE_META)
+    .sort((a, b) => a[1].order - b[1].order)
+    .map(([stage, m]) => {
+      const a = stageAcc.get(stage);
+      return { stage, label: m.label, avgDays: a ? Math.round(a.sum / a.count) : 0, count: a?.count ?? 0 };
+    });
+  const aging = AGING_BUCKETS.map((b) => {
+    const ag = agingAcc.get(b.key);
+    return { key: b.key, label: b.label, amount: ag?.amount ?? 0, count: ag?.count ?? 0 };
+  });
+  return {
+    stages,
+    aging,
+    estimatedCycleDays: stages.reduce((acc, s) => acc + s.avgDays, 0),
+    agingRiskAmount: agingAcc.get('30+')?.amount ?? 0,
+  };
+}
+
 /** Число рабочих дней (пн-пт) в диапазоне [start, end] включительно. */
 function countWeekdays(start: string, end: string): number {
   const cur = new Date(`${start}T00:00:00Z`);
@@ -623,6 +689,7 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
       managerPipeline: buildManagerPipeline([], {}),
       tmActivity: buildTmActivity([], 1),
       messaging: buildMessaging([]),
+      velocity: buildVelocity([]),
       deltas: { meetings: zeroDelta, dials: zeroDelta, kp: zeroDelta, deals: zeroDelta },
       trend: [],
       health: 0,
@@ -645,6 +712,7 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
       stage: dealsSnapshot.stage,
       opportunity: dealsSnapshot.opportunity,
       stuckDays: dealsSnapshot.stuckDays,
+      stageEntered: dealsSnapshot.stageEntered,
       managerId: dealsSnapshot.managerId,
       title: dealsSnapshot.title,
     })
@@ -890,6 +958,20 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
     team.map((m) => ({ managerId: m.managerId, name: m.name, messenger: m.messenger, emails: m.emails })),
   );
 
+  // Скорость воронки и деньги по возрасту — по текущему снимку открытых сделок.
+  const snapMs = Date.parse(`${snapshotDate}T00:00:00Z`);
+  const velocity = buildVelocity(
+    snapRows
+      .filter((r) => STAGE_META[r.stage])
+      .map((r) => ({
+        stage: r.stage,
+        ageDays: r.stageEntered
+          ? Math.max(0, Math.round((snapMs - Date.parse(`${r.stageEntered}T00:00:00Z`)) / 86_400_000))
+          : 0,
+        amount: Number(r.opportunity ?? 0),
+      })),
+  );
+
   // Качество встреч (LLM-разбор) — по разобранным встречам отдела за период.
   const salesIdSet = new Set(salesIds);
   const mqInputs: MeetingQualityInput[] = anRows
@@ -1004,6 +1086,7 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
     managerPipeline,
     tmActivity,
     messaging,
+    velocity,
     deltas,
     trend,
     health,

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Filter, FileText, TrendingUp, Target, Star, ArrowLeftRight, Users, Phone, Mail } from 'lucide-react';
+import { Filter, FileText, TrendingUp, Target, Star, ArrowLeftRight, Users, Phone, Mail, Clock } from 'lucide-react';
 import { FunnelBars } from '@/components/dashboard/FunnelBars';
 import { SalesFunnel } from '@/components/dashboard/SalesFunnel';
 import { ForecastView } from '@/components/dashboard/Forecast';
@@ -8,6 +8,7 @@ import { ManagerConversions } from '@/components/dashboard/ManagerConversions';
 import { ManagerPipelineView } from '@/components/dashboard/ManagerPipeline';
 import { TmActivityView } from '@/components/dashboard/TmActivity';
 import { MessagingView } from '@/components/dashboard/Messaging';
+import { VelocityView } from '@/components/dashboard/Velocity';
 import { KpiCard } from '@/components/dashboard/KpiCard';
 import { Gauge } from '@/components/dashboard/Gauge';
 import { getDashboardData } from '@/lib/dashboard';
@@ -134,7 +135,13 @@ export default async function DashboardPage({
         <MessagingView data={data.messaging} />
       </div>
 
-      {/* Дальше: скорость+возраст, win rate, динамика, план/факт. */}
+      {/* Скорость воронки + деньги по возрасту */}
+      <div className="bb-card" style={{ marginBottom: 16 }}>
+        <SectionHead icon={<Clock size={17} />} title="Скорость воронки и деньги по возрасту" hint={`снимок ${data.snapshotDate ?? '—'}`} />
+        <VelocityView data={data.velocity} />
+      </div>
+
+      {/* Дальше: win rate+источники, динамика, план/факт. */}
     </div>
   );
 }

@@ -12,6 +12,7 @@ import {
   buildManagerPipeline,
   buildTmActivity,
   buildMessaging,
+  buildVelocity,
 } from '../dashboard';
 
 describe('buildFunnel', () => {
@@ -259,5 +260,31 @@ describe('buildMessaging', () => {
     expect(m.messengerTotal).toBe(230);
     expect(m.emailTotal).toBe(15);
     expect(m.rows.map((r) => r.name)).toEqual(['В', 'А']); // Б отфильтрован, сорт по messenger
+  });
+});
+
+describe('buildVelocity', () => {
+  it('среднее время на стадии, оценка цикла и деньги по возрасту', () => {
+    const v = buildVelocity([
+      { stage: 'C10:EXECUTING', ageDays: 10, amount: 500000 },
+      { stage: 'C10:EXECUTING', ageDays: 20, amount: 300000 },
+      { stage: 'C10:FINAL_INVOICE', ageDays: 40, amount: 1000000 },
+      { stage: 'C10:WON', ageDays: 5, amount: 999 }, // не STAGE_META → в среднее стадий не идёт
+    ]);
+    const exec = v.stages.find((s) => s.stage === 'C10:EXECUTING')!;
+    expect(exec.avgDays).toBe(15); // (10+20)/2
+    expect(exec.count).toBe(2);
+    // деньги по возрасту: 10д→7-14, 20д→14-30, 40д→30+, 5д(WON)→0-7
+    expect(v.aging.find((a) => a.key === '7-14')!.amount).toBe(500000);
+    expect(v.aging.find((a) => a.key === '14-30')!.amount).toBe(300000);
+    expect(v.aging.find((a) => a.key === '30+')!.amount).toBe(1000000);
+    expect(v.agingRiskAmount).toBe(1000000);
+    expect(v.stages.length).toBe(5);
+  });
+
+  it('пустой ввод — нули', () => {
+    const v = buildVelocity([]);
+    expect(v.estimatedCycleDays).toBe(0);
+    expect(v.agingRiskAmount).toBe(0);
   });
 });
