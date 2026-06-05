@@ -85,6 +85,7 @@ export interface DashboardData {
   velocity: Velocity;
   monthly: MonthRow[];
   day2day: Day2Day;
+  planFact: PlanFact;
   deltas: { meetings: KpiDelta; dials: KpiDelta; kp: KpiDelta; deals: KpiDelta };
   trend: TrendPoint[];
   health: number;
@@ -642,6 +643,59 @@ export function buildDay2Day(rows: Day2DayRow[]): Day2Day {
   return { rows, total };
 }
 
+export interface PlanFactRow {
+  key: string;
+  label: string;
+  fact: number;
+  plan: number;
+  pct: number | null;
+  money: boolean;
+  /** Подпись норматива, напр. «20/ТМ × 3». */
+  basis: string;
+}
+
+export interface PlanFact {
+  rows: PlanFactRow[];
+}
+
+export interface PlanFactInput {
+  revenueFact: number;
+  revenuePlan: number;
+  meetingsSetFact: number;
+  meetingsPlanPerTm: number;
+  tmCount: number;
+  briefsFact: number;
+  briefsPlanPerMop: number;
+  mopCount: number;
+}
+
+/** План/факт по ключевым метрикам отдела. Чистая функция. */
+export function buildPlanFact(i: PlanFactInput): PlanFact {
+  const row = (key: string, label: string, fact: number, plan: number, money: boolean, basis: string): PlanFactRow => ({
+    key,
+    label,
+    fact,
+    plan,
+    pct: plan > 0 ? Math.round((fact / plan) * 100) : null,
+    money,
+    basis,
+  });
+  return {
+    rows: [
+      row('revenue', 'Оплаты, ₽', i.revenueFact, i.revenuePlan, true, 'на отдел'),
+      row(
+        'meetings',
+        'Встречи назначено (ТМ)',
+        i.meetingsSetFact,
+        i.meetingsPlanPerTm * i.tmCount,
+        false,
+        `${i.meetingsPlanPerTm}/ТМ × ${i.tmCount}`,
+      ),
+      row('briefs', 'Брифы', i.briefsFact, i.briefsPlanPerMop * i.mopCount, false, `${i.briefsPlanPerMop}/МОП × ${i.mopCount}`),
+    ],
+  };
+}
+
 /** Число рабочих дней (пн-пт) в диапазоне [start, end] включительно. */
 function countWeekdays(start: string, end: string): number {
   const cur = new Date(`${start}T00:00:00Z`);
@@ -745,6 +799,10 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
       velocity: buildVelocity([]),
       monthly: [],
       day2day: buildDay2Day([]),
+      planFact: buildPlanFact({
+        revenueFact: 0, revenuePlan: 0, meetingsSetFact: 0, meetingsPlanPerTm: 0,
+        tmCount: 0, briefsFact: 0, briefsPlanPerMop: 0, mopCount: 0,
+      }),
       deltas: { meetings: zeroDelta, dials: zeroDelta, kp: zeroDelta, deals: zeroDelta },
       trend: [],
       health: 0,
@@ -1129,16 +1187,29 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
     });
   const meetingQuality = buildMeetingQuality(mqInputs);
 
-  // Прогноз закрытия месяца: оплачено + взвешенная воронка; pacing к плану выручки.
-  const revPlanRows = await db
-    .select({ target: plans.target })
+  // Планы месяца (общие, manager_id IS NULL): revenue (на отдел), meetings (на ТМ),
+  // briefs (на МОП). Прогноз/pacing — к плану выручки; план/факт — ко всем трём.
+  const monthPlanRows = await db
+    .select({ metric: plans.metric, target: plans.target })
     .from(plans)
-    .where(and(eq(plans.period, snapshotDate.slice(0, 7)), eq(plans.metric, 'revenue'), sql`${plans.managerId} is null`))
-    .limit(1);
-  const planRevenue = revPlanRows[0] ? Number(revPlanRows[0].target) : 0;
+    .where(and(eq(plans.period, snapshotDate.slice(0, 7)), sql`${plans.managerId} is null`));
+  const planMap: Record<string, number> = {};
+  for (const r of monthPlanRows) planMap[r.metric] = Number(r.target);
+  const planRevenue = planMap['revenue'] ?? 0;
   const [fy, fm, fd] = snapshotDate.split('-').map(Number);
   const daysInMonth = new Date(Date.UTC(fy, fm, 0)).getUTCDate();
   const forecast = buildForecast(funnel, salesFunnel.wonAmount, planRevenue, fd, daysInMonth);
+
+  const planFact = buildPlanFact({
+    revenueFact: salesFunnel.wonAmount,
+    revenuePlan: planRevenue,
+    meetingsSetFact: tmActivity.meetingsSet,
+    meetingsPlanPerTm: planMap['meetings'] ?? 0,
+    tmCount: tmActivity.zvonari,
+    briefsFact: team.reduce((a, m) => a + m.briefs, 0),
+    briefsPlanPerMop: planMap['briefs'] ?? 0,
+    mopCount: team.filter((m) => isSalesDept(m.role) && !isTelemarketing(m.role)).length,
+  });
 
   // Δ к предыдущему окну (месяц→прошлый месяц, неделя→прошлая неделя).
   const prevRows = await db
@@ -1219,6 +1290,7 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
     velocity,
     monthly,
     day2day,
+    planFact,
     deltas,
     trend,
     health,

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Filter, FileText, TrendingUp, Target, Star, ArrowLeftRight, Users, Phone, Mail, Clock, BarChart3, CalendarDays } from 'lucide-react';
+import { Filter, FileText, TrendingUp, Target, Star, ArrowLeftRight, Users, Phone, Mail, Clock, BarChart3, CalendarDays, Goal } from 'lucide-react';
 import { FunnelBars } from '@/components/dashboard/FunnelBars';
 import { SalesFunnel } from '@/components/dashboard/SalesFunnel';
 import { ForecastView } from '@/components/dashboard/Forecast';
@@ -11,6 +11,7 @@ import { MessagingView } from '@/components/dashboard/Messaging';
 import { VelocityView } from '@/components/dashboard/Velocity';
 import { MonthlyDynamics } from '@/components/dashboard/MonthlyDynamics';
 import { Day2DayView } from '@/components/dashboard/Day2Day';
+import { PlanFactView } from '@/components/dashboard/PlanFact';
 import { KpiCard } from '@/components/dashboard/KpiCard';
 import { Gauge } from '@/components/dashboard/Gauge';
 import { getDashboardData } from '@/lib/dashboard';
@@ -155,7 +156,13 @@ export default async function DashboardPage({
         <Day2DayView data={data.day2day} />
       </div>
 
-      {/* Дальше: win rate+источники, план/факт. */}
+      {/* План / факт */}
+      <div className="bb-card" style={{ marginBottom: 16 }}>
+        <SectionHead icon={<Goal size={17} />} title="План / факт" hint={data.monthLabel} />
+        <PlanFactView data={data.planFact} />
+      </div>
+
+      {/* Дальше: win rate + источники (нужна мелкая правка раннера). */}
     </div>
   );
 }

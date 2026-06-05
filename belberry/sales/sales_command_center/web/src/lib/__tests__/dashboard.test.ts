@@ -15,6 +15,7 @@ import {
   buildVelocity,
   buildMonthlyDynamics,
   buildDay2Day,
+  buildPlanFact,
 } from '../dashboard';
 
 describe('buildFunnel', () => {
@@ -316,5 +317,37 @@ describe('buildDay2Day', () => {
     ]);
     expect(d.total).toEqual({ deals: 7, meetings: 3, kp: 3, dials: 440 });
     expect(d.rows).toHaveLength(2);
+  });
+});
+
+describe('buildPlanFact', () => {
+  it('считает план как норматив×кол-во и процент выполнения', () => {
+    const pf = buildPlanFact({
+      revenueFact: 600000,
+      revenuePlan: 1000000,
+      meetingsSetFact: 30,
+      meetingsPlanPerTm: 20,
+      tmCount: 3,
+      briefsFact: 45,
+      briefsPlanPerMop: 30,
+      mopCount: 3,
+    });
+    const rev = pf.rows.find((r) => r.key === 'revenue')!;
+    expect(rev.pct).toBe(60); // 600k/1M
+    const meet = pf.rows.find((r) => r.key === 'meetings')!;
+    expect(meet.plan).toBe(60); // 20×3
+    expect(meet.pct).toBe(50); // 30/60
+    expect(meet.basis).toBe('20/ТМ × 3');
+    const briefs = pf.rows.find((r) => r.key === 'briefs')!;
+    expect(briefs.plan).toBe(90); // 30×3
+    expect(briefs.pct).toBe(50); // 45/90
+  });
+
+  it('нулевой план → pct null', () => {
+    const pf = buildPlanFact({
+      revenueFact: 100, revenuePlan: 0, meetingsSetFact: 0, meetingsPlanPerTm: 0,
+      tmCount: 0, briefsFact: 0, briefsPlanPerMop: 0, mopCount: 0,
+    });
+    expect(pf.rows[0].pct).toBeNull();
   });
 });
