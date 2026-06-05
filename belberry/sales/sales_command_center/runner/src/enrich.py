@@ -56,7 +56,7 @@ def _download_transcript(
                 return response.read()
         except Exception as exc:
             if attempt == retries - 1:
-                _mask(str(exc))
+                print(f"[enrich] download failed: {_mask(str(exc))[:200]}", flush=True)
                 return b""
             time.sleep(1.5 * (attempt + 1))
     return b""

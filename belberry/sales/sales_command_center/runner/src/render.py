@@ -230,8 +230,8 @@ def _tiger_section(tiger: dict[str, Any] | None, photos: dict[Any, str], narrati
             f'<img class="tiger-photo" src="{html.escape(photo, quote=True)}" alt="">'
             f'<div><div class="tiger-name">{html.escape(name)}</div>'
             f'<div class="tiger-metric">{tiger.get("dials_total", 0)} наборов · '
-            f'{tiger.get("calls_answered", 0)} дозвонов · '
-            f'{tiger.get("calls_120s_plus", 0)} разговоров ≥120 с</div>'
+            f'{tiger.get("calls_60s_plus", 0)} дозвонов (≥60с) · '
+            f'{tiger.get("calls_answered", 0)} снял трубку</div>'
             f"{_tiger_caption(narrative)}</div></div>"
         )
     else:
@@ -360,8 +360,8 @@ def _activity_section(activity: list[dict[str, Any]], users: dict[Any, str], pho
             '<div class="mgr">'
             f'<img class="mgr-ava" src="{html.escape(photo, quote=True)}" alt="">'
             f'<div class="mgr-name">{html.escape(name)}</div>'
-            f'<div>Наборы: {item.get("dials_total", 0)} · дозвоны: {item.get("calls_answered", 0)} · '
-            f'120с+: {item.get("calls_120s_plus", 0)} · встречи: {item.get("meetings_held", 0)}</div>'
+            f'<div>Наборы: {item.get("dials_total", 0)} · снял трубку: {item.get("calls_answered", 0)} · '
+            f'дозвоны ≥60с: {item.get("calls_60s_plus", 0)} · встречи: {item.get("meetings_held", 0)}</div>'
             "</div>"
         )
     return _section("Активность менеджеров", '<div class="managers">' + "".join(rows) + "</div>", "blue")
