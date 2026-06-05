@@ -33,7 +33,7 @@ class Conn:
         self.commits += 1
 
 
-def test_write_flow_day_inserts_report_stub_and_upserts():
+def test_write_flow_day_stub_delete_and_upserts():
     conn = Conn()
     rows = {
         "manager_activity": [{"report_date": "2026-02-02", "manager_id": 1, "calls_total": 5}],
@@ -44,9 +44,30 @@ def test_write_flow_day_inserts_report_stub_and_upserts():
     joined = " ".join(s for s, _ in conn.sql)
     assert "INSERT INTO reports" in joined
     assert "DO NOTHING" in joined  # реальные отчёты не затираем
-    assert '"manager_activity"' in joined
+    # пересобираемые таблицы чистятся за день (убрать остаточные строки)
+    assert 'DELETE FROM "manager_activity" WHERE report_date' in joined
+    assert 'DELETE FROM "kp_briefs" WHERE report_date' in joined
     assert counts["manager_activity"] == 1
     assert counts["meetings"] == 0
+
+
+def test_write_flow_day_preserves_meeting_analysis():
+    conn = Conn()
+    rows = {
+        "manager_activity": [],
+        "meetings": [
+            {"report_date": "2026-02-02", "meeting_id": 7, "meeting_type": "briefing", "analysis_json": None, "transcript_text": None}
+        ],
+        "kp_briefs": [],
+    }
+    backfill.write_flow_day(conn, date(2026, 2, 2), rows, datetime(2026, 2, 3, 9, tzinfo=MSK))
+    # upsert meetings: в DO UPDATE SET не должно быть analysis_json/transcript_text
+    meet_sql = [s for s, _ in conn.sql if '"meetings"' in s][0]
+    assert "DO UPDATE SET" in meet_sql
+    upd = meet_sql.split("DO UPDATE SET", 1)[1]
+    assert "analysis_json" not in upd
+    assert "transcript_text" not in upd
+    assert "meeting_type" in upd  # обычные колонки обновляются
 
 
 def test_backfill_range_skips_weekends(monkeypatch):

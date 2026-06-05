@@ -27,6 +27,14 @@ _FLOW_TABLES = [
     ("kp_briefs", ["report_date", "item_id", "item_type"]),
 ]
 
+# Колонки meetings, которые backfill НЕ должен затирать (их наполняет боевой
+# раннер LLM-разбором; backfill историю не анализирует).
+_MEETINGS_PRESERVE = {"analysis_json", "transcript_url", "transcript_text", "transcript_ok", "analysis_status"}
+
+# Таблицы без ценных данных — чистим за день перед вставкой, чтобы не оставались
+# строки менеджеров, выпавших при смене логики (остаточные строки).
+_REBUILD_TABLES = ("manager_activity", "kp_briefs")
+
 
 def _is_workday(d: date) -> bool:
     return d.weekday() < 5
@@ -44,15 +52,24 @@ def _ensure_report_stub(conn, report_date: str, now: datetime) -> None:
 
 
 def write_flow_day(conn, target: date, rows: dict, now: datetime) -> dict[str, int]:
-    _ensure_report_stub(conn, target.isoformat(), now)
+    rd = target.isoformat()
+    _ensure_report_stub(conn, rd, now)
+    # Чистим пересобираемые таблицы за этот день (убрать остаточные строки).
+    with conn.cursor() as cursor:
+        for table in _REBUILD_TABLES:
+            cursor.execute(f'DELETE FROM "{table}" WHERE report_date = %s', (rd,))
     counts: dict[str, int] = {}
     for table, conflict_cols in _FLOW_TABLES:
         table_rows = rows.get(table, [])
-        if table_rows:
-            update_cols = [c for c in table_rows[0] if c not in conflict_cols]
-            counts[table] = upsert(conn, table, table_rows, conflict_cols, update_cols)
-        else:
+        if not table_rows:
             counts[table] = 0
+            continue
+        update_cols = [
+            c
+            for c in table_rows[0]
+            if c not in conflict_cols and not (table == "meetings" and c in _MEETINGS_PRESERVE)
+        ]
+        counts[table] = upsert(conn, table, table_rows, conflict_cols, update_cols)
     return counts
 
 
