@@ -3,7 +3,13 @@ import { describe, expect, it, vi } from 'vitest';
 // Не поднимаем реальный postgres-клиент при импорте модуля.
 vi.mock('@/db', () => ({ db: {} }));
 
-import { buildFunnel, buildSalesFunnel, buildForecast, buildMeetingQuality } from '../dashboard';
+import {
+  buildFunnel,
+  buildSalesFunnel,
+  buildForecast,
+  buildMeetingQuality,
+  buildManagerConversions,
+} from '../dashboard';
 
 describe('buildFunnel', () => {
   it('группирует открытые сделки по стадиям, считает количество и суммы', () => {
@@ -155,5 +161,29 @@ describe('buildMeetingQuality', () => {
     expect(q.avgScore).toBeNull();
     expect(q.pctNextStep).toBeNull();
     expect(q.problematic).toEqual([]);
+  });
+});
+
+describe('buildManagerConversions', () => {
+  it('считает конверсии по менеджеру и итоговую строку «Общая ОП»', () => {
+    const { managers, total } = buildManagerConversions([
+      { managerId: 1, name: 'А', deals: 10, first: 5, defense: 4, won: 2 },
+      { managerId: 2, name: 'Б', deals: 6, first: 6, defense: 3, won: 0 },
+    ]);
+    expect(managers[0].dealToMeeting).toBe(50); // 5/10
+    expect(managers[0].meetingToDefense).toBe(80); // 4/5
+    expect(managers[0].defenseToWon).toBe(50); // 2/4
+    expect(managers[0].dealToWon).toBe(20); // 2/10
+    expect(managers[1].defenseToWon).toBe(0); // 0/3
+    // Общая ОП: deals 16, first 11, defense 7, won 2
+    expect(total.name).toBe('Общая ОП');
+    expect(total.dealToMeeting).toBe(69); // 11/16
+    expect(total.dealToWon).toBe(13); // 2/16
+  });
+
+  it('ноль сделок → конверсия null, без деления на ноль', () => {
+    const { total } = buildManagerConversions([]);
+    expect(total.deals).toBe(0);
+    expect(total.dealToMeeting).toBeNull();
   });
 });

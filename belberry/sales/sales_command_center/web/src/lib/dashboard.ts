@@ -75,6 +75,7 @@ export interface DashboardData {
   salesFunnel: SalesFunnel;
   forecast: Forecast;
   meetingQuality: MeetingQuality;
+  managerConversions: { managers: ManagerConversion[]; total: ManagerConversion };
   deltas: { meetings: KpiDelta; dials: KpiDelta; kp: KpiDelta; deals: KpiDelta };
   trend: TrendPoint[];
   health: number;
@@ -319,6 +320,53 @@ export function buildMeetingQuality(items: MeetingQualityInput[]): MeetingQualit
   };
 }
 
+export interface ManagerConversion {
+  managerId: number;
+  name: string;
+  deals: number;
+  first: number;
+  defense: number;
+  won: number;
+  dealToMeeting: number | null;
+  meetingToDefense: number | null;
+  defenseToWon: number | null;
+  dealToWon: number | null;
+}
+
+export interface ManagerConversionInput {
+  managerId: number;
+  name: string;
+  deals: number;
+  first: number;
+  defense: number;
+  won: number;
+}
+
+const convPct = (a: number, b: number): number | null => (b > 0 ? Math.round((a / b) * 100) : null);
+
+/** Конверсии воронки в разрезе менеджера + итоговая строка «Общая ОП». Чистая функция. */
+export function buildManagerConversions(
+  items: ManagerConversionInput[],
+): { managers: ManagerConversion[]; total: ManagerConversion } {
+  const enrich = (m: ManagerConversionInput): ManagerConversion => ({
+    ...m,
+    dealToMeeting: convPct(m.first, m.deals),
+    meetingToDefense: convPct(m.defense, m.first),
+    defenseToWon: convPct(m.won, m.defense),
+    dealToWon: convPct(m.won, m.deals),
+  });
+  const sum = (key: 'deals' | 'first' | 'defense' | 'won') => items.reduce((a, m) => a + m[key], 0);
+  const total = enrich({
+    managerId: 0,
+    name: 'Общая ОП',
+    deals: sum('deals'),
+    first: sum('first'),
+    defense: sum('defense'),
+    won: sum('won'),
+  });
+  return { managers: items.map(enrich), total };
+}
+
 const MONTHS_RU = [
   'январь', 'февраль', 'март', 'апрель', 'май', 'июнь',
   'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь',
@@ -402,6 +450,7 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
       }),
       forecast: buildForecast([], 0, 0, 1, 30),
       meetingQuality: buildMeetingQuality([]),
+      managerConversions: buildManagerConversions([]),
       deltas: { meetings: zeroDelta, dials: zeroDelta, kp: zeroDelta, deals: zeroDelta },
       trend: [],
       health: 0,
@@ -585,6 +634,34 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
     wonAmount: team.reduce((s, x) => s + x.dealsWonAmount, 0),
   });
 
+  // Встречи по типам в разрезе менеджера — для конверсий по менеджерам.
+  const firstByMgr = new Map<number, number>();
+  const defenseByMgr = new Map<number, number>();
+  if (salesIds.length) {
+    const mtMgrRows = await db
+      .select({ managerId: meetings.managerId, type: meetings.meetingType, n: sql<number>`count(*)` })
+      .from(meetings)
+      .where(and(gte(meetings.reportDate, start), lte(meetings.reportDate, end), inArray(meetings.managerId, salesIds)))
+      .groupBy(meetings.managerId, meetings.meetingType);
+    for (const r of mtMgrRows) {
+      if (r.managerId == null) continue;
+      if (r.type === 'briefing') firstByMgr.set(r.managerId, Number(r.n));
+      else if (r.type === 'defense') defenseByMgr.set(r.managerId, Number(r.n));
+    }
+  }
+  const managerConversions = buildManagerConversions(
+    team
+      .map((m) => ({
+        managerId: m.managerId,
+        name: m.name,
+        deals: m.dealsCreated,
+        first: firstByMgr.get(m.managerId) ?? 0,
+        defense: defenseByMgr.get(m.managerId) ?? 0,
+        won: m.dealsWon,
+      }))
+      .filter((m) => m.deals > 0 || m.first > 0 || m.defense > 0 || m.won > 0),
+  );
+
   // Качество встреч (LLM-разбор) — по разобранным встречам отдела за период.
   const salesIdSet = new Set(salesIds);
   const mqInputs: MeetingQualityInput[] = anRows
@@ -695,6 +772,7 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
     salesFunnel,
     forecast,
     meetingQuality,
+    managerConversions,
     deltas,
     trend,
     health,
