@@ -83,6 +83,7 @@ export interface DashboardData {
   tmActivity: TmActivity;
   messaging: Messaging;
   velocity: Velocity;
+  monthly: MonthRow[];
   deltas: { meetings: KpiDelta; dials: KpiDelta; kp: KpiDelta; deals: KpiDelta };
   trend: TrendPoint[];
   health: number;
@@ -589,6 +590,35 @@ export function buildVelocity(deals: { stage: string; ageDays: number; amount: n
   };
 }
 
+export interface MonthRow {
+  ym: string;
+  label: string;
+  first: number;
+  defense: number;
+  kp: number;
+  deals: number;
+  wonCount: number;
+  wonAmount: number;
+}
+
+/** Помесячная динамика KPI отдела. Чистая функция. */
+export function buildMonthlyDynamics(
+  months: { ym: string; label: string }[],
+  activity: Record<string, { kp: number; deals: number; wonCount: number; wonAmount: number }>,
+  meetings: Record<string, { first: number; defense: number }>,
+): MonthRow[] {
+  return months.map((m) => ({
+    ym: m.ym,
+    label: m.label,
+    first: meetings[m.ym]?.first ?? 0,
+    defense: meetings[m.ym]?.defense ?? 0,
+    kp: activity[m.ym]?.kp ?? 0,
+    deals: activity[m.ym]?.deals ?? 0,
+    wonCount: activity[m.ym]?.wonCount ?? 0,
+    wonAmount: activity[m.ym]?.wonAmount ?? 0,
+  }));
+}
+
 /** Число рабочих дней (пн-пт) в диапазоне [start, end] включительно. */
 function countWeekdays(start: string, end: string): number {
   const cur = new Date(`${start}T00:00:00Z`);
@@ -690,6 +720,7 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
       tmActivity: buildTmActivity([], 1),
       messaging: buildMessaging([]),
       velocity: buildVelocity([]),
+      monthly: [],
       deltas: { meetings: zeroDelta, dials: zeroDelta, kp: zeroDelta, deals: zeroDelta },
       trend: [],
       health: 0,
@@ -972,6 +1003,56 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
       })),
   );
 
+  // Помесячная динамика — последние 6 месяцев (по отделу продаж).
+  const dynMonths: { ym: string; label: string }[] = [];
+  {
+    const [cy, cm] = snapshotDate.split('-').map(Number);
+    for (let i = 5; i >= 0; i--) {
+      let mm = cm - i;
+      let yy = cy;
+      while (mm <= 0) {
+        mm += 12;
+        yy -= 1;
+      }
+      dynMonths.push({ ym: `${yy}-${String(mm).padStart(2, '0')}`, label: MONTHS_RU[mm - 1] });
+    }
+  }
+  const dynStart = `${dynMonths[0].ym}-01`;
+  const ymActExpr = sql<string>`to_char(${managerActivity.reportDate}, 'YYYY-MM')`;
+  const dynActConds = [gte(managerActivity.reportDate, dynStart)];
+  if (salesIds.length) dynActConds.push(inArray(managerActivity.managerId, salesIds));
+  const dynActRows = await db
+    .select({
+      ym: ymActExpr,
+      kp: sql<number>`coalesce(sum(${managerActivity.kpSent}),0)`,
+      deals: sql<number>`coalesce(sum(${managerActivity.dealsCreatedCount}),0)`,
+      wonCount: sql<number>`coalesce(sum(${managerActivity.dealsWonCount}),0)`,
+      wonAmount: sql<number>`coalesce(sum(${managerActivity.dealsWonAmount}),0)`,
+    })
+    .from(managerActivity)
+    .where(and(...dynActConds))
+    .groupBy(ymActExpr);
+  const dynActivity: Record<string, { kp: number; deals: number; wonCount: number; wonAmount: number }> = {};
+  for (const r of dynActRows)
+    dynActivity[r.ym] = { kp: Number(r.kp), deals: Number(r.deals), wonCount: Number(r.wonCount), wonAmount: Number(r.wonAmount) };
+
+  const ymMeetExpr = sql<string>`to_char(${meetings.reportDate}, 'YYYY-MM')`;
+  const dynMeetConds = [gte(meetings.reportDate, dynStart)];
+  if (salesIds.length) dynMeetConds.push(inArray(meetings.managerId, salesIds));
+  const dynMeetRows = await db
+    .select({ ym: ymMeetExpr, type: meetings.meetingType, n: sql<number>`count(*)` })
+    .from(meetings)
+    .where(and(...dynMeetConds))
+    .groupBy(ymMeetExpr, meetings.meetingType);
+  const dynMeetings: Record<string, { first: number; defense: number }> = {};
+  for (const r of dynMeetRows) {
+    const e = dynMeetings[r.ym] ?? { first: 0, defense: 0 };
+    if (r.type === 'briefing') e.first = Number(r.n);
+    else if (r.type === 'defense') e.defense = Number(r.n);
+    dynMeetings[r.ym] = e;
+  }
+  const monthly = buildMonthlyDynamics(dynMonths, dynActivity, dynMeetings);
+
   // Качество встреч (LLM-разбор) — по разобранным встречам отдела за период.
   const salesIdSet = new Set(salesIds);
   const mqInputs: MeetingQualityInput[] = anRows
@@ -1087,6 +1168,7 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
     tmActivity,
     messaging,
     velocity,
+    monthly,
     deltas,
     trend,
     health,

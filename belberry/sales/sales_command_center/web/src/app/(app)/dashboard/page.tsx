@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Filter, FileText, TrendingUp, Target, Star, ArrowLeftRight, Users, Phone, Mail, Clock } from 'lucide-react';
+import { Filter, FileText, TrendingUp, Target, Star, ArrowLeftRight, Users, Phone, Mail, Clock, BarChart3 } from 'lucide-react';
 import { FunnelBars } from '@/components/dashboard/FunnelBars';
 import { SalesFunnel } from '@/components/dashboard/SalesFunnel';
 import { ForecastView } from '@/components/dashboard/Forecast';
@@ -9,6 +9,7 @@ import { ManagerPipelineView } from '@/components/dashboard/ManagerPipeline';
 import { TmActivityView } from '@/components/dashboard/TmActivity';
 import { MessagingView } from '@/components/dashboard/Messaging';
 import { VelocityView } from '@/components/dashboard/Velocity';
+import { MonthlyDynamics } from '@/components/dashboard/MonthlyDynamics';
 import { KpiCard } from '@/components/dashboard/KpiCard';
 import { Gauge } from '@/components/dashboard/Gauge';
 import { getDashboardData } from '@/lib/dashboard';
@@ -141,7 +142,13 @@ export default async function DashboardPage({
         <VelocityView data={data.velocity} />
       </div>
 
-      {/* Дальше: win rate+источники, динамика, план/факт. */}
+      {/* Помесячная динамика */}
+      <div className="bb-card" style={{ marginBottom: 16 }}>
+        <SectionHead icon={<BarChart3 size={17} />} title="Помесячная динамика" hint="последние 6 месяцев" />
+        <MonthlyDynamics data={data.monthly} />
+      </div>
+
+      {/* Дальше: win rate+источники, Day2Day, план/факт. */}
     </div>
   );
 }

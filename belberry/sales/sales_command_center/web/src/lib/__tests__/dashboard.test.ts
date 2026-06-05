@@ -13,6 +13,7 @@ import {
   buildTmActivity,
   buildMessaging,
   buildVelocity,
+  buildMonthlyDynamics,
 } from '../dashboard';
 
 describe('buildFunnel', () => {
@@ -286,5 +287,22 @@ describe('buildVelocity', () => {
     const v = buildVelocity([]);
     expect(v.estimatedCycleDays).toBe(0);
     expect(v.agingRiskAmount).toBe(0);
+  });
+});
+
+describe('buildMonthlyDynamics', () => {
+  it('склеивает активность и встречи по месяцам, заполняет нулями', () => {
+    const months = [
+      { ym: '2026-05', label: 'май' },
+      { ym: '2026-06', label: 'июнь' },
+    ];
+    const rows = buildMonthlyDynamics(
+      months,
+      { '2026-06': { kp: 22, deals: 56, wonCount: 2, wonAmount: 256000 } },
+      { '2026-05': { first: 7, defense: 5 }, '2026-06': { first: 14, defense: 7 } },
+    );
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toMatchObject({ label: 'май', first: 7, defense: 5, kp: 0, deals: 0, wonCount: 0 });
+    expect(rows[1]).toMatchObject({ label: 'июнь', first: 14, defense: 7, kp: 22, deals: 56, wonAmount: 256000 });
   });
 });
