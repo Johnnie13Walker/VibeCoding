@@ -1,10 +1,11 @@
 import Link from 'next/link';
-import { Filter, FileText, TrendingUp, Target, Star, ArrowLeftRight } from 'lucide-react';
+import { Filter, FileText, TrendingUp, Target, Star, ArrowLeftRight, Users } from 'lucide-react';
 import { FunnelBars } from '@/components/dashboard/FunnelBars';
 import { SalesFunnel } from '@/components/dashboard/SalesFunnel';
 import { ForecastView } from '@/components/dashboard/Forecast';
 import { MeetingQualityView } from '@/components/dashboard/MeetingQuality';
 import { ManagerConversions } from '@/components/dashboard/ManagerConversions';
+import { ManagerPipelineView } from '@/components/dashboard/ManagerPipeline';
 import { KpiCard } from '@/components/dashboard/KpiCard';
 import { Gauge } from '@/components/dashboard/Gauge';
 import { getDashboardData } from '@/lib/dashboard';
@@ -113,7 +114,13 @@ export default async function DashboardPage({
         <ManagerConversions data={data.managerConversions} />
       </div>
 
-      {/* Дальше: воронка по менеджерам+Δ, ТМ/звонки, скорость+возраст, win rate, динамика, план/факт. */}
+      {/* Воронка по менеджерам · текущее состояние + Δ за месяц */}
+      <div className="bb-card" style={{ marginBottom: 16 }}>
+        <SectionHead icon={<Users size={17} />} title="Воронка по менеджерам" hint="снимок + изменение за месяц" />
+        <ManagerPipelineView data={data.managerPipeline} />
+      </div>
+
+      {/* Дальше: ТМ/звонки, мессенджеры, скорость+возраст, win rate, динамика, план/факт. */}
     </div>
   );
 }

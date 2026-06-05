@@ -76,6 +76,7 @@ export interface DashboardData {
   forecast: Forecast;
   meetingQuality: MeetingQuality;
   managerConversions: { managers: ManagerConversion[]; total: ManagerConversion };
+  managerPipeline: ManagerPipeline;
   deltas: { meetings: KpiDelta; dials: KpiDelta; kp: KpiDelta; deals: KpiDelta };
   trend: TrendPoint[];
   health: number;
@@ -367,6 +368,62 @@ export function buildManagerConversions(
   return { managers: items.map(enrich), total };
 }
 
+export interface ManagerPipelineRow {
+  managerId: number;
+  name: string;
+  counts: Record<string, number>;
+  total: number;
+  amount: number;
+  /** Δ открытых сделок к началу месяца (рост/падение). */
+  delta: number;
+}
+
+export interface ManagerPipeline {
+  stages: { stage: string; label: string }[];
+  rows: ManagerPipelineRow[];
+  stageAmount: Record<string, number>;
+  stageTotal: Record<string, number>;
+  grandTotal: number;
+  grandAmount: number;
+}
+
+/** Матрица «менеджер × стадия» по текущему снимку + Δ к началу месяца. Чистая функция. */
+export function buildManagerPipeline(
+  cells: { managerId: number; name: string; stage: string; count: number; amount: number }[],
+  startTotalByMgr: Record<number, number>,
+): ManagerPipeline {
+  const stages = Object.entries(STAGE_META)
+    .sort((a, b) => a[1].order - b[1].order)
+    .map(([stage, m]) => ({ stage, label: m.label }));
+  const byMgr = new Map<number, ManagerPipelineRow>();
+  const stageAmount: Record<string, number> = {};
+  const stageTotal: Record<string, number> = {};
+  for (const c of cells) {
+    if (!STAGE_META[c.stage]) continue;
+    let row = byMgr.get(c.managerId);
+    if (!row) {
+      row = { managerId: c.managerId, name: c.name, counts: {}, total: 0, amount: 0, delta: 0 };
+      byMgr.set(c.managerId, row);
+    }
+    row.counts[c.stage] = (row.counts[c.stage] ?? 0) + c.count;
+    row.total += c.count;
+    row.amount += c.amount;
+    stageAmount[c.stage] = (stageAmount[c.stage] ?? 0) + c.amount;
+    stageTotal[c.stage] = (stageTotal[c.stage] ?? 0) + c.count;
+  }
+  const rows = [...byMgr.values()]
+    .map((r) => ({ ...r, delta: r.total - (startTotalByMgr[r.managerId] ?? 0) }))
+    .sort((a, b) => b.amount - a.amount);
+  return {
+    stages,
+    rows,
+    stageAmount,
+    stageTotal,
+    grandTotal: rows.reduce((a, r) => a + r.total, 0),
+    grandAmount: rows.reduce((a, r) => a + r.amount, 0),
+  };
+}
+
 const MONTHS_RU = [
   'январь', 'февраль', 'март', 'апрель', 'май', 'июнь',
   'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь',
@@ -451,6 +508,7 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
       forecast: buildForecast([], 0, 0, 1, 30),
       meetingQuality: buildMeetingQuality([]),
       managerConversions: buildManagerConversions([]),
+      managerPipeline: buildManagerPipeline([], {}),
       deltas: { meetings: zeroDelta, dials: zeroDelta, kp: zeroDelta, deals: zeroDelta },
       trend: [],
       health: 0,
@@ -662,6 +720,37 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
       .filter((m) => m.deals > 0 || m.first > 0 || m.defense > 0 || m.won > 0),
   );
 
+  // Воронка по менеджерам: текущий снимок (cat10 открытые) + Δ к началу месяца.
+  const monthStartDay = `${snapshotDate.slice(0, 7)}-01`;
+  const startDateRows = await db
+    .select({ d: sql<string>`min(${dealsSnapshot.reportDate})` })
+    .from(dealsSnapshot)
+    .where(gte(dealsSnapshot.reportDate, monthStartDay));
+  const monthStartDate = startDateRows[0]?.d ?? snapshotDate;
+  const startTotalRows = await db
+    .select({ managerId: dealsSnapshot.managerId, n: sql<number>`count(*)` })
+    .from(dealsSnapshot)
+    .where(and(eq(dealsSnapshot.reportDate, monthStartDate), eq(dealsSnapshot.categoryId, 10)))
+    .groupBy(dealsSnapshot.managerId);
+  const startTotalByMgr: Record<number, number> = {};
+  for (const r of startTotalRows) if (r.managerId != null) startTotalByMgr[r.managerId] = Number(r.n);
+
+  const pipelineCellsAll = snapRows
+    .filter((r) => r.managerId != null && STAGE_META[r.stage])
+    .map((r) => ({
+      managerId: r.managerId as number,
+      name: userMap.get(r.managerId as number)?.name ?? `id ${r.managerId}`,
+      stage: r.stage,
+      count: 1,
+      amount: Number(r.opportunity ?? 0),
+      dept: userMap.get(r.managerId as number)?.dept ?? '',
+    }));
+  const pipelineSales = pipelineCellsAll.filter((c) => isSalesDept(c.dept));
+  const managerPipeline = buildManagerPipeline(
+    pipelineSales.length ? pipelineSales : pipelineCellsAll,
+    startTotalByMgr,
+  );
+
   // Качество встреч (LLM-разбор) — по разобранным встречам отдела за период.
   const salesIdSet = new Set(salesIds);
   const mqInputs: MeetingQualityInput[] = anRows
@@ -773,6 +862,7 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
     forecast,
     meetingQuality,
     managerConversions,
+    managerPipeline,
     deltas,
     trend,
     health,

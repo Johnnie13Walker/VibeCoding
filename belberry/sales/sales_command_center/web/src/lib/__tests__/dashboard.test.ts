@@ -9,6 +9,7 @@ import {
   buildForecast,
   buildMeetingQuality,
   buildManagerConversions,
+  buildManagerPipeline,
 } from '../dashboard';
 
 describe('buildFunnel', () => {
@@ -185,5 +186,35 @@ describe('buildManagerConversions', () => {
     const { total } = buildManagerConversions([]);
     expect(total.deals).toBe(0);
     expect(total.dealToMeeting).toBeNull();
+  });
+});
+
+describe('buildManagerPipeline', () => {
+  const cells = [
+    { managerId: 1, name: 'А', stage: 'C10:FINAL_INVOICE', count: 1, amount: 1000000 },
+    { managerId: 1, name: 'А', stage: 'C10:EXECUTING', count: 1, amount: 500000 },
+    { managerId: 2, name: 'Б', stage: 'C10:NEW', count: 1, amount: 0 },
+    { managerId: 2, name: 'Б', stage: 'C10:WON', count: 1, amount: 9 }, // закрытая стадия — игнор
+  ];
+
+  it('собирает матрицу, суммы по стадии и Δ к началу месяца', () => {
+    const p = buildManagerPipeline(cells, { 1: 1, 2: 3 });
+    const a = p.rows.find((r) => r.managerId === 1)!;
+    expect(a.total).toBe(2);
+    expect(a.amount).toBe(1500000);
+    expect(a.delta).toBe(1); // было 1 → стало 2
+    const b = p.rows.find((r) => r.managerId === 2)!;
+    expect(b.total).toBe(1); // C10:WON не считается
+    expect(b.delta).toBe(-2); // было 3 → стало 1
+    expect(p.rows[0].managerId).toBe(1); // сортировка по ₽ убыв.
+    expect(p.stageAmount['C10:FINAL_INVOICE']).toBe(1000000);
+    expect(p.grandTotal).toBe(3);
+  });
+
+  it('пустой ввод не падает', () => {
+    const p = buildManagerPipeline([], {});
+    expect(p.rows).toEqual([]);
+    expect(p.grandTotal).toBe(0);
+    expect(p.stages.length).toBe(5);
   });
 });
