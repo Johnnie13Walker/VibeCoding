@@ -216,6 +216,9 @@ def build_db_rows(raw: dict[str, Any], target_date: date, now: datetime) -> dict
             "meeting_type": _meeting_type(item),
             "status": item.get("stageId"),
             "manager_id": _to_int(item.get("assignedById")),
+            # Создатель встречи (ТМ-телемаркетолог) — для событийных метрик ТМ:
+            # «встречу назначил ТМ и она состоялась» считается запросом по этой таблице.
+            "created_by": _to_int(item.get("createdBy")),
             "scheduled_at": parse_dt(item.get("ufCrm16_1751009238")),
             "analysis_json": None,
             "transcript_url": None,
@@ -243,9 +246,6 @@ def build_db_rows(raw: dict[str, Any], target_date: date, now: datetime) -> dict
     # ТМ по назначению встреч уходит в зачёт ОП.
     meetings_set = Counter(_to_int(item.get("createdBy")) for item in raw.get("meet_created_day", []))
     meetings_held = Counter(_to_int(item.get("assignedById")) for item in raw.get("meet_day", []))
-    # Состоявшаяся встреча по СОЗДАТЕЛЮ (событийная метрика «встречу назначил ТМ — и она
-    # состоялась»). meetings_held (по ответственному-продавцу) оставляем для /dashboard.
-    meetings_held_creator = Counter(_to_int(item.get("createdBy")) for item in raw.get("meet_day", []))
     briefs_created = Counter(_to_int(item.get("assignedById")) for item in raw.get("briefs", []))
     kp_sent = Counter(_to_int(item.get("assignedById")) for item in raw.get("kp", []))
 
@@ -305,7 +305,6 @@ def build_db_rows(raw: dict[str, Any], target_date: date, now: datetime) -> dict
                 "messenger_dialogs": messenger.get(manager_id, 0),
                 "meetings_set": meetings_set[manager_id],
                 "meetings_held": meetings_held[manager_id],
-                "meetings_held_creator": meetings_held_creator[manager_id],
                 "briefs_created": briefs_created[manager_id],
                 "kp_sent": kp_sent[manager_id],
                 "deals_created_count": deals_created_cnt[manager_id],

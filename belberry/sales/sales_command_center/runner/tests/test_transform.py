@@ -133,6 +133,7 @@ def test_build_db_rows_matches_phase_one_schema_keys():
         "meeting_type",
         "status",
         "manager_id",
+        "created_by",
         "scheduled_at",
         "analysis_json",
         "transcript_url",

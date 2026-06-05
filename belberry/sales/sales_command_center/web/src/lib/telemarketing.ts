@@ -1,8 +1,11 @@
 import 'server-only';
 
-import { and, eq, gte, lte, sql } from 'drizzle-orm';
+import { and, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 import { db } from '@/db';
-import { dealsSnapshot, managerActivity, plans, reports, users } from '@/db/schema';
+import { dealsSnapshot, managerActivity, meetings, plans, reports, users } from '@/db/schema';
+
+/** Стадия состоявшейся встречи (SP 1048). */
+const MEETING_HELD_STAGE = 'DT1048_24:SUCCESS';
 import {
   buildTmFunnel50,
   buildTmKpis,
@@ -106,7 +109,6 @@ export async function getTmDashboardData(
       calls120: sql<number>`coalesce(sum(${managerActivity.calls120sPlus}),0)`,
       talkSeconds: sql<number>`coalesce(sum(${managerActivity.talkSeconds}),0)`,
       meetingsSet: sql<number>`coalesce(sum(${managerActivity.meetingsSet}),0)`,
-      meetingsHeldCreator: sql<number>`coalesce(sum(${managerActivity.meetingsHeldCreator}),0)`,
       dealsCold: sql<number>`coalesce(sum(${managerActivity.dealsColdCount}),0)`,
       messenger: sql<number>`coalesce(sum(${managerActivity.messengerDialogs}),0)`,
       emails: sql<number>`coalesce(sum(${managerActivity.emailsSent}),0)`,
@@ -127,7 +129,7 @@ export async function getTmDashboardData(
       calls120: Number(r.calls120),
       talkSeconds: Number(r.talkSeconds),
       meetingsSet: Number(r.meetingsSet),
-      meetingsHeldByCreator: Number(r.meetingsHeldCreator),
+      meetingsHeldByCreator: 0, // наполняется ниже из событий таблицы meetings
       dealsCold: Number(r.dealsCold),
       messenger: Number(r.messenger),
       emails: Number(r.emails),
@@ -143,6 +145,25 @@ export async function getTmDashboardData(
   const selectedManagerId =
     managerParam != null && memberIds.has(managerParam) ? managerParam : members[0].managerId;
   const selectedMember = members.find((m) => m.managerId === selectedManagerId) ?? members[0];
+
+  // Событийная метрика «состоялось»: встречи (SP1048 SUCCESS), назначенные ТМ
+  // (created_by), за период — запросом по таблице meetings, не из агрегата.
+  const tmIds = members.map((m) => m.managerId);
+  const heldRows = await db
+    .select({ creator: meetings.createdBy, n: sql<number>`count(*)` })
+    .from(meetings)
+    .where(
+      and(
+        eq(meetings.status, MEETING_HELD_STAGE),
+        inArray(meetings.createdBy, tmIds),
+        gte(meetings.reportDate, start),
+        lte(meetings.reportDate, end),
+      ),
+    )
+    .groupBy(meetings.createdBy);
+  const heldByCreator = new Map<number, number>();
+  for (const r of heldRows) if (r.creator != null) heldByCreator.set(r.creator, Number(r.n));
+  for (const m of members) m.meetingsHeldByCreator = heldByCreator.get(m.managerId) ?? 0;
 
   // Снимок воронки [50] на последнем снимке.
   const funnelCells = await db
@@ -174,12 +195,27 @@ export async function getTmDashboardData(
       calls60: sql<number>`coalesce(sum(${managerActivity.calls60sPlus}),0)`,
       talkSeconds: sql<number>`coalesce(sum(${managerActivity.talkSeconds}),0)`,
       meetingsSet: sql<number>`coalesce(sum(${managerActivity.meetingsSet}),0)`,
-      meetingsHeldCreator: sql<number>`coalesce(sum(${managerActivity.meetingsHeldCreator}),0)`,
     })
     .from(managerActivity)
     .where(and(gte(managerActivity.reportDate, dynStart), eq(managerActivity.managerId, selectedManagerId)))
     .groupBy(ymExpr);
   const monByYm = new Map(monRows.map((r) => [r.ym, r]));
+
+  // Состоялось по месяцам у выбранного звонаря — событийным запросом по meetings.
+  const ymMeetExpr = sql<string>`to_char(${meetings.reportDate}, 'YYYY-MM')`;
+  const heldMonRows = await db
+    .select({ ym: ymMeetExpr, n: sql<number>`count(*)` })
+    .from(meetings)
+    .where(
+      and(
+        eq(meetings.status, MEETING_HELD_STAGE),
+        eq(meetings.createdBy, selectedManagerId),
+        gte(meetings.reportDate, dynStart),
+      ),
+    )
+    .groupBy(ymMeetExpr);
+  const heldByYm = new Map(heldMonRows.map((r) => [r.ym, Number(r.n)]));
+
   const monthlyInputs: TmMonthlyInput[] = dynMonths.map((mo) => {
     const r = monByYm.get(mo.ym);
     return {
@@ -190,7 +226,7 @@ export async function getTmDashboardData(
       calls60: r ? Number(r.calls60) : 0,
       talkSeconds: r ? Number(r.talkSeconds) : 0,
       meetingsSet: r ? Number(r.meetingsSet) : 0,
-      meetingsHeldByCreator: r ? Number(r.meetingsHeldCreator) : 0,
+      meetingsHeldByCreator: heldByYm.get(mo.ym) ?? 0,
     };
   });
 
