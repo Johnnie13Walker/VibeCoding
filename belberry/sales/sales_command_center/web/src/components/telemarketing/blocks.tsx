@@ -59,7 +59,7 @@ export function TmKpiGrid({ kpis }: { kpis: TmKpis }) {
       <div className="bb-grid bb-grid-4">
         <Mini label="Встреч назначено" value={nf(kpis.meetingsSet)} sub="по создателю (ТМ)" tone="good" />
         <Mini label="Конверсия дозвон→встреча" value={pp(kpis.convDialToMeeting)} sub={`${nf(kpis.meetingsSet)} / ${nf(kpis.calls60)} дозвонов`} />
-        <Mini label="Встреч проведено" value={nf(kpis.meetingsHeld)} />
+        <Mini label="Дозвоны 120с+" value={nf(kpis.calls120)} sub={`${nf(kpis.calls60)} дозвонов ≥60с`} />
         <Mini label="Передано в Продажи" value={nf(kpis.toCold)} sub="холод · cat50 → cat10" />
       </div>
     </div>
@@ -82,7 +82,6 @@ export function TmManagerTable({ rows }: { rows: TmManagerRow[] }) {
             <th style={{ ...head, textAlign: 'right' }}>Разговор</th>
             <th style={{ ...head, textAlign: 'right' }}>Встреч назн.</th>
             <th style={{ ...head, textAlign: 'right' }}>Конв. дозв→встр</th>
-            <th style={{ ...head, textAlign: 'right' }}>Явка</th>
           </tr>
         </thead>
         <tbody>
@@ -103,7 +102,6 @@ export function TmManagerTable({ rows }: { rows: TmManagerRow[] }) {
               <td className="tabular" style={{ ...cell, textAlign: 'right' }}>{r.talkHours} ч</td>
               <td className="tabular" style={{ ...cell, textAlign: 'right', fontWeight: 700 }}>{nf(r.meetingsSet)}</td>
               <td className="tabular" style={{ ...cell, textAlign: 'right' }}>{convBadge(r.convDialToMeeting)}</td>
-              <td className="tabular" style={{ ...cell, textAlign: 'right' }}>{pp(r.heldPct)}</td>
             </tr>
           ))}
         </tbody>
@@ -157,14 +155,18 @@ export function TmFunnel50View({ stages }: { stages: TmFunnel50Stage[] }) {
 export function TmMeetingsResultView({ result }: { result: TmMeetingsResult }) {
   return (
     <div>
-      <div className="bb-grid bb-grid-4">
-        <Mini label="Назначено" value={nf(result.set)} />
-        <Mini label="Проведено" value={nf(result.held)} tone="good" />
-        <Mini label="Явка (провед/назн)" value={pp(result.heldPct)} />
-        <Mini label="В Продажи (холод)" value={nf(result.toCold)} />
+      <div className="bb-grid bb-grid-2">
+        <Mini label="Назначено" value={nf(result.set)} sub="по создателю (ТМ)" tone="good" />
+        <Mini label="В Продажи (холод)" value={nf(result.toCold)} sub="cat50 → cat10" />
+      </div>
+      <div style={{ marginTop: 14 }}>
+        <SoonCard
+          title="Проведено и явка по ТМ-встречам"
+          desc="Проведённую встречу засчитывают ответственному (продавцу), не создателю-ТМ — на строке ТМ её нет. Явка по встречам, назначенным ТМ, требует атрибуции исхода на создателя в раннере."
+        />
       </div>
       <p style={{ fontSize: 12, color: 'var(--bb-faint)', marginTop: 10 }}>
-        Назначенная встреча — создателю (ТМ), проведённая — ответственному (продавцу). «В Продажи» = сделка переведена из ТМ-воронки в воронку Продажи (cat10).
+        Назначенная встреча засчитывается создателю (ТМ). «В Продажи» = сделка переведена из ТМ-воронки в воронку Продажи (cat10).
       </p>
     </div>
   );
@@ -174,7 +176,13 @@ export function TmMeetingsResultView({ result }: { result: TmMeetingsResult }) {
 
 export function TmMonthlyView({ rows, name }: { rows: TmMonthlyRow[]; name: string | null }) {
   if (rows.length === 0) return <p style={{ color: 'var(--bb-muted)' }}>Нет истории по выбранному звонарю.</p>;
-  const maxConv = Math.max(...rows.map((r) => r.conv ?? 0), 1);
+  // Обрезаем ведущие месяцы без активности (звонарь ещё не работал).
+  const firstActive = rows.findIndex((r) => r.dials > 0 || r.calls60 > 0 || r.meetingsSet > 0);
+  const shown = firstActive > 0 ? rows.slice(firstActive) : rows;
+  if (shown.every((r) => r.dials === 0 && r.meetingsSet === 0)) {
+    return <p style={{ color: 'var(--bb-muted)' }}>Нет истории по выбранному звонарю.</p>;
+  }
+  const maxConv = Math.max(...shown.map((r) => r.conv ?? 0), 1);
   return (
     <div>
       <div style={{ overflowX: 'auto' }}>
@@ -186,13 +194,12 @@ export function TmMonthlyView({ rows, name }: { rows: TmMonthlyRow[]; name: stri
               <th style={{ ...head, textAlign: 'right' }}>Снято</th>
               <th style={{ ...head, textAlign: 'right' }}>Дозвон ≥60с</th>
               <th style={{ ...head, textAlign: 'right' }}>Разговор</th>
-              <th style={{ ...head, textAlign: 'right' }}>Встреч</th>
-              <th style={{ ...head, textAlign: 'right' }}>Провед.</th>
+              <th style={{ ...head, textAlign: 'right' }}>Встреч назн.</th>
               <th style={{ ...head, textAlign: 'right' }}>Конв.</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => (
+            {shown.map((r) => (
               <tr key={r.ym}>
                 <td style={{ ...cell, fontWeight: 600 }}>{r.label}</td>
                 <td className="tabular" style={{ ...cell, textAlign: 'right' }}>{nf(r.dials)}</td>
@@ -200,7 +207,6 @@ export function TmMonthlyView({ rows, name }: { rows: TmMonthlyRow[]; name: stri
                 <td className="tabular" style={{ ...cell, textAlign: 'right' }}>{nf(r.calls60)}</td>
                 <td className="tabular" style={{ ...cell, textAlign: 'right' }}>{nf(r.talkMin)} м</td>
                 <td className="tabular" style={{ ...cell, textAlign: 'right', fontWeight: 700 }}>{nf(r.meetingsSet)}</td>
-                <td className="tabular" style={{ ...cell, textAlign: 'right' }}>{nf(r.meetingsHeld)}</td>
                 <td style={{ ...cell, textAlign: 'right' }}>{convBadge(r.conv)}</td>
               </tr>
             ))}
@@ -212,7 +218,7 @@ export function TmMonthlyView({ rows, name }: { rows: TmMonthlyRow[]; name: stri
           Конверсия «дозвон → встреча», %{name ? ` · ${name}` : ''}
         </div>
         <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 120 }}>
-          {rows.map((r) => {
+          {shown.map((r) => {
             const v = r.conv ?? 0;
             const color = v >= 7 ? 'var(--bb-green)' : v >= 4 ? 'var(--bb-amber)' : 'var(--bb-red)';
             return (
