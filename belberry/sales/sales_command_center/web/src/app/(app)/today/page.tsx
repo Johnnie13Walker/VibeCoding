@@ -1,7 +1,9 @@
 import { PhoneCall, PhoneForwarded, Timer, Handshake, FileText, Zap, Activity, CalendarClock, ExternalLink, Mail, MessageCircle } from 'lucide-react';
 import { getLive, getDayBreakdown, type LiveData } from '@/lib/live';
-import { availableReportDates } from '@/lib/reports';
 import { DaySelect } from '@/components/DaySelect';
+
+// Данные Командного центра ведутся с запуска (1 июня 2026) — раньше выбирать нечего.
+const DATA_START = '2026-06-01';
 
 export const dynamic = 'force-dynamic';
 
@@ -44,12 +46,11 @@ function Tile({ icon, label, value, sub }: { icon: React.ReactNode; label: strin
 
 export default async function TodayPage({ searchParams }: { searchParams: Promise<{ date?: string }> }) {
   const params = await searchParams;
-  const dates = await availableReportDates();
   const todayMsk = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Moscow' }).format(new Date());
-  // принимаем любую корректную дату (ввод вручную), кроме сегодня (сегодня = live)
+  // принимаем любую дату в диапазоне [DATA_START; сегодня); сегодня = live
   const raw = typeof params.date === 'string' ? params.date : '';
   const validDate = /^\d{4}-\d{2}-\d{2}$/.test(raw) && !Number.isNaN(Date.parse(raw));
-  const selected = validDate && raw !== todayMsk ? raw : null;
+  const selected = validDate && raw >= DATA_START && raw < todayMsk ? raw : null;
   const isArchive = selected !== null;
 
   const data: LiveData | null = isArchive ? await getDayBreakdown(selected) : await getLive();
@@ -79,7 +80,7 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
             </div>
           </div>
           <div style={{ flex: '0 0 auto', paddingTop: 4 }}>
-            <DaySelect dates={dates} selected={selected} maxDate={todayMsk} />
+            <DaySelect selected={selected} minDate={DATA_START} maxDate={todayMsk} />
           </div>
         </div>
       </div>
