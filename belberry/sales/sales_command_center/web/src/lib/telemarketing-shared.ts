@@ -44,6 +44,8 @@ export interface TmMember {
   meetingsSet: number;
   /** Состоявшиеся встречи, назначенные этим ТМ (held по createdBy). Событийная метрика. */
   meetingsHeldByCreator: number;
+  /** Личные отвалы (C50:APOLOGY, закрыл сам) за период — для «сжигания базы». */
+  rejectionsPeriod: number;
   dealsCold: number;
   messenger: number;
   emails: number;
@@ -164,6 +166,8 @@ export interface TmMicroFunnel {
   managerId: number;
   name: string;
   steps: MicroStep[];
+  /** Сжигание базы: личных отвалов на 1 назначенную встречу. */
+  burn: number | null;
 }
 
 /** Набрал → снял трубку → дозвон ≥60с → встреча, с % потерь. Чистая функция. */
@@ -182,6 +186,7 @@ export function buildTmMicroFunnel(m: TmMember): TmMicroFunnel {
       value,
       pctFromPrev: i === 0 ? null : pct1(value, raw[i - 1][1]),
     })),
+    burn: m.meetingsSet > 0 ? Math.round((m.rejectionsPeriod / m.meetingsSet) * 10) / 10 : null,
   };
 }
 
@@ -223,6 +228,10 @@ export interface TmMonthlyInput {
   meetingsSet: number;
   /** Состоялось по создателю-ТМ. */
   meetingsHeldByCreator: number;
+  /** Личные отвалы (APOLOGY) за месяц. */
+  rejected: number;
+  /** Отложено (LOSE) за месяц. */
+  postponed: number;
 }
 
 export interface TmMonthlyRow {
@@ -236,6 +245,8 @@ export interface TmMonthlyRow {
   meetingsSet: number;
   meetingsHeld: number;
   conv: number | null;
+  rejected: number;
+  postponed: number;
 }
 
 /** Помесячные строки по выбранному звонарю + производные. Чистая функция. */
@@ -251,6 +262,8 @@ export function buildTmMonthly(rows: TmMonthlyInput[]): TmMonthlyRow[] {
     meetingsSet: r.meetingsSet,
     meetingsHeld: r.meetingsHeldByCreator,
     conv: pct1(r.meetingsSet, r.calls60),
+    rejected: r.rejected,
+    postponed: r.postponed,
   }));
 }
 
@@ -360,6 +373,75 @@ export function buildTmOutreach(members: TmMember[]): TmOutreach {
   };
 }
 
+// ───────────────────── Причины отвала (cat50) ─────────────────────
+
+/** Лейблы причины отвала ТМ-воронки (UF_CRM_1771324790). */
+export const REASON_50: Record<number, string> = {
+  8540: 'Все устраивает',
+  8550: 'Нет потребности',
+  8546: 'Не вышли на ЛПР',
+  8838: 'ЛПР не берёт трубку',
+  8542: 'Выручка <30 млн',
+  8538: 'Бизнес закрылся',
+  8544: 'Дубль',
+  8548: 'Не прошёл квалификацию',
+  8840: 'Некорректные контакты',
+  8842: 'Чёрный список',
+};
+
+/** Закрыватели-автоматы (админ/автопроцесс гигиены/Лариса) — массовые закрытия,
+ * исключаются из «личных» отвалов менеджеров. */
+export const REJECTION_ADMIN_CLOSERS = [1, 1710, 2812];
+
+export function reasonLabel(id: number | null): string {
+  return id != null ? (REASON_50[id] ?? 'Другое') : '(не указана)';
+}
+
+export interface RejectionInput {
+  managerId: number;
+  name: string;
+  reasonId: number | null;
+  count: number;
+}
+
+export interface ReasonBucket {
+  reasonId: number | null;
+  label: string;
+  count: number;
+  pct: number;
+}
+
+export interface TmRejections {
+  managerId: number;
+  name: string;
+  total: number;
+  reasons: ReasonBucket[];
+}
+
+/** Причины отвала по звонарю (накопленно, личные закрытия). Чистая функция. */
+export function buildTmRejections(inputs: RejectionInput[]): TmRejections[] {
+  const by = new Map<number, { name: string; reasons: Map<number | null, number> }>();
+  for (const r of inputs) {
+    const e = by.get(r.managerId) ?? { name: r.name, reasons: new Map() };
+    e.reasons.set(r.reasonId, (e.reasons.get(r.reasonId) ?? 0) + r.count);
+    by.set(r.managerId, e);
+  }
+  return [...by.entries()]
+    .map(([managerId, e]) => {
+      const total = [...e.reasons.values()].reduce((a, b) => a + b, 0);
+      const reasons: ReasonBucket[] = [...e.reasons.entries()]
+        .map(([reasonId, count]) => ({
+          reasonId,
+          label: reasonLabel(reasonId),
+          count,
+          pct: total > 0 ? Math.round((count / total) * 100) : 0,
+        }))
+        .sort((a, b) => b.count - a.count);
+      return { managerId, name: e.name, total, reasons };
+    })
+    .sort((a, b) => b.total - a.total);
+}
+
 // ───────────────────── Композит для страницы ─────────────────────
 
 export interface TmManagerOption {
@@ -383,5 +465,7 @@ export interface TmDashboardData {
   microFunnels: TmMicroFunnel[];
   planFact: TmPlanFactRow[];
   outreach: TmOutreach;
+  /** Причины отвала по звонарям (накопленно, личные закрытия). */
+  rejections: TmRejections[];
   generatedAt: string | null;
 }

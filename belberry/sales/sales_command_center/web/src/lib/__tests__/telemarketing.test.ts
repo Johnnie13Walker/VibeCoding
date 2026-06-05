@@ -10,6 +10,7 @@ import {
   buildTmMeetingsResult,
   buildTmPlanFact,
   buildTmOutreach,
+  buildTmRejections,
   type TmMember,
 } from '@/lib/telemarketing-shared';
 
@@ -17,12 +18,12 @@ import {
 const isaeva: TmMember = {
   managerId: 2772, name: 'Дарья Исаева', dept: 'Телемаркетолог',
   dials: 1336, answered: 928, calls60: 370, calls120: 0, talkSeconds: 904 * 60,
-  meetingsSet: 14, meetingsHeldByCreator: 12, dealsCold: 0, messenger: 0, emails: 0,
+  meetingsSet: 14, meetingsHeldByCreator: 12, rejectionsPeriod: 77, dealsCold: 0, messenger: 0, emails: 0,
 };
 const vostretsov: TmMember = {
   managerId: 2832, name: 'Аркадий Вострецов', dept: 'Телемаркетолог',
   dials: 1220, answered: 692, calls60: 219, calls120: 0, talkSeconds: 637 * 60,
-  meetingsSet: 14, meetingsHeldByCreator: 11, dealsCold: 0, messenger: 0, emails: 0,
+  meetingsSet: 14, meetingsHeldByCreator: 11, rejectionsPeriod: 236, dealsCold: 0, messenger: 0, emails: 0,
 };
 
 describe('isTelemarketing', () => {
@@ -90,6 +91,8 @@ describe('buildTmMicroFunnel', () => {
     expect(f.steps[0].pctFromPrev).toBeNull();
     expect(f.steps[1].pctFromPrev).toBeCloseTo(69.5, 0); // 928/1336
     expect(f.steps[3].pctFromPrev).toBeCloseTo(3.8, 1); // 14/370
+    expect(f.burn).toBeCloseTo(5.5, 1); // отвал 77 / 14 встреч
+    expect(buildTmMicroFunnel(vostretsov).burn).toBeCloseTo(16.9, 1); // 236 / 14
   });
 });
 
@@ -112,7 +115,7 @@ describe('buildTmFunnel50', () => {
 describe('buildTmMonthly', () => {
   it('добавляет производные answerPct/talkMin/conv', () => {
     const rows = buildTmMonthly([
-      { ym: '2026-05', label: 'май 26', dials: 1336, answered: 928, calls60: 370, talkSeconds: 904 * 60, meetingsSet: 14, meetingsHeldByCreator: 12 },
+      { ym: '2026-05', label: 'май 26', dials: 1336, answered: 928, calls60: 370, talkSeconds: 904 * 60, meetingsSet: 14, meetingsHeldByCreator: 12, rejected: 77, postponed: 33 },
     ]);
     expect(rows[0].talkMin).toBe(904);
     expect(rows[0].conv).toBeCloseTo(3.8, 1);
@@ -152,6 +155,23 @@ describe('buildTmPlanFact', () => {
     expect(
       buildTmPlanFact({ ...input, meetingsPlanPerTm: 0, dialsPerDayPlan: 0, calls120PerDayPlan: 0, convPlanPct: 0 }),
     ).toHaveLength(0);
+  });
+});
+
+describe('buildTmRejections', () => {
+  it('группирует причины по звонарю, считает % и сортирует по убыванию', () => {
+    const rows = buildTmRejections([
+      { managerId: 2772, name: 'Дарья Исаева', reasonId: 8540, count: 127 }, // Все устраивает
+      { managerId: 2772, name: 'Дарья Исаева', reasonId: 8546, count: 100 }, // Не вышли на ЛПР
+      { managerId: 2772, name: 'Дарья Исаева', reasonId: null, count: 7 }, // не указана
+      { managerId: 2832, name: 'Аркадий Вострецов', reasonId: 8540, count: 300 },
+    ]);
+    const darya = rows.find((r) => r.managerId === 2772)!;
+    expect(rows[0].managerId).toBe(2832); // 300 > 234
+    expect(darya.total).toBe(234);
+    expect(darya.reasons[0].label).toBe('Все устраивает');
+    expect(darya.reasons[0].pct).toBe(Math.round((127 / 234) * 100));
+    expect(darya.reasons.find((b) => b.reasonId === null)!.label).toBe('(не указана)');
   });
 });
 

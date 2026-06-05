@@ -10,6 +10,7 @@ import {
   TmPlanFactView,
   TmOutreachView,
   TmManagerSelect,
+  TmRejectionsView,
   SoonCard,
 } from '@/components/telemarketing/blocks';
 import { getTmDashboardData } from '@/lib/telemarketing';
@@ -120,13 +121,10 @@ export default async function TelemarketingPage({
             <TmMonthlyView rows={data.monthly} name={data.selectedManagerName} />
           </div>
 
-          {/* Причины отвала — fast-follow */}
+          {/* Причины отвала (накопленно, личные закрытия) */}
           <div className="bb-card" style={{ marginBottom: 16 }}>
-            <SectionHead icon={<Search size={17} />} title="Причины отвала" hint="по звонарю" />
-            <SoonCard
-              title="Разбор причин отвала (доступ к ЛПР · возражения · выручка <30М …)"
-              desc="Нужна доработка раннера: сбор UF_CRM_1771324790 по закрытым в C50:APOLOGY + развязка личных и админ-закрытий."
-            />
+            <SectionHead icon={<Search size={17} />} title="Причины отвала" hint="накопленно · личные закрытия" />
+            <TmRejectionsView rejections={data.rejections} />
           </div>
 
           {/* E. План / факт */}
@@ -145,9 +143,6 @@ export default async function TelemarketingPage({
           <div className="bb-card" style={{ marginBottom: 16 }}>
             <SectionHead icon={<ListTree size={17} />} title="Микро-воронка звонка — где теряется" hint={`${data.monthLabel} · по звонарю`} />
             <TmMicroFunnelsView funnels={data.microFunnels} />
-            <div style={{ marginTop: 14 }}>
-              <SoonCard title="Сжигание базы — лидов на встречу" desc="Отвалов на одну назначенную встречу. Нужен сбор отвалов в раннере (C50:APOLOGY)." />
-            </div>
           </div>
 
           {/* Fast-follow блоки */}
