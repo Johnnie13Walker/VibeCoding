@@ -11,6 +11,7 @@ import {
   TmOutreachView,
   TmManagerSelect,
   TmRejectionsView,
+  TmHeatmapView,
   SoonCard,
 } from '@/components/telemarketing/blocks';
 import { getTmDashboardData } from '@/lib/telemarketing';
@@ -155,8 +156,8 @@ export default async function TelemarketingPage({
             <SoonCard title="Downstream-ценность холодных встреч" desc="Из назначенных ТМ встреч — сколько в Продажи, КП, оплат и на какую сумму. Нужна связка cat50 → cat10." />
           </div>
           <div className="bb-card" style={{ marginBottom: 16 }}>
-            <SectionHead icon={<Clock size={17} />} title="Когда дозваниваются + сигналы" hint="по часам/дням" />
-            <SoonCard title="Тепловая карта времени дозвона + ТМ-алерты" desc="Когда лучше берут трубку (таймстампы Voximplant) + авто-сигналы просадки конверсии и роста отвалов." />
+            <SectionHead icon={<Clock size={17} />} title="Когда берут трубку" hint="час × день недели" />
+            <TmHeatmapView heatmap={data.heatmap} />
           </div>
 
           <p style={{ fontSize: 12, color: 'var(--bb-faint)', marginTop: 24 }}>

@@ -58,6 +58,7 @@ def write_day(
         ("meetings", ["report_date", "meeting_id"]),
         ("manager_activity", ["report_date", "manager_id"]),
         ("kp_briefs", ["report_date", "item_id", "item_type"]),
+        ("call_hourly", ["report_date", "manager_id", "hour"]),
     ]
     for table, conflict_cols in specs:
         table_rows = rows.get(table, [])

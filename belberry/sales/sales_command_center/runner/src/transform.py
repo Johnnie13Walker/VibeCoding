@@ -162,6 +162,27 @@ def aggregate_calls(calls: list[dict[str, Any]]) -> dict[int, dict[str, int]]:
     return {uid: dict(counter) for uid, counter in stats.items()}
 
 
+def aggregate_calls_hourly(calls: list[dict[str, Any]]) -> dict[tuple[int, int], dict[str, int]]:
+    """Звонки по (PORTAL_USER_ID, час МСК): наборы/ответы/дозвоны ≥60с — для heatmap
+    «когда берут трубку». Час берём из CALL_START_DATE (offset +03:00 = МСК)."""
+    stats: dict[tuple[int, int], Counter] = defaultdict(Counter)
+    for call in calls:
+        uid = _to_int(call.get("PORTAL_USER_ID"))
+        if not uid:
+            continue
+        dt = parse_dt(call.get("CALL_START_DATE"))
+        if dt is None:
+            continue
+        duration = _to_int(call.get("CALL_DURATION")) or 0
+        key = (uid, dt.hour)
+        stats[key]["dials"] += 1
+        if duration > 0:
+            stats[key]["answered"] += 1
+        if duration >= 60:
+            stats[key]["calls60"] += 1
+    return {key: dict(counter) for key, counter in stats.items()}
+
+
 def aggregate_emails(activities: list[dict[str, Any]]) -> dict[int, int]:
     """Исходящие письма (CRM_EMAIL) по автору — для «Опер» (письмо = 5 мин)."""
     counts: Counter = Counter()
@@ -333,11 +354,24 @@ def build_db_rows(raw: dict[str, Any], target_date: date, now: datetime) -> dict
                 }
             )
 
+    call_hourly = [
+        {
+            "report_date": report_date,
+            "manager_id": uid,
+            "hour": hour,
+            "dials": s.get("dials", 0),
+            "answered": s.get("answered", 0),
+            "calls60": s.get("calls60", 0),
+        }
+        for (uid, hour), s in aggregate_calls_hourly(raw.get("calls", [])).items()
+    ]
+
     return {
         "deals_snapshot": deals_snapshot,
         "meetings": meetings,
         "manager_activity": manager_activity,
         "kp_briefs": kp_briefs,
+        "call_hourly": call_hourly,
     }
 
 

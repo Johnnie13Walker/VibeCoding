@@ -10,6 +10,7 @@ import type {
   TmOutreach,
   TmPlanFactRow,
   TmRejections,
+  TmHeatmap,
 } from '@/lib/telemarketing-shared';
 
 const nf = (n: number): string => n.toLocaleString('ru-RU');
@@ -388,6 +389,49 @@ export function TmManagerSelect({
           </Link>
         );
       })}
+    </div>
+  );
+}
+
+// ───────────────────────── Heatmap времени дозвона ─────────────────────────
+
+export function TmHeatmapView({ heatmap }: { heatmap: TmHeatmap }) {
+  if (heatmap.hours.length === 0 || heatmap.rows.every((r) => r.cells.every((c) => c.pct == null))) {
+    return <p style={{ color: 'var(--bb-muted)' }}>Недостаточно данных о звонках для тепловой карты.</p>;
+  }
+  const cellBg = (pct: number | null): string => {
+    if (pct == null) return '#f3f0ec';
+    const ratio = Math.max(0, Math.min(1, pct / heatmap.maxPct));
+    return `hsl(${Math.round(ratio * 130)}, 52%, ${Math.round(56 - ratio * 14)}%)`; // красный→зелёный
+  };
+  const cols = `34px repeat(${heatmap.hours.length}, 1fr)`;
+  return (
+    <div>
+      <div style={{ overflowX: 'auto' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: cols, gap: 4, minWidth: 520 }}>
+          <div />
+          {heatmap.hours.map((h) => (
+            <div key={`h${h}`} style={{ textAlign: 'center', fontSize: 11, color: 'var(--bb-faint)', fontWeight: 600, paddingBottom: 2 }}>{h}</div>
+          ))}
+          {heatmap.rows.map((row) => (
+            <div key={`r${row.dow}`} style={{ display: 'contents' }}>
+              <div style={{ display: 'flex', alignItems: 'center', fontSize: 12, color: 'var(--bb-muted)', fontWeight: 600 }}>{row.label}</div>
+              {row.cells.map((c) => (
+                <div
+                  key={`${row.dow}-${c.hour}`}
+                  title={c.pct != null ? `${row.label} ${c.hour}:00 — дозвон ${c.pct}% (${nf(c.calls60)}/${nf(c.dials)})` : `${row.label} ${c.hour}:00 — нет звонков`}
+                  style={{ height: 26, borderRadius: 5, background: cellBg(c.pct), display: 'grid', placeItems: 'center', color: c.pct == null ? 'var(--bb-faint)' : '#fff', fontSize: 10, fontWeight: 600 }}
+                >
+                  {c.pct != null ? c.pct : ''}
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+      <p style={{ fontSize: 12, color: 'var(--bb-faint)', marginTop: 10 }}>
+        % дозвона ≥60с по часам (МСК) и дням недели за последние месяцы. Зеленее — лучше берут трубку. Дозвон = разговор ≥60 секунд.
+      </p>
     </div>
   );
 }
