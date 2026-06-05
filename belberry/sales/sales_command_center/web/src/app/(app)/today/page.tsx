@@ -75,7 +75,7 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
             </h1>
             <div className="bb-hero-sub">
               {isArchive
-                ? 'сохранённый разбор за выбранный день (чаты и лента — только в режиме «Сегодня»)'
+                ? 'сохранённый разбор за выбранный день (чаты — только в режиме «Сегодня»)'
                 : (data?.updatedAt ? `обновлено ${fmtMsk(data.updatedAt)} МСК · каждые ~20 мин в рабочие часы` : 'данные ещё не собраны')}
             </div>
           </div>
@@ -99,6 +99,7 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
             <Tile icon={<Timer size={14} />} label="Дозвоны ≥60с" value={t.calls60} sub={t.dials ? `${Math.round((t.calls60 / t.dials) * 100)}% от наборов` : undefined} />
             <Tile icon={<MessageCircle size={14} />} label="Чаты Wazzup" value={data!.chatsTracked ? t.chats : '—'} sub={!data!.chatsTracked ? (isArchive ? 'за этот день не собирались' : 'ждёт сбора') : (isArchive ? undefined : (data!.chatsUpdatedAt ? `обновлено ${fmtMsk(data!.chatsUpdatedAt)}` : 'ждёт сбора'))} />
             <Tile icon={<Handshake size={14} />} label="Встречи проведено" value={t.meetingsHeld} sub={`назначено ${t.meetingsScheduled} · отменено ${t.meetingsCancelled}`} />
+            <Tile icon={<CalendarClock size={14} />} label="Назначено · телемаркетинг" value={t.meetingsSetTm} sub="встречи, назначенные ТМ за день" />
             <Tile icon={<FileText size={14} />} label="Брифы" value={t.briefs} />
             <Tile icon={<FileText size={14} />} label="КП" value={t.kp} />
             <Tile icon={<Mail size={14} />} label="Письма" value={t.emails} />
@@ -173,11 +174,10 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
             </div>
           </div>
 
-          {!isArchive && (
-            <div className="bb-card" style={{ marginTop: 16 }}>
+          <div className="bb-card" style={{ marginTop: 16 }}>
               <div className="bb-sect-head"><span className="bb-sect-ic"><Activity size={17} /></span><h2>Лента</h2><small>события дня</small></div>
               {data!.feed.length === 0 ? (
-                <p style={{ color: 'var(--bb-muted)' }}>Событий пока нет.</p>
+                <p style={{ color: 'var(--bb-muted)' }}>{isArchive ? 'Событий за день не сохранено.' : 'Событий пока нет.'}</p>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
                   {data!.feed.map((e, i) => (
@@ -192,7 +192,6 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
                 </div>
               )}
             </div>
-          )}
         </>
       )}
     </div>

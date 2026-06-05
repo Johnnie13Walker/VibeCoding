@@ -427,6 +427,46 @@ def _daily_kpis(rows: dict[str, Any], raw: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _feed_int(value: Any) -> int | None:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def build_day_feed(raw: dict[str, Any]) -> list[dict[str, Any]]:
+    """Лента событий дня (встречи/брифы/КП/созданные сделки) для сохранения в
+    summary_json — чтобы архивный /today показывал ленту за прошлый день.
+    Скоуп ОП+ТМ, СПАМ-сделки исключаются. Имена резолвит веб по manager_id."""
+    roles = raw.get("user_roles") or {}
+
+    def in_scope(uid: int | None) -> bool:
+        role = (roles.get(str(uid)) or "").lower()
+        return any(k in role for k in _SALES_TM_ROLE_KEYS)
+
+    feed: list[dict[str, Any]] = []
+    for m in raw.get("meet_day") or []:
+        uid = _feed_int(m.get("assignedById"))
+        if in_scope(uid):
+            feed.append({"kind": "meeting", "manager_id": uid, "title": m.get("title") or "Встреча", "at": str(m.get("ufCrm16_1751009238") or "")})
+    for b in raw.get("briefs") or []:
+        uid = _feed_int(b.get("assignedById"))
+        if in_scope(uid):
+            feed.append({"kind": "brief", "manager_id": uid, "title": b.get("title") or "Бриф", "at": str(b.get("createdTime") or "")})
+    for k in raw.get("kp") or []:
+        uid = _feed_int(k.get("assignedById"))
+        if in_scope(uid):
+            feed.append({"kind": "kp", "manager_id": uid, "title": k.get("title") or "КП", "at": str(k.get("updatedTime") or "")})
+    for d in raw.get("deals_created") or []:
+        if _deal_is_spam(d):
+            continue
+        uid = _feed_int(d.get("ASSIGNED_BY_ID"))
+        if in_scope(uid):
+            feed.append({"kind": "deal", "manager_id": uid, "title": d.get("TITLE") or "Сделка", "at": str(d.get("DATE_CREATE") or "")})
+    feed.sort(key=lambda e: e["at"], reverse=True)
+    return feed
+
+
 def _hero_stats(stats: dict[str, Any], deltas: dict[str, Any]) -> list[dict[str, Any]]:
     metrics = (deltas or {}).get("metrics") or {}
     spec = [

@@ -97,7 +97,7 @@ def build_live_payload(today: date, raw: dict[str, Any], now: datetime) -> dict[
         return per.setdefault(
             uid,
             {"manager_id": uid, "dials": 0, "answered": 0, "calls60": 0, "meetings": 0,
-             "m_held": 0, "m_scheduled": 0, "m_cancelled": 0, "briefs": 0, "deals": 0, "kp": 0, "emails": 0},
+             "m_held": 0, "m_scheduled": 0, "m_cancelled": 0, "m_set": 0, "briefs": 0, "deals": 0, "kp": 0, "emails": 0},
         )
 
     for uid, s in call_stats.items():
@@ -131,6 +131,12 @@ def build_live_payload(today: date, raw: dict[str, Any], now: datetime) -> dict[
                 cell["m_cancelled"] += 1
             elif scheduled_today:
                 cell["m_scheduled"] += 1  # назначено сегодня (ещё не проведено)
+        # «Назначено за день» — все встречи, СОЗДАННЫЕ сегодня, в зачёт создателю
+        # (вкл. проведённые в тот же день); по роли создателя считаем «назначено ТМ».
+        if set_today and creator:
+            cset = slot(creator)
+            if cset:
+                cset["m_set"] += 1
         meetings_list.append(
             {"id": mid, "title": m.get("title") or "Встреча", "manager_id": owner,
              "at": str(m.get("ufCrm16_1751009238") or ""), "status": st,

@@ -352,6 +352,26 @@ def test_build_payload_excludes_non_sales_roles():
     assert payload["stats"]["calls_total"] == 50
 
 
+def test_build_day_feed_scopes_and_excludes_spam():
+    raw = {
+        "user_roles": {"10": "Менеджер по продажам", "20": "Телемаркетолог", "99": "Рекрутер"},
+        "meet_day": [{"assignedById": 10, "title": "kandela.ru", "ufCrm16_1751009238": "2026-06-04T10:00:00"}],
+        "briefs": [{"assignedById": 20, "title": "rant.ru", "createdTime": "2026-06-04T11:00:00"}],
+        "kp": [{"assignedById": 99, "title": "hr.ru", "updatedTime": "2026-06-04T12:00:00"}],  # HR — вне скоупа
+        "deals_created": [
+            {"ASSIGNED_BY_ID": 10, "TITLE": "real.ru", "DATE_CREATE": "2026-06-04T13:00:00"},
+            {"ASSIGNED_BY_ID": 10, "TITLE": "spam.ru", "DATE_CREATE": "2026-06-04T14:00:00", "UF_CRM_1771495464": "8588"},
+        ],
+    }
+    feed = report_author.build_day_feed(raw)
+    titles = [e["title"] for e in feed]
+    assert "kandela.ru" in titles and "rant.ru" in titles and "real.ru" in titles
+    assert "hr.ru" not in titles  # рекрутёр вне ОП+ТМ
+    assert "spam.ru" not in titles  # спам-сделка исключена
+    # сортировка по времени убыв.
+    assert feed[0]["at"] >= feed[-1]["at"]
+
+
 def test_build_payload_adds_tm_funnel():
     rows = {
         "meetings": [],

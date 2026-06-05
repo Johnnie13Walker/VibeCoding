@@ -13,7 +13,7 @@ from src.promises import compute_promises_loop
 from src.collect import collect_day
 from src.enrich import enrich_meetings
 from src.render import extract_rejections, render_report, _load_css
-from src.report_author import author_report, build_payload, build_telegram_digest, substitute_photos, wrap_document
+from src.report_author import author_report, build_day_feed, build_payload, build_telegram_digest, substitute_photos, wrap_document
 from src.transform import build_db_rows, compute_stale_deals, resolve_target_date
 from src.timeutil import now_msk
 from src.writer import write_day
@@ -142,6 +142,7 @@ def run(
             "counts": {key: len(value) for key, value in rows.items()},
             "llm_status": llm_status,
             "llm_error": extras.get("llm_error"),
+            "feed": build_day_feed(raw),  # лента дня — для архивного /today
         }
         counts = write_day(conn, target, rows, html, summary, status=llm_status)
         conn.commit()

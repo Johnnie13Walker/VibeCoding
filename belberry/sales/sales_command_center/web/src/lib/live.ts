@@ -2,8 +2,8 @@ import 'server-only';
 
 import { eq } from 'drizzle-orm';
 import { db } from '@/db';
-import { liveChats, liveSnapshot, users, managerActivity, meetings, kpBriefs, dealsSnapshot } from '@/db/schema';
-import { isSalesDept } from './dashboard';
+import { liveChats, liveSnapshot, users, managerActivity, meetings, kpBriefs, dealsSnapshot, reports } from '@/db/schema';
+import { isSalesDept, isTelemarketing } from './dashboard';
 
 export interface LiveManager {
   managerId: number;
@@ -51,7 +51,7 @@ export interface LiveData {
   chatsUpdatedAt: string | null;
   chatsTracked: boolean;
   reportDate: string | null;
-  totals: { dials: number; answered: number; calls60: number; chats: number; meetings: number; meetingsHeld: number; meetingsScheduled: number; meetingsCancelled: number; briefs: number; kp: number; deals: number; dealsSpam: number; emails: number };
+  totals: { dials: number; answered: number; calls60: number; chats: number; meetings: number; meetingsHeld: number; meetingsScheduled: number; meetingsSetTm: number; meetingsCancelled: number; briefs: number; kp: number; deals: number; dealsSpam: number; emails: number };
   managers: LiveManager[];
   meetings: LiveMeeting[];
   briefs: LiveBrief[];
@@ -61,7 +61,7 @@ export interface LiveData {
 interface RawManager {
   manager_id: number;
   dials?: number; answered?: number; calls60?: number; meetings?: number;
-  m_held?: number; m_scheduled?: number; m_cancelled?: number;
+  m_held?: number; m_scheduled?: number; m_cancelled?: number; m_set?: number;
   briefs?: number; kp?: number; deals?: number; emails?: number;
 }
 interface RawMeeting { id: number | null; title: string; manager_id: number | null; at: string; status: LiveMeeting['status']; deal_id: number | null; set_today?: boolean }
@@ -70,7 +70,7 @@ interface RawFeed { kind: LiveFeedItem['kind']; manager_id: number | null; title
 
 const EMPTY: LiveData = {
   updatedAt: null, chatsUpdatedAt: null, chatsTracked: false, reportDate: null,
-  totals: { dials: 0, answered: 0, calls60: 0, chats: 0, meetings: 0, meetingsHeld: 0, meetingsScheduled: 0, meetingsCancelled: 0, briefs: 0, kp: 0, deals: 0, dealsSpam: 0, emails: 0 },
+  totals: { dials: 0, answered: 0, calls60: 0, chats: 0, meetings: 0, meetingsHeld: 0, meetingsScheduled: 0, meetingsSetTm: 0, meetingsCancelled: 0, briefs: 0, kp: 0, deals: 0, dealsSpam: 0, emails: 0 },
   managers: [], meetings: [], briefs: [], feed: [],
 };
 
@@ -101,6 +101,7 @@ export async function getLive(): Promise<LiveData> {
     dept: dir.get(m.manager_id)?.dept ?? '',
     dials: m.dials ?? 0, answered: m.answered ?? 0, calls60: m.calls60 ?? 0,
     meetings: m.meetings ?? 0, mHeld: m.m_held ?? 0, mScheduled: m.m_scheduled ?? 0, mCancelled: m.m_cancelled ?? 0,
+    mSet: m.m_set ?? 0,
     briefs: m.briefs ?? 0, kp: m.kp ?? 0, deals: m.deals ?? 0, emails: m.emails ?? 0,
   }));
   const sales = all.filter((m) => isSalesDept(m.dept));
@@ -154,6 +155,7 @@ export async function getLive(): Promise<LiveData> {
     chats: shown.reduce((s, m) => s + (chatsMap.get(m.managerId) ?? 0), 0),
     meetingsHeld: shown.reduce((s, m) => s + m.mHeld, 0),
     meetingsScheduled: shown.reduce((s, m) => s + m.mScheduled, 0),
+    meetingsSetTm: shown.filter((m) => isTelemarketing(m.dept)).reduce((s, m) => s + m.mSet, 0),
     meetingsCancelled: shown.reduce((s, m) => s + m.mCancelled, 0),
     kp: shown.reduce((s, m) => s + m.kp, 0),
     deals: shown.reduce((s, m) => s + m.deals, 0),
@@ -193,12 +195,14 @@ export async function getDayBreakdown(date: string): Promise<LiveData | null> {
   let mtRows: Array<typeof meetings.$inferSelect>;
   let kbRows: Array<typeof kpBriefs.$inferSelect>;
   let dsRows: Array<{ dealId: number; title: string | null }>;
+  let repRows: Array<{ summary: unknown }>;
   try {
-    [maRows, mtRows, kbRows, dsRows] = await Promise.all([
+    [maRows, mtRows, kbRows, dsRows, repRows] = await Promise.all([
       db.select().from(managerActivity).where(eq(managerActivity.reportDate, date)),
       db.select().from(meetings).where(eq(meetings.reportDate, date)),
       db.select().from(kpBriefs).where(eq(kpBriefs.reportDate, date)),
       db.select({ dealId: dealsSnapshot.dealId, title: dealsSnapshot.title }).from(dealsSnapshot).where(eq(dealsSnapshot.reportDate, date)),
+      db.select({ summary: reports.summaryJson }).from(reports).where(eq(reports.reportDate, date)),
     ]);
   } catch {
     return null;
@@ -274,6 +278,13 @@ export async function getDayBreakdown(date: string): Promise<LiveData | null> {
       service: '',
     }));
 
+  // Лента дня — из summary_json (сохраняется дневным прогоном с этого релиза).
+  const summaryFeed =
+    (repRows[0]?.summary as { feed?: Array<{ kind: LiveFeedItem['kind']; manager_id: number | null; title: string; at: string }> } | null)?.feed ?? [];
+  const feed: LiveFeedItem[] = summaryFeed
+    .filter((e) => keep(e.manager_id))
+    .map((e) => ({ kind: e.kind, manager: nameOf(e.manager_id), title: e.title, at: e.at }));
+
   const totals = {
     dials: shown.reduce((s, m) => s + m.dials, 0),
     answered: shown.reduce((s, m) => s + m.answered, 0),
@@ -282,6 +293,7 @@ export async function getDayBreakdown(date: string): Promise<LiveData | null> {
     meetings: meetingsList.length,
     meetingsHeld: shown.reduce((s, m) => s + m.mHeld, 0),
     meetingsScheduled: shown.reduce((s, m) => s + m.mScheduled, 0),
+    meetingsSetTm: shown.filter((m) => isTelemarketing(m.dept)).reduce((s, m) => s + m.mScheduled, 0),
     meetingsCancelled: shown.reduce((s, m) => s + m.mCancelled, 0),
     briefs: briefsList.length,
     kp: shown.reduce((s, m) => s + m.kp, 0),
@@ -299,6 +311,6 @@ export async function getDayBreakdown(date: string): Promise<LiveData | null> {
     managers,
     meetings: meetingsList,
     briefs: briefsList,
-    feed: [],
+    feed,
   };
 }

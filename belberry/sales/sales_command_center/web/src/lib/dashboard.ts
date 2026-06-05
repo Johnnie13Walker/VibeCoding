@@ -124,6 +124,11 @@ export function isSalesDept(dept: string | null | undefined): boolean {
   return SALES_DEPT_KEYS.some((k) => d.includes(k));
 }
 
+/** Сотрудник телемаркетинга по должности. */
+export function isTelemarketing(dept: string | null | undefined): boolean {
+  return (dept || '').toLowerCase().includes('телемаркет');
+}
+
 interface FunnelRow {
   stage: string;
   opportunity: number;
