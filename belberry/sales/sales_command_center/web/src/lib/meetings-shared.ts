@@ -24,10 +24,15 @@ export interface MeetingItem {
   conclusion: string;
   nextStep: { what?: string; who?: string; deadline?: string } | null;
   transcript: TranscriptStatus;
-  /** Итоги клиенту отправлены — Фаза 2 (флаг из LLM-разбора). null = ещё не вычисляется. */
+  /** Итоги клиенту отправлены (по пост-встречной переписке). null = не вычислено. */
   summarySent: boolean | null;
-  /** Бюджет назван — Фаза 2. null = ещё не вычисляется. */
+  /** Бюджет назван. null = не вычислено. */
   budgetNamed: boolean | null;
+  /** Продукты/услуги, обсуждённые на встрече. */
+  products: string[];
+  /** Оценка обоснованности КП: обоснованно | преждевременно | не_применимо. */
+  kpAssessment: 'обоснованно' | 'преждевременно' | 'не_применимо' | null;
+  kpAssessmentNote: string;
 }
 
 export interface ManagerScore {

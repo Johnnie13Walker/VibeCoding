@@ -239,6 +239,21 @@ function Gate({ label, ok, textOk, textNo }: { label: string; ok: boolean | null
   );
 }
 
+function KpAssessment({ value, note }: { value: 'обоснованно' | 'преждевременно' | 'не_применимо'; note: string }) {
+  if (value === 'не_применимо') return null;
+  const ok = value === 'обоснованно';
+  const bg = ok ? '#e9f8ef' : '#fdf2e3';
+  const border = ok ? '#bfe8cf' : '#f3d9b0';
+  const color = ok ? '#15a85c' : '#e07b1a';
+  const title = ok ? '✅ КП обосновано — потребность выявлена' : '⚠️ КП преждевременно — потребность нормально не выявлена';
+  return (
+    <div style={{ margin: '4px 0 14px', padding: '13px 16px', borderRadius: 12, background: bg, border: `1px solid ${border}` }}>
+      <div style={{ fontSize: 14, fontWeight: 800, color }}>{title}</div>
+      {note ? <div style={{ fontSize: 13, color: 'var(--bb-muted)', marginTop: 4, lineHeight: 1.45 }}>{note}</div> : null}
+    </div>
+  );
+}
+
 function Obs({ items, kind }: { items: { text: string; metric?: string }[]; kind: 'good' | 'risk' }) {
   if (!items.length) return <p style={{ color: 'var(--bb-faint)', fontSize: 13 }}>—</p>;
   const mark = kind === 'good' ? '✓' : '!';
@@ -298,6 +313,15 @@ function Detail({ m }: { m: MeetingItem }) {
         <Gate label="Следующий шаг" ok={!!m.nextStep} textOk="Зафиксирован" textNo="Нет" />
         <Gate label="Запись/транскрипт" ok textOk="Есть" textNo="" />
       </div>
+      {m.products.length ? (
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', margin: '4px 0 14px' }}>
+          <span style={{ fontSize: 13, color: 'var(--bb-faint)', fontWeight: 600 }}>Обсуждали:</span>
+          {m.products.map((p) => (
+            <span key={p} style={{ fontSize: 12.5, fontWeight: 700, borderRadius: 7, padding: '3px 10px', background: '#eef', color: '#4a3fd0' }}>{p}</span>
+          ))}
+        </div>
+      ) : null}
+      {m.kpAssessment ? <KpAssessment value={m.kpAssessment} note={m.kpAssessmentNote} /> : null}
       {m.verdict ? <div style={{ margin: '14px 0', padding: '14px 16px', borderRadius: 12, background: 'var(--bb-soft,#f3f2fb)', fontSize: 15, lineHeight: 1.5, borderLeft: '4px solid #6f5ff2' }}>{m.verdict}</div> : null}
       <div className="bb-grid" style={{ gridTemplateColumns: 'repeat(2,1fr)', gap: 18, margin: '18px 0' }}>
         <div>

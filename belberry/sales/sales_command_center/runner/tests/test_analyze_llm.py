@@ -24,6 +24,9 @@ FIXED_ANALYSIS = {
     "verdict": "Защита не закрыта.",
     "summary_sent": False,
     "budget_named": False,
+    "products_discussed": ["SEO", "Контекст", "SEO"],
+    "kp_assessment": "Преждевременно",
+    "kp_assessment_note": "Потребность вскрыта слабо.",
     "transcript_status": "ok",
 }
 FIXED_NARRATIVE = {
@@ -92,6 +95,9 @@ def test_analyze_meeting_returns_structured_json():
     assert result["transcript_based"] is True
     assert result["summary_sent"] is False
     assert result["budget_named"] is False
+    assert result["products_discussed"] == ["SEO", "Контекст"]  # дедуп
+    assert result["kp_assessment"] == "преждевременно"  # нормализован
+    assert result["kp_assessment_note"] == "Потребность вскрыта слабо."
 
 
 def test_system_prompt_uses_cache_control():

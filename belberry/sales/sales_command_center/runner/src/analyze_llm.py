@@ -96,6 +96,16 @@ SYSTEM_PROMPT = """
   итогов в нём нет — false.
 - budget_named — true, если на встрече НАЗВАН бюджет клиента (хотя бы ориентир суммы).
   Если бюджет не вскрыт/не обсуждался — false.
+- products_discussed — список услуг/продуктов Belberry, которые РЕАЛЬНО обсуждались на
+  встрече. Используй короткие ярлыки: "SEO", "Контекст", "Веб-разработка", "Strapi",
+  "GEO" (маркетплейсы/гео-продвижение), "ORM" (репутация), "SMM", "Аналитика".
+  Только то, что обсуждалось; ничего не выдумывай. Если не обсуждали продукты — [].
+- kp_assessment — оцени, имело ли смысл готовить КП по этой встрече:
+  * "обоснованно" — менеджер выявил реальную потребность клиента, КП логично и нужно;
+  * "преждевременно" — потребность нормально НЕ выявлена (бриф заполнен формально,
+    диалога-вскрытия не было), КП не нужно или преждевременно;
+  * "не_применимо" — про КП речи не шло (другой тип встречи/контекст).
+- kp_assessment_note — 1 фраза: почему КП обоснованно/преждевременно (на что опираешься).
 - Верни JSON по схеме:
 {
   "meeting_type": "defense|briefing|other",
@@ -116,6 +126,9 @@ SYSTEM_PROMPT = """
   "verdict": "...",
   "summary_sent": true,
   "budget_named": true,
+  "products_discussed": ["SEO", "Контекст"],
+  "kp_assessment": "обоснованно|преждевременно|не_применимо",
+  "kp_assessment_note": "...",
   "transcript_status": "ok"
 }
 """
@@ -412,6 +425,23 @@ def _opt_bool(value: Any) -> bool | None:
     return str(value).strip().lower() in {"true", "1", "да", "yes"}
 
 
+_KP_ASSESSMENTS = {"обоснованно", "преждевременно", "не_применимо"}
+
+
+def _normalize_products(value: Any) -> list[str]:
+    out: list[str] = []
+    for item in value or []:
+        label = str(item).strip()
+        if label and label not in out:
+            out.append(label)
+    return out[:8]
+
+
+def _normalize_kp_assessment(value: Any) -> str | None:
+    v = str(value or "").strip().lower().replace(" ", "_")
+    return v if v in _KP_ASSESSMENTS else None
+
+
 def _normalize_analysis(parsed: dict[str, Any]) -> dict[str, Any]:
     checklist = []
     for item in parsed.get("checklist") or []:
@@ -447,6 +477,9 @@ def _normalize_analysis(parsed: dict[str, Any]) -> dict[str, Any]:
         "verdict": parsed.get("verdict") or "",
         "summary_sent": _opt_bool(parsed.get("summary_sent")),
         "budget_named": _opt_bool(parsed.get("budget_named")),
+        "products_discussed": _normalize_products(parsed.get("products_discussed")),
+        "kp_assessment": _normalize_kp_assessment(parsed.get("kp_assessment")),
+        "kp_assessment_note": str(parsed.get("kp_assessment_note") or "").strip() or None,
         "transcript_status": "ok",
     }
 

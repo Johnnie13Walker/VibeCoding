@@ -13,7 +13,7 @@ import sys
 from datetime import date, datetime, timedelta
 
 from . import analyze_llm, bx_client
-from .collect import SEL_1048, _collect_wazzup, _fetch_all, _range
+from .collect import MEETING_HELD_STAGE, SEL_1048, _collect_wazzup, _fetch_all, _range
 from .db import connect, upsert
 from .enrich import enrich_meetings
 from .timeutil import MSK
@@ -31,7 +31,7 @@ def collect_meetings_raw(target: date, bx=None) -> dict:
     meet_day = _fetch_all(
         bx,
         "crm.item.list",
-        {"entityTypeId": 1048, "filter": {">=ufCrm16_1751009238": d0, "<=ufCrm16_1751009238": d1}, "select": SEL_1048},
+        {"entityTypeId": 1048, "filter": {">=ufCrm16_1751009238": d0, "<=ufCrm16_1751009238": d1, "stageId": MEETING_HELD_STAGE}, "select": SEL_1048},
         idfield="id",
     )
     deal_ids = {item.get("parentId2") for item in meet_day if item.get("parentId2")}

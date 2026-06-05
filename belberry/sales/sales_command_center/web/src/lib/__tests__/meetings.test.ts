@@ -6,7 +6,8 @@ function mk(p: Partial<MeetingItem>): MeetingItem {
   return {
     id: 1, date: '2026-06-02', time: '12:00', managerId: 1, manager: 'А', type: 'briefing',
     domain: 'x.ru', dealId: 1, score: 7, good: [], risk: [], verdict: '', conclusion: '',
-    nextStep: { what: 'x' }, transcript: 'ok', summarySent: null, budgetNamed: null, ...p,
+    nextStep: { what: 'x' }, transcript: 'ok', summarySent: null, budgetNamed: null,
+    products: [], kpAssessment: null, kpAssessmentNote: '', ...p,
   };
 }
 

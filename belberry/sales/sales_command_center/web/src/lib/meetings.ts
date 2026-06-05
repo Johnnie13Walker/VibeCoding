@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { gte, inArray, sql } from 'drizzle-orm';
+import { and, gte, inArray, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { dealsSnapshot, meetings, users } from '@/db/schema';
 import { isSalesDept, isTelemarketing } from './dashboard';
@@ -31,6 +31,9 @@ interface RawAnalysis {
   next_steps?: unknown[];
   summary_sent?: boolean;
   budget_named?: boolean;
+  products_discussed?: string[];
+  kp_assessment?: string | null;
+  kp_assessment_note?: string | null;
 }
 
 /** Загрузка разобранных встреч ОП+РОП за окно (по умолчанию 120 дней). */
@@ -53,9 +56,11 @@ export async function getMeetingsForAnalysis(days = 120): Promise<MeetingItem[]>
       analysis: meetings.analysisJson,
       transcriptOk: meetings.transcriptOk,
       transcriptUrl: meetings.transcriptUrl,
+      status: meetings.status,
     })
     .from(meetings)
-    .where(gte(meetings.reportDate, cutoff))
+    // Исключаем отменённые встречи (стадия SP 1048 = FAIL).
+    .where(and(gte(meetings.reportDate, cutoff), sql`${meetings.status} is distinct from 'DT1048_24:FAIL'`))
     .orderBy(sql`${meetings.reportDate} desc`);
 
   const dealIds = [...new Set(rows.map((r) => r.dealId).filter((x): x is number => x != null))];
@@ -102,6 +107,9 @@ export async function getMeetingsForAnalysis(days = 120): Promise<MeetingItem[]>
       transcript,
       summarySent: typeof a?.summary_sent === 'boolean' ? a.summary_sent : null,
       budgetNamed: typeof a?.budget_named === 'boolean' ? a.budget_named : null,
+      products: Array.isArray(a?.products_discussed) ? a!.products_discussed!.map(String) : [],
+      kpAssessment: (a?.kp_assessment as MeetingItem['kpAssessment']) ?? null,
+      kpAssessmentNote: (a?.kp_assessment_note ?? '').toString().trim(),
     });
   }
   return out;

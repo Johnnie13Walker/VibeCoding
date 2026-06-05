@@ -18,6 +18,10 @@ from . import bx_client
 from .timeutil import next_working_day
 
 PORTAL_BASE = "https://belberrycrm.bitrix24.ru"
+# Стадия проведённой встречи (SP 1048). NEW = ожидание, FAIL = отменена/перенесена —
+# их НЕ считаем проведёнными и НЕ анализируем.
+MEETING_HELD_STAGE = "DT1048_24:SUCCESS"
+
 SEL_1048 = [
     "id",
     "title",
@@ -442,7 +446,7 @@ def collect_flow_day(target: date, bx=None) -> dict[str, Any]:
     meet_day = _fetch_all(
         bx,
         "crm.item.list",
-        {"entityTypeId": 1048, "filter": {">=ufCrm16_1751009238": d0, "<=ufCrm16_1751009238": d1}, "select": SEL_1048},
+        {"entityTypeId": 1048, "filter": {">=ufCrm16_1751009238": d0, "<=ufCrm16_1751009238": d1, "stageId": MEETING_HELD_STAGE}, "select": SEL_1048},
         idfield="id",
     )
     meet_created_day = _fetch_all(
@@ -566,7 +570,7 @@ def collect_day(target: date, bx=None) -> dict[str, Any]:
         "crm.item.list",
         {
             "entityTypeId": 1048,
-            "filter": {">=ufCrm16_1751009238": d0, "<=ufCrm16_1751009238": d1},
+            "filter": {">=ufCrm16_1751009238": d0, "<=ufCrm16_1751009238": d1, "stageId": MEETING_HELD_STAGE},
             "select": SEL_1048,
         },
         idfield="id",
