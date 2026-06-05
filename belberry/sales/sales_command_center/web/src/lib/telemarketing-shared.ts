@@ -42,7 +42,8 @@ export interface TmMember {
   calls120: number;
   talkSeconds: number;
   meetingsSet: number;
-  meetingsHeld: number;
+  /** Состоявшиеся встречи, назначенные этим ТМ (held по createdBy). Событийная метрика. */
+  meetingsHeldByCreator: number;
   dealsCold: number;
   messenger: number;
   emails: number;
@@ -63,7 +64,10 @@ export interface TmKpis {
   calls120: number;
   talkHours: number;
   meetingsSet: number;
+  /** Состоялось — встречи от ТМ, прошедшие по бизнес-процессу (held по создателю). */
   meetingsHeld: number;
+  /** Явка = состоялось / назначено, %. */
+  heldPct: number | null;
   /** Конверсия дозвон→встреча = назначено / дозвоны ≥60с, %. */
   convDialToMeeting: number | null;
   toCold: number;
@@ -83,6 +87,7 @@ export function buildTmKpis(members: TmMember[], workingDays: number): TmKpis {
   const calls60 = sum('calls60');
   const calls120 = sum('calls120');
   const meetingsSet = sum('meetingsSet');
+  const meetingsHeld = sum('meetingsHeldByCreator');
   const talkHours = Math.round((sum('talkSeconds') / 3600) * 10) / 10;
   return {
     zvonari: members.length,
@@ -93,7 +98,8 @@ export function buildTmKpis(members: TmMember[], workingDays: number): TmKpis {
     calls120,
     talkHours,
     meetingsSet,
-    meetingsHeld: sum('meetingsHeld'),
+    meetingsHeld,
+    heldPct: pct1(meetingsHeld, meetingsSet),
     convDialToMeeting: pct1(meetingsSet, calls60),
     toCold: sum('dealsCold'),
     dialsPerZvonar: Math.round(dials / z),
@@ -115,14 +121,17 @@ export interface TmManagerRow {
   calls60: number;
   talkHours: number;
   meetingsSet: number;
+  /** Состоялось — встречи от ТМ, прошедшие по бизнес-процессу (held по создателю). */
+  meetingsHeld: number;
+  /** Явка = состоялось / назначено, %. */
+  heldPct: number | null;
   /** Конверсия дозвон→встреча, %. */
   convDialToMeeting: number | null;
 }
 
 /** Таблица по звонарям, сортировка по наборам. Чистая функция.
- * Намеренно БЕЗ «проведено/явка»: meetings_held атрибутируется ответственному
- * (продавцу), а не создателю-ТМ → для ТМ ≈0 (недостоверно). Явка по ТМ-встречам
- * требует атрибуции исхода на создателя в раннере (fast-follow). */
+ * «Состоялось/явка» — событийная метрика по СОЗДАТЕЛЮ (meetingsHeldByCreator):
+ * встречу назначил ТМ и она прошла по бизнес-процессу, даже если проводил продавец. */
 export function buildTmManagerTable(members: TmMember[]): TmManagerRow[] {
   return members
     .map((m) => ({
@@ -135,6 +144,8 @@ export function buildTmManagerTable(members: TmMember[]): TmManagerRow[] {
       calls60: m.calls60,
       talkHours: Math.round((m.talkSeconds / 3600) * 10) / 10,
       meetingsSet: m.meetingsSet,
+      meetingsHeld: m.meetingsHeldByCreator,
+      heldPct: pct1(m.meetingsHeldByCreator, m.meetingsSet),
       convDialToMeeting: pct1(m.meetingsSet, m.calls60),
     }))
     .sort((a, b) => b.dials - a.dials);
@@ -210,7 +221,8 @@ export interface TmMonthlyInput {
   calls60: number;
   talkSeconds: number;
   meetingsSet: number;
-  meetingsHeld: number;
+  /** Состоялось по создателю-ТМ. */
+  meetingsHeldByCreator: number;
 }
 
 export interface TmMonthlyRow {
@@ -237,7 +249,7 @@ export function buildTmMonthly(rows: TmMonthlyInput[]): TmMonthlyRow[] {
     calls60: r.calls60,
     talkMin: Math.round(r.talkSeconds / 60),
     meetingsSet: r.meetingsSet,
-    meetingsHeld: r.meetingsHeld,
+    meetingsHeld: r.meetingsHeldByCreator,
     conv: pct1(r.meetingsSet, r.calls60),
   }));
 }
@@ -254,7 +266,7 @@ export interface TmMeetingsResult {
 
 export function buildTmMeetingsResult(members: TmMember[]): TmMeetingsResult {
   const set = members.reduce((a, m) => a + m.meetingsSet, 0);
-  const held = members.reduce((a, m) => a + m.meetingsHeld, 0);
+  const held = members.reduce((a, m) => a + m.meetingsHeldByCreator, 0);
   return {
     set,
     held,

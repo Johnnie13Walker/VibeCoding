@@ -106,7 +106,7 @@ export async function getTmDashboardData(
       calls120: sql<number>`coalesce(sum(${managerActivity.calls120sPlus}),0)`,
       talkSeconds: sql<number>`coalesce(sum(${managerActivity.talkSeconds}),0)`,
       meetingsSet: sql<number>`coalesce(sum(${managerActivity.meetingsSet}),0)`,
-      meetingsHeld: sql<number>`coalesce(sum(${managerActivity.meetingsHeld}),0)`,
+      meetingsHeldCreator: sql<number>`coalesce(sum(${managerActivity.meetingsHeldCreator}),0)`,
       dealsCold: sql<number>`coalesce(sum(${managerActivity.dealsColdCount}),0)`,
       messenger: sql<number>`coalesce(sum(${managerActivity.messengerDialogs}),0)`,
       emails: sql<number>`coalesce(sum(${managerActivity.emailsSent}),0)`,
@@ -127,7 +127,7 @@ export async function getTmDashboardData(
       calls120: Number(r.calls120),
       talkSeconds: Number(r.talkSeconds),
       meetingsSet: Number(r.meetingsSet),
-      meetingsHeld: Number(r.meetingsHeld),
+      meetingsHeldByCreator: Number(r.meetingsHeldCreator),
       dealsCold: Number(r.dealsCold),
       messenger: Number(r.messenger),
       emails: Number(r.emails),
@@ -174,7 +174,7 @@ export async function getTmDashboardData(
       calls60: sql<number>`coalesce(sum(${managerActivity.calls60sPlus}),0)`,
       talkSeconds: sql<number>`coalesce(sum(${managerActivity.talkSeconds}),0)`,
       meetingsSet: sql<number>`coalesce(sum(${managerActivity.meetingsSet}),0)`,
-      meetingsHeld: sql<number>`coalesce(sum(${managerActivity.meetingsHeld}),0)`,
+      meetingsHeldCreator: sql<number>`coalesce(sum(${managerActivity.meetingsHeldCreator}),0)`,
     })
     .from(managerActivity)
     .where(and(gte(managerActivity.reportDate, dynStart), eq(managerActivity.managerId, selectedManagerId)))
@@ -190,7 +190,7 @@ export async function getTmDashboardData(
       calls60: r ? Number(r.calls60) : 0,
       talkSeconds: r ? Number(r.talkSeconds) : 0,
       meetingsSet: r ? Number(r.meetingsSet) : 0,
-      meetingsHeld: r ? Number(r.meetingsHeld) : 0,
+      meetingsHeldByCreator: r ? Number(r.meetingsHeldCreator) : 0,
     };
   });
 

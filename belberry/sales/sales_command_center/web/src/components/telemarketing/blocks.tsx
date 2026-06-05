@@ -58,9 +58,9 @@ export function TmKpiGrid({ kpis }: { kpis: TmKpis }) {
       </div>
       <div className="bb-grid bb-grid-4">
         <Mini label="Встреч назначено" value={nf(kpis.meetingsSet)} sub="по создателю (ТМ)" tone="good" />
+        <Mini label="Встреч состоялось" value={nf(kpis.meetingsHeld)} sub="назначены ТМ, прошли по БП" tone="good" />
+        <Mini label="Явка" value={pp(kpis.heldPct)} sub="состоялось / назначено" />
         <Mini label="Конверсия дозвон→встреча" value={pp(kpis.convDialToMeeting)} sub={`${nf(kpis.meetingsSet)} / ${nf(kpis.calls60)} дозвонов`} />
-        <Mini label="Дозвоны 120с+" value={nf(kpis.calls120)} sub={`${nf(kpis.calls60)} дозвонов ≥60с`} />
-        <Mini label="Передано в Продажи" value={nf(kpis.toCold)} sub="холод · cat50 → cat10" />
       </div>
     </div>
   );
@@ -81,6 +81,8 @@ export function TmManagerTable({ rows }: { rows: TmManagerRow[] }) {
             <th style={{ ...head, textAlign: 'right' }}>Дозвон ≥60с</th>
             <th style={{ ...head, textAlign: 'right' }}>Разговор</th>
             <th style={{ ...head, textAlign: 'right' }}>Встреч назн.</th>
+            <th style={{ ...head, textAlign: 'right' }}>Состоялось</th>
+            <th style={{ ...head, textAlign: 'right' }}>Явка</th>
             <th style={{ ...head, textAlign: 'right' }}>Конв. дозв→встр</th>
           </tr>
         </thead>
@@ -101,6 +103,8 @@ export function TmManagerTable({ rows }: { rows: TmManagerRow[] }) {
               <td className="tabular" style={{ ...cell, textAlign: 'right', fontWeight: 700 }}>{nf(r.calls60)}</td>
               <td className="tabular" style={{ ...cell, textAlign: 'right' }}>{r.talkHours} ч</td>
               <td className="tabular" style={{ ...cell, textAlign: 'right', fontWeight: 700 }}>{nf(r.meetingsSet)}</td>
+              <td className="tabular" style={{ ...cell, textAlign: 'right' }}>{nf(r.meetingsHeld)}</td>
+              <td className="tabular" style={{ ...cell, textAlign: 'right' }}>{pp(r.heldPct)}</td>
               <td className="tabular" style={{ ...cell, textAlign: 'right' }}>{convBadge(r.convDialToMeeting)}</td>
             </tr>
           ))}
@@ -155,18 +159,14 @@ export function TmFunnel50View({ stages }: { stages: TmFunnel50Stage[] }) {
 export function TmMeetingsResultView({ result }: { result: TmMeetingsResult }) {
   return (
     <div>
-      <div className="bb-grid bb-grid-2">
+      <div className="bb-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
         <Mini label="Назначено" value={nf(result.set)} sub="по создателю (ТМ)" tone="good" />
-        <Mini label="В Продажи (холод)" value={nf(result.toCold)} sub="cat50 → cat10" />
-      </div>
-      <div style={{ marginTop: 14 }}>
-        <SoonCard
-          title="Проведено и явка по ТМ-встречам"
-          desc="Проведённую встречу засчитывают ответственному (продавцу), не создателю-ТМ — на строке ТМ её нет. Явка по встречам, назначенным ТМ, требует атрибуции исхода на создателя в раннере."
-        />
+        <Mini label="Состоялось" value={nf(result.held)} sub="прошли по бизнес-процессу" tone="good" />
+        <Mini label="Явка" value={pp(result.heldPct)} sub="состоялось / назначено" />
       </div>
       <p style={{ fontSize: 12, color: 'var(--bb-faint)', marginTop: 10 }}>
-        Назначенная встреча засчитывается создателю (ТМ). «В Продажи» = сделка переведена из ТМ-воронки в воронку Продажи (cat10).
+        Событийная логика: встречу назначил ТМ (создатель) и она состоялась по бизнес-процессу (DT1048:SUCCESS) —
+        засчитывается ТМ, даже если проводил продавец. Маркетинговый источник сделки не учитываем (он по первому обращению).
       </p>
     </div>
   );
@@ -195,6 +195,7 @@ export function TmMonthlyView({ rows, name }: { rows: TmMonthlyRow[]; name: stri
               <th style={{ ...head, textAlign: 'right' }}>Дозвон ≥60с</th>
               <th style={{ ...head, textAlign: 'right' }}>Разговор</th>
               <th style={{ ...head, textAlign: 'right' }}>Встреч назн.</th>
+              <th style={{ ...head, textAlign: 'right' }}>Состоялось</th>
               <th style={{ ...head, textAlign: 'right' }}>Конв.</th>
             </tr>
           </thead>
@@ -207,6 +208,7 @@ export function TmMonthlyView({ rows, name }: { rows: TmMonthlyRow[]; name: stri
                 <td className="tabular" style={{ ...cell, textAlign: 'right' }}>{nf(r.calls60)}</td>
                 <td className="tabular" style={{ ...cell, textAlign: 'right' }}>{nf(r.talkMin)} м</td>
                 <td className="tabular" style={{ ...cell, textAlign: 'right', fontWeight: 700 }}>{nf(r.meetingsSet)}</td>
+                <td className="tabular" style={{ ...cell, textAlign: 'right' }}>{nf(r.meetingsHeld)}</td>
                 <td style={{ ...cell, textAlign: 'right' }}>{convBadge(r.conv)}</td>
               </tr>
             ))}

@@ -17,12 +17,12 @@ import {
 const isaeva: TmMember = {
   managerId: 2772, name: 'Дарья Исаева', dept: 'Телемаркетолог',
   dials: 1336, answered: 928, calls60: 370, calls120: 0, talkSeconds: 904 * 60,
-  meetingsSet: 14, meetingsHeld: 12, dealsCold: 0, messenger: 0, emails: 0,
+  meetingsSet: 14, meetingsHeldByCreator: 12, dealsCold: 0, messenger: 0, emails: 0,
 };
 const vostretsov: TmMember = {
   managerId: 2832, name: 'Аркадий Вострецов', dept: 'Телемаркетолог',
   dials: 1220, answered: 692, calls60: 219, calls120: 0, talkSeconds: 637 * 60,
-  meetingsSet: 14, meetingsHeld: 11, dealsCold: 0, messenger: 0, emails: 0,
+  meetingsSet: 14, meetingsHeldByCreator: 11, dealsCold: 0, messenger: 0, emails: 0,
 };
 
 describe('isTelemarketing', () => {
@@ -56,6 +56,8 @@ describe('buildTmKpis', () => {
     expect(k.answered).toBe(1620);
     expect(k.answerPct).toBeCloseTo(63.4, 0); // 1620/2556
     expect(k.convDialToMeeting).toBeCloseTo(4.8, 1); // 28/589
+    expect(k.meetingsHeld).toBe(23); // состоялось по создателю 12+11
+    expect(k.heldPct).toBeCloseTo(82.1, 0); // 23/28
     expect(k.talkHours).toBeCloseTo(25.7, 1);
     expect(k.dialsPerDay).toBe(Math.round(2556 / 19));
   });
@@ -76,6 +78,8 @@ describe('buildTmManagerTable', () => {
     expect(rows[0].convDialToMeeting).toBeCloseTo(3.8, 1); // 14/370
     expect(rows[1].convDialToMeeting).toBeCloseTo(6.4, 1); // 14/219
     expect(rows[0].answerPct).toBeCloseTo(69.5, 0);
+    expect(rows[0].meetingsHeld).toBe(12); // состоялось по создателю
+    expect(rows[0].heldPct).toBeCloseTo(85.7, 0); // 12/14
   });
 });
 
@@ -108,7 +112,7 @@ describe('buildTmFunnel50', () => {
 describe('buildTmMonthly', () => {
   it('добавляет производные answerPct/talkMin/conv', () => {
     const rows = buildTmMonthly([
-      { ym: '2026-05', label: 'май 26', dials: 1336, answered: 928, calls60: 370, talkSeconds: 904 * 60, meetingsSet: 14, meetingsHeld: 12 },
+      { ym: '2026-05', label: 'май 26', dials: 1336, answered: 928, calls60: 370, talkSeconds: 904 * 60, meetingsSet: 14, meetingsHeldByCreator: 12 },
     ]);
     expect(rows[0].talkMin).toBe(904);
     expect(rows[0].conv).toBeCloseTo(3.8, 1);
