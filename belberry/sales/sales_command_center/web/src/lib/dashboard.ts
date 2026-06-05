@@ -84,6 +84,7 @@ export interface DashboardData {
   messaging: Messaging;
   velocity: Velocity;
   monthly: MonthRow[];
+  day2day: Day2Day;
   deltas: { meetings: KpiDelta; dials: KpiDelta; kp: KpiDelta; deals: KpiDelta };
   trend: TrendPoint[];
   health: number;
@@ -619,6 +620,28 @@ export function buildMonthlyDynamics(
   }));
 }
 
+export interface Day2DayRow {
+  date: string;
+  deals: number;
+  meetings: number;
+  kp: number;
+  dials: number;
+}
+
+export interface Day2Day {
+  rows: Day2DayRow[];
+  total: { deals: number; meetings: number; kp: number; dials: number };
+}
+
+/** Day2Day — дневные итоги отдела за месяц + строка «Итого». Чистая функция. */
+export function buildDay2Day(rows: Day2DayRow[]): Day2Day {
+  const total = rows.reduce(
+    (a, r) => ({ deals: a.deals + r.deals, meetings: a.meetings + r.meetings, kp: a.kp + r.kp, dials: a.dials + r.dials }),
+    { deals: 0, meetings: 0, kp: 0, dials: 0 },
+  );
+  return { rows, total };
+}
+
 /** Число рабочих дней (пн-пт) в диапазоне [start, end] включительно. */
 function countWeekdays(start: string, end: string): number {
   const cur = new Date(`${start}T00:00:00Z`);
@@ -721,6 +744,7 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
       messaging: buildMessaging([]),
       velocity: buildVelocity([]),
       monthly: [],
+      day2day: buildDay2Day([]),
       deltas: { meetings: zeroDelta, dials: zeroDelta, kp: zeroDelta, deals: zeroDelta },
       trend: [],
       health: 0,
@@ -1053,6 +1077,31 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
   }
   const monthly = buildMonthlyDynamics(dynMonths, dynActivity, dynMeetings);
 
+  // Day2Day — дневные итоги отдела за текущий месяц.
+  const d2dConds = [gte(managerActivity.reportDate, monthStartDay), lte(managerActivity.reportDate, snapshotDate)];
+  if (salesIds.length) d2dConds.push(inArray(managerActivity.managerId, salesIds));
+  const d2dRows = await db
+    .select({
+      date: managerActivity.reportDate,
+      deals: sql<number>`coalesce(sum(${managerActivity.dealsCreatedCount}),0)`,
+      meetingsHeld: sql<number>`coalesce(sum(${managerActivity.meetingsHeld}),0)`,
+      kp: sql<number>`coalesce(sum(${managerActivity.kpSent}),0)`,
+      dials: sql<number>`coalesce(sum(${managerActivity.dialsTotal}),0)`,
+    })
+    .from(managerActivity)
+    .where(and(...d2dConds))
+    .groupBy(managerActivity.reportDate)
+    .orderBy(managerActivity.reportDate);
+  const day2day = buildDay2Day(
+    d2dRows.map((r) => ({
+      date: String(r.date),
+      deals: Number(r.deals),
+      meetings: Number(r.meetingsHeld),
+      kp: Number(r.kp),
+      dials: Number(r.dials),
+    })),
+  );
+
   // Качество встреч (LLM-разбор) — по разобранным встречам отдела за период.
   const salesIdSet = new Set(salesIds);
   const mqInputs: MeetingQualityInput[] = anRows
@@ -1169,6 +1218,7 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
     messaging,
     velocity,
     monthly,
+    day2day,
     deltas,
     trend,
     health,

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Filter, FileText, TrendingUp, Target, Star, ArrowLeftRight, Users, Phone, Mail, Clock, BarChart3 } from 'lucide-react';
+import { Filter, FileText, TrendingUp, Target, Star, ArrowLeftRight, Users, Phone, Mail, Clock, BarChart3, CalendarDays } from 'lucide-react';
 import { FunnelBars } from '@/components/dashboard/FunnelBars';
 import { SalesFunnel } from '@/components/dashboard/SalesFunnel';
 import { ForecastView } from '@/components/dashboard/Forecast';
@@ -10,6 +10,7 @@ import { TmActivityView } from '@/components/dashboard/TmActivity';
 import { MessagingView } from '@/components/dashboard/Messaging';
 import { VelocityView } from '@/components/dashboard/Velocity';
 import { MonthlyDynamics } from '@/components/dashboard/MonthlyDynamics';
+import { Day2DayView } from '@/components/dashboard/Day2Day';
 import { KpiCard } from '@/components/dashboard/KpiCard';
 import { Gauge } from '@/components/dashboard/Gauge';
 import { getDashboardData } from '@/lib/dashboard';
@@ -148,7 +149,13 @@ export default async function DashboardPage({
         <MonthlyDynamics data={data.monthly} />
       </div>
 
-      {/* Дальше: win rate+источники, Day2Day, план/факт. */}
+      {/* Day2Day — дневные итоги месяца */}
+      <div className="bb-card" style={{ marginBottom: 16 }}>
+        <SectionHead icon={<CalendarDays size={17} />} title="Day2Day" hint={`${data.monthLabel} · по дням`} />
+        <Day2DayView data={data.day2day} />
+      </div>
+
+      {/* Дальше: win rate+источники, план/факт. */}
     </div>
   );
 }

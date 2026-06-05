@@ -14,6 +14,7 @@ import {
   buildMessaging,
   buildVelocity,
   buildMonthlyDynamics,
+  buildDay2Day,
 } from '../dashboard';
 
 describe('buildFunnel', () => {
@@ -304,5 +305,16 @@ describe('buildMonthlyDynamics', () => {
     expect(rows).toHaveLength(2);
     expect(rows[0]).toMatchObject({ label: 'май', first: 7, defense: 5, kp: 0, deals: 0, wonCount: 0 });
     expect(rows[1]).toMatchObject({ label: 'июнь', first: 14, defense: 7, kp: 22, deals: 56, wonAmount: 256000 });
+  });
+});
+
+describe('buildDay2Day', () => {
+  it('считает строку «Итого» по дням', () => {
+    const d = buildDay2Day([
+      { date: '2026-06-01', deals: 3, meetings: 1, kp: 1, dials: 200 },
+      { date: '2026-06-02', deals: 4, meetings: 2, kp: 2, dials: 240 },
+    ]);
+    expect(d.total).toEqual({ deals: 7, meetings: 3, kp: 3, dials: 440 });
+    expect(d.rows).toHaveLength(2);
   });
 });
