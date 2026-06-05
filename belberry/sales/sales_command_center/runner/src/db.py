@@ -46,6 +46,12 @@ def build_upsert_sql(
     )
 
 
+def _strip_nul(value: Any) -> Any:
+    """Убирает NUL-байты из строк (Postgres text их не принимает; бывают в тексте
+    PDF-транскриптов встреч)."""
+    return value.replace("\x00", "") if isinstance(value, str) else value
+
+
 def upsert(
     conn,
     table: str,
@@ -58,7 +64,8 @@ def upsert(
 
     columns = list(rows[0].keys())
     sql_text = build_upsert_sql(table, columns, conflict_cols, update_cols)
-    values = [tuple(row[column] for column in columns) for row in rows]
+    # Postgres text не хранит NUL (0x00) — встречается в тексте из PDF-транскриптов.
+    values = [tuple(_strip_nul(row[column]) for column in columns) for row in rows]
 
     with conn.cursor() as cursor:
         cursor.executemany(sql_text, values)

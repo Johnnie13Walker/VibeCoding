@@ -71,3 +71,12 @@ def test_write_day_uses_upsert_for_reports_and_child_tables():
     assert "ON CONFLICT" in joined
     assert '"report_date", "deal_id"' in joined
     assert 'INSERT INTO "reports"' in joined
+
+
+def test_strip_nul_removes_null_bytes():
+    from src.db import _strip_nul
+
+    assert _strip_nul("привет\x00мир") == "приветмир"
+    assert _strip_nul("чисто") == "чисто"
+    assert _strip_nul(42) == 42
+    assert _strip_nul(None) is None
