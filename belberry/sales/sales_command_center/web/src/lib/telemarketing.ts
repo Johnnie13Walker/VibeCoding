@@ -120,6 +120,7 @@ export async function getTmDashboardData(
     .map((r) => ({
       managerId: r.managerId,
       name: userMap.get(r.managerId)?.name ?? `id ${r.managerId}`,
+      dept: userMap.get(r.managerId)?.dept ?? '',
       dials: Number(r.dials),
       answered: Number(r.answered),
       calls60: Number(r.calls60),
@@ -227,9 +228,16 @@ export async function getTmDashboardData(
     monthly: buildTmMonthly(monthlyInputs),
     microFunnels: members.map((m) => buildTmMicroFunnel(m)),
     planFact: buildTmPlanFact({
-      meetingsSetFact: kpis.meetingsSet,
+      zvonari: members.length,
+      workingDays,
+      meetingsSet: kpis.meetingsSet,
+      dials: kpis.dials,
+      calls120: kpis.calls120,
       meetingsPlanPerTm,
-      tmCount: members.length,
+      // Ориентиры из декомпозиции ОП (на 1 ТМ): уточнить с РОПом.
+      dialsPerDayPlan: 100,
+      calls120PerDayPlan: 25,
+      convPlanPct: 4,
     }),
     outreach: buildTmOutreach(members),
     generatedAt,

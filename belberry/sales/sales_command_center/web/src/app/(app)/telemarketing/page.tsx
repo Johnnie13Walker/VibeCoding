@@ -107,15 +107,6 @@ export default async function TelemarketingPage({
             </div>
           </div>
 
-          {/* Микро-воронка звонка */}
-          <div className="bb-card" style={{ marginBottom: 16 }}>
-            <SectionHead icon={<ListTree size={17} />} title="Микро-воронка звонка — где теряется" hint={`${data.monthLabel} · по звонарю`} />
-            <TmMicroFunnelsView funnels={data.microFunnels} />
-            <div style={{ marginTop: 14 }}>
-              <SoonCard title="Сжигание базы — лидов на встречу" desc="Отвалов на одну назначенную встречу. Нужен сбор отвалов в раннере (C50:APOLOGY)." />
-            </div>
-          </div>
-
           {/* F. Динамика по месяцам + селектор звонаря */}
           <div className="bb-card" style={{ marginBottom: 16 }}>
             <SectionHead
@@ -144,6 +135,21 @@ export default async function TelemarketingPage({
             <TmPlanFactView rows={data.planFact} />
           </div>
 
+          {/* G. Outreach */}
+          <div className="bb-card" style={{ marginBottom: 16 }}>
+            <SectionHead icon={<Mail size={17} />} title="Outreach — другие касания" hint={data.monthLabel} />
+            <TmOutreachView outreach={data.outreach} />
+          </div>
+
+          {/* Микро-воронка звонка */}
+          <div className="bb-card" style={{ marginBottom: 16 }}>
+            <SectionHead icon={<ListTree size={17} />} title="Микро-воронка звонка — где теряется" hint={`${data.monthLabel} · по звонарю`} />
+            <TmMicroFunnelsView funnels={data.microFunnels} />
+            <div style={{ marginTop: 14 }}>
+              <SoonCard title="Сжигание базы — лидов на встречу" desc="Отвалов на одну назначенную встречу. Нужен сбор отвалов в раннере (C50:APOLOGY)." />
+            </div>
+          </div>
+
           {/* Fast-follow блоки */}
           <div className="bb-card" style={{ marginBottom: 16 }}>
             <SectionHead icon={<Sparkles size={17} />} title="Качество встреч от ТМ" hint="из LLM-разбора" />
@@ -156,12 +162,6 @@ export default async function TelemarketingPage({
           <div className="bb-card" style={{ marginBottom: 16 }}>
             <SectionHead icon={<Clock size={17} />} title="Когда дозваниваются + сигналы" hint="по часам/дням" />
             <SoonCard title="Тепловая карта времени дозвона + ТМ-алерты" desc="Когда лучше берут трубку (таймстампы Voximplant) + авто-сигналы просадки конверсии и роста отвалов." />
-          </div>
-
-          {/* G. Outreach */}
-          <div className="bb-card" style={{ marginBottom: 16 }}>
-            <SectionHead icon={<Mail size={17} />} title="Outreach — другие касания" hint={data.monthLabel} />
-            <TmOutreachView outreach={data.outreach} />
           </div>
 
           <p style={{ fontSize: 12, color: 'var(--bb-faint)', marginTop: 24 }}>

@@ -15,12 +15,12 @@ import {
 
 // Реальные числа из отчёта ТМ (май 2026) — фиксируем расчёт на достоверных данных.
 const isaeva: TmMember = {
-  managerId: 2772, name: 'Дарья Исаева',
+  managerId: 2772, name: 'Дарья Исаева', dept: 'Телемаркетолог',
   dials: 1336, answered: 928, calls60: 370, calls120: 0, talkSeconds: 904 * 60,
   meetingsSet: 14, meetingsHeld: 12, dealsCold: 0, messenger: 0, emails: 0,
 };
 const vostretsov: TmMember = {
-  managerId: 2832, name: 'Аркадий Вострецов',
+  managerId: 2832, name: 'Аркадий Вострецов', dept: 'Телемаркетолог',
   dials: 1220, answered: 692, calls60: 219, calls120: 0, talkSeconds: 637 * 60,
   meetingsSet: 14, meetingsHeld: 11, dealsCold: 0, messenger: 0, emails: 0,
 };
@@ -69,12 +69,15 @@ describe('buildTmKpis', () => {
 });
 
 describe('buildTmManagerTable', () => {
-  it('сортирует по наборам и считает % дозвона/конверсию', () => {
+  it('сортирует по наборам, считает % дозвона/конверсию/явку и несёт должность', () => {
     const rows = buildTmManagerTable([vostretsov, isaeva]);
     expect(rows[0].name).toBe('Дарья Исаева'); // 1336 > 1220
+    expect(rows[0].dept).toBe('Телемаркетолог');
     expect(rows[0].convDialToMeeting).toBeCloseTo(3.8, 1); // 14/370
     expect(rows[1].convDialToMeeting).toBeCloseTo(6.4, 1); // 14/219
     expect(rows[0].answerPct).toBeCloseTo(69.5, 0);
+    expect(rows[0].heldPct).toBeCloseTo(85.7, 0); // 12/14
+    expect(rows[1].heldPct).toBeCloseTo(78.6, 0); // 11/14
   });
 });
 
@@ -126,25 +129,39 @@ describe('buildTmMeetingsResult', () => {
 });
 
 describe('buildTmPlanFact', () => {
-  it('строит план встреч на всех ТМ и % выполнения', () => {
-    const rows = buildTmPlanFact({ meetingsSetFact: 28, meetingsPlanPerTm: 20, tmCount: 2 });
-    expect(rows).toHaveLength(1);
-    expect(rows[0].plan).toBe(40); // 20 × 2
-    expect(rows[0].pct).toBe(70); // 28/40
+  const input = {
+    zvonari: 2, workingDays: 19, meetingsSet: 28, dials: 2556, calls120: 0,
+    meetingsPlanPerTm: 20, dialsPerDayPlan: 100, calls120PerDayPlan: 25, convPlanPct: 4,
+  };
+  it('строит 4 строки план/факт на 1 звонаря', () => {
+    const rows = buildTmPlanFact(input);
+    expect(rows).toHaveLength(4);
+    const meet = rows.find((r) => r.label === 'Встречи назначено')!;
+    expect(meet.fact).toBe(14); // 28/2
+    expect(meet.plan).toBe(20);
+    expect(meet.pct).toBe(70);
+    const dpd = rows.find((r) => r.label === 'Наборов в день')!;
+    expect(dpd.fact).toBe(Math.round(2556 / 2 / 19)); // 67
+    const conv = rows.find((r) => r.label === 'Конверсия наборы→встречу')!;
+    expect(conv.isPercent).toBe(true);
+    expect(conv.fact).toBeCloseTo(1.1, 1); // 28/2556
   });
-  it('пустой результат без плана', () => {
-    expect(buildTmPlanFact({ meetingsSetFact: 28, meetingsPlanPerTm: 0, tmCount: 2 })).toHaveLength(0);
+  it('опускает строки без плана', () => {
+    expect(
+      buildTmPlanFact({ ...input, meetingsPlanPerTm: 0, dialsPerDayPlan: 0, calls120PerDayPlan: 0, convPlanPct: 0 }),
+    ).toHaveLength(0);
   });
 });
 
 describe('buildTmOutreach', () => {
-  it('суммирует и отбрасывает нулевые строки', () => {
+  it('суммирует, отбрасывает нулевые строки и считает касаний на встречу', () => {
     const o = buildTmOutreach([
-      { ...isaeva, messenger: 10, emails: 4 },
-      { ...vostretsov, messenger: 0, emails: 0 },
+      { ...isaeva, messenger: 10, emails: 4 }, // meetingsSet 14
+      { ...vostretsov, messenger: 0, emails: 0 }, // meetingsSet 14
     ]);
     expect(o.messengerTotal).toBe(10);
     expect(o.emailTotal).toBe(4);
     expect(o.rows).toHaveLength(1);
+    expect(o.perMeeting).toBeCloseTo(0.5, 1); // (10+4)/28
   });
 });

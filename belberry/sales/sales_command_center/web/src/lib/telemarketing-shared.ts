@@ -34,6 +34,8 @@ export function isTelemarketing(dept: string | null | undefined): boolean {
 export interface TmMember {
   managerId: number;
   name: string;
+  /** Должность из справочника (для подписи в таблице). */
+  dept: string;
   dials: number;
   answered: number;
   calls60: number;
@@ -106,6 +108,7 @@ export function buildTmKpis(members: TmMember[], workingDays: number): TmKpis {
 export interface TmManagerRow {
   managerId: number;
   name: string;
+  dept: string;
   dials: number;
   answered: number;
   answerPct: number | null;
@@ -115,6 +118,8 @@ export interface TmManagerRow {
   meetingsHeld: number;
   /** Конверсия дозвон→встреча, %. */
   convDialToMeeting: number | null;
+  /** Явка = проведено / назначено, %. */
+  heldPct: number | null;
 }
 
 /** Таблица по звонарям, сортировка по наборам. Чистая функция. */
@@ -123,6 +128,7 @@ export function buildTmManagerTable(members: TmMember[]): TmManagerRow[] {
     .map((m) => ({
       managerId: m.managerId,
       name: m.name,
+      dept: m.dept,
       dials: m.dials,
       answered: m.answered,
       answerPct: pct1(m.answered, m.dials),
@@ -131,6 +137,7 @@ export function buildTmManagerTable(members: TmMember[]): TmManagerRow[] {
       meetingsSet: m.meetingsSet,
       meetingsHeld: m.meetingsHeld,
       convDialToMeeting: pct1(m.meetingsSet, m.calls60),
+      heldPct: pct1(m.meetingsHeld, m.meetingsSet),
     }))
     .sort((a, b) => b.dials - a.dials);
 }
@@ -266,28 +273,45 @@ export interface TmPlanFactRow {
   plan: number;
   /** Выполнение, %. */
   pct: number;
-  /** Единица для подписи (например, «встреч/ТМ»). */
+  /** Подпись-уточнение (источник плана / оговорка). */
   unit?: string;
+  /** Значения в процентах (для форматирования «X%»). */
+  isPercent?: boolean;
 }
 
 export interface TmPlanFactInput {
-  meetingsSetFact: number;
+  zvonari: number;
+  workingDays: number;
+  meetingsSet: number;
+  dials: number;
+  calls120: number;
+  /** План встреч на 1 ТМ/мес (из таблицы plans, дефолт 20). */
   meetingsPlanPerTm: number;
-  tmCount: number;
+  /** Ориентиры из декомпозиции ОП (на 1 ТМ): наборов/день, звонков 120с+/день, конверсия наборы→встречу %. */
+  dialsPerDayPlan: number;
+  calls120PerDayPlan: number;
+  convPlanPct: number;
 }
 
-/** План/факт ТМ. Сейчас — встречи (план из «Плана оплат»). Чистая функция. */
+/** План/факт ТМ на 1 звонаря: встречи (из «Плана оплат») + ориентиры обзвона. Чистая функция. */
 export function buildTmPlanFact(i: TmPlanFactInput): TmPlanFactRow[] {
-  const planMeetings = i.meetingsPlanPerTm * Math.max(1, i.tmCount);
+  const z = Math.max(1, i.zvonari);
+  const wd = Math.max(1, i.workingDays);
   const rows: TmPlanFactRow[] = [];
+  const row = (label: string, fact: number, plan: number, unit?: string, isPercent?: boolean) => {
+    rows.push({ label, fact, plan, pct: plan > 0 ? Math.round((fact / plan) * 100) : 0, unit, isPercent });
+  };
   if (i.meetingsPlanPerTm > 0) {
-    rows.push({
-      label: 'Встречи назначено',
-      fact: i.meetingsSetFact,
-      plan: planMeetings,
-      pct: planMeetings > 0 ? Math.round((i.meetingsSetFact / planMeetings) * 100) : 0,
-      unit: `план ${i.meetingsPlanPerTm}/ТМ × ${Math.max(1, i.tmCount)}`,
-    });
+    row('Встречи назначено', Math.round(i.meetingsSet / z), i.meetingsPlanPerTm, 'на 1 ТМ · из «Плана оплат»');
+  }
+  if (i.dialsPerDayPlan > 0) {
+    row('Наборов в день', Math.round(i.dials / z / wd), i.dialsPerDayPlan, 'на 1 ТМ · ориентир, уточнить');
+  }
+  if (i.calls120PerDayPlan > 0) {
+    row('Звонки 120с+ в день', Math.round(i.calls120 / z / wd), i.calls120PerDayPlan, 'на 1 ТМ · ориентир, уточнить');
+  }
+  if (i.convPlanPct > 0) {
+    row('Конверсия наборы→встречу', pct1(i.meetingsSet, i.dials) ?? 0, i.convPlanPct, 'ориентир 3,5–4,2%', true);
   }
   return rows;
 }
@@ -304,18 +328,24 @@ export interface TmOutreachRow {
 export interface TmOutreach {
   messengerTotal: number;
   emailTotal: number;
+  /** Доп. касаний (мессенджер+почта) на одну назначенную встречу. */
+  perMeeting: number | null;
   rows: TmOutreachRow[];
 }
 
-/** Мессенджер/почта по звонарям. Чистая функция. */
+/** Мессенджер/почта по звонарям + касаний на встречу. Чистая функция. */
 export function buildTmOutreach(members: TmMember[]): TmOutreach {
   const rows = members
     .map((m) => ({ managerId: m.managerId, name: m.name, messenger: m.messenger, emails: m.emails }))
     .filter((r) => r.messenger > 0 || r.emails > 0)
     .sort((a, b) => b.messenger - a.messenger || b.emails - a.emails);
+  const messengerTotal = rows.reduce((a, r) => a + r.messenger, 0);
+  const emailTotal = rows.reduce((a, r) => a + r.emails, 0);
+  const meetingsSet = members.reduce((a, m) => a + m.meetingsSet, 0);
   return {
-    messengerTotal: rows.reduce((a, r) => a + r.messenger, 0),
-    emailTotal: rows.reduce((a, r) => a + r.emails, 0),
+    messengerTotal,
+    emailTotal,
+    perMeeting: meetingsSet > 0 ? Math.round(((messengerTotal + emailTotal) / meetingsSet) * 10) / 10 : null,
     rows,
   };
 }
