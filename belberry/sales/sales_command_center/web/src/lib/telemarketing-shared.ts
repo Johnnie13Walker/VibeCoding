@@ -442,6 +442,65 @@ export function buildTmRejections(inputs: RejectionInput[]): TmRejections[] {
     .sort((a, b) => b.total - a.total);
 }
 
+// ───────────────────── Heatmap времени дозвона ─────────────────────
+
+export interface HeatInput {
+  dow: number; // 0=Вс..6=Сб (Postgres extract(dow))
+  hour: number;
+  dials: number;
+  calls60: number;
+}
+
+export interface HeatCell {
+  hour: number;
+  dials: number;
+  calls60: number;
+  /** % дозвона ≥60с в этой ячейке. */
+  pct: number | null;
+}
+
+export interface HeatRow {
+  dow: number;
+  label: string;
+  cells: HeatCell[];
+}
+
+export interface TmHeatmap {
+  hours: number[];
+  rows: HeatRow[];
+  /** Максимальный % по сетке (для нормировки цвета). */
+  maxPct: number;
+}
+
+const DOW_RU: Record<number, string> = { 1: 'Пн', 2: 'Вт', 3: 'Ср', 4: 'Чт', 5: 'Пт' };
+
+/** Heatmap «когда берут трубку»: час × день недели (Пн–Пт), % дозвона ≥60с.
+ * Чистая функция. */
+export function buildTmHeatmap(inputs: HeatInput[]): TmHeatmap {
+  const work = inputs.filter((i) => i.dow >= 1 && i.dow <= 5 && i.hour >= 0 && i.hour <= 23);
+  const hours = [...new Set(work.map((i) => i.hour))].sort((a, b) => a - b);
+  const byKey = new Map<string, { dials: number; calls60: number }>();
+  for (const i of work) {
+    const k = `${i.dow}:${i.hour}`;
+    const e = byKey.get(k) ?? { dials: 0, calls60: 0 };
+    e.dials += i.dials;
+    e.calls60 += i.calls60;
+    byKey.set(k, e);
+  }
+  let maxPct = 0;
+  const rows: HeatRow[] = [1, 2, 3, 4, 5].map((dow) => ({
+    dow,
+    label: DOW_RU[dow],
+    cells: hours.map((hour) => {
+      const e = byKey.get(`${dow}:${hour}`) ?? { dials: 0, calls60: 0 };
+      const pct = e.dials > 0 ? Math.round((e.calls60 / e.dials) * 100) : null;
+      if (pct != null && pct > maxPct) maxPct = pct;
+      return { hour, dials: e.dials, calls60: e.calls60, pct };
+    }),
+  }));
+  return { hours, rows, maxPct: Math.max(1, maxPct) };
+}
+
 // ───────────────────── Композит для страницы ─────────────────────
 
 export interface TmManagerOption {
@@ -467,5 +526,7 @@ export interface TmDashboardData {
   outreach: TmOutreach;
   /** Причины отвала по звонарям (накопленно, личные закрытия). */
   rejections: TmRejections[];
+  /** Heatmap времени дозвона (час × день недели). */
+  heatmap: TmHeatmap;
   generatedAt: string | null;
 }

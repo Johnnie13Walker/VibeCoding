@@ -215,6 +215,22 @@ export const plans = pgTable(
   ],
 );
 
+export const callHourly = pgTable(
+  'call_hourly',
+  {
+    reportDate: date('report_date').notNull(),
+    managerId: integer('manager_id').notNull(),
+    hour: smallint('hour').notNull(),
+    dials: integer('dials').default(0),
+    answered: integer('answered').default(0),
+    calls60: integer('calls60').default(0),
+  },
+  (table) => [
+    unique('call_hourly_report_date_manager_id_hour_unique').on(table.reportDate, table.managerId, table.hour),
+    index('call_hourly_manager_date_idx').on(table.managerId, table.reportDate),
+  ],
+);
+
 export const dealRejections = pgTable(
   'deal_rejections',
   {

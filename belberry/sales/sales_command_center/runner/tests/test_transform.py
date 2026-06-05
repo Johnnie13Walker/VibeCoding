@@ -107,12 +107,27 @@ def test_aggregate_calls_and_manager_name_from_fixture():
     assert manager_name(raw["users"], "2832") == "Вострецов Аркадий"
 
 
+def test_aggregate_calls_hourly_buckets_by_msk_hour():
+    from src.transform import aggregate_calls_hourly
+
+    calls = [
+        {"PORTAL_USER_ID": "2832", "CALL_DURATION": "19", "CALL_START_DATE": "2026-05-29T09:06:56+03:00"},
+        {"PORTAL_USER_ID": "2832", "CALL_DURATION": "75", "CALL_START_DATE": "2026-05-29T09:30:00+03:00"},
+        {"PORTAL_USER_ID": "2772", "CALL_DURATION": "0", "CALL_START_DATE": "2026-05-29T18:10:00+03:00"},
+        {"PORTAL_USER_ID": None, "CALL_DURATION": "30", "CALL_START_DATE": "2026-05-29T10:00:00+03:00"},
+    ]
+    r = aggregate_calls_hourly(calls)
+    assert r[(2832, 9)] == {"dials": 2, "answered": 2, "calls60": 1}
+    assert r[(2772, 18)] == {"dials": 1}  # не ответили (duration 0)
+    assert (None, 10) not in r  # без PORTAL_USER_ID — пропуск
+
+
 def test_build_db_rows_matches_phase_one_schema_keys():
     raw = load_raw()
 
     rows = build_db_rows(raw, date(2026, 5, 29), NOW)
 
-    assert set(rows) == {"deals_snapshot", "meetings", "manager_activity", "kp_briefs"}
+    assert set(rows) == {"deals_snapshot", "meetings", "manager_activity", "kp_briefs", "call_hourly"}
     assert len(rows["deals_snapshot"]) > 0
     assert set(rows["deals_snapshot"][0]) == {
         "report_date",

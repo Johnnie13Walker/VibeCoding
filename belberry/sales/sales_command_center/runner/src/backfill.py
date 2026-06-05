@@ -25,6 +25,7 @@ _FLOW_TABLES = [
     ("manager_activity", ["report_date", "manager_id"]),
     ("meetings", ["report_date", "meeting_id"]),
     ("kp_briefs", ["report_date", "item_id", "item_type"]),
+    ("call_hourly", ["report_date", "manager_id", "hour"]),
 ]
 
 # Колонки meetings, которые backfill НЕ должен затирать (их наполняет боевой
@@ -33,7 +34,7 @@ _MEETINGS_PRESERVE = {"analysis_json", "transcript_url", "transcript_text", "tra
 
 # Таблицы без ценных данных — чистим за день перед вставкой, чтобы не оставались
 # строки менеджеров, выпавших при смене логики (остаточные строки).
-_REBUILD_TABLES = ("manager_activity", "kp_briefs")
+_REBUILD_TABLES = ("manager_activity", "kp_briefs", "call_hourly")
 
 
 def _is_workday(d: date) -> bool:

@@ -2,8 +2,8 @@ import 'server-only';
 
 import { and, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 import { db } from '@/db';
-import { dealRejections, dealsSnapshot, managerActivity, meetings, plans, reports, users } from '@/db/schema';
-import { buildTmRejections, type RejectionInput } from './telemarketing-shared';
+import { callHourly, dealRejections, dealsSnapshot, managerActivity, meetings, plans, reports, users } from '@/db/schema';
+import { buildTmHeatmap, buildTmRejections, type HeatInput, type RejectionInput } from './telemarketing-shared';
 
 /** Стадия состоявшейся встречи (SP 1048). */
 const MEETING_HELD_STAGE = 'DT1048_24:SUCCESS';
@@ -83,6 +83,7 @@ function emptyData(): TmDashboardData {
     planFact: [],
     outreach: buildTmOutreach([]),
     rejections: [],
+    heatmap: buildTmHeatmap([]),
     generatedAt: null,
   };
 }
@@ -309,6 +310,23 @@ export async function getTmDashboardData(
   const monthlyPlanPerTm = planRows[0] ? Number(planRows[0].target) : 20;
   const meetingsPlanPerTm = range === 'week' ? Math.max(1, Math.round(monthlyPlanPerTm / 4)) : monthlyPlanPerTm;
 
+  // Heatmap «когда берут трубку»: час × день недели по ТМ за окно динамики (стабильный
+  // паттерн). dow = extract(dow): 0=Вс..6=Сб.
+  const dowExpr = sql<number>`extract(dow from ${callHourly.reportDate})::int`;
+  const heatRows = await db
+    .select({
+      dow: dowExpr,
+      hour: callHourly.hour,
+      dials: sql<number>`coalesce(sum(${callHourly.dials}),0)`,
+      calls60: sql<number>`coalesce(sum(${callHourly.calls60}),0)`,
+    })
+    .from(callHourly)
+    .where(and(inArray(callHourly.managerId, tmIds), gte(callHourly.reportDate, dynStart)))
+    .groupBy(dowExpr, callHourly.hour);
+  const heatmap = buildTmHeatmap(
+    heatRows.map<HeatInput>((r) => ({ dow: Number(r.dow), hour: Number(r.hour), dials: Number(r.dials), calls60: Number(r.calls60) })),
+  );
+
   const kpis = buildTmKpis(members, workingDays);
 
   // Свежесть отчёта.
@@ -347,6 +365,7 @@ export async function getTmDashboardData(
     }),
     outreach: buildTmOutreach(members),
     rejections,
+    heatmap,
     generatedAt,
   };
 }

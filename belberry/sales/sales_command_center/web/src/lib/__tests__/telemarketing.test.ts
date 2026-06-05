@@ -11,6 +11,7 @@ import {
   buildTmPlanFact,
   buildTmOutreach,
   buildTmRejections,
+  buildTmHeatmap,
   type TmMember,
 } from '@/lib/telemarketing-shared';
 
@@ -172,6 +173,26 @@ describe('buildTmRejections', () => {
     expect(darya.reasons[0].label).toBe('Все устраивает');
     expect(darya.reasons[0].pct).toBe(Math.round((127 / 234) * 100));
     expect(darya.reasons.find((b) => b.reasonId === null)!.label).toBe('(не указана)');
+  });
+});
+
+describe('buildTmHeatmap', () => {
+  it('строит сетку Пн–Пт × часы, считает % дозвона и игнорирует выходные', () => {
+    const h = buildTmHeatmap([
+      { dow: 1, hour: 9, dials: 10, calls60: 4 }, // Пн 9:00 → 40%
+      { dow: 1, hour: 13, dials: 10, calls60: 1 }, // Пн 13:00 → 10%
+      { dow: 5, hour: 9, dials: 5, calls60: 3 }, // Пт 9:00 → 60%
+      { dow: 0, hour: 9, dials: 99, calls60: 99 }, // Вс — игнор
+    ]);
+    expect(h.hours).toEqual([9, 13]);
+    expect(h.rows).toHaveLength(5); // Пн–Пт
+    const mon = h.rows.find((r) => r.dow === 1)!;
+    expect(mon.label).toBe('Пн');
+    expect(mon.cells.find((c) => c.hour === 9)!.pct).toBe(40);
+    expect(mon.cells.find((c) => c.hour === 13)!.pct).toBe(10);
+    expect(h.maxPct).toBe(60); // Пт 9:00
+    const wed = h.rows.find((r) => r.dow === 3)!; // нет данных
+    expect(wed.cells.every((c) => c.pct === null)).toBe(true);
   });
 });
 
