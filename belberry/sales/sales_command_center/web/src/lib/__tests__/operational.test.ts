@@ -85,14 +85,13 @@ describe('buildOperationalMatrix', () => {
     expect(m.deptAvgByDay).toEqual([null, null]);
   });
 
-  it('скрывает неработавших и неактивных, не занижая среднее', () => {
+  it('скрывает только непроработавших; уволенных показывает (история общая)', () => {
     const worker = member(1, 'Рабочий', false, [{ date: '2026-05-26', meetings: 3, emails: 4 }]); // 6.7
     const idle = member(2, 'Простой', false, [{ date: '2026-05-26', emails: 1 }]); // 5 мин → 0.2 < порога
-    const fired = member(3, 'Уволенный', false, [{ date: '2026-05-26', meetings: 5 }], false); // 10, но isActive=false
+    const fired = member(3, 'Уволенный', false, [{ date: '2026-05-26', meetings: 5 }], false); // 10, isActive=false — но работал
     const m = buildOperationalMatrix(days, [worker, idle, fired]);
 
-    expect(m.rows.map((r) => r.name)).toEqual(['Рабочий']); // только реально работавший действующий
-    expect(m.countOp).toBe(1);
-    expect(m.avgScore).toBe(6.7); // нули простоя не тянут среднее вниз
+    expect(m.rows.map((r) => r.name)).toEqual(['Уволенный', 'Рабочий']); // по avg ↓; простой скрыт порогом
+    expect(m.countOp).toBe(2);
   });
 });

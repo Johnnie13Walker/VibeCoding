@@ -79,15 +79,16 @@ export interface OperMemberInput {
   name: string;
   role: string;
   isTm: boolean;
-  isActive: boolean; // действующий сотрудник (is_active в Bitrix)
+  isActive?: boolean; // действующий (is_active) — не используется (история общая)
   byDate: Map<string, OperDayInput>; // активность сотрудника по дням окна
 }
 
-// Сотрудник попадает в блок, только если он действующий (is_active) И реально
-// работал в периоде — хотя бы один день с заметной операционной загрузкой
-// (Опер ≥ этого порога ≈ 30 живых минут). Так уходят уволенные, отпускники и
-// простаивающие — и не занижают среднее по отделу нулями.
-const ACTIVE_MIN_SCORE = 1.0;
+// Сотрудник попадает в блок, если реально работал в периоде — хотя бы один день
+// с заметной операционной загрузкой (Опер ≥ порога ≈ 30 живых минут). По принципу
+// «история общая» фильтр по is_active НЕ применяем: за прошлые месяцы показываем
+// всех, кто работал тогда, включая уволенных. Порог лишь отсекает простой/нули,
+// чтобы они не занижали среднее по отделу.
+const WORKED_MIN_SCORE = 1.0;
 
 /** Чистая сборка матрицы из подготовленных по-дневных входов (без БД — тестируемо). */
 export function buildOperationalMatrix(days: string[], members: OperMemberInput[]): OperationalMatrix {
@@ -110,12 +111,10 @@ export function buildOperationalMatrix(days: string[], members: OperMemberInput[
   };
 
   const byAvg = (a: OperationalRow, b: OperationalRow) => (b.avg ?? -1) - (a.avg ?? -1) || a.name.localeCompare(b.name, 'ru');
-  // Только действующие и реально работавшие в периоде (см. ACTIVE_MIN_SCORE).
-  const worked = (m: OperMemberInput, row: OperationalRow) =>
-    m.isActive && row.scores.some((s) => s != null && s >= ACTIVE_MIN_SCORE);
-  const prep = (m: OperMemberInput) => ({ m, row: mk(m) });
-  const op = members.filter((m) => !m.isTm).map(prep).filter(({ m, row }) => worked(m, row)).map(({ row }) => row).sort(byAvg);
-  const tm = members.filter((m) => m.isTm).map(prep).filter(({ m, row }) => worked(m, row)).map(({ row }) => row).sort(byAvg);
+  // Реально работал в периоде (≥1 день с заметной загрузкой). Без фильтра is_active.
+  const worked = (row: OperationalRow) => row.scores.some((s) => s != null && s >= WORKED_MIN_SCORE);
+  const op = members.filter((m) => !m.isTm).map(mk).filter(worked).sort(byAvg);
+  const tm = members.filter((m) => m.isTm).map(mk).filter(worked).sort(byAvg);
   const rows = [...op, ...tm];
 
   const deptAvgByDay = days.map((_, i) => {

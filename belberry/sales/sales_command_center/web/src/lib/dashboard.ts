@@ -1153,8 +1153,9 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
   }
   const dynStart = `${dynMonths[0].ym}-01`;
   const ymActExpr = sql<string>`to_char(${managerActivity.reportDate}, 'YYYY-MM')`;
-  const dynActConds = [gte(managerActivity.reportDate, dynStart)];
-  if (salesIds.length) dynActConds.push(inArray(managerActivity.managerId, salesIds));
+  // Помесячная динамика — историческая: по ВСЕМ сотрудникам (вкл. уволенных, кто
+  // работал тогда). НЕ фильтруем по текущему составу salesIds — иначе работа
+  // уволенных выпадает из прошлых месяцев и цифры занижаются.
   const dynActRows = await db
     .select({
       ym: ymActExpr,
@@ -1164,19 +1165,18 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
       wonAmount: sql<number>`coalesce(sum(${managerActivity.dealsWonAmount}),0)`,
     })
     .from(managerActivity)
-    .where(and(...dynActConds))
+    .where(gte(managerActivity.reportDate, dynStart))
     .groupBy(ymActExpr);
   const dynActivity: Record<string, { kp: number; deals: number; wonCount: number; wonAmount: number }> = {};
   for (const r of dynActRows)
     dynActivity[r.ym] = { kp: Number(r.kp), deals: Number(r.deals), wonCount: Number(r.wonCount), wonAmount: Number(r.wonAmount) };
 
   const ymMeetExpr = sql<string>`to_char(${meetings.reportDate}, 'YYYY-MM')`;
-  const dynMeetConds = [gte(meetings.reportDate, dynStart)];
-  if (salesIds.length) dynMeetConds.push(inArray(meetings.managerId, salesIds));
+  // Тоже историческая — по всем встречам, без фильтра текущего состава.
   const dynMeetRows = await db
     .select({ ym: ymMeetExpr, type: meetings.meetingType, n: sql<number>`count(*)` })
     .from(meetings)
-    .where(and(...dynMeetConds))
+    .where(gte(meetings.reportDate, dynStart))
     .groupBy(ymMeetExpr, meetings.meetingType);
   const dynMeetings: Record<string, { first: number; defense: number }> = {};
   for (const r of dynMeetRows) {
