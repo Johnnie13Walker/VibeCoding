@@ -11,6 +11,8 @@ import type {
   TmPlanFactRow,
   TmRejections,
   TmHeatmap,
+  TmMeetingQuality,
+  TmAlert,
 } from '@/lib/telemarketing-shared';
 
 const nf = (n: number): string => n.toLocaleString('ru-RU');
@@ -432,6 +434,61 @@ export function TmHeatmapView({ heatmap }: { heatmap: TmHeatmap }) {
       <p style={{ fontSize: 12, color: 'var(--bb-faint)', marginTop: 10 }}>
         % дозвона ≥60с по часам (МСК) и дням недели за последние месяцы. Зеленее — лучше берут трубку. Дозвон = разговор ≥60 секунд.
       </p>
+    </div>
+  );
+}
+
+// ───────────────── Качество встреч ТМ (из разбора) ─────────────────
+
+export function TmMeetingQualityView({ quality }: { quality: TmMeetingQuality }) {
+  if (quality.total === 0) {
+    return <p style={{ color: 'var(--bb-muted)' }}>Нет разобранных встреч, назначенных ТМ, за период.</p>;
+  }
+  return (
+    <div>
+      <div style={{ fontSize: 13, color: 'var(--bb-muted)', marginBottom: 8 }}>
+        {nf(quality.total)} разобранных встреч от ТМ (из разбора на «Анализе встреч»):
+      </div>
+      <div style={{ height: 28, borderRadius: 9, overflow: 'hidden', display: 'flex' }}>
+        {quality.rich > 0 ? <div style={{ flex: quality.rich, background: 'linear-gradient(90deg,#3a9c63,#2c7a4a)', color: '#fff', display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 700 }}>содержательные {quality.richPct}%</div> : null}
+        {quality.weak > 0 ? <div style={{ flex: quality.weak, background: 'var(--bb-amber)', color: '#fff', display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 700 }}>слабые {quality.weakPct}%</div> : null}
+        {quality.empty > 0 ? <div style={{ flex: quality.empty, background: '#c9c5d2', color: '#fff', display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 700 }}>пустые {quality.emptyPct}%</div> : null}
+      </div>
+      <div className="bb-grid bb-grid-4" style={{ marginTop: 14 }}>
+        <Mini label="Содержательные" value={`${quality.richPct}%`} sub="балл ≥7" tone="good" />
+        <Mini label="Пустые" value={nf(quality.empty)} sub="балл <4 · разобрать с РОПом" tone="warn" />
+        <Mini label="Со след. шагом" value={quality.nextStepPct != null ? `${quality.nextStepPct}%` : '—'} />
+        <Mini label="Разобрано" value={nf(quality.total)} sub={quality.byManager.map((m) => `${m.name.split(' ')[0]} ${m.richPct}%`).join(' · ')} />
+      </div>
+      <p style={{ fontSize: 12, color: 'var(--bb-faint)', marginTop: 10 }}>
+        «Пустая» = встреча с низким баллом разбора (без выявленной потребности/бюджета/след. шага). Балл — из готового разбора на странице «Анализ встреч».
+      </p>
+    </div>
+  );
+}
+
+// ───────────────────────── ТМ-алерты ─────────────────────────
+
+export function TmAlertsView({ alerts }: { alerts: TmAlert[] }) {
+  if (alerts.length === 0) {
+    return <p style={{ color: 'var(--bb-muted)' }}>Сигналов нет — конверсия и явка в норме.</p>;
+  }
+  const tone = (l: TmAlert['level']) =>
+    l === 'red' ? { bg: '#fdeaec', c: 'var(--bb-red)' } : l === 'green' ? { bg: '#e9f5ee', c: 'var(--bb-green)' } : { bg: '#fdf1e6', c: '#b56a1d' };
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {alerts.map((a, i) => {
+        const t = tone(a.level);
+        return (
+          <div key={i} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', padding: '12px 14px', borderRadius: 12, border: '1px solid var(--bb-line)', background: '#fff' }}>
+            <div style={{ width: 30, height: 30, borderRadius: 9, display: 'grid', placeItems: 'center', flex: '0 0 30px', background: t.bg, color: t.c, fontSize: 15 }}>{a.icon}</div>
+            <div>
+              <b style={{ fontSize: 13.5 }}>{a.title}</b>
+              <p style={{ margin: '2px 0 0', fontSize: 12.5, color: 'var(--bb-muted)' }}>{a.text}</p>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
