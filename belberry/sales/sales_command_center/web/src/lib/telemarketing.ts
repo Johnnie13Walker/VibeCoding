@@ -14,8 +14,9 @@ import {
   type TmQualityInput,
 } from './telemarketing-shared';
 
-/** Стадия состоявшейся встречи (SP 1048). */
-const MEETING_HELD_STAGE = 'DT1048_24:SUCCESS';
+/** Стадия состоявшейся встречи (SP 1048). Единый источник для событийного слоя
+ *  встреч (telemarketing.ts + dashboard.ts), зеркало MEETING_HELD_STAGE в collect.py. */
+export const MEETING_HELD_STAGE = 'DT1048_24:SUCCESS';
 const STAGE_REJECTED = 'C50:APOLOGY';
 const STAGE_POSTPONED = 'C50:LOSE';
 // «Выручка <30 млн» — автодисквал по правилу ТМ (не вина менеджера), исключаем.

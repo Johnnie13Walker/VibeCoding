@@ -3,6 +3,27 @@ import 'server-only';
 import { and, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { dealsSnapshot, managerActivity, meetings, plans, reports, users } from '@/db/schema';
+import { MEETING_HELD_STAGE } from './telemarketing';
+
+// «Проведено» — событийный слой meetings (status=SUCCESS), а НЕ хранимый агрегат
+// manager_activity.meetings_held: до фикса «фильтра отменённых» в collect.py агрегат
+// за прошлые дни включал отменённые/перенесённые встречи. Событийный слой
+// фильтруется запросом и историчен — единый источник правды с ТМ-дашбордом.
+// Возвращает [(managerId, date, n)] — число состоявшихся встреч по ответственному и дню.
+async function fetchHeldRows(from: string, to: string, managerIds?: number[]) {
+  const conds = [
+    eq(meetings.status, MEETING_HELD_STAGE),
+    gte(meetings.reportDate, from),
+    lte(meetings.reportDate, to),
+  ];
+  if (managerIds && managerIds.length) conds.push(inArray(meetings.managerId, managerIds));
+  const rows = await db
+    .select({ managerId: meetings.managerId, date: meetings.reportDate, n: sql<number>`count(*)` })
+    .from(meetings)
+    .where(and(...conds))
+    .groupBy(meetings.managerId, meetings.reportDate);
+  return rows.map((r) => ({ managerId: r.managerId, date: String(r.date), n: Number(r.n) }));
+}
 
 // Зеркало STAGE_RULES/STAGE_ORDER из runner/src/transform.py — воронка «Продажи» (CATEGORY_ID=10).
 // Порядок = реальная последовательность стадий в Bitrix.
@@ -859,7 +880,6 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
     .select({
       managerId: managerActivity.managerId,
       meetingsSet: sql<number>`coalesce(sum(${managerActivity.meetingsSet}),0)`,
-      meetingsHeld: sql<number>`coalesce(sum(${managerActivity.meetingsHeld}),0)`,
       dials: sql<number>`coalesce(sum(${managerActivity.dialsTotal}),0)`,
       calls60: sql<number>`coalesce(sum(${managerActivity.calls60sPlus}),0)`,
       calls120: sql<number>`coalesce(sum(${managerActivity.calls120sPlus}),0)`,
@@ -878,12 +898,27 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
     .where(and(gte(managerActivity.reportDate, start), lte(managerActivity.reportDate, end)))
     .groupBy(managerActivity.managerId);
 
-  // Дрилл-даун: тренд встреч по дням на менеджера.
+  // Событийный слой «проведено» за окно: по менеджеру, по (менеджер,день) и по дню.
+  // Переопределяет агрегат meetings_held (см. fetchHeldRows) для команды, спарклайнов
+  // и итогов — чтобы отменённые встречи не попадали в «проведено» за прошлые дни.
+  const heldByMgr = new Map<number, number>();
+  const heldByMgrDate = new Map<number, Map<string, number>>();
+  const heldByDate = new Map<string, number>();
+  for (const r of await fetchHeldRows(start, end)) {
+    if (r.managerId == null) continue;
+    heldByMgr.set(r.managerId, (heldByMgr.get(r.managerId) ?? 0) + r.n);
+    const md = heldByMgrDate.get(r.managerId) ?? new Map<string, number>();
+    md.set(r.date, (md.get(r.date) ?? 0) + r.n);
+    heldByMgrDate.set(r.managerId, md);
+    heldByDate.set(r.date, (heldByDate.get(r.date) ?? 0) + r.n);
+  }
+
+  // Дрилл-даун: тренд встреч по дням на менеджера. Скелет дней — из активности
+  // (включая нулевые дни), значение «проведено» — из событийного слоя.
   const trendByMgrRows = await db
     .select({
       managerId: managerActivity.managerId,
       date: managerActivity.reportDate,
-      meetings: sql<number>`coalesce(sum(${managerActivity.meetingsHeld}),0)`,
     })
     .from(managerActivity)
     .where(and(gte(managerActivity.reportDate, start), lte(managerActivity.reportDate, end)))
@@ -892,7 +927,7 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
   const trendByMgr = new Map<number, number[]>();
   for (const r of trendByMgrRows) {
     const arr = trendByMgr.get(r.managerId) ?? [];
-    arr.push(Number(r.meetings));
+    arr.push(heldByMgrDate.get(r.managerId)?.get(String(r.date)) ?? 0);
     trendByMgr.set(r.managerId, arr);
   }
 
@@ -931,7 +966,7 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
       name: userMap.get(r.managerId)?.name ?? `id ${r.managerId}`,
       role: userMap.get(r.managerId)?.dept ?? '',
       meetingsSet: Number(r.meetingsSet),
-      meetingsHeld: Number(r.meetingsHeld),
+      meetingsHeld: heldByMgr.get(r.managerId) ?? 0,
       dials: Number(r.dials),
       calls60: Number(r.calls60),
       calls120: Number(r.calls120),
@@ -1142,7 +1177,6 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
     .select({
       date: managerActivity.reportDate,
       deals: sql<number>`coalesce(sum(${managerActivity.dealsCreatedCount}),0)`,
-      meetingsHeld: sql<number>`coalesce(sum(${managerActivity.meetingsHeld}),0)`,
       kp: sql<number>`coalesce(sum(${managerActivity.kpSent}),0)`,
       dials: sql<number>`coalesce(sum(${managerActivity.dialsTotal}),0)`,
     })
@@ -1150,11 +1184,16 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
     .where(and(...d2dConds))
     .groupBy(managerActivity.reportDate)
     .orderBy(managerActivity.reportDate);
+  // «Проведено» по дням — из событийного слоя (то же окно и sales-фильтр, что d2d).
+  const heldByDateD2d = new Map<string, number>();
+  for (const r of await fetchHeldRows(monthStartDay, snapshotDate, salesIds.length ? salesIds : undefined)) {
+    heldByDateD2d.set(r.date, (heldByDateD2d.get(r.date) ?? 0) + r.n);
+  }
   const day2day = buildDay2Day(
     d2dRows.map((r) => ({
       date: String(r.date),
       deals: Number(r.deals),
-      meetings: Number(r.meetingsHeld),
+      meetings: heldByDateD2d.get(String(r.date)) ?? 0,
       kp: Number(r.kp),
       dials: Number(r.dials),
     })),
@@ -1214,26 +1253,27 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
   // Δ к предыдущему окну (месяц→прошлый месяц, неделя→прошлая неделя).
   const prevRows = await db
     .select({
-      meetings: sql<number>`coalesce(sum(${managerActivity.meetingsHeld}),0)`,
       dials: sql<number>`coalesce(sum(${managerActivity.dialsTotal}),0)`,
       kp: sql<number>`coalesce(sum(${managerActivity.kpSent}),0)`,
       deals: sql<number>`coalesce(sum(${managerActivity.dealsCreatedCount}),0)`,
     })
     .from(managerActivity)
     .where(and(gte(managerActivity.reportDate, prevStart), lte(managerActivity.reportDate, prevEnd)));
-  const prev = prevRows[0] ?? { meetings: 0, dials: 0, kp: 0, deals: 0 };
+  const prev = prevRows[0] ?? { dials: 0, kp: 0, deals: 0 };
+  // «Проведено» прошлого окна — из событийного слоя (всё окно, без sales-фильтра, как раньше).
+  const prevHeld = (await fetchHeldRows(prevStart, prevEnd)).reduce((s, r) => s + r.n, 0);
   const deltas = {
-    meetings: delta(meetingsHeldTotal, Number(prev.meetings)),
+    meetings: delta(meetingsHeldTotal, prevHeld),
     dials: delta(dialsTotal, Number(prev.dials)),
     kp: delta(kpTotal, Number(prev.kp)),
     deals: delta(dealsCreatedTotal, Number(prev.deals)),
   };
 
-  // Тренд по дням месяца — для спарклайнов.
+  // Тренд по дням месяца — для спарклайнов. Скелет дней и звонки — из активности,
+  // «проведено» — из событийного слоя (heldByDate за то же окно start..end).
   const trendRows = await db
     .select({
       date: managerActivity.reportDate,
-      meetings: sql<number>`coalesce(sum(${managerActivity.meetingsHeld}),0)`,
       dials: sql<number>`coalesce(sum(${managerActivity.dialsTotal}),0)`,
     })
     .from(managerActivity)
@@ -1242,7 +1282,7 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
     .orderBy(managerActivity.reportDate);
   const trend: TrendPoint[] = trendRows.map((r) => ({
     date: String(r.date),
-    meetings: Number(r.meetings),
+    meetings: heldByDate.get(String(r.date)) ?? 0,
     dials: Number(r.dials),
   }));
 
