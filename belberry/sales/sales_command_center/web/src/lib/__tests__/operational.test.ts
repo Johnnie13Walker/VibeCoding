@@ -26,7 +26,13 @@ describe('operationalMinutes / operationalScore (зеркало oper.py)', () =>
   });
 });
 
-function member(id: number, name: string, isTm: boolean, days: Partial<OperDayInput>[]): OperMemberInput {
+function member(
+  id: number,
+  name: string,
+  isTm: boolean,
+  days: Partial<OperDayInput>[],
+  isActive = true,
+): OperMemberInput {
   const byDate = new Map<string, OperDayInput>();
   for (const d of days) {
     byDate.set(d.date as string, {
@@ -38,7 +44,7 @@ function member(id: number, name: string, isTm: boolean, days: Partial<OperDayIn
       meetings: d.meetings ?? 0,
     });
   }
-  return { managerId: id, name, role: isTm ? 'Телемаркетинг' : 'Менеджер', isTm, byDate };
+  return { managerId: id, name, role: isTm ? 'Телемаркетинг' : 'Менеджер', isTm, isActive, byDate };
 }
 
 describe('buildOperationalMatrix', () => {
@@ -77,5 +83,16 @@ describe('buildOperationalMatrix', () => {
     expect(m.loadPct).toBeNull();
     expect(m.best).toBeNull();
     expect(m.deptAvgByDay).toEqual([null, null]);
+  });
+
+  it('скрывает неработавших и неактивных, не занижая среднее', () => {
+    const worker = member(1, 'Рабочий', false, [{ date: '2026-05-26', meetings: 3, emails: 4 }]); // 6.7
+    const idle = member(2, 'Простой', false, [{ date: '2026-05-26', emails: 1 }]); // 5 мин → 0.2 < порога
+    const fired = member(3, 'Уволенный', false, [{ date: '2026-05-26', meetings: 5 }], false); // 10, но isActive=false
+    const m = buildOperationalMatrix(days, [worker, idle, fired]);
+
+    expect(m.rows.map((r) => r.name)).toEqual(['Рабочий']); // только реально работавший действующий
+    expect(m.countOp).toBe(1);
+    expect(m.avgScore).toBe(6.7); // нули простоя не тянут среднее вниз
   });
 });

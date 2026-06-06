@@ -852,9 +852,9 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
 
   // Имена/роли сотрудников.
   const userRows = await db
-    .select({ id: users.bitrixId, name: users.name, dept: users.dept })
+    .select({ id: users.bitrixId, name: users.name, dept: users.dept, isActive: users.isActive })
     .from(users);
-  const userMap = new Map(userRows.map((u) => [u.id, { name: u.name, dept: u.dept ?? '' }]));
+  const userMap = new Map(userRows.map((u) => [u.id, { name: u.name, dept: u.dept ?? '', active: u.isActive }]));
 
   // Воронка — открытые сделки кат.10 на последнем снимке.
   const snapRows = await db
@@ -1374,7 +1374,14 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
         meetings,
       });
     }
-    return { managerId: tm.managerId, name: tm.name, role: tm.role, isTm: isTelemarketing(tm.role), byDate };
+    return {
+      managerId: tm.managerId,
+      name: tm.name,
+      role: tm.role,
+      isTm: isTelemarketing(tm.role),
+      isActive: userMap.get(tm.managerId)?.active ?? true,
+      byDate,
+    };
   });
   const operational = buildOperationalMatrix(operDays, operMembers);
 
