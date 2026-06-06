@@ -2,7 +2,7 @@ import 'server-only';
 
 import { and, gte, inArray, sql } from 'drizzle-orm';
 import { db } from '@/db';
-import { dealsSnapshot, meetings, users } from '@/db/schema';
+import { dealsSnapshot, dealTitles, meetings, users } from '@/db/schema';
 import { isSalesDept, isTelemarketing } from './dashboard';
 import type { MeetingItem, TranscriptStatus } from './meetings-shared';
 
@@ -73,6 +73,16 @@ export async function getMeetingsForAnalysis(days = 120): Promise<MeetingItem[]>
       .orderBy(sql`${dealsSnapshot.reportDate} desc`);
     for (const t of titleRows) {
       if (t.title && !titleMap.has(t.dealId)) titleMap.set(t.dealId, t.title);
+    }
+    // deals_snapshot хранит только открытые сделки → у закрытых название добираем
+    // из справочника deal_titles (наполняется sync_deal_titles.py из Bitrix).
+    const missing = dealIds.filter((id) => !titleMap.has(id));
+    if (missing.length) {
+      const dtRows = await db
+        .select({ dealId: dealTitles.dealId, title: dealTitles.title })
+        .from(dealTitles)
+        .where(inArray(dealTitles.dealId, missing));
+      for (const t of dtRows) if (t.title) titleMap.set(t.dealId, t.title);
     }
   }
 

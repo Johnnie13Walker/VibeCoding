@@ -215,6 +215,12 @@ export const plans = pgTable(
   ],
 );
 
+export const dealTitles = pgTable('deal_titles', {
+  dealId: integer('deal_id').primaryKey(),
+  title: text('title'),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+});
+
 export const callHourly = pgTable(
   'call_hourly',
   {
