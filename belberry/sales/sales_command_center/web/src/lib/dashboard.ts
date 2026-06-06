@@ -2,7 +2,7 @@ import 'server-only';
 
 import { and, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 import { db } from '@/db';
-import { dealsSnapshot, managerActivity, meetings, plans, reports, users } from '@/db/schema';
+import { dealsSnapshot, managerActivity, meetings, payments, plans, reports, users } from '@/db/schema';
 import { MEETING_HELD_STAGE } from './telemarketing';
 import { buildOperationalMatrix, type OperationalMatrix, type OperDayInput, type OperMemberInput } from './operational';
 
@@ -1170,6 +1170,31 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
   const dynActivity: Record<string, { kp: number; deals: number; wonCount: number; wonAmount: number }> = {};
   for (const r of dynActRows)
     dynActivity[r.ym] = { kp: Number(r.kp), deals: Number(r.deals), wonCount: Number(r.wonCount), wonAmount: Number(r.wonAmount) };
+
+  // «Оплаты» — фактические приходы из финансовой таблицы «Приходы 2026» (вкладка
+  // «Продажи», КД без НДС, Отдел=Продажи), а НЕ Bitrix-won. Источник правды по деньгам.
+  const payRows = await db
+    .select({
+      y: payments.payYear,
+      m: payments.payMonth,
+      n: sql<number>`count(*)`,
+      amt: sql<number>`coalesce(sum(${payments.kdNoVat}),0)`,
+    })
+    .from(payments)
+    .where(eq(payments.dept, 'Продажи'))
+    .groupBy(payments.payYear, payments.payMonth);
+  const payByYm = new Map<string, { n: number; amt: number }>();
+  for (const r of payRows) {
+    if (r.y == null || r.m == null) continue;
+    payByYm.set(`${r.y}-${String(r.m).padStart(2, '0')}`, { n: Number(r.n), amt: Number(r.amt) });
+  }
+  for (const mo of dynMonths) {
+    const e = dynActivity[mo.ym] ?? { kp: 0, deals: 0, wonCount: 0, wonAmount: 0 };
+    const p = payByYm.get(mo.ym);
+    e.wonCount = p?.n ?? 0;
+    e.wonAmount = p?.amt ?? 0;
+    dynActivity[mo.ym] = e;
+  }
 
   const ymMeetExpr = sql<string>`to_char(${meetings.reportDate}, 'YYYY-MM')`;
   // Тоже историческая — по всем встречам, без фильтра текущего состава.
