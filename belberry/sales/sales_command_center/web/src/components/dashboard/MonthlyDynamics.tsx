@@ -43,7 +43,7 @@ export function MonthlyDynamics({ data }: { data: MonthRow[] }) {
         </tbody>
       </table>
       <p style={{ fontSize: 12, color: 'var(--bb-faint)', marginTop: 10 }}>
-        Оплаты (шт/₽) наполняются с момента сбора выигранных сделок — за прошлые месяцы появятся после бэкофилла.
+        Оплаты (шт/₽) — фактические приходы отдела продаж из таблицы «Приходы 2026» (КД без НДС), а не из Bitrix.
       </p>
     </div>
   );

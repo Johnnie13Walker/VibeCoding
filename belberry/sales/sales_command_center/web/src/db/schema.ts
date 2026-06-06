@@ -215,6 +215,30 @@ export const plans = pgTable(
   ],
 );
 
+export const payments = pgTable(
+  'payments',
+  {
+    id: serial('id').primaryKey(),
+    project: text('project'),
+    source: text('source'),
+    dept: text('dept'),
+    manager: text('manager'),
+    service: text('service'),
+    kdWithVat: numeric('kd_with_vat', { precision: 14, scale: 2 }),
+    kdNoVat: numeric('kd_no_vat', { precision: 14, scale: 2 }),
+    ddWithVat: numeric('dd_with_vat', { precision: 14, scale: 2 }),
+    ddNoVat: numeric('dd_no_vat', { precision: 14, scale: 2 }),
+    payDate: text('pay_date'),
+    payForm: text('pay_form'),
+    counterparty: text('counterparty'),
+    brand: text('brand'),
+    payMonth: smallint('pay_month'),
+    payYear: integer('pay_year'),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+  },
+  (table) => [index('payments_year_month_dept_idx').on(table.payYear, table.payMonth, table.dept)],
+);
+
 export const dealTitles = pgTable('deal_titles', {
   dealId: integer('deal_id').primaryKey(),
   title: text('title'),
