@@ -3,7 +3,16 @@ import 'server-only';
 import { and, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { callHourly, dealRejections, dealsSnapshot, managerActivity, meetings, plans, reports, users } from '@/db/schema';
-import { buildTmHeatmap, buildTmRejections, type HeatInput, type RejectionInput } from './telemarketing-shared';
+import {
+  buildTmAlerts,
+  buildTmHeatmap,
+  buildTmMeetingQuality,
+  buildTmRejections,
+  type HeatInput,
+  type RejectionInput,
+  type TmAlertInput,
+  type TmQualityInput,
+} from './telemarketing-shared';
 
 /** Стадия состоявшейся встречи (SP 1048). */
 const MEETING_HELD_STAGE = 'DT1048_24:SUCCESS';
@@ -84,6 +93,10 @@ function emptyData(): TmDashboardData {
     outreach: buildTmOutreach([]),
     rejections: [],
     heatmap: buildTmHeatmap([]),
+    meetingQuality: buildTmMeetingQuality([]),
+    alerts: [],
+    monthOptions: [],
+    selectedMonth: null,
     generatedAt: null,
   };
 }
@@ -91,14 +104,34 @@ function emptyData(): TmDashboardData {
 export async function getTmDashboardData(
   range: TmPeriod = 'month',
   managerParam?: number | null,
+  monthParam?: string | null,
 ): Promise<TmDashboardData> {
   const latest = await db.select({ d: sql<string>`max(${dealsSnapshot.reportDate})` }).from(dealsSnapshot);
   const snapshotDate = latest[0]?.d ?? null;
   if (!snapshotDate) return emptyData();
 
-  const { start, end, label } = computeWindow(snapshotDate, range);
+  // Окно периода: явный месяц (?month=YYYY-MM) переопределяет Месяц/Неделя.
+  let start: string;
+  let end: string;
+  let label: string;
+  const monthOk = !!monthParam && /^\d{4}-\d{2}$/.test(monthParam);
+  if (monthOk) {
+    const [my, mm] = (monthParam as string).split('-').map(Number);
+    start = `${monthParam}-01`;
+    const lastDay = new Date(Date.UTC(my, mm, 0)).getUTCDate();
+    const monthEnd = `${monthParam}-${String(lastDay).padStart(2, '0')}`;
+    // Текущий месяц снимка — обрезаем по дате снимка (MTD).
+    end = monthParam === snapshotDate.slice(0, 7) ? snapshotDate : monthEnd;
+    label = `${MONTHS_RU[mm - 1]} ${my}`;
+  } else {
+    const w = computeWindow(snapshotDate, range);
+    start = w.start;
+    end = w.end;
+    label = w.label;
+  }
+  const planPeriod = monthOk ? (monthParam as string) : snapshotDate.slice(0, 7);
   const workingDays = countWeekdays(start, end);
-  const periodLabel = range === 'week' ? label : `${label} · ${workingDays} раб. дн.`;
+  const periodLabel = range === 'week' && !monthOk ? label : `${label} · ${workingDays} раб. дн.`;
 
   // Справочник сотрудников.
   const userRows = await db
@@ -305,10 +338,10 @@ export async function getTmDashboardData(
   const planRows = await db
     .select({ target: plans.target })
     .from(plans)
-    .where(and(eq(plans.period, snapshotDate.slice(0, 7)), eq(plans.metric, 'meetings')))
+    .where(and(eq(plans.period, planPeriod), eq(plans.metric, 'meetings')))
     .limit(1);
   const monthlyPlanPerTm = planRows[0] ? Number(planRows[0].target) : 20;
-  const meetingsPlanPerTm = range === 'week' ? Math.max(1, Math.round(monthlyPlanPerTm / 4)) : monthlyPlanPerTm;
+  const meetingsPlanPerTm = range === 'week' && !monthOk ? Math.max(1, Math.round(monthlyPlanPerTm / 4)) : monthlyPlanPerTm;
 
   // Heatmap «когда берут трубку»: час × день недели по ТМ за окно динамики (стабильный
   // паттерн). dow = extract(dow): 0=Вс..6=Сб.
@@ -326,6 +359,76 @@ export async function getTmDashboardData(
   const heatmap = buildTmHeatmap(
     heatRows.map<HeatInput>((r) => ({ dow: Number(r.dow), hour: Number(r.hour), dials: Number(r.dials), calls60: Number(r.calls60) })),
   );
+
+  // Качество встреч, назначенных ТМ — из готового разбора (analysis_json), только
+  // состоявшиеся встречи создателя-ТМ с баллом.
+  const mqRows = await db
+    .select({ creator: meetings.createdBy, analysis: meetings.analysisJson })
+    .from(meetings)
+    .where(
+      and(
+        eq(meetings.status, MEETING_HELD_STAGE),
+        inArray(meetings.createdBy, tmIds),
+        sql`${meetings.analysisJson} is not null`,
+        gte(meetings.reportDate, dynStart),
+      ),
+    );
+  const qualityInputs: TmQualityInput[] = [];
+  for (const r of mqRows) {
+    if (r.creator == null) continue;
+    const a = (r.analysis ?? {}) as { score?: number; next_step?: unknown; next_steps?: unknown[] };
+    if (typeof a.score !== 'number') continue;
+    qualityInputs.push({
+      managerId: r.creator,
+      name: nameById.get(r.creator) ?? `id ${r.creator}`,
+      score: a.score,
+      hasNextStep: a.next_step != null || (Array.isArray(a.next_steps) && a.next_steps.length > 0),
+    });
+  }
+  const meetingQuality = buildTmMeetingQuality(qualityInputs);
+
+  // ТМ-алерты: конверсия дозвон→встреча за 2 последних ПОЛНЫХ месяца (месяц снимка —
+  // частичный, исключаем) + сжигание/явка за период.
+  const snapYm = snapshotDate.slice(0, 7);
+  const [sy, sm] = snapYm.split('-').map(Number);
+  let am = sm - 2;
+  let ay = sy;
+  while (am <= 0) {
+    am += 12;
+    ay -= 1;
+  }
+  const alertStart = `${ay}-${String(am).padStart(2, '0')}-01`;
+  const ymActExpr = sql<string>`to_char(${managerActivity.reportDate}, 'YYYY-MM')`;
+  const alertRows = await db
+    .select({
+      mgr: managerActivity.managerId,
+      ym: ymActExpr,
+      mset: sql<number>`coalesce(sum(${managerActivity.meetingsSet}),0)`,
+      c60: sql<number>`coalesce(sum(${managerActivity.calls60sPlus}),0)`,
+    })
+    .from(managerActivity)
+    .where(and(inArray(managerActivity.managerId, tmIds), gte(managerActivity.reportDate, alertStart)))
+    .groupBy(managerActivity.managerId, ymActExpr);
+  const convByMgr = new Map<number, { ym: string; conv: number | null }[]>();
+  for (const r of alertRows) {
+    if (r.ym === snapYm) continue; // текущий месяц частичный — пропускаем
+    const c60 = Number(r.c60);
+    const conv = c60 > 0 ? Math.round((Number(r.mset) / c60) * 1000) / 10 : null;
+    const arr = convByMgr.get(r.mgr) ?? [];
+    arr.push({ ym: r.ym, conv });
+    convByMgr.set(r.mgr, arr);
+  }
+  const alertInputs: TmAlertInput[] = members.map((m) => {
+    const months = (convByMgr.get(m.managerId) ?? []).sort((a, b) => (a.ym < b.ym ? 1 : -1));
+    return {
+      name: m.name,
+      convNow: months[0]?.conv ?? null,
+      convPrev: months[1]?.conv ?? null,
+      burn: m.meetingsSet > 0 ? Math.round((m.rejectionsPeriod / m.meetingsSet) * 10) / 10 : null,
+      heldPct: m.meetingsSet > 0 ? Math.round((m.meetingsHeldByCreator / m.meetingsSet) * 1000) / 10 : null,
+    };
+  });
+  const alerts = buildTmAlerts(alertInputs);
 
   const kpis = buildTmKpis(members, workingDays);
 
@@ -366,6 +469,13 @@ export async function getTmDashboardData(
     outreach: buildTmOutreach(members),
     rejections,
     heatmap,
+    meetingQuality,
+    alerts,
+    monthOptions: dynMonths.slice(-6).map((mo) => {
+      const [oy, om] = mo.ym.split('-').map(Number);
+      return { ym: mo.ym, label: `${MONTHS_RU[om - 1]} ${oy}` };
+    }),
+    selectedMonth: monthOk ? (monthParam as string) : null,
     generatedAt,
   };
 }

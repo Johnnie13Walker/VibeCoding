@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Phone, Users, Filter, CalendarCheck, ListTree, BarChart3, Goal, Mail, Search, Sparkles, Coins, Clock } from 'lucide-react';
+import { Phone, Users, Filter, CalendarCheck, ListTree, BarChart3, Goal, Mail, Search, Sparkles, Coins, Clock, Bell } from 'lucide-react';
 import {
   TmKpiGrid,
   TmManagerTable,
@@ -12,6 +12,8 @@ import {
   TmManagerSelect,
   TmRejectionsView,
   TmHeatmapView,
+  TmMeetingQualityView,
+  TmAlertsView,
   SoonCard,
 } from '@/components/telemarketing/blocks';
 import { getTmDashboardData } from '@/lib/telemarketing';
@@ -42,15 +44,17 @@ function SectionHead({ icon, title, hint, right }: { icon: React.ReactNode; titl
 export default async function TelemarketingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ period?: string; manager?: string }>;
+  searchParams: Promise<{ period?: string; manager?: string; month?: string }>;
 }) {
   const params = await searchParams;
   const range: 'month' | 'week' = params.period === 'week' ? 'week' : 'month';
   const managerParam = params.manager ? Number(params.manager) : null;
-  const data = await getTmDashboardData(range, Number.isFinite(managerParam) ? managerParam : null);
+  const monthParam = params.month && /^\d{4}-\d{2}$/.test(params.month) ? params.month : null;
+  const data = await getTmDashboardData(range, Number.isFinite(managerParam) ? managerParam : null, monthParam);
 
   const mq = data.selectedManagerId ? `&manager=${data.selectedManagerId}` : '';
   const periodHref = (p: 'month' | 'week') => `/telemarketing?period=${p}${mq}`;
+  const monthHref = (ym: string) => `/telemarketing?month=${ym}${mq}`;
 
   return (
     <div className="bb-page bb-fade">
@@ -67,9 +71,16 @@ export default async function TelemarketingPage({
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 14, flexWrap: 'wrap' }}>
               <div className="bb-seg">
-                <Link href={periodHref('month')} className={range === 'month' ? 'on' : ''}>Месяц</Link>
-                <Link href={periodHref('week')} className={range === 'week' ? 'on' : ''}>Неделя</Link>
+                <Link href={periodHref('month')} className={range === 'month' && !data.selectedMonth ? 'on' : ''}>Месяц</Link>
+                <Link href={periodHref('week')} className={range === 'week' && !data.selectedMonth ? 'on' : ''}>Неделя</Link>
               </div>
+              {data.monthOptions.length > 0 ? (
+                <div className="bb-seg">
+                  {data.monthOptions.map((mo) => (
+                    <Link key={mo.ym} href={monthHref(mo.ym)} className={data.selectedMonth === mo.ym ? 'on' : ''}>{mo.label}</Link>
+                  ))}
+                </div>
+              ) : null}
               <span style={{ color: '#c9c5f0', fontSize: 13 }}>{data.periodLabel}</span>
             </div>
           </div>
@@ -148,8 +159,8 @@ export default async function TelemarketingPage({
 
           {/* Fast-follow блоки */}
           <div className="bb-card" style={{ marginBottom: 16 }}>
-            <SectionHead icon={<Sparkles size={17} />} title="Качество встреч от ТМ" hint="из LLM-разбора" />
-            <SoonCard title="Содержательные vs «пустые» встречи" desc="Связка с разбором встреч: % встреч от ТМ с выявленной потребностью/бюджетом/след. шагом." />
+            <SectionHead icon={<Sparkles size={17} />} title="Качество встреч от ТМ" hint="из разбора «Анализ встреч»" />
+            <TmMeetingQualityView quality={data.meetingQuality} />
           </div>
           <div className="bb-card" style={{ marginBottom: 16 }}>
             <SectionHead icon={<Coins size={17} />} title="Окупаемость ТМ — встречи → Продажи → деньги" hint="когорта" />
@@ -158,6 +169,12 @@ export default async function TelemarketingPage({
           <div className="bb-card" style={{ marginBottom: 16 }}>
             <SectionHead icon={<Clock size={17} />} title="Когда берут трубку" hint="час × день недели" />
             <TmHeatmapView heatmap={data.heatmap} />
+          </div>
+
+          {/* ТМ-алерты */}
+          <div className="bb-card" style={{ marginBottom: 16 }}>
+            <SectionHead icon={<Bell size={17} />} title="Сигналы по ТМ" hint="авто" />
+            <TmAlertsView alerts={data.alerts} />
           </div>
 
           <p style={{ fontSize: 12, color: 'var(--bb-faint)', marginTop: 24 }}>

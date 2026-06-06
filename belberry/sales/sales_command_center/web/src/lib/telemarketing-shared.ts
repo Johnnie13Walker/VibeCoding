@@ -442,6 +442,77 @@ export function buildTmRejections(inputs: RejectionInput[]): TmRejections[] {
     .sort((a, b) => b.total - a.total);
 }
 
+// ───────────────── Качество встреч ТМ (из разбора /meetings) ─────────────────
+
+export interface TmQualityInput {
+  managerId: number;
+  name: string;
+  score: number; // балл встречи из analysis_json (1..10)
+  hasNextStep: boolean;
+}
+
+export interface TmQualityRow {
+  managerId: number;
+  name: string;
+  total: number;
+  /** Содержательных (балл ≥7), %. */
+  richPct: number;
+}
+
+export interface TmMeetingQuality {
+  total: number;
+  rich: number; // ≥7
+  weak: number; // 4..6
+  empty: number; // <4
+  richPct: number;
+  weakPct: number;
+  emptyPct: number;
+  /** % встреч со следующим шагом. */
+  nextStepPct: number | null;
+  byManager: TmQualityRow[];
+}
+
+function qualityBucket(score: number): 'rich' | 'weak' | 'empty' {
+  if (score >= 7) return 'rich';
+  if (score >= 4) return 'weak';
+  return 'empty';
+}
+
+/** Качество встреч, назначенных ТМ — по готовому разбору (analysis_json). Только
+ * разобранные встречи (есть балл). Чистая функция. */
+export function buildTmMeetingQuality(inputs: TmQualityInput[]): TmMeetingQuality {
+  const total = inputs.length;
+  const rich = inputs.filter((i) => qualityBucket(i.score) === 'rich').length;
+  const weak = inputs.filter((i) => qualityBucket(i.score) === 'weak').length;
+  const empty = inputs.filter((i) => qualityBucket(i.score) === 'empty').length;
+  const pct = (n: number) => (total > 0 ? Math.round((n / total) * 100) : 0);
+  const by = new Map<number, { name: string; total: number; rich: number }>();
+  for (const i of inputs) {
+    const e = by.get(i.managerId) ?? { name: i.name, total: 0, rich: 0 };
+    e.total += 1;
+    if (qualityBucket(i.score) === 'rich') e.rich += 1;
+    by.set(i.managerId, e);
+  }
+  return {
+    total,
+    rich,
+    weak,
+    empty,
+    richPct: pct(rich),
+    weakPct: pct(weak),
+    emptyPct: pct(empty),
+    nextStepPct: total > 0 ? Math.round((inputs.filter((i) => i.hasNextStep).length / total) * 100) : null,
+    byManager: [...by.entries()]
+      .map(([managerId, e]) => ({
+        managerId,
+        name: e.name,
+        total: e.total,
+        richPct: e.total > 0 ? Math.round((e.rich / e.total) * 100) : 0,
+      }))
+      .sort((a, b) => b.total - a.total),
+  };
+}
+
 // ───────────────────── Heatmap времени дозвона ─────────────────────
 
 export interface HeatInput {
@@ -501,6 +572,71 @@ export function buildTmHeatmap(inputs: HeatInput[]): TmHeatmap {
   return { hours, rows, maxPct: Math.max(1, maxPct) };
 }
 
+// ───────────────────────── ТМ-алерты ─────────────────────────
+
+export type AlertLevel = 'red' | 'amber' | 'green';
+
+export interface TmAlert {
+  level: AlertLevel;
+  icon: string;
+  title: string;
+  text: string;
+}
+
+export interface TmAlertInput {
+  name: string;
+  /** Конверсия дозвон→встреча, последний полный месяц, %. */
+  convNow: number | null;
+  /** Конверсия за предыдущий полный месяц, %. */
+  convPrev: number | null;
+  /** Сжигание базы (отвалов на встречу). */
+  burn: number | null;
+  /** Явка состоялось/назначено, %. */
+  heldPct: number | null;
+}
+
+/** Авто-сигналы по ТМ из данных (просадка/рост конверсии, сжигание базы, явка).
+ * Чистая функция. */
+export function buildTmAlerts(inputs: TmAlertInput[]): TmAlert[] {
+  const alerts: TmAlert[] = [];
+  for (const i of inputs) {
+    if (i.convPrev != null && i.convNow != null && i.convPrev >= 3) {
+      if (i.convNow <= i.convPrev * 0.7) {
+        alerts.push({
+          level: 'red',
+          icon: '📉',
+          title: `Конверсия ${i.name} просела`,
+          text: `дозвон→встреча ${i.convPrev}% → ${i.convNow}% за месяц. Вернуть фокус на назначение встреч.`,
+        });
+      } else if (i.convNow >= i.convPrev * 1.25) {
+        alerts.push({
+          level: 'green',
+          icon: '📈',
+          title: `Конверсия ${i.name} растёт`,
+          text: `дозвон→встреча ${i.convPrev}% → ${i.convNow}% за месяц.`,
+        });
+      }
+    }
+    if (i.burn != null && i.burn >= 10) {
+      alerts.push({
+        level: 'amber',
+        icon: '🔥',
+        title: `${i.name} быстро вырабатывает базу`,
+        text: `${i.burn} отвалов на одну встречу за период — проверить темп выдачи базы.`,
+      });
+    }
+    if (i.heldPct != null && i.heldPct < 55 && i.heldPct >= 0) {
+      alerts.push({
+        level: 'amber',
+        icon: '🚪',
+        title: `Низкая явка у ${i.name}`,
+        text: `состоялось ${i.heldPct}% от назначенных — подтверждать встречи накануне.`,
+      });
+    }
+  }
+  return alerts;
+}
+
 // ───────────────────── Композит для страницы ─────────────────────
 
 export interface TmManagerOption {
@@ -528,5 +664,13 @@ export interface TmDashboardData {
   rejections: TmRejections[];
   /** Heatmap времени дозвона (час × день недели). */
   heatmap: TmHeatmap;
+  /** Качество встреч, назначенных ТМ (из разбора /meetings). */
+  meetingQuality: TmMeetingQuality;
+  /** Авто-сигналы по ТМ. */
+  alerts: TmAlert[];
+  /** Опции месячного пикера (последние месяцы). */
+  monthOptions: { ym: string; label: string }[];
+  /** Выбранный месяц (?month), null = текущий период от снимка. */
+  selectedMonth: string | null;
   generatedAt: string | null;
 }

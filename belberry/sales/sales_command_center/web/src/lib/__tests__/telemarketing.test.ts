@@ -12,6 +12,8 @@ import {
   buildTmOutreach,
   buildTmRejections,
   buildTmHeatmap,
+  buildTmMeetingQuality,
+  buildTmAlerts,
   type TmMember,
 } from '@/lib/telemarketing-shared';
 
@@ -173,6 +175,40 @@ describe('buildTmRejections', () => {
     expect(darya.reasons[0].label).toBe('Все устраивает');
     expect(darya.reasons[0].pct).toBe(Math.round((127 / 234) * 100));
     expect(darya.reasons.find((b) => b.reasonId === null)!.label).toBe('(не указана)');
+  });
+});
+
+describe('buildTmMeetingQuality', () => {
+  it('бьёт по баллам содержательные/слабые/пустые + по звонарю', () => {
+    const q = buildTmMeetingQuality([
+      { managerId: 2772, name: 'Дарья Исаева', score: 8, hasNextStep: true },
+      { managerId: 2772, name: 'Дарья Исаева', score: 5, hasNextStep: false },
+      { managerId: 2832, name: 'Аркадий Вострецов', score: 9, hasNextStep: true },
+      { managerId: 2832, name: 'Аркадий Вострецов', score: 2, hasNextStep: false },
+    ]);
+    expect(q.total).toBe(4);
+    expect(q.rich).toBe(2); // 8, 9
+    expect(q.weak).toBe(1); // 5
+    expect(q.empty).toBe(1); // 2
+    expect(q.richPct).toBe(50);
+    expect(q.nextStepPct).toBe(50);
+    expect(q.byManager.find((m) => m.managerId === 2772)!.richPct).toBe(50); // 1 из 2
+  });
+});
+
+describe('buildTmAlerts', () => {
+  it('ловит просадку/рост конверсии, сжигание базы и низкую явку', () => {
+    const a = buildTmAlerts([
+      { name: 'Дарья', convNow: 3.8, convPrev: 9.4, burn: 5, heldPct: 80 }, // просадка
+      { name: 'Аркадий', convNow: 6.4, convPrev: 5.1, burn: 16.9, heldPct: 73 }, // burn высокий
+      { name: 'Петя', convNow: 8, convPrev: 8, burn: 2, heldPct: 40 }, // низкая явка
+    ]);
+    expect(a.some((x) => x.level === 'red' && x.title.includes('Дарья'))).toBe(true);
+    expect(a.some((x) => x.icon === '🔥' && x.title.includes('Аркадий'))).toBe(true);
+    expect(a.some((x) => x.title.includes('Низкая явка') && x.title.includes('Петя'))).toBe(true);
+  });
+  it('тихо при норме', () => {
+    expect(buildTmAlerts([{ name: 'X', convNow: 8, convPrev: 8, burn: 3, heldPct: 80 }])).toHaveLength(0);
   });
 });
 
