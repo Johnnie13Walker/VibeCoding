@@ -1,5 +1,6 @@
 from src.chat_attribution import (
     attribute_dialogs,
+    attribute_dialogs_by_day,
     build_employee_index,
     match_sender,
     parse_sender,
@@ -38,27 +39,61 @@ def test_match_sender_order_insensitive_unique():
     assert match_sender("Анна", INDEX) is None  # один токен
 
 
+def _waz(created, comment, author="2358"):
+    return {"CREATED": created, "COMMENT": comment, "AUTHOR_ID": author}
+
+
 def test_attribute_dialogs_counts_distinct_deals_per_manager():
     wazzup = {
         # сделка 1: Семенихин писал дважды за день → 1 диалог
         "1": [
-            {"CREATED": "2026-06-05T10:00:00+03:00", "COMMENT": OUT_SEMENIKHIN},
-            {"CREATED": "2026-06-05T12:00:00+03:00", "COMMENT": OUT_SEMENIKHIN},
-            {"CREATED": "2026-06-05T12:30:00+03:00", "COMMENT": IN_CLIENT},  # клиент — не считаем
+            _waz("2026-06-05T10:00:00+03:00", OUT_SEMENIKHIN),
+            _waz("2026-06-05T12:00:00+03:00", OUT_SEMENIKHIN),
+            _waz("2026-06-05T12:30:00+03:00", IN_CLIENT),  # клиент — не считаем
         ],
         # сделка 2: Семенихин + Исаева в один день → каждому по диалогу
         "2": [
-            {"CREATED": "2026-06-05T09:00:00+03:00", "COMMENT": OUT_SEMENIKHIN},
-            {"CREATED": "2026-06-05T15:00:00+03:00", "COMMENT": "Исаева Дарья: добрый день"},
+            _waz("2026-06-05T09:00:00+03:00", OUT_SEMENIKHIN),
+            _waz("2026-06-05T15:00:00+03:00", "Исаева Дарья: добрый день"),
         ],
         # сделка 3: сообщение в другой день → не в окне
-        "3": [{"CREATED": "2026-06-04T09:00:00+03:00", "COMMENT": OUT_SEMENIKHIN}],
+        "3": [_waz("2026-06-04T09:00:00+03:00", OUT_SEMENIKHIN)],
     }
     d0, d1 = "2026-06-05T00:00:00+03:00", "2026-06-05T23:59:59+03:00"
     counts = attribute_dialogs(wazzup, EMP, d0, d1)
     assert counts == {"2814": 2, "555": 1}
 
 
+def test_attribute_dialogs_ignores_non_wazzup_notes():
+    # Текстовая заметка менеджера (не от технического 2358) с «Имя:» в начале —
+    # не должна засчитываться как чат-диалог.
+    wazzup = {
+        "1": [
+            _waz("2026-06-05T10:00:00+03:00", "Семенихин Егор: записал договорённость", author="2814"),
+        ],
+    }
+    d0, d1 = "2026-06-05T00:00:00+03:00", "2026-06-05T23:59:59+03:00"
+    assert attribute_dialogs(wazzup, EMP, d0, d1) == {}
+
+
 def test_attribute_dialogs_empty():
     assert attribute_dialogs({}, EMP, "2026-06-05T00:00:00+03:00", "2026-06-05T23:59:59+03:00") == {}
     assert attribute_dialogs(None, EMP, "a", "b") == {}
+
+
+def test_attribute_dialogs_by_day_buckets_by_date():
+    wazzup = {
+        "1": [
+            _waz("2026-06-05T10:00:00+03:00", OUT_SEMENIKHIN),
+            _waz("2026-06-04T10:00:00+03:00", OUT_SEMENIKHIN),  # другой день
+        ],
+        "2": [
+            _waz("2026-06-05T11:00:00+03:00", "Исаева Дарья: привет"),
+            _waz("2026-06-05T12:00:00+03:00", IN_CLIENT),  # клиент — мимо
+        ],
+    }
+    by_day = attribute_dialogs_by_day(wazzup, EMP)
+    assert by_day == {
+        "2026-06-05": {"2814": 1, "555": 1},
+        "2026-06-04": {"2814": 1},
+    }

@@ -20,6 +20,12 @@ import re
 from collections.abc import Iterable, Mapping
 from typing import Any
 
+# Технический пользователь интеграции Wazzup на портале belberrycrm — ВСЕ сообщения
+# мессенджеров приходят в timeline от него. Фильтр AUTHOR_ID в самом запросе
+# crm.timeline.comment.list Bitrix игнорирует, поэтому отбираем Wazzup в коде —
+# иначе обычные текстовые заметки менеджеров дали бы ложные совпадения.
+WAZZUP_AUTHOR_ID = "2358"
+
 _IMG_RE = re.compile(r"\[img\][^\[]*\[/img\]", re.IGNORECASE)
 _TAG_RE = re.compile(r"<[^>]+>")
 _EMOJI_RE = re.compile(r":[0-9a-f]{6,}:")  # вырезаем эмодзи-коды вида :f09f918b:
@@ -92,6 +98,8 @@ def attribute_dialogs(
     for _deal_id, comments in (wazzup or {}).items():
         managers_today: set[str] = set()
         for c in comments or []:
+            if str(c.get("AUTHOR_ID")) != WAZZUP_AUTHOR_ID:
+                continue  # только сообщения мессенджеров, не текстовые заметки
             created = str(c.get("CREATED") or "")
             if not (d0 <= created <= d1):
                 continue
@@ -101,3 +109,28 @@ def attribute_dialogs(
         for emp_id in managers_today:
             counts[emp_id] = counts.get(emp_id, 0) + 1
     return counts
+
+
+def attribute_dialogs_by_day(
+    wazzup: Mapping[Any, Iterable[Mapping[str, Any]]] | None,
+    employees: Mapping[Any, str],
+) -> dict[str, dict[str, int]]:
+    """Разовый разбор всей переписки по дням: {YYYY-MM-DD: {manager_id: диалогов}}.
+
+    Для исторического backfill: один проход по всем сделкам, комментарии раскиданы
+    по дню создания. Диалог = сделка, где менеджер написал ≥1 сообщение в этот день.
+    """
+    index = build_employee_index(employees)
+    acc: dict[str, dict[str, set[Any]]] = {}
+    for deal_id, comments in (wazzup or {}).items():
+        for c in comments or []:
+            if str(c.get("AUTHOR_ID")) != WAZZUP_AUTHOR_ID:
+                continue
+            day = str(c.get("CREATED") or "")[:10]
+            if len(day) != 10:
+                continue
+            emp_id = match_sender(parse_sender(c.get("COMMENT")), index)
+            if emp_id is None:
+                continue
+            acc.setdefault(day, {}).setdefault(emp_id, set()).add(deal_id)
+    return {day: {m: len(deals) for m, deals in mgrs.items()} for day, mgrs in acc.items()}
