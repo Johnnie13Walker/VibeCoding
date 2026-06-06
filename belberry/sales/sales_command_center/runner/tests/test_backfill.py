@@ -16,21 +16,43 @@ class Cursor:
 
     def execute(self, sql, params=None):
         self.conn.sql.append((sql, params))
+        self._last = sql
 
     def executemany(self, sql, params):
         self.conn.sql.append((sql, list(params)))
 
+    def fetchall(self):
+        # Заготовленные строки только для SELECT preserve (messenger_dialogs).
+        if "messenger_dialogs" in getattr(self, "_last", ""):
+            return list(self.conn.preserved_rows)
+        return []
+
 
 class Conn:
-    def __init__(self):
+    def __init__(self, preserved_rows=()):
         self.sql = []
         self.commits = 0
+        self.preserved_rows = preserved_rows
 
     def cursor(self):
         return Cursor(self)
 
     def commit(self):
         self.commits += 1
+
+
+def test_write_flow_day_preserves_chats_across_rebuild():
+    # У менеджера 1 уже есть чаты (посчитал боевой раннер). backfill пересобирает
+    # manager_activity, но обязан вернуть messenger_dialogs обратно.
+    conn = Conn(preserved_rows=[(1, 4)])
+    rows = {
+        "manager_activity": [{"report_date": "2026-02-02", "manager_id": 1, "calls_total": 5, "messenger_dialogs": 0}],
+        "meetings": [],
+        "kp_briefs": [],
+    }
+    backfill.write_flow_day(conn, date(2026, 2, 2), rows, datetime(2026, 2, 3, 9, tzinfo=MSK))
+    restores = [(s, p) for s, p in conn.sql if s.startswith("UPDATE manager_activity SET messenger_dialogs")]
+    assert restores == [("UPDATE manager_activity SET messenger_dialogs = %s WHERE report_date = %s AND manager_id = %s", (4, "2026-02-02", 1))]
 
 
 def test_write_flow_day_stub_delete_and_upserts():

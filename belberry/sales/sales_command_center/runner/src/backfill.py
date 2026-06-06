@@ -55,6 +55,17 @@ def _ensure_report_stub(conn, report_date: str, now: datetime) -> None:
 def write_flow_day(conn, target: date, rows: dict, now: datetime) -> dict[str, int]:
     rd = target.isoformat()
     _ensure_report_stub(conn, rd, now)
+    # Чаты Wazzup (messenger_dialogs) backfill НЕ вычисляет — их наполняет боевой
+    # раннок по подписи отправителя. Сохраняем уже посчитанные значения, иначе
+    # пересборка manager_activity обнулит чаты в «Опер».
+    preserved_chats: dict[Any, int] = {}
+    with conn.cursor() as cursor:
+        cursor.execute(
+            "SELECT manager_id, messenger_dialogs FROM manager_activity "
+            "WHERE report_date = %s AND coalesce(messenger_dialogs, 0) > 0",
+            (rd,),
+        )
+        preserved_chats = {mid: val for mid, val in cursor.fetchall()}
     # Чистим пересобираемые таблицы за этот день (убрать остаточные строки).
     with conn.cursor() as cursor:
         for table in _REBUILD_TABLES:
@@ -71,6 +82,15 @@ def write_flow_day(conn, target: date, rows: dict, now: datetime) -> dict[str, i
             if c not in conflict_cols and not (table == "meetings" and c in _MEETINGS_PRESERVE)
         ]
         counts[table] = upsert(conn, table, table_rows, conflict_cols, update_cols)
+    # Возвращаем сохранённые чаты поверх пересобранных строк.
+    if preserved_chats:
+        with conn.cursor() as cursor:
+            for mid, val in preserved_chats.items():
+                cursor.execute(
+                    "UPDATE manager_activity SET messenger_dialogs = %s "
+                    "WHERE report_date = %s AND manager_id = %s",
+                    (val, rd, mid),
+                )
     return counts
 
 

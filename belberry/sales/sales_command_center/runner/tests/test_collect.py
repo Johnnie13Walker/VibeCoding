@@ -325,17 +325,30 @@ def test_resize_jpeg_pillow_shrinks_and_caps_140():
     assert max(Image.open(BytesIO(out)).size) <= 140  # 140px кап
 
 
-def test_compute_messenger_dialogs_per_manager_for_day():
-    from src.collect import compute_messenger_dialogs
-    wazzup = {
-        "100": [{"CREATED": "2026-05-29T10:00:00+03:00"}],  # сегодня
-        "200": [{"CREATED": "2026-05-20T10:00:00+03:00"}],  # старое — не считаем
-        "300": [{"CREATED": "2026-05-29T15:00:00+03:00"}],
-    }
-    deal_manager = {"100": "1", "200": "1", "300": "2", "999": "1"}
-    d0, d1 = "2026-05-29T00:00:00+03:00", "2026-05-29T23:59:59+03:00"
-    out = compute_messenger_dialogs(wazzup, deal_manager, d0, d1)
-    assert out == {"1": 1, "2": 1}
+def test_collect_employees_paged_builds_lastname_firstname():
+    from src.collect import collect_employees
+
+    class Bx:
+        def __init__(self):
+            self.calls = 0
+
+        def call(self, method, params=None):
+            assert method == "user.get"
+            self.calls += 1
+            if (params or {}).get("start", 0) == 0:
+                return {
+                    "result": [
+                        {"ID": 1, "LAST_NAME": "Семенихин", "NAME": "Егор"},
+                        {"ID": 2, "LAST_NAME": "Исаева", "NAME": "Дарья"},
+                    ],
+                    "next": 2,
+                }
+            return {"result": [{"ID": 3, "LAST_NAME": "Дудин", "NAME": "Петр"}]}  # без next → стоп
+
+    bx = Bx()
+    emps = collect_employees(bx=bx)
+    assert emps == {"1": "Семенихин Егор", "2": "Исаева Дарья", "3": "Дудин Петр"}
+    assert bx.calls == 2
 
 
 def test_collect_absences_filters_absent_and_takes_end_date():

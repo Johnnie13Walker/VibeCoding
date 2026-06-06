@@ -15,6 +15,7 @@ from typing import Any
 import requests
 
 from . import bx_client
+from .chat_attribution import attribute_dialogs
 from .timeutil import next_working_day
 
 PORTAL_BASE = "https://belberrycrm.bitrix24.ru"
@@ -281,25 +282,29 @@ def _collect_wazzup(deal_ids: set[Any], bx=None, cap: int = 600) -> dict[str, li
     return output
 
 
-def compute_messenger_dialogs(
-    wazzup: dict[Any, list[dict[str, Any]]] | None,
-    deal_manager: dict[str, str],
-    d0: str,
-    d1: str,
-) -> dict[str, int]:
-    """Число Wazzup-диалогов на менеджера ЗА ДЕНЬ (для chat-минут «Опер»).
+def collect_employees(bx=None, max_pages: int = 60) -> dict[str, str]:
+    """Полный справочник сотрудников Bitrix: id → «Фамилия Имя».
 
-    Диалог = сделка, в переписке которой есть хотя бы один Wazzup-комментарий,
-    созданный в целевой день; атрибутируется ответственному за сделку.
+    Нужен для атрибуции Wazzup-чатов фактическому отправителю (подпись в тексте
+    сообщения), а не ответственному за сделку — так чаты попадают в «Опер» тому,
+    кто реально вёл переписку, включая ТМ (они часто не ответственные).
     """
-    counts: dict[str, int] = {}
-    for deal_id, comments in (wazzup or {}).items():
-        manager_id = deal_manager.get(str(deal_id))
-        if not manager_id:
-            continue
-        if any(d0 <= str(c.get("CREATED") or "") <= d1 for c in (comments or [])):
-            counts[manager_id] = counts.get(manager_id, 0) + 1
-    return counts
+    client = _client(bx)
+    out: dict[str, str] = {}
+    start = 0
+    for _ in range(max_pages):
+        resp = client.call("user.get", {"start": start, "ADMIN_MODE": "Y"})
+        result = resp.get("result") or []
+        for user in result:
+            name = f"{user.get('LAST_NAME') or ''} {user.get('NAME') or ''}".strip()
+            uid = user.get("ID")
+            if name and uid is not None:
+                out[str(uid)] = name
+        nxt = resp.get("next")
+        if not result or nxt is None:
+            break
+        start = nxt
+    return out
 
 
 ABSENCE_NAME_HINTS = ("отпуск", "отгул", "отсутств", "больнич", "командир", "vacation")
@@ -672,17 +677,15 @@ def collect_day(target: date, bx=None) -> dict[str, Any]:
     # Wazzup собираем и по зависшим (open) сделкам: иначе их last_contact игнорирует
     # переписку и «дни без контакта» завышаются.
     deal_ids.update(item.get("ID") for item in deals_open)
-    deal_manager = {
-        str(d.get("ID")): str(d.get("ASSIGNED_BY_ID"))
-        for d in [*deals_open, *deals_created]
-        if d.get("ID") and d.get("ASSIGNED_BY_ID")
-    }
 
     users, photos, user_roles = _progress_step(
         "users_and_photos", lambda: collect_users_and_photos(user_ids, bx)
     )
+    employees = _progress_step("employees", lambda: collect_employees(bx))
     wazzup = _progress_step("wazzup", lambda: _collect_wazzup(deal_ids, bx))
-    messenger_dialogs = compute_messenger_dialogs(wazzup, deal_manager, d0, d1)
+    # Чаты атрибутируем по подписи отправителя в тексте сообщения (chat_attribution),
+    # а не по ответственному за сделку — иначе переписка ТМ не попадает в «Опер».
+    messenger_dialogs = attribute_dialogs(wazzup, employees, d0, d1)
     return {
         "user_roles": user_roles,
         "messenger_dialogs": messenger_dialogs,
