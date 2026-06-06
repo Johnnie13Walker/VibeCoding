@@ -1,10 +1,10 @@
 """Разовый backfill meeting_type для исторических встреч.
 
 До марта 2026 встречи назывались доменом клиента, без слова «Брифинг/Защита», и
-движок относил их к «другое» — на дашборде «Первых встреч/Презентаций» за янв-фев
-были дыры. Скрипт собирает все состоявшиеся встречи (SP 1048, SUCCESS), размечает
-тип через assign_meeting_types (название → позиция в сделке) и обновляет
-meetings.meeting_type. Идемпотентно. Сам анализ/данные не трогает.
+движок (по названию) относил их к «другое» — на дашборде «Первых встреч/Презентаций»
+за янв-фев были дыры. Скрипт собирает все состоявшиеся встречи (SP 1048, SUCCESS),
+размечает тип по структурному полю ufCrm16_1751006460 (2638=брифинг, 2640=защита)
+и обновляет meetings.meeting_type. Идемпотентно. Сам анализ/данные не трогает.
 
 Запуск:
     python -m src.backfill_meeting_type           # dry-run
@@ -19,7 +19,7 @@ from collections import Counter
 from . import bx_client
 from .collect import MEETING_HELD_STAGE, _fetch_all
 from .db import connect
-from .transform import assign_meeting_types
+from .transform import MEETING_TYPE_FIELD, _meeting_type, _to_int
 
 
 def run(dry_run: bool = True, bx=None, conn=None) -> dict[str, int]:
@@ -30,12 +30,12 @@ def run(dry_run: bool = True, bx=None, conn=None) -> dict[str, int]:
         {
             "entityTypeId": 1048,
             "filter": {"stageId": MEETING_HELD_STAGE},
-            "select": ["id", "title", "parentId2", "ufCrm16_1751009238"],
+            "select": ["id", "title", MEETING_TYPE_FIELD],
         },
         idfield="id",
     )
     print(f"held meetings: {len(items)}", flush=True)
-    types = assign_meeting_types(items)
+    types = {mid: _meeting_type(it) for it in items if (mid := _to_int(it.get("id"))) is not None}
     print(f"classified: {dict(Counter(types.values()))}", flush=True)
 
     own_conn = conn is None

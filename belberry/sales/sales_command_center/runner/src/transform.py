@@ -417,41 +417,23 @@ def build_post_meeting_comms(
     return out
 
 
+# Структурное поле «тип встречи» в карточке SP 1048 (enum). Надёжнее названия:
+# до марта 2026 встречи назывались доменом клиента, но поле заполнялось всегда.
+MEETING_TYPE_FIELD = "ufCrm16_1751006460"
+_MEETING_TYPE_BY_FIELD = {"2638": "briefing", "2640": "defense"}
+
+
 def _meeting_type(item: dict[str, Any]) -> str | None:
+    by_field = _MEETING_TYPE_BY_FIELD.get(str(item.get(MEETING_TYPE_FIELD)))
+    if by_field:
+        return by_field
+    # Fallback на название, если структурное поле пустое/нестандартное.
     title = (item.get("title") or "").lower()
     if "защ" in title:
         return "defense"
     if "бриф" in title or "брифф" in title:
         return "briefing"
     return "other"
-
-
-def assign_meeting_types(items: list[dict[str, Any]]) -> dict[int, str]:
-    """Тип каждой встречи: приоритет — название («Брифинг»/«Защита»), иначе позиция.
-
-    До марта 2026 встречи назывались доменом клиента, без слова «Брифинг/Защита»,
-    поэтому название не размечает тип. Fallback: внутри сделки по дате встречи —
-    первая = briefing (первая встреча), последующие = defense (презентация/защита).
-    Возвращает {meeting_id: type} для разметки исторических встреч.
-    """
-    by_deal: dict[int | None, list[dict[str, Any]]] = {}
-    for it in items:
-        by_deal.setdefault(_to_int(it.get("parentId2")), []).append(it)
-    out: dict[int, str] = {}
-    for deal_id, meetings in by_deal.items():
-        ordered = sorted(meetings, key=lambda m: str(m.get("ufCrm16_1751009238") or ""))
-        for idx, m in enumerate(ordered):
-            mid = _to_int(m.get("id"))
-            if mid is None:
-                continue
-            by_name = _meeting_type(m)
-            if by_name in ("briefing", "defense"):
-                out[mid] = by_name
-            elif deal_id is None:
-                out[mid] = by_name  # без сделки позицию не определить
-            else:
-                out[mid] = "briefing" if idx == 0 else "defense"
-    return out
 
 
 def _to_int(value: Any) -> int | None:
