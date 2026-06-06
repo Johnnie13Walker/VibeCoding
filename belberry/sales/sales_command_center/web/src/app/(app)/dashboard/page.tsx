@@ -1,9 +1,9 @@
 import Link from 'next/link';
-import { Filter, FileText, TrendingUp, Target, Star, ArrowLeftRight, Users, Phone, Mail, Clock, BarChart3, CalendarDays, Goal } from 'lucide-react';
+import { Filter, FileText, TrendingUp, Target, Activity, ArrowLeftRight, Users, Phone, Mail, Clock, BarChart3, CalendarDays, Goal } from 'lucide-react';
 import { FunnelBars } from '@/components/dashboard/FunnelBars';
 import { SalesFunnel } from '@/components/dashboard/SalesFunnel';
 import { ForecastView } from '@/components/dashboard/Forecast';
-import { MeetingQualityView } from '@/components/dashboard/MeetingQuality';
+import { OperationalMatrixView } from '@/components/dashboard/OperationalMatrix';
 import { ManagerConversions } from '@/components/dashboard/ManagerConversions';
 import { ManagerPipelineView } from '@/components/dashboard/ManagerPipeline';
 import { TmActivityView } from '@/components/dashboard/TmActivity';
@@ -108,10 +108,10 @@ export default async function DashboardPage({
         <SalesFunnel data={data.salesFunnel} />
       </div>
 
-      {/* Качество встреч — из LLM-разбора транскриптов */}
+      {/* Операционная эффективность — «Опер» по дням (детальное качество встреч — на /meetings) */}
       <div className="bb-card" style={{ marginBottom: 16 }}>
-        <SectionHead icon={<Star size={17} />} title="Качество встреч" hint="разбор по транскриптам" />
-        <MeetingQualityView data={data.meetingQuality} />
+        <SectionHead icon={<Activity size={17} />} title="Операционная эффективность" hint="модель реальных рабочих минут · балл 0–10 по дням" />
+        <OperationalMatrixView data={data.operational} />
       </div>
 
       {/* Конверсии по менеджерам */}

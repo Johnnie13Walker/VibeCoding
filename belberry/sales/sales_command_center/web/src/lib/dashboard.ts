@@ -4,6 +4,7 @@ import { and, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { dealsSnapshot, managerActivity, meetings, plans, reports, users } from '@/db/schema';
 import { MEETING_HELD_STAGE } from './telemarketing';
+import { buildOperationalMatrix, type OperationalMatrix, type OperDayInput, type OperMemberInput } from './operational';
 
 // «Проведено» — событийный слой meetings (status=SUCCESS), а НЕ хранимый агрегат
 // manager_activity.meetings_held: до фикса «фильтра отменённых» в collect.py агрегат
@@ -99,6 +100,7 @@ export interface DashboardData {
   salesFunnel: SalesFunnel;
   forecast: Forecast;
   meetingQuality: MeetingQuality;
+  operational: OperationalMatrix;
   managerConversions: { managers: ManagerConversion[]; total: ManagerConversion };
   managerPipeline: ManagerPipeline;
   tmActivity: TmActivity;
@@ -730,6 +732,20 @@ function countWeekdays(start: string, end: string): number {
   return n;
 }
 
+/** Список рабочих дней (пн–пт) окна включительно — колонки матрицы «Опер». */
+function weekdayRange(start: string, end: string): string[] {
+  const out: string[] = [];
+  if (start > end) return out;
+  const cur = new Date(`${start}T00:00:00Z`);
+  const e = new Date(`${end}T00:00:00Z`);
+  while (cur <= e) {
+    const d = cur.getUTCDay();
+    if (d >= 1 && d <= 5) out.push(cur.toISOString().slice(0, 10));
+    cur.setUTCDate(cur.getUTCDate() + 1);
+  }
+  return out;
+}
+
 const MONTHS_RU = [
   'январь', 'февраль', 'март', 'апрель', 'май', 'июнь',
   'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь',
@@ -813,6 +829,7 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
       }),
       forecast: buildForecast([], 0, 0, 1, 30),
       meetingQuality: buildMeetingQuality([]),
+      operational: buildOperationalMatrix([], []),
       managerConversions: buildManagerConversions([]),
       managerPipeline: buildManagerPipeline([], {}),
       tmActivity: buildTmActivity([], 1),
@@ -1307,6 +1324,60 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
     .limit(1);
   const generatedAt = repRows[0]?.g ? new Date(repRows[0].g).toISOString() : null;
 
+  // ── Операционная эффективность («Опер» по дням) — блок вместо «Качества встреч».
+  // Балл считаем по модели живых минут (operational.ts); период и состав следуют за
+  // пикером дашборда (окно start..snapshot) и sales-фильтром. Встречи берём из
+  // событийного слоя (heldByMgrDate), остальное — из manager_activity по дням.
+  const operEnd = snapshotDate ?? end;
+  const operDays = weekdayRange(start, operEnd);
+  const operConds = [gte(managerActivity.reportDate, start), lte(managerActivity.reportDate, operEnd)];
+  if (salesIds.length) operConds.push(inArray(managerActivity.managerId, salesIds));
+  const operActRows = operDays.length
+    ? await db
+        .select({
+          managerId: managerActivity.managerId,
+          date: managerActivity.reportDate,
+          dials: sql<number>`coalesce(sum(${managerActivity.dialsTotal}),0)`,
+          calls60: sql<number>`coalesce(sum(${managerActivity.calls60sPlus}),0)`,
+          messenger: sql<number>`coalesce(sum(${managerActivity.messengerDialogs}),0)`,
+          emails: sql<number>`coalesce(sum(${managerActivity.emailsSent}),0)`,
+        })
+        .from(managerActivity)
+        .where(and(...operConds))
+        .groupBy(managerActivity.managerId, managerActivity.reportDate)
+    : [];
+  const operActByMgr = new Map<number, Map<string, { dials: number; calls60: number; messenger: number; emails: number }>>();
+  for (const r of operActRows) {
+    const byDate = operActByMgr.get(r.managerId) ?? new Map<string, { dials: number; calls60: number; messenger: number; emails: number }>();
+    byDate.set(String(r.date), {
+      dials: Number(r.dials),
+      calls60: Number(r.calls60),
+      messenger: Number(r.messenger),
+      emails: Number(r.emails),
+    });
+    operActByMgr.set(r.managerId, byDate);
+  }
+  const operMembers: OperMemberInput[] = team.map((tm) => {
+    const byDate = new Map<string, OperDayInput>();
+    const act = operActByMgr.get(tm.managerId);
+    const held = heldByMgrDate.get(tm.managerId);
+    for (const d of operDays) {
+      const a = act?.get(d);
+      const meetings = held?.get(d) ?? 0;
+      if (!a && meetings === 0) continue;
+      byDate.set(d, {
+        date: d,
+        dials: a?.dials ?? 0,
+        calls60: a?.calls60 ?? 0,
+        messenger: a?.messenger ?? 0,
+        emails: a?.emails ?? 0,
+        meetings,
+      });
+    }
+    return { managerId: tm.managerId, name: tm.name, role: tm.role, isTm: isTelemarketing(tm.role), byDate };
+  });
+  const operational = buildOperationalMatrix(operDays, operMembers);
+
   return {
     monthLabel: label,
     snapshotDate,
@@ -1323,6 +1394,7 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
     salesFunnel,
     forecast,
     meetingQuality,
+    operational,
     managerConversions,
     managerPipeline,
     tmActivity,
