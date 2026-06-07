@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Filter, FileText, TrendingUp, Target, Activity, ArrowLeftRight, Users, Phone, Mail, Clock, BarChart3, CalendarDays, Goal, XCircle } from 'lucide-react';
+import { Filter, FileText, TrendingUp, Target, Activity, ArrowLeftRight, Users, Phone, Mail, Clock, BarChart3, CalendarDays, XCircle } from 'lucide-react';
 import { FunnelBars } from '@/components/dashboard/FunnelBars';
 import { SalesFunnel } from '@/components/dashboard/SalesFunnel';
 import { ForecastView } from '@/components/dashboard/Forecast';
@@ -91,10 +91,11 @@ export default async function DashboardPage({
         <KpiCard label={`Сделки ${per}`} value={data.dealsCreatedTotal} icon="zap" delta={data.deltas.deals} />
       </div>
 
-      {/* Прогноз закрытия месяца + pacing (КД-хедлайн) */}
+      {/* План / факт месяца: прогноз (вверху) + оплаты (командный+индивидуальные) + брифы */}
       <div className="bb-card" style={{ marginBottom: 16 }}>
-        <SectionHead icon={<Target size={17} />} title="Прогноз закрытия месяца" hint="взвешенная воронка + темп" />
+        <SectionHead icon={<Target size={17} />} title="План / факт месяца" hint={data.monthLabel} />
         <ForecastView data={data.forecast} />
+        <PlanFactView data={data.planFact} />
       </div>
 
       {/* Воронка продаж — снимок открытых сделок по стадиям */}
@@ -161,12 +162,6 @@ export default async function DashboardPage({
       <div className="bb-card" style={{ marginBottom: 16 }}>
         <SectionHead icon={<CalendarDays size={17} />} title="Day2Day" hint={`${data.monthLabel} · по дням`} />
         <Day2DayView data={data.day2day} />
-      </div>
-
-      {/* План / факт */}
-      <div className="bb-card" style={{ marginBottom: 16 }}>
-        <SectionHead icon={<Goal size={17} />} title="План / факт" hint={data.monthLabel} />
-        <PlanFactView data={data.planFact} />
       </div>
 
       {/* Дальше: win rate + источники (нужна мелкая правка раннера). */}

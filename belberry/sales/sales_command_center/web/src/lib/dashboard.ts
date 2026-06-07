@@ -669,56 +669,50 @@ export function buildDay2Day(rows: Day2DayRow[]): Day2Day {
   return { rows, total };
 }
 
-export interface PlanFactRow {
-  key: string;
-  label: string;
-  fact: number;
-  plan: number;
-  pct: number | null;
-  money: boolean;
-  /** Подпись норматива, напр. «20/ТМ × 3». */
-  basis: string;
+export interface PlanFactManager {
+  managerId: number;
+  name: string;
+  revenueFact: number;
+  revenuePlan: number;
+  briefsFact: number;
+  briefsPlan: number;
 }
 
 export interface PlanFact {
-  rows: PlanFactRow[];
+  /** Оплаты: командный план на отдел + факт команды. */
+  revenueTeamFact: number;
+  revenueTeamPlan: number;
+  /** Индивидуальные планы оплат + брифы по МОП. */
+  managers: PlanFactManager[];
+  briefsTeamFact: number;
+  briefsTeamPlan: number;
 }
 
 export interface PlanFactInput {
-  revenueFact: number;
-  revenuePlan: number;
-  meetingsSetFact: number;
-  meetingsPlanPerTm: number;
-  tmCount: number;
-  briefsFact: number;
+  revenueTeamFact: number;
+  revenueTeamPlan: number;
+  /** Норматив брифов на одного МОП. */
   briefsPlanPerMop: number;
-  mopCount: number;
+  /** Менеджеры с индивидуальным планом оплат (Деговцова, Семенихин). */
+  managers: { managerId: number; name: string; revenueFact: number; revenuePlan: number; briefsFact: number }[];
 }
 
-/** План/факт по ключевым метрикам отдела. Чистая функция. */
+/** План/факт месяца: командные оплаты + индивидуальные планы (оплаты/брифы). Чистая. */
 export function buildPlanFact(i: PlanFactInput): PlanFact {
-  const row = (key: string, label: string, fact: number, plan: number, money: boolean, basis: string): PlanFactRow => ({
-    key,
-    label,
-    fact,
-    plan,
-    pct: plan > 0 ? Math.round((fact / plan) * 100) : null,
-    money,
-    basis,
-  });
+  const managers: PlanFactManager[] = i.managers.map((m) => ({
+    managerId: m.managerId,
+    name: m.name,
+    revenueFact: m.revenueFact,
+    revenuePlan: m.revenuePlan,
+    briefsFact: m.briefsFact,
+    briefsPlan: i.briefsPlanPerMop,
+  }));
   return {
-    rows: [
-      row('revenue', 'Оплаты, ₽', i.revenueFact, i.revenuePlan, true, 'на отдел'),
-      row(
-        'meetings',
-        'Встречи назначено (ТМ)',
-        i.meetingsSetFact,
-        i.meetingsPlanPerTm * i.tmCount,
-        false,
-        `${i.meetingsPlanPerTm}/ТМ × ${i.tmCount}`,
-      ),
-      row('briefs', 'Брифы', i.briefsFact, i.briefsPlanPerMop * i.mopCount, false, `${i.briefsPlanPerMop}/МОП × ${i.mopCount}`),
-    ],
+    revenueTeamFact: i.revenueTeamFact,
+    revenueTeamPlan: i.revenueTeamPlan,
+    managers,
+    briefsTeamFact: managers.reduce((a, m) => a + m.briefsFact, 0),
+    briefsTeamPlan: i.briefsPlanPerMop * managers.length,
   };
 }
 
@@ -841,8 +835,7 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
       monthly: [],
       day2day: buildDay2Day([]),
       planFact: buildPlanFact({
-        revenueFact: 0, revenuePlan: 0, meetingsSetFact: 0, meetingsPlanPerTm: 0,
-        tmCount: 0, briefsFact: 0, briefsPlanPerMop: 0, mopCount: 0,
+        revenueTeamFact: 0, revenueTeamPlan: 0, briefsPlanPerMop: 0, managers: [],
       }),
       salesRejections: emptyBundle('—'),
       deltas: { meetings: zeroDelta, dials: zeroDelta, kp: zeroDelta, deals: zeroDelta },
@@ -1272,28 +1265,44 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
     });
   const meetingQuality = buildMeetingQuality(mqInputs);
 
-  // Планы месяца (общие, manager_id IS NULL): revenue (на отдел), meetings (на ТМ),
-  // briefs (на МОП). Прогноз/pacing — к плану выручки; план/факт — ко всем трём.
-  const monthPlanRows = await db
-    .select({ metric: plans.metric, target: plans.target })
+  // Планы месяца: общие (manager_id IS NULL) — revenue (командный на отдел),
+  // briefs (норматив на МОП); индивидуальные (manager_id NOT NULL) — revenue по МОП.
+  const period = snapshotDate.slice(0, 7);
+  const allPlanRows = await db
+    .select({ managerId: plans.managerId, metric: plans.metric, target: plans.target })
     .from(plans)
-    .where(and(eq(plans.period, snapshotDate.slice(0, 7)), sql`${plans.managerId} is null`));
+    .where(eq(plans.period, period));
   const planMap: Record<string, number> = {};
-  for (const r of monthPlanRows) planMap[r.metric] = Number(r.target);
+  const indivRevenuePlan = new Map<number, number>();
+  for (const r of allPlanRows) {
+    if (r.managerId == null) planMap[r.metric] = Number(r.target);
+    else if (r.metric === 'revenue') indivRevenuePlan.set(r.managerId, Number(r.target));
+  }
   const planRevenue = planMap['revenue'] ?? 0;
   const [fy, fm, fd] = snapshotDate.split('-').map(Number);
   const daysInMonth = new Date(Date.UTC(fy, fm, 0)).getUTCDate();
   const forecast = buildForecast(funnel, salesFunnel.wonAmount, planRevenue, fd, daysInMonth);
 
+  // Индивидуальные МОП (у кого персональный план оплат): факт оплат/брифов — из team.
+  const teamById = new Map(team.map((m) => [m.managerId, m]));
+  const pfManagers = [...indivRevenuePlan.entries()]
+    .map(([id, revenuePlan]) => {
+      const tm = teamById.get(id);
+      return {
+        managerId: id,
+        name: tm?.name ?? `id ${id}`,
+        revenueFact: tm ? tm.dealsWonAmount : 0,
+        revenuePlan,
+        briefsFact: tm ? tm.briefs : 0,
+      };
+    })
+    .sort((a, b) => b.revenuePlan - a.revenuePlan || a.name.localeCompare(b.name, 'ru'));
+
   const planFact = buildPlanFact({
-    revenueFact: salesFunnel.wonAmount,
-    revenuePlan: planRevenue,
-    meetingsSetFact: tmActivity.meetingsSet,
-    meetingsPlanPerTm: planMap['meetings'] ?? 0,
-    tmCount: tmActivity.zvonari,
-    briefsFact: team.reduce((a, m) => a + m.briefs, 0),
+    revenueTeamFact: salesFunnel.wonAmount,
+    revenueTeamPlan: planRevenue,
     briefsPlanPerMop: planMap['briefs'] ?? 0,
-    mopCount: team.filter((m) => isSalesDept(m.role) && !isTelemarketing(m.role)).length,
+    managers: pfManagers,
   });
 
   // Δ к предыдущему окну (месяц→прошлый месяц, неделя→прошлая неделя).

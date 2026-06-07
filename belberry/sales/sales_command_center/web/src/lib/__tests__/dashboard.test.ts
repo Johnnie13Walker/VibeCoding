@@ -321,33 +321,30 @@ describe('buildDay2Day', () => {
 });
 
 describe('buildPlanFact', () => {
-  it('считает план как норматив×кол-во и процент выполнения', () => {
+  it('командные оплаты + индивидуальные планы оплат/брифов', () => {
     const pf = buildPlanFact({
-      revenueFact: 600000,
-      revenuePlan: 1000000,
-      meetingsSetFact: 30,
-      meetingsPlanPerTm: 20,
-      tmCount: 3,
-      briefsFact: 45,
-      briefsPlanPerMop: 30,
-      mopCount: 3,
+      revenueTeamFact: 600_000,
+      revenueTeamPlan: 1_000_000,
+      briefsPlanPerMop: 20,
+      managers: [
+        { managerId: 2806, name: 'Деговцова Елизавета', revenueFact: 0, revenuePlan: 500_000, briefsFact: 2 },
+        { managerId: 2846, name: 'Семенихин Егор', revenueFact: 300_000, revenuePlan: 500_000, briefsFact: 11 },
+      ],
     });
-    const rev = pf.rows.find((r) => r.key === 'revenue')!;
-    expect(rev.pct).toBe(60); // 600k/1M
-    const meet = pf.rows.find((r) => r.key === 'meetings')!;
-    expect(meet.plan).toBe(60); // 20×3
-    expect(meet.pct).toBe(50); // 30/60
-    expect(meet.basis).toBe('20/ТМ × 3');
-    const briefs = pf.rows.find((r) => r.key === 'briefs')!;
-    expect(briefs.plan).toBe(90); // 30×3
-    expect(briefs.pct).toBe(50); // 45/90
+    expect(pf.revenueTeamFact).toBe(600_000);
+    expect(pf.revenueTeamPlan).toBe(1_000_000);
+    expect(pf.managers).toHaveLength(2);
+    expect(pf.managers[0].briefsPlan).toBe(20); // норматив на каждого
+    // итог брифов: 2 + 11 = 13, план 20×2 = 40
+    expect(pf.briefsTeamFact).toBe(13);
+    expect(pf.briefsTeamPlan).toBe(40);
   });
 
-  it('нулевой план → pct null', () => {
+  it('нет индивидуальных менеджеров → пустой список, итог брифов 0', () => {
     const pf = buildPlanFact({
-      revenueFact: 100, revenuePlan: 0, meetingsSetFact: 0, meetingsPlanPerTm: 0,
-      tmCount: 0, briefsFact: 0, briefsPlanPerMop: 0, mopCount: 0,
+      revenueTeamFact: 100, revenueTeamPlan: 0, briefsPlanPerMop: 0, managers: [],
     });
-    expect(pf.rows[0].pct).toBeNull();
+    expect(pf.managers).toHaveLength(0);
+    expect(pf.briefsTeamPlan).toBe(0);
   });
 });
