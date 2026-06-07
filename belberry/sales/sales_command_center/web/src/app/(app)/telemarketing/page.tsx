@@ -102,6 +102,12 @@ export default async function TelemarketingPage({
             <TmKpiGrid kpis={data.kpis} />
           </div>
 
+          {/* План / факт ТМ — сразу после итога обзвона */}
+          <div className="bb-card" style={{ marginBottom: 16 }}>
+            <SectionHead icon={<Goal size={17} />} title="План / факт ТМ" hint={`${data.monthLabel} · дозвоны + брифования`} />
+            <TmPlanFactView data={data.planFact} />
+          </div>
+
           {/* B. По звонарям */}
           <div className="bb-card" style={{ marginBottom: 16 }}>
             <SectionHead icon={<Users size={17} />} title="По звонарям" hint={data.monthLabel} />
@@ -137,12 +143,6 @@ export default async function TelemarketingPage({
           <div className="bb-card" style={{ marginBottom: 16 }}>
             <SectionHead icon={<Search size={17} />} title="Причины отвала" hint="накопленно · личные закрытия" />
             <TmRejectionsView rejections={data.rejections} />
-          </div>
-
-          {/* E. План / факт */}
-          <div className="bb-card" style={{ marginBottom: 16 }}>
-            <SectionHead icon={<Goal size={17} />} title="План / факт ТМ" hint={`${data.monthLabel} · дозвоны + брифования`} />
-            <TmPlanFactView data={data.planFact} />
           </div>
 
           {/* G. Outreach */}
