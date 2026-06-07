@@ -2,7 +2,6 @@ import Link from 'next/link';
 import { Filter, FileText, TrendingUp, Target, Activity, ArrowLeftRight, Users, Phone, Mail, Clock, BarChart3, CalendarDays, XCircle } from 'lucide-react';
 import { FunnelBars } from '@/components/dashboard/FunnelBars';
 import { SalesFunnel } from '@/components/dashboard/SalesFunnel';
-import { ForecastView } from '@/components/dashboard/Forecast';
 import { OperationalMatrixView } from '@/components/dashboard/OperationalMatrix';
 import { ManagerConversions } from '@/components/dashboard/ManagerConversions';
 import { ManagerPipelineView } from '@/components/dashboard/ManagerPipeline';
@@ -94,8 +93,7 @@ export default async function DashboardPage({
       {/* План / факт месяца: прогноз (вверху) + оплаты (командный+индивидуальные) + брифы */}
       <div className="bb-card" style={{ marginBottom: 16 }}>
         <SectionHead icon={<Target size={17} />} title="План / факт месяца" hint={data.monthLabel} />
-        <ForecastView data={data.forecast} />
-        <PlanFactView data={data.planFact} />
+        <PlanFactView forecast={data.forecast} data={data.planFact} />
       </div>
 
       {/* Воронка продаж — снимок открытых сделок по стадиям */}

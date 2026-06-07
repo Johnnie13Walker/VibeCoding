@@ -246,6 +246,13 @@ input {
 .bb-pf-bar { height: 9px; border-radius: 6px; background: #f0ece7; overflow: hidden; margin-top: 7px; }
 .bb-pf-bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--bb-violet), var(--bb-indigo)); transition: width 0.9s cubic-bezier(.22,1,.36,1); }
 
+/* План/факт — две колонки (оплаты | брифы); на узком экране в одну */
+@media (max-width: 700px) {
+  .bb-pf-cols { grid-template-columns: 1fr !important; }
+  .bb-pf-cols > div:first-child { padding-right: 0 !important; border-right: 0 !important; padding-bottom: 16px; margin-bottom: 16px; border-bottom: 1px solid var(--bb-line); }
+  .bb-pf-cols > div:last-child { padding-left: 0 !important; }
+}
+
 /* ===== Sidebar: поиск ⌘K ===== */
 .bb-nav-search {
   display: flex; align-items: center; gap: 9px; width: 100%; margin-bottom: 6px; padding: 9px 12px;
