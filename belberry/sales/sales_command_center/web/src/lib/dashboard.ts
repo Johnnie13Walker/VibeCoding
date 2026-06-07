@@ -5,7 +5,8 @@ import { db } from '@/db';
 import { dealsSnapshot, managerActivity, meetings, payments, plans, reports, users } from '@/db/schema';
 import { MEETING_HELD_STAGE } from './telemarketing';
 import { buildOperationalMatrix, type OperationalMatrix, type OperDayInput, type OperMemberInput } from './operational';
-import { getSalesRejections, buildSalesRejections, type SalesRejections } from './sales-rejections';
+import { getSalesRejections } from './sales-rejections';
+import { emptyBundle, type SalesRejectionsBundle } from './sales-rejections-shared';
 
 // «Проведено» — событийный слой meetings (status=SUCCESS), а НЕ хранимый агрегат
 // manager_activity.meetings_held: до фикса «фильтра отменённых» в collect.py агрегат
@@ -110,7 +111,7 @@ export interface DashboardData {
   monthly: MonthRow[];
   day2day: Day2Day;
   planFact: PlanFact;
-  salesRejections: SalesRejections;
+  salesRejections: SalesRejectionsBundle;
   deltas: { meetings: KpiDelta; dials: KpiDelta; kp: KpiDelta; deals: KpiDelta };
   trend: TrendPoint[];
   health: number;
@@ -843,7 +844,7 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
         revenueFact: 0, revenuePlan: 0, meetingsSetFact: 0, meetingsPlanPerTm: 0,
         tmCount: 0, briefsFact: 0, briefsPlanPerMop: 0, mopCount: 0,
       }),
-      salesRejections: buildSalesRejections([], new Map(), new Map(), [], '—'),
+      salesRejections: emptyBundle('—'),
       deltas: { meetings: zeroDelta, dials: zeroDelta, kp: zeroDelta, deals: zeroDelta },
       trend: [],
       health: 0,
