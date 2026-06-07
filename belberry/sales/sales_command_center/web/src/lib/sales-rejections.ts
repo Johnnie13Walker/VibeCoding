@@ -25,6 +25,15 @@ export function reasonLabel10(id: number | null): string {
   return id != null ? (REASON_10[id] ?? 'Другое') : '(не указана)';
 }
 
+// Отдел продаж по должности (зеркало dashboard.ts; локально, чтобы не плодить
+// циклический импорт). Отказ ставит ТОЛЬКО продажник/РОП, НЕ телемаркетолог.
+const isTelemarketing = (dept: string | null | undefined): boolean =>
+  (dept || '').toLowerCase().includes('телемаркет');
+const isSalesManager = (dept: string | null | undefined): boolean => {
+  const d = (dept || '').toLowerCase();
+  return (d.includes('продаж') || d.includes('роп')) && !isTelemarketing(d);
+};
+
 const MONTHS_RU_SHORT = [
   'янв', 'фев', 'мар', 'апр', 'май', 'июнь',
   'июль', 'авг', 'сен', 'окт', 'ноя', 'дек',
@@ -67,7 +76,12 @@ export interface SalesRejections {
   wonTotal: number;
   months: SalesRejectionMonth[];
   reasons: SalesReasonBucket[];
+  /** Только действующие продажники (отдел Продажи/РОП, без ТМ и уволенных). */
   managers: SalesRejectionManager[];
+  /** Итоги по показанным (действующим) менеджерам — для строки «Итого» таблицы. */
+  managersRejections: number;
+  managersLostAmount: number;
+  managersLossRate: number | null;
 }
 
 // ── Чистые билдеры (тестируемы) ──────────────────────────────────────────────
@@ -83,13 +97,18 @@ const lossRate = (rej: number, won: number): number | null =>
   rej + won > 0 ? Math.round((rej / (rej + won)) * 100) : null;
 
 /** Агрегаты отказов из строк (менеджер × причина). СПАМ исключаем из всего, но
- * считаем отдельно. Чистая функция. */
+ * считаем отдельно. Итоги/история — по ВСЕМ (вкл. уволенных и переданные в ТМ),
+ * а список «по менеджерам» — только действующие продажники (eligibleManagerIds;
+ * null = без фильтра). Отказ ставит продажник, поэтому атрибуция по владельцу
+ * сделки (assigned_by) — для оставшихся в Продажах он же и есть отказавший.
+ * Чистая функция. */
 export function buildSalesRejections(
   rows: MgrReasonRow[],
   wonByMgr: Map<number, number>,
   nameById: Map<number, string>,
   months: SalesRejectionMonth[],
   yearLabel: string,
+  eligibleManagerIds: Set<number> | null = null,
 ): SalesRejections {
   const spamExcluded = rows
     .filter((r) => r.reasonId === SPAM_REASON_10)
@@ -111,10 +130,14 @@ export function buildSalesRejections(
 
   const lostAmount = real.reduce((a, r) => a + r.amount, 0);
 
-  // По менеджерам.
+  // Доля отказов отдела — знаменатель по ВСЕМ оплатам (вкл. уволенных).
+  const wonTotal = [...wonByMgr.values()].reduce((a, b) => a + b, 0);
+
+  // По менеджерам — только действующие продажники (eligibleManagerIds).
   const byMgr = new Map<number, { rejections: number; lostAmount: number; reasons: Map<number | null, number> }>();
   for (const r of real) {
     if (r.managerId == null) continue;
+    if (eligibleManagerIds && !eligibleManagerIds.has(r.managerId)) continue;
     const e = byMgr.get(r.managerId) ?? { rejections: 0, lostAmount: 0, reasons: new Map() };
     e.rejections += r.count;
     e.lostAmount += r.amount;
@@ -137,7 +160,9 @@ export function buildSalesRejections(
     })
     .sort((a, b) => b.rejections - a.rejections);
 
-  const wonTotal = managers.reduce((a, m) => a + m.won, 0);
+  const managersRejections = managers.reduce((a, m) => a + m.rejections, 0);
+  const managersLostAmount = managers.reduce((a, m) => a + m.lostAmount, 0);
+  const managersWon = managers.reduce((a, m) => a + m.won, 0);
 
   return {
     yearLabel,
@@ -150,6 +175,9 @@ export function buildSalesRejections(
     months,
     reasons,
     managers,
+    managersRejections,
+    managersLostAmount,
+    managersLossRate: lossRate(managersRejections, managersWon),
   };
 }
 
@@ -213,9 +241,14 @@ export async function getSalesRejections(snapshotDate: string): Promise<SalesRej
   const wonByMgr = new Map<number, number>();
   for (const r of wonRows) wonByMgr.set(r.managerId, Number(r.won));
 
-  // Имена.
-  const userRows = await db.select({ id: users.bitrixId, name: users.name }).from(users);
+  // Имена + действующие продажники (для списка «по менеджерам»).
+  const userRows = await db
+    .select({ id: users.bitrixId, name: users.name, dept: users.dept, isActive: users.isActive })
+    .from(users);
   const nameById = new Map(userRows.map((u) => [u.id, u.name]));
+  const eligibleManagerIds = new Set(
+    userRows.filter((u) => u.isActive && isSalesManager(u.dept)).map((u) => u.id),
+  );
 
-  return buildSalesRejections(rows, wonByMgr, nameById, months, String(year));
+  return buildSalesRejections(rows, wonByMgr, nameById, months, String(year), eligibleManagerIds);
 }

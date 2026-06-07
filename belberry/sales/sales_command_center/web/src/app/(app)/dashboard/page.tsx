@@ -129,7 +129,7 @@ export default async function DashboardPage({
 
       {/* Отказы по менеджерам */}
       <div className="bb-card" style={{ marginBottom: 16 }}>
-        <SectionHead icon={<UserX size={17} />} title="Отказы по менеджерам" hint="с начала года" />
+        <SectionHead icon={<UserX size={17} />} title="Отказы по менеджерам" hint="с начала года · действующие продажники" />
         <SalesRejectionsManagers data={data.salesRejections} />
       </div>
 

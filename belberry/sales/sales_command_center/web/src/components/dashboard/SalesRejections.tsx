@@ -141,10 +141,10 @@ export function SalesRejectionsManagers({ data }: { data: SalesRejections }) {
       </tbody>
       <tfoot>
         <tr>
-          <td style={{ fontWeight: 800, borderTop: '2px solid var(--bb-line)' }}>Итого ОП</td>
-          <td className="r" style={{ fontWeight: 800, borderTop: '2px solid var(--bb-line)' }}>{data.totalRejections}</td>
-          <td className="r" style={{ fontWeight: 800, borderTop: '2px solid var(--bb-line)' }}>{rub(data.lostAmount)}</td>
-          <td className="r" style={{ fontWeight: 800, borderTop: '2px solid var(--bb-line)' }}>{data.lossRate != null ? `${data.lossRate}%` : '—'}</td>
+          <td style={{ fontWeight: 800, borderTop: '2px solid var(--bb-line)' }}>Итого по действующим</td>
+          <td className="r" style={{ fontWeight: 800, borderTop: '2px solid var(--bb-line)' }}>{data.managersRejections}</td>
+          <td className="r" style={{ fontWeight: 800, borderTop: '2px solid var(--bb-line)' }}>{rub(data.managersLostAmount)}</td>
+          <td className="r" style={{ fontWeight: 800, borderTop: '2px solid var(--bb-line)' }}>{data.managersLossRate != null ? `${data.managersLossRate}%` : '—'}</td>
           <td style={{ borderTop: '2px solid var(--bb-line)' }} />
         </tr>
       </tfoot>
