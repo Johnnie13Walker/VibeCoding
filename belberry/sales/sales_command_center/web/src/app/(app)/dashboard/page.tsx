@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Filter, FileText, TrendingUp, Target, Activity, ArrowLeftRight, Users, Phone, Mail, Clock, BarChart3, CalendarDays, Goal, XCircle, UserX } from 'lucide-react';
+import { Filter, FileText, TrendingUp, Target, Activity, ArrowLeftRight, Users, Phone, Mail, Clock, BarChart3, CalendarDays, Goal, XCircle } from 'lucide-react';
 import { FunnelBars } from '@/components/dashboard/FunnelBars';
 import { SalesFunnel } from '@/components/dashboard/SalesFunnel';
 import { ForecastView } from '@/components/dashboard/Forecast';
@@ -14,7 +14,7 @@ import { Day2DayView } from '@/components/dashboard/Day2Day';
 import { PlanFactView } from '@/components/dashboard/PlanFact';
 import { KpiCard } from '@/components/dashboard/KpiCard';
 import { Gauge } from '@/components/dashboard/Gauge';
-import { SalesRejectionsView, SalesRejectionsManagers } from '@/components/dashboard/SalesRejections';
+import { SalesRejectionsView } from '@/components/dashboard/SalesRejections';
 import { getDashboardData } from '@/lib/dashboard';
 
 export const dynamic = 'force-dynamic';
@@ -121,16 +121,10 @@ export default async function DashboardPage({
         <ManagerConversions data={data.managerConversions} />
       </div>
 
-      {/* Отказы — динамика с начала года (воронка Продажи, C10:LOSE) */}
+      {/* Отказы — динамика с начала года (воронка Продажи, C10:LOSE) + мультиселект МП */}
       <div className="bb-card" style={{ marginBottom: 16 }}>
         <SectionHead icon={<XCircle size={17} />} title="Отказы — динамика с начала года" hint={`воронка Продажи · ${data.salesRejections.yearLabel}`} />
         <SalesRejectionsView data={data.salesRejections} />
-      </div>
-
-      {/* Отказы по менеджерам */}
-      <div className="bb-card" style={{ marginBottom: 16 }}>
-        <SectionHead icon={<UserX size={17} />} title="Отказы по менеджерам" hint="с начала года · действующие продажники" />
-        <SalesRejectionsManagers data={data.salesRejections} />
       </div>
 
       {/* Воронка по менеджерам · текущее состояние + Δ за месяц */}
