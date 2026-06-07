@@ -138,26 +138,30 @@ describe('buildTmMeetingsResult', () => {
 
 describe('buildTmPlanFact', () => {
   const input = {
-    zvonari: 2, workingDays: 19, meetingsSet: 28, dials: 2556, calls120: 0,
-    meetingsPlanPerTm: 20, dialsPerDayPlan: 100, calls120PerDayPlan: 25, convPlanPct: 4,
+    dials60PerTm: 400,
+    briefingsPerTm: 20,
+    members: [
+      { managerId: 2832, name: 'Вострецов Аркадий', calls60: 56, briefingsHeld: 6 },
+      { managerId: 2772, name: 'Исаева Дарья', calls60: 69, briefingsHeld: 5 },
+    ],
   };
-  it('строит 4 строки план/факт на 1 звонаря', () => {
-    const rows = buildTmPlanFact(input);
-    expect(rows).toHaveLength(4);
-    const meet = rows.find((r) => r.label === 'Встречи назначено')!;
-    expect(meet.fact).toBe(14); // 28/2
-    expect(meet.plan).toBe(20);
-    expect(meet.pct).toBe(70);
-    const dpd = rows.find((r) => r.label === 'Наборов в день')!;
-    expect(dpd.fact).toBe(Math.round(2556 / 2 / 19)); // 67
-    const conv = rows.find((r) => r.label === 'Конверсия наборы→встречу')!;
-    expect(conv.isPercent).toBe(true);
-    expect(conv.fact).toBeCloseTo(1.1, 1); // 28/2556
+  it('дозвоны и брифования: по звонарям + командно', () => {
+    const pf = buildTmPlanFact(input);
+    // дозвоны: команда 125 / план 800 (400×2); сортировка по факту (Исаева 69 первой)
+    expect(pf.dials60.teamFact).toBe(125);
+    expect(pf.dials60.teamPlan).toBe(800);
+    expect(pf.dials60.perTm).toBe(400);
+    expect(pf.dials60.managers[0].name).toBe('Исаева Дарья');
+    // брифования: команда 11 / план 40
+    expect(pf.briefings.teamFact).toBe(11);
+    expect(pf.briefings.teamPlan).toBe(40);
+    expect(pf.briefings.managers[0].fact).toBe(6); // Вострецов первым (6>5)
   });
-  it('опускает строки без плана', () => {
-    expect(
-      buildTmPlanFact({ ...input, meetingsPlanPerTm: 0, dialsPerDayPlan: 0, calls120PerDayPlan: 0, convPlanPct: 0 }),
-    ).toHaveLength(0);
+  it('без звонарей — нулевые итоги, пустые списки', () => {
+    const pf = buildTmPlanFact({ dials60PerTm: 400, briefingsPerTm: 20, members: [] });
+    expect(pf.dials60.teamFact).toBe(0);
+    expect(pf.dials60.teamPlan).toBe(0);
+    expect(pf.dials60.managers).toHaveLength(0);
   });
 });
 

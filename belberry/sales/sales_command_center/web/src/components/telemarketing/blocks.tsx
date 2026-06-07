@@ -8,7 +8,7 @@ import type {
   TmMicroFunnel,
   TmMonthlyRow,
   TmOutreach,
-  TmPlanFactRow,
+  TmPlanFact,
   TmRejections,
   TmHeatmap,
   TmMeetingQuality,
@@ -318,28 +318,84 @@ export function TmRejectionsView({ rejections }: { rejections: TmRejections[] })
 
 // ───────────────────────── E. План / факт ─────────────────────────
 
-export function TmPlanFactView({ rows }: { rows: TmPlanFactRow[] }) {
-  if (rows.length === 0) return <p style={{ color: 'var(--bb-muted)' }}>План на период не задан.</p>;
+function pfPct(f: number, p: number): number | null {
+  return p > 0 ? Math.round((f / p) * 100) : null;
+}
+function pfTone(p: number | null): 'green' | 'amber' | 'red' | 'grey' {
+  return p == null ? 'grey' : p >= 100 ? 'green' : p >= 50 ? 'amber' : 'red';
+}
+const PF_PILL: Record<string, React.CSSProperties> = {
+  green: { background: '#e7f4ec', color: 'var(--bb-green)' },
+  amber: { background: '#fdf2e7', color: '#b5651d' },
+  red: { background: '#fdeced', color: 'var(--bb-red)' },
+  grey: { background: '#eef0f4', color: 'var(--bb-muted)' },
+};
+const PF_FILL: Record<string, string> = {
+  green: 'linear-gradient(90deg,#5fcf8b,#2c7a4a)',
+  amber: 'linear-gradient(90deg,#f4b46a,#e88a3b)',
+  red: 'linear-gradient(90deg,#ef8d5e,#d4202e)',
+  grey: '#dcd7d0',
+};
+function pfInitials(name: string): string {
+  const x = name.trim().split(/\s+/);
+  return ((x[0]?.[0] ?? '') + (x[1]?.[0] ?? '')).toUpperCase() || '—';
+}
+
+function PfRow({ ava, name, fact, plan, team }: { ava: string; name: string; fact: number; plan: number; team?: boolean }) {
+  const p = pfPct(fact, plan);
+  const tone = pfTone(p);
+  const fill = p == null || p === 0 ? 2 : Math.min(100, p);
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      {rows.map((r) => {
-        const over = r.pct >= 100;
-        const bar = over ? 'linear-gradient(90deg,#3a9c63,#2c7a4a)' : r.pct >= 80 ? 'linear-gradient(90deg,var(--bb-violet),var(--bb-indigo))' : 'linear-gradient(90deg,#e88a3b,#d4202e)';
-        return (
-          <div key={r.label}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6, gap: 12 }}>
-              <span>{r.label} {r.unit ? <span style={{ color: 'var(--bb-faint)', fontSize: 11.5 }}>· {r.unit}</span> : null}</span>
-              <b style={{ whiteSpace: 'nowrap' }}>
-                {r.isPercent ? `${nf(r.fact)}% / ${nf(r.plan)}%` : `${nf(r.fact)} / ${nf(r.plan)}`}{' '}
-                <span style={{ color: over ? 'var(--bb-green)' : 'var(--bb-muted)' }}>({r.pct}%)</span>
-              </b>
-            </div>
-            <div style={{ height: 10, borderRadius: 6, background: '#f0ece7', overflow: 'hidden' }}>
-              <div style={{ height: '100%', width: `${Math.min(100, r.pct)}%`, background: bar }} />
-            </div>
-          </div>
-        );
-      })}
+    <div style={{
+      padding: team ? '9px 12px' : '8px 0',
+      margin: team ? '5px -12px 0' : undefined,
+      background: team ? 'linear-gradient(90deg,var(--bb-violet-soft),transparent)' : undefined,
+      borderRadius: team ? 11 : undefined,
+      borderTop: team ? undefined : '1px solid #f4f1ec',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+        <span style={{ width: 24, height: 24, flex: '0 0 24px', borderRadius: '50%', display: 'grid', placeItems: 'center', fontSize: 9.5, fontWeight: 700, color: '#fff', background: team ? 'linear-gradient(135deg,var(--bb-indigo),var(--bb-violet))' : 'linear-gradient(135deg,#8b80ff,#5b50d6)' }}>{ava}</span>
+        <span style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{name}</span>
+        <span className="tabular" style={{ marginLeft: 'auto', fontSize: 12.5, fontWeight: 700, whiteSpace: 'nowrap' }}>
+          <b style={{ fontWeight: 800 }}>{nf(fact)}</b> <span style={{ color: 'var(--bb-faint)', fontWeight: 600 }}>/ {nf(plan)}</span>
+        </span>
+        <span className="tabular" style={{ ...PF_PILL[tone], fontSize: 11, fontWeight: 800, borderRadius: 999, padding: '2px 9px', flex: '0 0 auto' }}>{p != null ? `${p}%` : '—'}</span>
+      </div>
+      <div style={{ height: 6, borderRadius: 5, background: '#f1ede8', overflow: 'hidden' }}>
+        <i style={{ display: 'block', height: '100%', borderRadius: 5, width: `${fill}%`, background: p ? PF_FILL[tone] : PF_FILL.grey }} />
+      </div>
+    </div>
+  );
+}
+
+function PfHead({ dot, title, hint }: { dot: string; title: string; hint: string }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+      <span style={{ width: 8, height: 8, borderRadius: '50%', background: dot, flex: '0 0 auto' }} />
+      <h4 style={{ fontSize: 13, fontWeight: 800, margin: 0 }}>{title}</h4>
+      <span style={{ fontSize: 11, color: 'var(--bb-faint)', marginLeft: 'auto', fontWeight: 500 }}>{hint}</span>
+    </div>
+  );
+}
+
+export function TmPlanFactView({ data }: { data: TmPlanFact }) {
+  if (data.dials60.managers.length === 0) return <p style={{ color: 'var(--bb-muted)' }}>Звонари за период не найдены.</p>;
+  return (
+    <div className="bb-pf-cols" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0 }}>
+      <div style={{ paddingRight: 26, borderRight: '1px solid var(--bb-line)' }}>
+        <PfHead dot="var(--bb-violet)" title="Дозвоны ≥60с" hint={`план ${data.dials60.perTm}/чел`} />
+        {data.dials60.managers.map((m) => (
+          <PfRow key={`d-${m.managerId}`} ava={pfInitials(m.name)} name={m.name} fact={m.fact} plan={m.plan} />
+        ))}
+        <PfRow ava="ТМ" name="Итого" fact={data.dials60.teamFact} plan={data.dials60.teamPlan} team />
+      </div>
+      <div style={{ paddingLeft: 26 }}>
+        <PfHead dot="var(--bb-green)" title="Брифования состоялись" hint={`план ${data.briefings.perTm}/чел`} />
+        {data.briefings.managers.map((m) => (
+          <PfRow key={`b-${m.managerId}`} ava={pfInitials(m.name)} name={m.name} fact={m.fact} plan={m.plan} />
+        ))}
+        <PfRow ava="ТМ" name="Итого" fact={data.briefings.teamFact} plan={data.briefings.teamPlan} team />
+      </div>
     </div>
   );
 }

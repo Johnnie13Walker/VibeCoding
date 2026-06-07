@@ -44,6 +44,8 @@ export interface TmMember {
   meetingsSet: number;
   /** Состоявшиеся встречи, назначенные этим ТМ (held по createdBy). Событийная метрика. */
   meetingsHeldByCreator: number;
+  /** Состоявшиеся БРИФования, назначенные этим ТМ (held + type=briefing по createdBy). */
+  briefingsHeldByCreator: number;
   /** Личные отвалы (C50:APOLOGY, закрыл сам) за период — для «сжигания базы». */
   rejectionsPeriod: number;
   dealsCold: number;
@@ -290,53 +292,51 @@ export function buildTmMeetingsResult(members: TmMember[]): TmMeetingsResult {
 
 // ───────────────────────── План / факт ─────────────────────────
 
-export interface TmPlanFactRow {
-  label: string;
+/** Строка план/факт по звонарю (для одной метрики). */
+export interface TmPlanManager {
+  managerId: number;
+  name: string;
   fact: number;
   plan: number;
-  /** Выполнение, %. */
-  pct: number;
-  /** Подпись-уточнение (источник плана / оговорка). */
-  unit?: string;
-  /** Значения в процентах (для форматирования «X%»). */
-  isPercent?: boolean;
+}
+
+/** План/факт ТМ: дозвоны ≥60с и состоявшиеся брифования — командно + по звонарям. */
+export interface TmPlanFact {
+  dials60: { teamFact: number; teamPlan: number; perTm: number; managers: TmPlanManager[] };
+  briefings: { teamFact: number; teamPlan: number; perTm: number; managers: TmPlanManager[] };
 }
 
 export interface TmPlanFactInput {
-  zvonari: number;
-  workingDays: number;
-  meetingsSet: number;
-  dials: number;
-  calls120: number;
-  /** План встреч на 1 ТМ/мес (из таблицы plans, дефолт 20). */
-  meetingsPlanPerTm: number;
-  /** Ориентиры из декомпозиции ОП (на 1 ТМ): наборов/день, звонков 120с+/день, конверсия наборы→встречу %. */
-  dialsPerDayPlan: number;
-  calls120PerDayPlan: number;
-  convPlanPct: number;
+  /** План дозвонов ≥60с на 1 ТМ/мес (дефолт 400). */
+  dials60PerTm: number;
+  /** План состоявшихся брифований на 1 ТМ/мес (дефолт 20). */
+  briefingsPerTm: number;
+  members: { managerId: number; name: string; calls60: number; briefingsHeld: number }[];
 }
 
-/** План/факт ТМ на 1 звонаря: встречи (из «Плана оплат») + ориентиры обзвона. Чистая функция. */
-export function buildTmPlanFact(i: TmPlanFactInput): TmPlanFactRow[] {
-  const z = Math.max(1, i.zvonari);
-  const wd = Math.max(1, i.workingDays);
-  const rows: TmPlanFactRow[] = [];
-  const row = (label: string, fact: number, plan: number, unit?: string, isPercent?: boolean) => {
-    rows.push({ label, fact, plan, pct: plan > 0 ? Math.round((fact / plan) * 100) : 0, unit, isPercent });
+/** План/факт ТМ: дозвоны ≥60с + состоявшиеся брифования, по звонарям и командно. Чистая. */
+export function buildTmPlanFact(i: TmPlanFactInput): TmPlanFact {
+  const dialsM = i.members
+    .map((m) => ({ managerId: m.managerId, name: m.name, fact: m.calls60, plan: i.dials60PerTm }))
+    .sort((a, b) => b.fact - a.fact);
+  const briefM = i.members
+    .map((m) => ({ managerId: m.managerId, name: m.name, fact: m.briefingsHeld, plan: i.briefingsPerTm }))
+    .sort((a, b) => b.fact - a.fact);
+  const n = i.members.length;
+  return {
+    dials60: {
+      teamFact: dialsM.reduce((a, m) => a + m.fact, 0),
+      teamPlan: i.dials60PerTm * n,
+      perTm: i.dials60PerTm,
+      managers: dialsM,
+    },
+    briefings: {
+      teamFact: briefM.reduce((a, m) => a + m.fact, 0),
+      teamPlan: i.briefingsPerTm * n,
+      perTm: i.briefingsPerTm,
+      managers: briefM,
+    },
   };
-  if (i.meetingsPlanPerTm > 0) {
-    row('Встречи назначено', Math.round(i.meetingsSet / z), i.meetingsPlanPerTm, 'на 1 ТМ · из «Плана оплат»');
-  }
-  if (i.dialsPerDayPlan > 0) {
-    row('Наборов в день', Math.round(i.dials / z / wd), i.dialsPerDayPlan, 'на 1 ТМ · ориентир, уточнить');
-  }
-  if (i.calls120PerDayPlan > 0) {
-    row('Звонки 120с+ в день', Math.round(i.calls120 / z / wd), i.calls120PerDayPlan, 'на 1 ТМ · ориентир, уточнить');
-  }
-  if (i.convPlanPct > 0) {
-    row('Конверсия наборы→встречу', pct1(i.meetingsSet, i.dials) ?? 0, i.convPlanPct, 'ориентир 3,5–4,2%', true);
-  }
-  return rows;
 }
 
 // ───────────────────────── Outreach ─────────────────────────
@@ -658,7 +658,7 @@ export interface TmDashboardData {
   meetingsResult: TmMeetingsResult;
   monthly: TmMonthlyRow[];
   microFunnels: TmMicroFunnel[];
-  planFact: TmPlanFactRow[];
+  planFact: TmPlanFact;
   outreach: TmOutreach;
   /** Причины отвала по звонарям (накопленно, личные закрытия). */
   rejections: TmRejections[];

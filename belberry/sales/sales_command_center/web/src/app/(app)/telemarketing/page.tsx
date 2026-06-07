@@ -141,8 +141,8 @@ export default async function TelemarketingPage({
 
           {/* E. План / факт */}
           <div className="bb-card" style={{ marginBottom: 16 }}>
-            <SectionHead icon={<Goal size={17} />} title="План / факт ТМ" hint={data.monthLabel} />
-            <TmPlanFactView rows={data.planFact} />
+            <SectionHead icon={<Goal size={17} />} title="План / факт ТМ" hint={`${data.monthLabel} · дозвоны + брифования`} />
+            <TmPlanFactView data={data.planFact} />
           </div>
 
           {/* G. Outreach */}

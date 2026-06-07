@@ -90,7 +90,7 @@ function emptyData(): TmDashboardData {
     meetingsResult: buildTmMeetingsResult([]),
     monthly: [],
     microFunnels: [],
-    planFact: [],
+    planFact: buildTmPlanFact({ dials60PerTm: 400, briefingsPerTm: 20, members: [] }),
     outreach: buildTmOutreach([]),
     rejections: [],
     heatmap: buildTmHeatmap([]),
@@ -171,6 +171,7 @@ export async function getTmDashboardData(
       talkSeconds: Number(r.talkSeconds),
       meetingsSet: Number(r.meetingsSet),
       meetingsHeldByCreator: 0, // наполняется ниже из событий таблицы meetings
+      briefingsHeldByCreator: 0, // наполняется ниже (held + type=briefing)
       rejectionsPeriod: 0, // наполняется ниже из deal_rejections
       dealsCold: Number(r.dealsCold),
       messenger: Number(r.messenger),
@@ -206,6 +207,26 @@ export async function getTmDashboardData(
   const heldByCreator = new Map<number, number>();
   for (const r of heldRows) if (r.creator != null) heldByCreator.set(r.creator, Number(r.n));
   for (const m of members) m.meetingsHeldByCreator = heldByCreator.get(m.managerId) ?? 0;
+
+  // Состоявшиеся БРИФования по ТМ-создателю (held + type=briefing) — для план/факта.
+  const briefHeldRows = tmIds.length
+    ? await db
+        .select({ creator: meetings.createdBy, n: sql<number>`count(*)` })
+        .from(meetings)
+        .where(
+          and(
+            eq(meetings.status, MEETING_HELD_STAGE),
+            eq(meetings.meetingType, 'briefing'),
+            inArray(meetings.createdBy, tmIds),
+            gte(meetings.reportDate, start),
+            lte(meetings.reportDate, end),
+          ),
+        )
+        .groupBy(meetings.createdBy)
+    : [];
+  const briefByCreator = new Map<number, number>();
+  for (const r of briefHeldRows) if (r.creator != null) briefByCreator.set(r.creator, Number(r.n));
+  for (const m of members) m.briefingsHeldByCreator = briefByCreator.get(m.managerId) ?? 0;
 
   // Причины отвала (deal_rejections) — по ВЛАДЕЛЬЦУ сделки (assigned_by, чья база),
   // как в отчёте; «Выручка <30» (автодисквал) исключаем. rejected_at — в МСК.
@@ -335,14 +356,17 @@ export async function getTmDashboardData(
     };
   });
 
-  // План встреч ТМ (plans, metric='meetings', период месяца снимка; дефолт 20/ТМ).
-  const planRows = await db
-    .select({ target: plans.target })
+
+  // План ТМ на месяц: дозвоны ≥60с (metric='tm_dials60', дефолт 400) и состоявшиеся
+  // брифования (metric='tm_briefings', дефолт 20) — на 1 звонаря.
+  const tmPlanRows = await db
+    .select({ metric: plans.metric, target: plans.target })
     .from(plans)
-    .where(and(eq(plans.period, planPeriod), eq(plans.metric, 'meetings')))
-    .limit(1);
-  const monthlyPlanPerTm = planRows[0] ? Number(planRows[0].target) : 20;
-  const meetingsPlanPerTm = range === 'week' && !monthOk ? Math.max(1, Math.round(monthlyPlanPerTm / 4)) : monthlyPlanPerTm;
+    .where(and(eq(plans.period, planPeriod), inArray(plans.metric, ['tm_dials60', 'tm_briefings'])));
+  const tmPlanMap: Record<string, number> = {};
+  for (const r of tmPlanRows) tmPlanMap[r.metric] = Number(r.target);
+  const dials60PerTm = tmPlanMap['tm_dials60'] ?? 400;
+  const briefingsPerTm = tmPlanMap['tm_briefings'] ?? 20;
 
   // Heatmap «когда берут трубку»: час × день недели по ТМ за окно динамики (стабильный
   // паттерн). dow = extract(dow): 0=Вс..6=Сб.
@@ -456,16 +480,14 @@ export async function getTmDashboardData(
     monthly: buildTmMonthly(monthlyInputs),
     microFunnels: members.map((m) => buildTmMicroFunnel(m)),
     planFact: buildTmPlanFact({
-      zvonari: members.length,
-      workingDays,
-      meetingsSet: kpis.meetingsSet,
-      dials: kpis.dials,
-      calls120: kpis.calls120,
-      meetingsPlanPerTm,
-      // Ориентиры из декомпозиции ОП (на 1 ТМ): уточнить с РОПом.
-      dialsPerDayPlan: 100,
-      calls120PerDayPlan: 25,
-      convPlanPct: 4,
+      dials60PerTm,
+      briefingsPerTm,
+      members: members.map((m) => ({
+        managerId: m.managerId,
+        name: m.name,
+        calls60: m.calls60,
+        briefingsHeld: m.briefingsHeldByCreator,
+      })),
     }),
     outreach: buildTmOutreach(members),
     rejections,
