@@ -331,6 +331,78 @@ export function buildTmMonthly(rows: TmMonthlyInput[]): TmMonthlyRow[] {
   }));
 }
 
+// ── Динамика с мультиселектом звонарей + сравнение «на ту же дату» ─────────────
+
+/** Агрегат за период 1..N месяца (для сравнения текущий vs прошлый). */
+export interface TmMonthlyPeriod {
+  dials: number;
+  calls60: number;
+  meetingsSet: number;
+  held: number;
+}
+
+export interface TmMonthlyManager {
+  managerId: number;
+  name: string;
+  isActive: boolean;
+  rows: TmMonthlyInput[]; // помесячно (последние 8)
+  cur: TmMonthlyPeriod; // текущий месяц 1..N
+  prev: TmMonthlyPeriod; // прошлый месяц 1..N
+}
+
+export interface TmMonthlyBundle {
+  months: { ym: string; label: string }[];
+  perManager: TmMonthlyManager[];
+  selectableManagers: { managerId: number; name: string; isActive: boolean }[];
+  curLabel: string; // «1–7 июн»
+  prevLabel: string; // «1–7 мая»
+}
+
+const ZERO_PERIOD = (): TmMonthlyPeriod => ({ dials: 0, calls60: 0, meetingsSet: 0, held: 0 });
+
+/** Свести помесячные строки по выбранным звонарям. Чистая. */
+export function aggregateTmMonthlyRows(
+  perManager: TmMonthlyManager[],
+  selectedIds: ReadonlySet<number>,
+  months: { ym: string; label: string }[],
+): TmMonthlyInput[] {
+  return months.map((mo, i) => {
+    const acc: TmMonthlyInput = {
+      ym: mo.ym, label: mo.label, dials: 0, answered: 0, calls60: 0, talkSeconds: 0,
+      meetingsSet: 0, meetingsHeldByCreator: 0, rejected: 0, postponed: 0,
+    };
+    for (const m of perManager) {
+      if (!selectedIds.has(m.managerId)) continue;
+      const r = m.rows[i];
+      if (!r) continue;
+      acc.dials += r.dials;
+      acc.answered += r.answered;
+      acc.calls60 += r.calls60;
+      acc.talkSeconds += r.talkSeconds;
+      acc.meetingsSet += r.meetingsSet;
+      acc.meetingsHeldByCreator += r.meetingsHeldByCreator;
+      acc.rejected += r.rejected;
+      acc.postponed += r.postponed;
+    }
+    return acc;
+  });
+}
+
+/** Свести период «на ту же дату» (текущий/прошлый) по выбранным звонарям. Чистая. */
+export function aggregateTmMonthlyPeriod(
+  perManager: TmMonthlyManager[],
+  selectedIds: ReadonlySet<number>,
+): { cur: TmMonthlyPeriod; prev: TmMonthlyPeriod } {
+  const cur = ZERO_PERIOD();
+  const prev = ZERO_PERIOD();
+  for (const m of perManager) {
+    if (!selectedIds.has(m.managerId)) continue;
+    cur.dials += m.cur.dials; cur.calls60 += m.cur.calls60; cur.meetingsSet += m.cur.meetingsSet; cur.held += m.cur.held;
+    prev.dials += m.prev.dials; prev.calls60 += m.prev.calls60; prev.meetingsSet += m.prev.meetingsSet; prev.held += m.prev.held;
+  }
+  return { cur, prev };
+}
+
 // ───────────────────── Встречи → результат ─────────────────────
 
 export interface TmMeetingsResult {
