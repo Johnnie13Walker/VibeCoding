@@ -96,7 +96,7 @@ export default async function TelemarketingPage({
         <>
           {/* A. KPI обзвона */}
           <div className="bb-card" style={{ marginBottom: 16 }}>
-            <SectionHead icon={<Phone size={17} />} title="Обзвон · итог отдела" hint={`${data.monthLabel} · ${data.kpis.zvonari} звонаря`} />
+            <SectionHead icon={<Phone size={17} />} title="Обзвон · итог отдела" hint={`${data.monthLabel} · ${data.kpis.zvonari} телемаркетолога`} />
             <TmKpiGrid kpis={data.kpis} kpisPrev={data.kpisPrev} cmpLabel={data.kpisCmpLabel} />
           </div>
 
@@ -108,7 +108,7 @@ export default async function TelemarketingPage({
 
           {/* B. По звонарям */}
           <div className="bb-card" style={{ marginBottom: 16 }}>
-            <SectionHead icon={<Users size={17} />} title="По звонарям" hint={data.monthLabel} />
+            <SectionHead icon={<Users size={17} />} title="По телемаркетологам" hint={data.monthLabel} />
             <TmManagerTable rows={data.table} />
           </div>
 
@@ -128,7 +128,7 @@ export default async function TelemarketingPage({
           <div className="bb-card" style={{ marginBottom: 16 }}>
             <SectionHead icon={<BarChart3 size={17} />} title="Динамика по месяцам" hint="мультиселект · текущий vs прошлый на ту же дату" />
             <p style={{ fontSize: 12, color: 'var(--bb-faint)', margin: '-6px 0 14px' }}>
-              Выберите одного или нескольких звонарей — данные суммируются. По умолчанию выбраны все. Дашборд охватывает любого сотрудника ТМ (по должности), список не захардкожен.
+              Выберите одного или нескольких телемаркетологов — данные суммируются. По умолчанию выбраны все. Дашборд охватывает любого сотрудника ТМ (по должности), список не захардкожен.
             </p>
             <TmMonthly data={data.monthlyBundle} />
           </div>
@@ -147,7 +147,7 @@ export default async function TelemarketingPage({
 
           {/* Микро-воронка звонка */}
           <div className="bb-card" style={{ marginBottom: 16 }}>
-            <SectionHead icon={<ListTree size={17} />} title="Микро-воронка звонка — где теряется" hint={`${data.monthLabel} · по звонарю`} />
+            <SectionHead icon={<ListTree size={17} />} title="Микро-воронка звонка — где теряется" hint={`${data.monthLabel} · по телемаркетологу`} />
             <TmMicroFunnelsView funnels={data.microFunnels} />
           </div>
 

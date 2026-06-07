@@ -14,12 +14,12 @@ export const FiredTag = () => (
 /** Выпадающий мультиселект сотрудников с тегом «уволен» и кнопками «Выбрать всех /
  * Снять всё». Общий для ТМ-воронки, динамики и карты набора. */
 export function ManagerPicker({
-  managers, selected, onChange, allWord = 'звонари',
+  managers, selected, onChange, allWord = 'телемаркетологи',
 }: {
   managers: { managerId: number; name: string; isActive: boolean }[];
   selected: Set<number>;
   onChange: (s: Set<number>) => void;
-  /** Слово для подписи «Все … (N)»: «звонари» / «владельцы». */
+  /** Слово для подписи «Все … (N)»: «телемаркетологи» / «владельцы». */
   allWord?: string;
 }) {
   const [open, setOpen] = useState(false);

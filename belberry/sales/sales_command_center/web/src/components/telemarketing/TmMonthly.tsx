@@ -63,7 +63,7 @@ export function TmMonthly({ data }: { data: TmMonthlyBundle }) {
   const n = selected.size;
   const name =
     n === 0 ? null
-      : n === all ? 'все звонари'
+      : n === all ? 'все телемаркетологи'
         : data.selectableManagers.filter((m) => selected.has(m.managerId)).map((m) => m.name).join(', ');
 
   return (
@@ -75,7 +75,7 @@ export function TmMonthly({ data }: { data: TmMonthlyBundle }) {
         <CompareBar cur={period.cur} prev={period.prev} curLabel={data.curLabel} prevLabel={data.prevLabel} />
       ) : null}
       {n === 0 ? (
-        <p style={{ color: 'var(--bb-muted)' }}>Выберите звонарей в фильтре, чтобы увидеть динамику.</p>
+        <p style={{ color: 'var(--bb-muted)' }}>Выберите телемаркетологов в фильтре, чтобы увидеть динамику.</p>
       ) : (
         <TmMonthlyView rows={rows} name={name} />
       )}

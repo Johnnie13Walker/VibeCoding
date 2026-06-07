@@ -82,10 +82,10 @@ export function TmKpiGrid({ kpis, kpisPrev, cmpLabel }: { kpis: TmKpis; kpisPrev
         </div>
       ) : null}
       <div className="bb-grid bb-grid-4" style={{ marginBottom: 14 }}>
-        <Mini label="Наборов" value={nf(kpis.dials)} sub={`${nf(kpis.dialsPerDay)}/день · ${nf(kpis.dialsPerZvonar)} на звонаря`} delta={p ? deltaCount(kpis.dials, p.dials) : null} />
+        <Mini label="Наборов" value={nf(kpis.dials)} sub={`${nf(kpis.dialsPerDay)}/день · ${nf(kpis.dialsPerZvonar)} на телемаркетолога`} delta={p ? deltaCount(kpis.dials, p.dials) : null} />
         <Mini label="Дозвонов ≥60с" value={nf(kpis.calls60)} sub={`${nf(kpis.calls60PerDay)}/день · ${kpis.dials > 0 ? Math.round((kpis.calls60 / kpis.dials) * 100) : 0}% от наборов`} tone="good" delta={p ? deltaCount(kpis.calls60, p.calls60) : null} />
         <Mini label="Берут трубку" value={pp(kpis.answerPct)} sub={`${nf(kpis.answered)} соединений`} delta={p ? deltaPp(kpis.answerPct, p.answerPct) : null} />
-        <Mini label="Часы разговоров" value={`${kpis.talkHours} ч`} sub={`звонарей: ${kpis.zvonari}`} delta={p ? deltaCount(kpis.talkHours, p.talkHours) : null} />
+        <Mini label="Часы разговоров" value={`${kpis.talkHours} ч`} sub={`телемаркетологов: ${kpis.zvonari}`} delta={p ? deltaCount(kpis.talkHours, p.talkHours) : null} />
       </div>
       <div className="bb-grid bb-grid-4">
         <Mini label="Встреч назначено" value={nf(kpis.meetingsSet)} sub="по создателю (ТМ)" tone="good" delta={p ? deltaCount(kpis.meetingsSet, p.meetingsSet) : null} />
@@ -106,7 +106,7 @@ export function TmManagerTable({ rows }: { rows: TmManagerRow[] }) {
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13.5 }}>
         <thead>
           <tr>
-            <th style={{ ...head, textAlign: 'left' }}>Звонарь</th>
+            <th style={{ ...head, textAlign: 'left' }}>Телемаркетолог</th>
             <th style={{ ...head, textAlign: 'right' }}>Наборы</th>
             <th style={{ ...head, textAlign: 'right' }}>Снято</th>
             <th style={{ ...head, textAlign: 'right' }}>Дозвон ≥60с</th>
@@ -174,12 +174,12 @@ export function TmMeetingsResultView({ result }: { result: TmMeetingsResult }) {
 // ───────────────────── F. Динамика по месяцам ─────────────────────
 
 export function TmMonthlyView({ rows, name }: { rows: TmMonthlyRow[]; name: string | null }) {
-  if (rows.length === 0) return <p style={{ color: 'var(--bb-muted)' }}>Нет истории по выбранному звонарю.</p>;
+  if (rows.length === 0) return <p style={{ color: 'var(--bb-muted)' }}>Нет истории по выбранному телемаркетологу.</p>;
   // Обрезаем ведущие месяцы без активности (звонарь ещё не работал).
   const firstActive = rows.findIndex((r) => r.dials > 0 || r.calls60 > 0 || r.meetingsSet > 0);
   const shown = firstActive > 0 ? rows.slice(firstActive) : rows;
   if (shown.every((r) => r.dials === 0 && r.meetingsSet === 0)) {
-    return <p style={{ color: 'var(--bb-muted)' }}>Нет истории по выбранному звонарю.</p>;
+    return <p style={{ color: 'var(--bb-muted)' }}>Нет истории по выбранному телемаркетологу.</p>;
   }
   const maxConv = Math.max(...shown.map((r) => r.conv ?? 0), 1);
   return (
@@ -280,7 +280,7 @@ export function TmMicroFunnelsView({ funnels }: { funnels: TmMicroFunnel[] }) {
 
 export function TmRejectionsView({ rejections }: { rejections: TmRejections[] }) {
   if (rejections.length === 0 || rejections.every((r) => r.total === 0)) {
-    return <p style={{ color: 'var(--bb-muted)' }}>Нет личных отвалов по звонарям (массовые/админ-закрытия исключены).</p>;
+    return <p style={{ color: 'var(--bb-muted)' }}>Нет личных отвалов по телемаркетологам (массовые/админ-закрытия исключены).</p>;
   }
   return (
     <div className="bb-grid" style={{ gridTemplateColumns: rejections.length > 1 ? 'repeat(2, 1fr)' : '1fr' }}>
@@ -374,7 +374,7 @@ function PfHead({ dot, title, hint }: { dot: string; title: string; hint: string
 }
 
 export function TmPlanFactView({ data }: { data: TmPlanFact }) {
-  if (data.dials60.managers.length === 0) return <p style={{ color: 'var(--bb-muted)' }}>Звонари за период не найдены.</p>;
+  if (data.dials60.managers.length === 0) return <p style={{ color: 'var(--bb-muted)' }}>Телемаркетологи за период не найдены.</p>;
   return (
     <div className="bb-pf-cols" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0 }}>
       <div style={{ paddingRight: 26, borderRight: '1px solid var(--bb-line)' }}>
