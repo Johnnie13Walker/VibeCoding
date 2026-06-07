@@ -1,13 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { TrendingUp, TrendingDown, Wallet, Handshake, PhoneCall, Zap } from 'lucide-react';
+import { TrendingUp, TrendingDown, Wallet, Handshake, PhoneCall, Zap, Coins, Ban, ClipboardList, FileText } from 'lucide-react';
 import { Sparkline } from './Sparkline';
 import type { KpiDelta } from '@/lib/dashboard';
 
 // Иконки маппим по имени-строке: функции/компоненты нельзя прокидывать
 // из server-компонента в client (ограничение RSC).
-const ICONS = { wallet: Wallet, handshake: Handshake, phone: PhoneCall, zap: Zap } as const;
+const ICONS = { wallet: Wallet, handshake: Handshake, phone: PhoneCall, zap: Zap, coins: Coins, ban: Ban, clipboard: ClipboardList, file: FileText } as const;
 export type KpiIcon = keyof typeof ICONS;
 
 function rub(n: number): string {
@@ -40,6 +40,8 @@ export function KpiCard({
   icon,
   delta,
   trend,
+  invert,
+  sub,
 }: {
   label: string;
   value: number;
@@ -47,12 +49,19 @@ export function KpiCard({
   icon: KpiIcon;
   delta?: KpiDelta;
   trend?: number[];
+  /** Инвертировать цвет дельты: рост = плохо (для «Отказов»). Стрелка — по факту. */
+  invert?: boolean;
+  /** Мелкая подпись под значением (напр. сноска про оплаты без даты). */
+  sub?: string;
 }) {
   const shown = useCountUp(value);
   const Icon = ICONS[icon];
   const text = money ? rub(shown) : Math.round(shown).toLocaleString('ru-RU');
   const up = delta?.dir === 'up';
   const down = delta?.dir === 'down';
+  // Цвет дельты: обычно рост = хорошо. invert — наоборот (отказы).
+  const good = invert ? down : up;
+  const bad = invert ? up : down;
 
   return (
     <div className="bb-lift" style={card}>
@@ -63,16 +72,17 @@ export function KpiCard({
       <div className="tabular" style={num}>
         {text}
       </div>
+      {sub ? <div style={subStyle}>{sub}</div> : null}
       <div style={foot}>
         {delta?.label ? (
-          <span style={{ ...chip, ...(down ? chipDown : up ? chipUp : chipFlat) }}>
+          <span style={{ ...chip, ...(bad ? chipDown : good ? chipUp : chipFlat) }}>
             {up ? <TrendingUp size={12} /> : down ? <TrendingDown size={12} /> : null}
             {delta.label}
           </span>
         ) : null}
         {trend && trend.length > 1 ? (
           <span style={{ marginLeft: 'auto' }}>
-            <Sparkline data={trend} color={down ? '#d4202e' : '#5b50d6'} />
+            <Sparkline data={trend} color={bad ? '#d4202e' : '#5b50d6'} />
           </span>
         ) : null}
       </div>
@@ -89,6 +99,7 @@ const card: React.CSSProperties = {
 };
 const lbl: React.CSSProperties = { fontSize: 12, color: 'var(--bb-muted)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 };
 const num: React.CSSProperties = { fontSize: 30, fontWeight: 800, letterSpacing: '-0.03em', marginTop: 8 };
+const subStyle: React.CSSProperties = { fontSize: 11, color: 'var(--bb-faint)', marginTop: 3 };
 const foot: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, minHeight: 22 };
 const chip: React.CSSProperties = { fontSize: 12, fontWeight: 700, borderRadius: 999, padding: '2px 8px', display: 'inline-flex', alignItems: 'center', gap: 3 };
 const chipUp: React.CSSProperties = { background: '#e7f4ec', color: '#2c7a4a' };

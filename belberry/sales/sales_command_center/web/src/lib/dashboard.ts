@@ -2,11 +2,11 @@ import 'server-only';
 
 import { and, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 import { db } from '@/db';
-import { dealsSnapshot, managerActivity, meetings, payments, plans, reports, users } from '@/db/schema';
+import { dealRejections, dealsSnapshot, managerActivity, meetings, payments, plans, reports, users } from '@/db/schema';
 import { MEETING_HELD_STAGE } from './telemarketing';
 import { buildOperationalMatrix, type OperationalMatrix, type OperDayInput, type OperMemberInput } from './operational';
 import { getSalesRejections } from './sales-rejections';
-import { emptyBundle, type SalesRejectionsBundle } from './sales-rejections-shared';
+import { emptyBundle, SALES_LOSE_STAGE, SPAM_REASON_10, type SalesRejectionsBundle } from './sales-rejections-shared';
 
 // «Проведено» — событийный слой meetings (status=SUCCESS), а НЕ хранимый агрегат
 // manager_activity.meetings_held: до фикса «фильтра отменённых» в collect.py агрегат
@@ -99,6 +99,14 @@ export interface DashboardData {
   dialsTotal: number;
   kpTotal: number;
   dealsCreatedTotal: number;
+  /** Сумма оплат за текущий месяц (Приходы 2026, КД без НДС). */
+  paymentsTotal: number;
+  /** Количество отказов воронки Продажи (C10:LOSE, без СПАМ) за период. */
+  rejectionsCount: number;
+  /** Количество брифов за период (manager_activity.briefs_created). */
+  briefsTotal: number;
+  /** Оплат прошлого месяца без распознанной даты — не вошли в сравнение (для сноски). */
+  paymentsPrevUndated: number;
   salesFunnel: SalesFunnel;
   forecast: Forecast;
   meetingQuality: MeetingQuality;
@@ -112,7 +120,10 @@ export interface DashboardData {
   day2day: Day2Day;
   planFact: PlanFact;
   salesRejections: SalesRejectionsBundle;
-  deltas: { meetings: KpiDelta; dials: KpiDelta; kp: KpiDelta; deals: KpiDelta };
+  deltas: {
+    meetings: KpiDelta; dials: KpiDelta; kp: KpiDelta; deals: KpiDelta;
+    payments: KpiDelta; rejections: KpiDelta; briefs: KpiDelta;
+  };
   trend: TrendPoint[];
   health: number;
   generatedAt: string | null;
@@ -827,6 +838,10 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
       dialsTotal: 0,
       kpTotal: 0,
       dealsCreatedTotal: 0,
+      paymentsTotal: 0,
+      rejectionsCount: 0,
+      briefsTotal: 0,
+      paymentsPrevUndated: 0,
       salesFunnel: buildSalesFunnel({
         dealsTotal: 0, dealsCold: 0, dealsIncoming: 0, firstMeetings: 0,
         presentations: 0, kpSent: 0, wonCount: 0, wonAmount: 0,
@@ -845,7 +860,7 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
         revenueTeamFact: 0, revenueTeamPlan: 0, briefsPlanPerMop: 0, managers: [],
       }),
       salesRejections: emptyBundle('—'),
-      deltas: { meetings: zeroDelta, dials: zeroDelta, kp: zeroDelta, deals: zeroDelta },
+      deltas: { meetings: zeroDelta, dials: zeroDelta, kp: zeroDelta, deals: zeroDelta, payments: zeroDelta, rejections: zeroDelta, briefs: zeroDelta },
       trend: [],
       health: 0,
       generatedAt: null,
@@ -1312,23 +1327,91 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
     managers: pfManagers,
   });
 
-  // Δ к предыдущему окну (месяц→прошлый месяц, неделя→прошлая неделя).
+  // Δ к предыдущему окну (месяц→прошлый месяц, неделя→прошлая неделя). Окна уже
+  // выровнены «по календарным дням 1..N» в computeWindow.
+  const briefsTotal = team.reduce((s, x) => s + x.briefs, 0);
   const prevRows = await db
     .select({
       dials: sql<number>`coalesce(sum(${managerActivity.dialsTotal}),0)`,
       kp: sql<number>`coalesce(sum(${managerActivity.kpSent}),0)`,
       deals: sql<number>`coalesce(sum(${managerActivity.dealsCreatedCount}),0)`,
+      briefs: sql<number>`coalesce(sum(${managerActivity.briefsCreated}),0)`,
     })
     .from(managerActivity)
     .where(and(gte(managerActivity.reportDate, prevStart), lte(managerActivity.reportDate, prevEnd)));
-  const prev = prevRows[0] ?? { dials: 0, kp: 0, deals: 0 };
+  const prev = prevRows[0] ?? { dials: 0, kp: 0, deals: 0, briefs: 0 };
   // «Проведено» прошлого окна — из событийного слоя (всё окно, без sales-фильтра, как раньше).
   const prevHeld = (await fetchHeldRows(prevStart, prevEnd)).reduce((s, r) => s + r.n, 0);
+
+  // Отказы воронки Продажи (C10:LOSE, без СПАМ) — счётчик за текущее окно vs прошлое,
+  // по дате отказа в МСК (deal_rejections, событийный слой).
+  const rejAtMsk = sql`(${dealRejections.rejectedAt} AT TIME ZONE 'Europe/Moscow')::date`;
+  const notSpam = sql`${dealRejections.reasonId} IS DISTINCT FROM ${SPAM_REASON_10}`;
+  const countRejections = async (s: string, e: string): Promise<number> => {
+    const r = await db
+      .select({ n: sql<number>`count(*)` })
+      .from(dealRejections)
+      .where(and(eq(dealRejections.stageId, SALES_LOSE_STAGE), notSpam, gte(rejAtMsk, s), lte(rejAtMsk, e)));
+    return Number(r[0]?.n ?? 0);
+  };
+  const [rejectionsCount, rejectionsPrev] = await Promise.all([
+    countRejections(start, end),
+    countRejections(prevStart, prevEnd),
+  ]);
+
+  // Оплаты (Приходы 2026, КД без НДС, отдел Продажи). Сравнение «по календарным дням»:
+  //  • Месяц: текущий = весь месяц снимка (надёжно по pay_year/pay_month, = «на текущий
+  //    момент»); прошлый = срез «на ту же дату» 1..N по дню оплаты (pay_date дд.мм.гггг).
+  //  • Неделя: оба окна — по полной дате оплаты в [start,end] / [prevStart,prevEnd].
+  // pay_date — свободный текст; парсим только валидные дд.мм.гггг (вложенный CASE, чтобы
+  // to_date/split_part не падали на кривых строках). Прошлый месяц без даты — в сноску.
+  const payDated = sql`${payments.payDate} ~ '^[0-9]{1,2}[.]'`;
+  const payFullDate = sql`${payments.payDate} ~ '^[0-9]{1,2}[.][0-9]{1,2}[.][0-9]{4}$'`;
+  let paymentsTotal: number;
+  let paymentsPrev: number;
+  let paymentsPrevUndated = 0;
+  if (range === 'month') {
+    const payN = Number(prevEnd.slice(8, 10));
+    const [curPayY, curPayM] = start.split('-').map(Number);
+    const [prevPayY, prevPayM] = prevStart.split('-').map(Number);
+    const curPayRows = await db
+      .select({ amt: sql<number>`coalesce(sum(${payments.kdNoVat}),0)` })
+      .from(payments)
+      .where(and(eq(payments.dept, 'Продажи'), eq(payments.payYear, curPayY), eq(payments.payMonth, curPayM)));
+    const prevPayRows = await db
+      .select({
+        amt: sql<number>`coalesce(sum(case when ${payDated} then (case when split_part(${payments.payDate}, '.', 1)::int <= ${payN} then ${payments.kdNoVat} else 0 end) else 0 end),0)`,
+        undated: sql<number>`count(*) filter (where not ${payDated})`,
+      })
+      .from(payments)
+      .where(and(eq(payments.dept, 'Продажи'), eq(payments.payYear, prevPayY), eq(payments.payMonth, prevPayM)));
+    paymentsTotal = Number(curPayRows[0]?.amt ?? 0);
+    paymentsPrev = Number(prevPayRows[0]?.amt ?? 0);
+    paymentsPrevUndated = Number(prevPayRows[0]?.undated ?? 0);
+  } else {
+    const sumPayBetween = async (s: string, e: string): Promise<number> => {
+      const r = await db
+        .select({
+          amt: sql<number>`coalesce(sum(case when ${payFullDate} then (case when to_date(${payments.payDate}, 'DD.MM.YYYY') between ${s}::date and ${e}::date then ${payments.kdNoVat} else 0 end) else 0 end),0)`,
+        })
+        .from(payments)
+        .where(eq(payments.dept, 'Продажи'));
+      return Number(r[0]?.amt ?? 0);
+    };
+    [paymentsTotal, paymentsPrev] = await Promise.all([
+      sumPayBetween(start, end),
+      sumPayBetween(prevStart, prevEnd),
+    ]);
+  }
+
   const deltas = {
     meetings: delta(meetingsHeldTotal, prevHeld),
     dials: delta(dialsTotal, Number(prev.dials)),
     kp: delta(kpTotal, Number(prev.kp)),
     deals: delta(dealsCreatedTotal, Number(prev.deals)),
+    payments: delta(paymentsTotal, paymentsPrev),
+    rejections: delta(rejectionsCount, rejectionsPrev),
+    briefs: delta(briefsTotal, Number(prev.briefs)),
   };
 
   // Тренд по дням месяца — для спарклайнов. Скелет дней и звонки — из активности,
@@ -1446,6 +1529,10 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
     dialsTotal,
     kpTotal,
     dealsCreatedTotal,
+    paymentsTotal,
+    rejectionsCount,
+    briefsTotal,
+    paymentsPrevUndated,
     salesFunnel,
     forecast,
     meetingQuality,

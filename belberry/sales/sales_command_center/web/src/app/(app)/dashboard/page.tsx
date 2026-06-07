@@ -83,9 +83,20 @@ export default async function DashboardPage({
       {/* KPI */}
       <div className="bb-grid bb-grid-4" style={{ marginBottom: 22 }}>
         <KpiCard label="Сумма воронки" value={data.funnelAmount} money icon="wallet" />
-        <KpiCard label={`Встречи ${per}`} value={data.meetingsHeldTotal} icon="handshake" delta={data.deltas.meetings} trend={meetingsTrend} />
-        <KpiCard label={`Наборы ${per}`} value={data.dialsTotal} icon="phone" delta={data.deltas.dials} trend={dialsTrend} />
+        <KpiCard
+          label={`Оплаты ${per}`}
+          value={data.paymentsTotal}
+          money
+          icon="coins"
+          delta={data.deltas.payments}
+          sub={data.paymentsPrevUndated > 0 ? `${data.paymentsPrevUndated} опл. пр. мес. без даты не в сравнении` : undefined}
+        />
         <KpiCard label={`Сделки ${per}`} value={data.dealsCreatedTotal} icon="zap" delta={data.deltas.deals} />
+        <KpiCard label={`Отказы ${per}`} value={data.rejectionsCount} icon="ban" delta={data.deltas.rejections} invert />
+        <KpiCard label={`Встречи ${per}`} value={data.meetingsHeldTotal} icon="handshake" delta={data.deltas.meetings} trend={meetingsTrend} />
+        <KpiCard label={`Брифы ${per}`} value={data.briefsTotal} icon="clipboard" delta={data.deltas.briefs} />
+        <KpiCard label={`КП ${per}`} value={data.kpTotal} icon="file" delta={data.deltas.kp} />
+        <KpiCard label={`Наборы ${per}`} value={data.dialsTotal} icon="phone" delta={data.deltas.dials} trend={dialsTrend} />
       </div>
 
       {/* План / факт месяца: прогноз + оплаты + брифы + воронка (единый блок) */}
