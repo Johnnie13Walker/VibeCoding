@@ -272,6 +272,7 @@ export const dealRejections = pgTable(
     assignedBy: integer('assigned_by'),
     rejectedAt: timestamp('rejected_at', { withTimezone: true }),
     title: text('title'),
+    opportunity: numeric('opportunity', { precision: 14, scale: 2 }),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
   },
   (table) => [
