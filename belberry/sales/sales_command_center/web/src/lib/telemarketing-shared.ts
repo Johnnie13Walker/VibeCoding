@@ -785,6 +785,11 @@ export interface TmDashboardData {
   workingDays: number;
   managers: TmManagerOption[];
   kpis: TmKpis;
+  /** KPI отдела за аналогичный период прошлого месяца (1..N по календарю); null —
+   * если сравнение не показываем (неделя / выбран прошлый месяц). */
+  kpisPrev: TmKpis | null;
+  /** Подпись периода сравнения, напр. «1–7 май». */
+  kpisCmpLabel: string;
   table: TmManagerRow[];
   funnel50: TmFunnel50;
   meetingsResult: TmMeetingsResult;

@@ -773,7 +773,7 @@ function ddmm(d: Date): string {
 }
 
 /** Окно периода + предыдущее окно для Δ. Месяц — календарный; неделя — 7 дней до снимка. */
-function computeWindow(snapshotDate: string, range: Period): Window {
+export function computeWindow(snapshotDate: string, range: Period): Window {
   if (range === 'week') {
     const [y, m, d] = snapshotDate.split('-').map(Number);
     const endD = new Date(Date.UTC(y, m - 1, d));
@@ -795,8 +795,13 @@ function computeWindow(snapshotDate: string, range: Period): Window {
   const mb = monthBounds(snapshotDate);
   const [py, pm] = mb.start.split('-').map(Number);
   const prevStart = `${pm === 1 ? py - 1 : py}-${String(pm === 1 ? 12 : pm - 1).padStart(2, '0')}-01`;
-  const prevEndDay = new Date(Date.UTC(py, pm - 1, 0)).getUTCDate();
-  const prevEnd = `${prevStart.slice(0, 7)}-${String(prevEndDay).padStart(2, '0')}`;
+  // Δ — к аналогичному периоду прошлого месяца ПО КАЛЕНДАРНЫМ ДНЯМ: текущий месяц
+  // неполный (1..N до снимка), поэтому прошлый тоже обрезаем по дню снимка N, а не
+  // берём полный месяц (иначе MTD всегда «проваливается» −70% просто из-за неполноты).
+  const snapDay = Number(snapshotDate.slice(8, 10));
+  const prevMonthLastDay = new Date(Date.UTC(py, pm - 1, 0)).getUTCDate();
+  const prevDay = Math.min(snapDay, prevMonthLastDay);
+  const prevEnd = `${prevStart.slice(0, 7)}-${String(prevDay).padStart(2, '0')}`;
   return { ...mb, prevStart, prevEnd };
 }
 

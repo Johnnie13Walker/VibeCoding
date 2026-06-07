@@ -84,6 +84,8 @@ function emptyData(): TmDashboardData {
     workingDays: 1,
     managers: [],
     kpis: buildTmKpis([], 1),
+    kpisPrev: null,
+    kpisCmpLabel: '',
     table: [],
     funnel50: buildTmFunnel50([], new Map(), new Map()),
     meetingsResult: buildTmMeetingsResult([]),
@@ -551,6 +553,52 @@ export async function getTmDashboardData(
 
   const kpis = buildTmKpis(members, workingDays);
 
+  // Сравнение «итога отдела» с аналогичным периодом прошлого месяца ПО КАЛЕНДАРНЫМ
+  // ДНЯМ (1..N). Показываем только для живого текущего месяца — для недели и
+  // выбранных прошлых месяцев сравнение не имеет смысла (период полный/иной).
+  const isLiveMonth = !monthOk && range === 'month';
+  let kpisPrev: ReturnType<typeof buildTmKpis> | null = null;
+  let kpisCmpLabel = '';
+  if (isLiveMonth) {
+    const prevActRows = await db
+      .select({
+        managerId: managerActivity.managerId,
+        dials: sql<number>`coalesce(sum(${managerActivity.dialsTotal}),0)`,
+        answered: sql<number>`coalesce(sum(${managerActivity.callsAnswered}),0)`,
+        calls60: sql<number>`coalesce(sum(${managerActivity.calls60sPlus}),0)`,
+        calls120: sql<number>`coalesce(sum(${managerActivity.calls120sPlus}),0)`,
+        talkSeconds: sql<number>`coalesce(sum(${managerActivity.talkSeconds}),0)`,
+        meetingsSet: sql<number>`coalesce(sum(${managerActivity.meetingsSet}),0)`,
+        dealsCold: sql<number>`coalesce(sum(${managerActivity.dealsColdCount}),0)`,
+        messenger: sql<number>`coalesce(sum(${managerActivity.messengerDialogs}),0)`,
+        emails: sql<number>`coalesce(sum(${managerActivity.emailsSent}),0)`,
+      })
+      .from(managerActivity)
+      .where(and(gte(managerActivity.reportDate, prevPStart), lte(managerActivity.reportDate, prevPEnd)))
+      .groupBy(managerActivity.managerId);
+    const prevMembers: TmMember[] = prevActRows
+      .filter((r) => isTelemarketing(userMap.get(r.managerId)?.dept))
+      .map((r) => ({
+        managerId: r.managerId,
+        name: userMap.get(r.managerId)?.name ?? `id ${r.managerId}`,
+        dept: userMap.get(r.managerId)?.dept ?? '',
+        dials: Number(r.dials),
+        answered: Number(r.answered),
+        calls60: Number(r.calls60),
+        calls120: Number(r.calls120),
+        talkSeconds: Number(r.talkSeconds),
+        meetingsSet: Number(r.meetingsSet),
+        meetingsHeldByCreator: prevHeld.get(r.managerId) ?? 0,
+        briefingsHeldByCreator: 0,
+        rejectionsPeriod: 0,
+        dealsCold: Number(r.dealsCold),
+        messenger: Number(r.messenger),
+        emails: Number(r.emails),
+      }));
+    kpisPrev = buildTmKpis(prevMembers, countWeekdays(prevPStart, prevPEnd));
+    kpisCmpLabel = prevLabel;
+  }
+
   // Свежесть отчёта.
   const repRows = await db
     .select({ g: reports.generatedAt })
@@ -566,6 +614,8 @@ export async function getTmDashboardData(
     workingDays,
     managers: members.map((m) => ({ managerId: m.managerId, name: m.name })),
     kpis,
+    kpisPrev,
+    kpisCmpLabel,
     table: buildTmManagerTable(members),
     funnel50: buildTmFunnel50(funnelCells, fNameById, fActiveById),
     meetingsResult: buildTmMeetingsResult(members),

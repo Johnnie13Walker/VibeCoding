@@ -29,15 +29,39 @@ const ava: React.CSSProperties = {
 const cell: React.CSSProperties = { padding: '10px 10px', borderBottom: '1px solid var(--bb-line)' };
 const head: React.CSSProperties = { ...cell, color: 'var(--bb-faint)', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' };
 
-function Mini({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: 'good' | 'warn' }) {
+function Mini({ label, value, sub, tone, delta }: { label: string; value: string; sub?: string; tone?: 'good' | 'warn'; delta?: React.ReactNode }) {
   const bg = tone === 'good' ? 'linear-gradient(180deg,#f4faf6,#fff)' : tone === 'warn' ? 'linear-gradient(180deg,#fdf4ee,#fff)' : '#fff';
   return (
     <div style={{ background: bg, border: '1px solid var(--bb-line)', borderRadius: 16, padding: '15px 17px', boxShadow: 'var(--bb-shadow)' }}>
-      <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.05 }}>{value}</div>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+        <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.05 }}>{value}</div>
+        {delta ?? null}
+      </div>
       <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--bb-faint)', fontWeight: 600, marginTop: 6 }}>{label}</div>
       {sub ? <div style={{ fontSize: 12, color: 'var(--bb-muted)', marginTop: 3 }}>{sub}</div> : null}
     </div>
   );
+}
+
+// Δ-пилюля к аналогичному периоду прошлого месяца (▲/▼ + значение). Зелёный рост,
+// красный спад; для долей — в процентных пунктах (пп), для счётчиков — в %.
+function DeltaTag({ dir, text, title }: { dir: 'up' | 'down' | 'flat'; text: string; title?: string }) {
+  const c = dir === 'up' ? { bg: '#e7f4ec', fg: 'var(--bb-green)', a: '↑' } : dir === 'down' ? { bg: '#fdeced', fg: 'var(--bb-red)', a: '↓' } : { bg: '#eef0f4', fg: 'var(--bb-muted)', a: '→' };
+  return (
+    <span title={title} className="tabular" style={{ background: c.bg, color: c.fg, fontSize: 11, fontWeight: 800, borderRadius: 999, padding: '2px 8px', lineHeight: 1.5, whiteSpace: 'nowrap' }}>
+      {c.a} {text}
+    </span>
+  );
+}
+function deltaCount(cur: number, prev: number): React.ReactNode {
+  if (prev <= 0) return cur > 0 ? <DeltaTag dir="up" text="новое" title="в прошлом периоде 0" /> : null;
+  const pct = Math.round(((cur - prev) / prev) * 100);
+  return <DeltaTag dir={pct > 0 ? 'up' : pct < 0 ? 'down' : 'flat'} text={`${pct > 0 ? '+' : ''}${pct}%`} title={`было ${nf(prev)}`} />;
+}
+function deltaPp(cur: number | null, prev: number | null): React.ReactNode {
+  if (cur == null || prev == null) return null;
+  const d = Math.round((cur - prev) * 10) / 10;
+  return <DeltaTag dir={d > 0 ? 'up' : d < 0 ? 'down' : 'flat'} text={`${d > 0 ? '+' : ''}${d} пп`} title={`было ${prev}%`} />;
 }
 
 function convBadge(v: number | null): React.ReactNode {
@@ -48,20 +72,26 @@ function convBadge(v: number | null): React.ReactNode {
 
 // ───────────────────────── A. KPI обзвона ─────────────────────────
 
-export function TmKpiGrid({ kpis }: { kpis: TmKpis }) {
+export function TmKpiGrid({ kpis, kpisPrev, cmpLabel }: { kpis: TmKpis; kpisPrev?: TmKpis | null; cmpLabel?: string }) {
+  const p = kpisPrev ?? null;
   return (
     <div>
+      {p ? (
+        <div style={{ fontSize: 12, color: 'var(--bb-faint)', marginBottom: 12 }}>
+          ↑↓ — к аналогичному периоду прошлого месяца по календарным дням{cmpLabel ? ` (${cmpLabel})` : ''}
+        </div>
+      ) : null}
       <div className="bb-grid bb-grid-4" style={{ marginBottom: 14 }}>
-        <Mini label="Наборов" value={nf(kpis.dials)} sub={`${nf(kpis.dialsPerDay)}/день · ${nf(kpis.dialsPerZvonar)} на звонаря`} />
-        <Mini label="Дозвонов ≥60с" value={nf(kpis.calls60)} sub={`${nf(kpis.calls60PerDay)}/день · ${kpis.dials > 0 ? Math.round((kpis.calls60 / kpis.dials) * 100) : 0}% от наборов`} tone="good" />
-        <Mini label="Берут трубку" value={pp(kpis.answerPct)} sub={`${nf(kpis.answered)} соединений`} />
-        <Mini label="Часы разговоров" value={`${kpis.talkHours} ч`} sub={`звонарей: ${kpis.zvonari}`} />
+        <Mini label="Наборов" value={nf(kpis.dials)} sub={`${nf(kpis.dialsPerDay)}/день · ${nf(kpis.dialsPerZvonar)} на звонаря`} delta={p ? deltaCount(kpis.dials, p.dials) : null} />
+        <Mini label="Дозвонов ≥60с" value={nf(kpis.calls60)} sub={`${nf(kpis.calls60PerDay)}/день · ${kpis.dials > 0 ? Math.round((kpis.calls60 / kpis.dials) * 100) : 0}% от наборов`} tone="good" delta={p ? deltaCount(kpis.calls60, p.calls60) : null} />
+        <Mini label="Берут трубку" value={pp(kpis.answerPct)} sub={`${nf(kpis.answered)} соединений`} delta={p ? deltaPp(kpis.answerPct, p.answerPct) : null} />
+        <Mini label="Часы разговоров" value={`${kpis.talkHours} ч`} sub={`звонарей: ${kpis.zvonari}`} delta={p ? deltaCount(kpis.talkHours, p.talkHours) : null} />
       </div>
       <div className="bb-grid bb-grid-4">
-        <Mini label="Встреч назначено" value={nf(kpis.meetingsSet)} sub="по создателю (ТМ)" tone="good" />
-        <Mini label="Встреч состоялось" value={nf(kpis.meetingsHeld)} sub="назначены ТМ, прошли по БП" tone="good" />
-        <Mini label="Явка" value={pp(kpis.heldPct)} sub="состоялось / назначено" />
-        <Mini label="Конверсия дозвон→встреча" value={pp(kpis.convDialToMeeting)} sub={`${nf(kpis.meetingsSet)} / ${nf(kpis.calls60)} дозвонов`} />
+        <Mini label="Встреч назначено" value={nf(kpis.meetingsSet)} sub="по создателю (ТМ)" tone="good" delta={p ? deltaCount(kpis.meetingsSet, p.meetingsSet) : null} />
+        <Mini label="Встреч состоялось" value={nf(kpis.meetingsHeld)} sub="назначены ТМ, прошли по БП" tone="good" delta={p ? deltaCount(kpis.meetingsHeld, p.meetingsHeld) : null} />
+        <Mini label="Явка" value={pp(kpis.heldPct)} sub="состоялось / назначено" delta={p ? deltaPp(kpis.heldPct, p.heldPct) : null} />
+        <Mini label="Конверсия дозвон→встреча" value={pp(kpis.convDialToMeeting)} sub={`${nf(kpis.meetingsSet)} / ${nf(kpis.calls60)} дозвонов`} delta={p ? deltaPp(kpis.convDialToMeeting, p.convDialToMeeting) : null} />
       </div>
     </div>
   );

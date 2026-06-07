@@ -96,7 +96,7 @@ export default async function TelemarketingPage({
           {/* A. KPI обзвона */}
           <div className="bb-card" style={{ marginBottom: 16 }}>
             <SectionHead icon={<Phone size={17} />} title="Обзвон · итог отдела" hint={`${data.monthLabel} · ${data.kpis.zvonari} звонаря`} />
-            <TmKpiGrid kpis={data.kpis} />
+            <TmKpiGrid kpis={data.kpis} kpisPrev={data.kpisPrev} cmpLabel={data.kpisCmpLabel} />
           </div>
 
           {/* План / факт ТМ — сразу после итога обзвона */}

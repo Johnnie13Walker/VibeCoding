@@ -16,7 +16,30 @@ import {
   buildMonthlyDynamics,
   buildDay2Day,
   buildPlanFact,
+  computeWindow,
 } from '../dashboard';
+
+describe('computeWindow — сравнение по календарным дням', () => {
+  it('месяц: прошлое окно обрезается по дню снимка (MTD vs прошлый 1..N)', () => {
+    const w = computeWindow('2026-06-07', 'month');
+    expect(w.start).toBe('2026-06-01');
+    expect(w.prevStart).toBe('2026-05-01');
+    expect(w.prevEnd).toBe('2026-05-07'); // не 2026-05-31 — иначе MTD всегда «−70%»
+  });
+  it('месяц: день снимка клампится по длине прошлого месяца', () => {
+    // 31 марта → февраль короче, берём последний день февраля.
+    const w = computeWindow('2026-03-31', 'month');
+    expect(w.prevStart).toBe('2026-02-01');
+    expect(w.prevEnd).toBe('2026-02-28');
+  });
+  it('неделя: прошлое окно — 7 дней перед текущим', () => {
+    const w = computeWindow('2026-06-07', 'week');
+    expect(w.start).toBe('2026-06-01');
+    expect(w.end).toBe('2026-06-07');
+    expect(w.prevStart).toBe('2026-05-25');
+    expect(w.prevEnd).toBe('2026-05-31');
+  });
+});
 
 describe('buildFunnel', () => {
   it('группирует открытые сделки по стадиям, считает количество и суммы', () => {
