@@ -1,7 +1,8 @@
 import Link from 'next/link';
-import { Phone, Users, Filter, CalendarCheck, ListTree, BarChart3, Goal, Mail, Search, Sparkles, Coins, Clock, Bell } from 'lucide-react';
+import { Phone, Users, Filter, CalendarCheck, ListTree, BarChart3, Goal, Mail, Search, Sparkles, Coins, Clock, Bell, PhoneOutgoing } from 'lucide-react';
 import { TmFunnel50View } from '@/components/telemarketing/TmFunnel';
 import { TmMonthly } from '@/components/telemarketing/TmMonthly';
+import { TmDialsHeatmap } from '@/components/telemarketing/TmDialsHeatmap';
 import {
   TmKpiGrid,
   TmManagerTable,
@@ -162,6 +163,12 @@ export default async function TelemarketingPage({
           <div className="bb-card" style={{ marginBottom: 16 }}>
             <SectionHead icon={<Clock size={17} />} title="Когда берут трубку" hint="час × день недели · за 3 месяца" />
             <TmHeatmapView heatmap={data.heatmap} />
+          </div>
+
+          {/* Карта активности набора — когда звонари делают наборы */}
+          <div className="bb-card" style={{ marginBottom: 16 }}>
+            <SectionHead icon={<PhoneOutgoing size={17} />} title="Когда звонят — активность набора" hint="час × день недели · за 3 месяца" />
+            <TmDialsHeatmap data={data.dialsHeatmap} />
           </div>
 
           {/* ТМ-алерты */}

@@ -31,6 +31,9 @@ import {
   buildTmPlanFact,
   isTelemarketing,
   type TmDashboardData,
+  type TmDialsCell,
+  type TmDialsHeatmapBundle,
+  type TmDialsManager,
   type TmMember,
   type TmMonthlyBundle,
   type TmMonthlyInput,
@@ -95,6 +98,7 @@ function emptyData(): TmDashboardData {
     outreach: buildTmOutreach([]),
     rejections: [],
     heatmap: buildTmHeatmap([]),
+    dialsHeatmap: { hours: [], perManager: [], selectableManagers: [] },
     meetingQuality: buildTmMeetingQuality([]),
     alerts: [],
     monthOptions: [],
@@ -494,6 +498,44 @@ export async function getTmDashboardData(
     heatRows.map<HeatInput>((r) => ({ dow: Number(r.dow), hour: Number(r.hour), dials: Number(r.dials), calls60: Number(r.calls60) })),
   );
 
+  // Карта активности набора по звонарям (час × день, объём наборов) за те же 3 мес.
+  // Гранулярка по managerId — мультиселект (отдельно/вместе) собирается на клиенте.
+  const dialsHeatRows = await db
+    .select({
+      managerId: callHourly.managerId,
+      dow: dowExpr,
+      hour: callHourly.hour,
+      dials: sql<number>`coalesce(sum(${callHourly.dials}),0)`,
+    })
+    .from(callHourly)
+    .where(and(inArray(callHourly.managerId, tmIds), gte(callHourly.reportDate, heatStart)))
+    .groupBy(callHourly.managerId, dowExpr, callHourly.hour);
+  const dialsByMgr = new Map<number, TmDialsCell[]>();
+  const dialsHours = new Set<number>();
+  for (const r of dialsHeatRows) {
+    const dow = Number(r.dow);
+    const hour = Number(r.hour);
+    const dials = Number(r.dials);
+    if (dow < 1 || dow > 5 || hour < 0 || hour > 23 || dials <= 0) continue;
+    dialsHours.add(hour);
+    const arr = dialsByMgr.get(r.managerId) ?? [];
+    arr.push({ dow, hour, dials });
+    dialsByMgr.set(r.managerId, arr);
+  }
+  const dialsPerManager: TmDialsManager[] = members.map((m) => ({
+    managerId: m.managerId,
+    name: m.name,
+    isActive: userMap.get(m.managerId)?.isActive ?? true,
+    cells: dialsByMgr.get(m.managerId) ?? [],
+  }));
+  const dialsHeatmap: TmDialsHeatmapBundle = {
+    hours: [...dialsHours].sort((a, b) => a - b),
+    perManager: dialsPerManager,
+    selectableManagers: dialsPerManager
+      .map((m) => ({ managerId: m.managerId, name: m.name, isActive: m.isActive }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'ru')),
+  };
+
   // Качество встреч, назначенных ТМ — из готового разбора (analysis_json), только
   // состоявшиеся встречи создателя-ТМ с баллом.
   const mqRows = await db
@@ -645,6 +687,7 @@ export async function getTmDashboardData(
     outreach: buildTmOutreach(members),
     rejections,
     heatmap,
+    dialsHeatmap,
     meetingQuality,
     alerts,
     monthOptions: dynMonths.slice(-6).map((mo) => {

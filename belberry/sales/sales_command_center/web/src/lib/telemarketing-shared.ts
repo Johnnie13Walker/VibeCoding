@@ -725,6 +725,73 @@ export function buildTmHeatmap(inputs: HeatInput[]): TmHeatmap {
   return { hours, rows, maxPct: Math.max(1, maxPct), mean, minSample: HEATMAP_MIN_SAMPLE };
 }
 
+// ───────── Карта активности набора по звонарям (час × день) ─────────
+
+export interface TmDialsCell {
+  dow: number; // 1=Пн..5=Пт
+  hour: number;
+  dials: number;
+}
+
+/** Активность набора одного звонаря: ячейки час×день (только ненулевые). */
+export interface TmDialsManager {
+  managerId: number;
+  name: string;
+  isActive: boolean;
+  cells: TmDialsCell[];
+}
+
+/** Бандл карты набора: общий набор часов + гранулярка по звонарям + список выбора. */
+export interface TmDialsHeatmapBundle {
+  hours: number[];
+  perManager: TmDialsManager[];
+  selectableManagers: { managerId: number; name: string; isActive: boolean }[];
+}
+
+export interface DialsHeatRow {
+  dow: number;
+  label: string;
+  cells: { hour: number; dials: number }[];
+}
+
+export interface TmDialsGrid {
+  hours: number[];
+  rows: DialsHeatRow[];
+  /** Максимум наборов в ячейке — для нормировки цвета. */
+  maxDials: number;
+  /** Всего наборов по выбранным звонарям. */
+  totalDials: number;
+}
+
+/** Свести карту набора по выбранным звонарям (мультиселект). Чистая функция. */
+export function aggregateTmDialsHeatmap(
+  perManager: TmDialsManager[],
+  selectedIds: ReadonlySet<number>,
+  hours: number[],
+): TmDialsGrid {
+  const byKey = new Map<string, number>();
+  let totalDials = 0;
+  for (const m of perManager) {
+    if (!selectedIds.has(m.managerId)) continue;
+    for (const c of m.cells) {
+      const k = `${c.dow}:${c.hour}`;
+      byKey.set(k, (byKey.get(k) ?? 0) + c.dials);
+      totalDials += c.dials;
+    }
+  }
+  let maxDials = 0;
+  const rows: DialsHeatRow[] = [1, 2, 3, 4, 5].map((dow) => ({
+    dow,
+    label: DOW_RU[dow],
+    cells: hours.map((hour) => {
+      const dials = byKey.get(`${dow}:${hour}`) ?? 0;
+      if (dials > maxDials) maxDials = dials;
+      return { hour, dials };
+    }),
+  }));
+  return { hours, rows, maxDials: Math.max(1, maxDials), totalDials };
+}
+
 // ───────────────────────── ТМ-алерты ─────────────────────────
 
 export type AlertLevel = 'red' | 'amber' | 'green';
@@ -821,6 +888,8 @@ export interface TmDashboardData {
   rejections: TmRejections[];
   /** Heatmap времени дозвона (час × день недели). */
   heatmap: TmHeatmap;
+  /** Карта активности набора по звонарям (час × день, объём) — мультиселект. */
+  dialsHeatmap: TmDialsHeatmapBundle;
   /** Качество встреч, назначенных ТМ (из разбора /meetings). */
   meetingQuality: TmMeetingQuality;
   /** Авто-сигналы по ТМ. */

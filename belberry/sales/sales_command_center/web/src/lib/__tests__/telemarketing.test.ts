@@ -8,6 +8,7 @@ import {
   buildTmFunnel50,
   buildTmFunnel50Flat,
   aggregateTmFunnel,
+  aggregateTmDialsHeatmap,
   buildTmMonthly,
   aggregateTmMonthlyRows,
   aggregateTmMonthlyPeriod,
@@ -217,6 +218,39 @@ describe('aggregateTmMonthlyRows + aggregateTmMonthlyPeriod (мультисел�
     const onlyIsa = aggregateTmMonthlyPeriod([isa, vos], new Set([2772]));
     expect(onlyIsa.cur.dials).toBe(56);
     expect(onlyIsa.prev.dials).toBe(80);
+  });
+});
+
+describe('aggregateTmDialsHeatmap (карта набора, мультиселект)', () => {
+  const perManager = [
+    { managerId: 2772, name: 'Исаева Дарья', isActive: true, cells: [
+      { dow: 1, hour: 9, dials: 30 }, { dow: 1, hour: 14, dials: 50 }, { dow: 2, hour: 9, dials: 20 },
+    ] },
+    { managerId: 2832, name: 'Вострецов Аркадий', isActive: true, cells: [
+      { dow: 1, hour: 9, dials: 10 }, { dow: 1, hour: 14, dials: 40 },
+    ] },
+  ];
+  const hours = [9, 14];
+
+  it('суммирует наборы по выбранным звонарям', () => {
+    const g = aggregateTmDialsHeatmap(perManager, new Set([2772, 2832]), hours);
+    const mon = g.rows.find((r) => r.dow === 1)!;
+    expect(mon.cells.find((c) => c.hour === 9)!.dials).toBe(40); // 30 + 10
+    expect(mon.cells.find((c) => c.hour === 14)!.dials).toBe(90); // 50 + 40
+    expect(g.maxDials).toBe(90);
+    expect(g.totalDials).toBe(150); // 30+50+20+10+40
+  });
+
+  it('по одному звонарю — только его наборы', () => {
+    const g = aggregateTmDialsHeatmap(perManager, new Set([2832]), hours);
+    expect(g.totalDials).toBe(50);
+    expect(g.rows.find((r) => r.dow === 2)!.cells.every((c) => c.dials === 0)).toBe(true);
+  });
+
+  it('пустой выбор → нули', () => {
+    const g = aggregateTmDialsHeatmap(perManager, new Set(), hours);
+    expect(g.totalDials).toBe(0);
+    expect(g.maxDials).toBe(1); // защита от деления на ноль
   });
 });
 
