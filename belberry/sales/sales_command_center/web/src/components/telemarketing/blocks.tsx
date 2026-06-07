@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import type {
-  TmFunnel50Stage,
   TmKpis,
   TmManagerRow,
   TmManagerOption,
@@ -123,40 +122,8 @@ export function TmManagerTable({ rows }: { rows: TmManagerRow[] }) {
 
 // ───────────────────────── C. Воронка cat50 ─────────────────────────
 
-export function TmFunnel50View({ stages }: { stages: TmFunnel50Stage[] }) {
-  const max = Math.max(...stages.map((s) => s.count), 1);
-  const fill = (kind: TmFunnel50Stage['kind']) =>
-    kind === 'win'
-      ? 'linear-gradient(90deg,#3a9c63,#2c7a4a)'
-      : kind === 'lose'
-        ? 'linear-gradient(90deg,#e0606b,#d4202e)'
-        : 'linear-gradient(90deg,var(--bb-violet),var(--bb-indigo))';
-  if (stages.every((s) => s.count === 0)) {
-    return <p style={{ color: 'var(--bb-muted)' }}>Снимок воронки [50] пуст на последнюю дату.</p>;
-  }
-  // Закрытые стадии (Успех/Отложено/Отвал) в снимок открытых сделок не попадают —
-  // показываем их только если есть данные; иначе скрываем, чтобы не висели нулём.
-  const shown = stages.filter((s) => s.kind === 'open' || s.count > 0);
-  return (
-    <div>
-      <div className="bb-funnel">
-        {shown.map((s) => (
-          <div className="bb-fbar" key={s.stage}>
-            <span className="bb-fbar-name">{s.label}</span>
-            <div className="bb-fbar-track">
-              <div className="bb-fbar-fill" style={{ width: `${Math.max(8, (s.count / max) * 100)}%`, background: fill(s.kind) }}>
-                {nf(s.count)}
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-      <p style={{ fontSize: 12, color: 'var(--bb-faint)', marginTop: 10 }}>
-        Снимок открытых сделок cat50. «Успех / Отвал за месяц» (закрытые) и Δ к началу месяца — со сбором потока в раннере.
-      </p>
-    </div>
-  );
-}
+// TmFunnel50View вынесен в отдельный клиентский компонент TmFunnel.tsx
+// (мультиселект владельцев — ТМ и МП).
 
 // ───────────────────── D. Встречи → результат ─────────────────────
 

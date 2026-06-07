@@ -86,7 +86,7 @@ function emptyData(): TmDashboardData {
     selectedManagerName: null,
     kpis: buildTmKpis([], 1),
     table: [],
-    funnel50: buildTmFunnel50([]),
+    funnel50: buildTmFunnel50([], new Map(), new Map()),
     meetingsResult: buildTmMeetingsResult([]),
     monthly: [],
     microFunnels: [],
@@ -266,11 +266,21 @@ export async function getTmDashboardData(
   for (const r of rejPeriodRows) if (r.mgr != null) rejByMgr.set(r.mgr, Number(r.n));
   for (const m of members) m.rejectionsPeriod = rejByMgr.get(m.managerId) ?? 0;
 
-  // Снимок воронки [50] на последнем снимке.
+  // Снимок воронки [50] на последнем снимке — по владельцам (ТМ и МП).
   const funnelCells = await db
-    .select({ stage: dealsSnapshot.stage })
+    .select({ stage: dealsSnapshot.stage, managerId: dealsSnapshot.managerId })
     .from(dealsSnapshot)
     .where(and(eq(dealsSnapshot.reportDate, snapshotDate), eq(dealsSnapshot.categoryId, 50)));
+
+  // Имена всех владельцев + статус «уволен» из owner_active (Bitrix ACTIVE,
+  // денормализован в deal_rejections; users.is_active отстаёт).
+  const fNameById = new Map<number, string>();
+  for (const [id, u] of userMap) fNameById.set(id, u.name);
+  const ownerActiveRows = await db
+    .selectDistinct({ id: dealRejections.assignedBy, active: dealRejections.ownerActive })
+    .from(dealRejections);
+  const fActiveById = new Map<number, boolean>();
+  for (const r of ownerActiveRows) if (r.id != null && r.active != null) fActiveById.set(r.id, r.active);
 
   // Помесячная динамика по выбранному звонарю — последние 8 месяцев.
   const dynMonths: { ym: string; label: string }[] = [];
@@ -475,7 +485,7 @@ export async function getTmDashboardData(
     selectedManagerName: selectedMember.name,
     kpis,
     table: buildTmManagerTable(members),
-    funnel50: buildTmFunnel50(funnelCells),
+    funnel50: buildTmFunnel50(funnelCells, fNameById, fActiveById),
     meetingsResult: buildTmMeetingsResult(members),
     monthly: buildTmMonthly(monthlyInputs),
     microFunnels: members.map((m) => buildTmMicroFunnel(m)),

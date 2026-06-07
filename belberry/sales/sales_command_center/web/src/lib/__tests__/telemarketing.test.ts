@@ -6,6 +6,8 @@ import {
   buildTmManagerTable,
   buildTmMicroFunnel,
   buildTmFunnel50,
+  buildTmFunnel50Flat,
+  aggregateTmFunnel,
   buildTmMonthly,
   buildTmMeetingsResult,
   buildTmPlanFact,
@@ -99,19 +101,47 @@ describe('buildTmMicroFunnel', () => {
   });
 });
 
-describe('buildTmFunnel50', () => {
+describe('buildTmFunnel50Flat', () => {
   it('считает по стадиям в порядке воронки и игнорирует чужие коды', () => {
     const cells = [
       { stage: 'C50:NEW' }, { stage: 'C50:NEW' }, { stage: 'C50:WON' },
       { stage: 'C50:APOLOGY' }, { stage: 'C10:NEW' /* чужая */ },
     ];
-    const f = buildTmFunnel50(cells);
+    const f = buildTmFunnel50Flat(cells);
     expect(f[0].label).toBe('База');
     const byLabel = Object.fromEntries(f.map((s) => [s.label, s.count]));
     expect(byLabel['К обзвону']).toBe(2);
     expect(byLabel['Успех']).toBe(1);
     expect(byLabel['Отвал']).toBe(1);
     expect(f.reduce((a, s) => a + s.count, 0)).toBe(4); // C10:NEW не учтён
+  });
+});
+
+describe('buildTmFunnel50 + aggregateTmFunnel (по владельцам)', () => {
+  const cells = [
+    { managerId: 2832, stage: 'C50:NEW' }, { managerId: 2832, stage: 'C50:NEW' },
+    { managerId: 2832, stage: 'C50:UC_WZ4KQE' },
+    { managerId: 2806, stage: 'C50:NEW' }, { managerId: 2806, stage: 'C10:NEW' /* чужая */ },
+    { managerId: null, stage: 'C50:NEW' /* без владельца — пропуск */ },
+  ];
+  const names = new Map([[2832, 'Вострецов Аркадий'], [2806, 'Деговцова Елизавета']]);
+  const active = new Map([[2806, false]]); // Деговцова помечена уволенной для теста
+
+  it('строит гранулярку по владельцам + список выбора с тегом активности', () => {
+    const b = buildTmFunnel50(cells, names, active);
+    expect(b.perManager).toHaveLength(2);
+    expect(b.selectableManagers.find((m) => m.managerId === 2806)!.isActive).toBe(false);
+    expect(b.selectableManagers.find((m) => m.managerId === 2832)!.isActive).toBe(true); // дефолт
+    const vostr = b.perManager.find((m) => m.managerId === 2832)!;
+    expect(vostr.counts['C50:NEW']).toBe(2);
+  });
+
+  it('aggregateTmFunnel суммирует по выбранным владельцам', () => {
+    const b = buildTmFunnel50(cells, names, active);
+    const all = aggregateTmFunnel(b.perManager, new Set([2832, 2806]), b.stages);
+    expect(Object.fromEntries(all.map((s) => [s.label, s.count]))['К обзвону']).toBe(3); // 2+1
+    const only = aggregateTmFunnel(b.perManager, new Set([2806]), b.stages);
+    expect(Object.fromEntries(only.map((s) => [s.label, s.count]))['К обзвону']).toBe(1);
   });
 });
 

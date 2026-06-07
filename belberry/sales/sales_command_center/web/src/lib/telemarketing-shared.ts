@@ -201,8 +201,70 @@ export interface TmFunnel50Stage {
   count: number;
 }
 
-/** Снимок ТМ-воронки [50] по стадиям. Чистая функция. */
-export function buildTmFunnel50(cells: { stage: string }[]): TmFunnel50Stage[] {
+export interface TmFunnelStageMeta {
+  stage: string;
+  label: string;
+  kind: Cat50Kind;
+  order: number;
+}
+
+/** Воронка [50] по одному владельцу (ТМ или МП) — счётчики по стадиям. */
+export interface TmFunnelManager {
+  managerId: number;
+  name: string;
+  isActive: boolean;
+  counts: Record<string, number>;
+}
+
+/** Бандл ТМ-воронки: стадии + гранулярка по владельцам + список выбора (ТМ и МП). */
+export interface TmFunnel50 {
+  stages: TmFunnelStageMeta[];
+  perManager: TmFunnelManager[];
+  selectableManagers: { managerId: number; name: string; isActive: boolean }[];
+}
+
+/** Снимок ТМ-воронки [50] по владельцам. cells = открытые сделки cat50 (стадия+владелец). */
+export function buildTmFunnel50(
+  cells: { managerId: number | null; stage: string }[],
+  nameById: Map<number, string>,
+  activeById: Map<number, boolean>,
+): TmFunnel50 {
+  const stages: TmFunnelStageMeta[] = Object.entries(STAGE_META_50)
+    .sort((a, b) => a[1].order - b[1].order)
+    .map(([stage, m]) => ({ stage, label: m.label, kind: m.kind, order: m.order }));
+  const byMgr = new Map<number, TmFunnelManager>();
+  for (const c of cells) {
+    if (c.managerId == null || !STAGE_META_50[c.stage]) continue;
+    let e = byMgr.get(c.managerId);
+    if (!e) {
+      e = { managerId: c.managerId, name: nameById.get(c.managerId) ?? `id ${c.managerId}`, isActive: activeById.get(c.managerId) ?? true, counts: {} };
+      byMgr.set(c.managerId, e);
+    }
+    e.counts[c.stage] = (e.counts[c.stage] ?? 0) + 1;
+  }
+  const total = (m: TmFunnelManager) => Object.values(m.counts).reduce((a, b) => a + b, 0);
+  const perManager = [...byMgr.values()].sort((a, b) => total(b) - total(a));
+  const selectableManagers = perManager
+    .map((m) => ({ managerId: m.managerId, name: m.name, isActive: m.isActive }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'ru'));
+  return { stages, perManager, selectableManagers };
+}
+
+/** Свести воронку по выбранным владельцам (для мультиселекта). Чистая. */
+export function aggregateTmFunnel(
+  perManager: TmFunnelManager[],
+  selectedIds: ReadonlySet<number>,
+  stages: TmFunnelStageMeta[],
+): TmFunnel50Stage[] {
+  return stages.map((s) => {
+    let count = 0;
+    for (const m of perManager) if (selectedIds.has(m.managerId)) count += m.counts[s.stage] ?? 0;
+    return { stage: s.stage, label: s.label, kind: s.kind, count };
+  });
+}
+
+/** @deprecated простой снимок без владельцев — оставлен для тестов/совместимости. */
+export function buildTmFunnel50Flat(cells: { stage: string }[]): TmFunnel50Stage[] {
   const counts = new Map<string, number>();
   for (const c of cells) {
     if (!STAGE_META_50[c.stage]) continue;
@@ -654,7 +716,7 @@ export interface TmDashboardData {
   selectedManagerName: string | null;
   kpis: TmKpis;
   table: TmManagerRow[];
-  funnel50: TmFunnel50Stage[];
+  funnel50: TmFunnel50;
   meetingsResult: TmMeetingsResult;
   monthly: TmMonthlyRow[];
   microFunnels: TmMicroFunnel[];

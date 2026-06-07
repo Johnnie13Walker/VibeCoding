@@ -1,9 +1,9 @@
 import Link from 'next/link';
 import { Phone, Users, Filter, CalendarCheck, ListTree, BarChart3, Goal, Mail, Search, Sparkles, Coins, Clock, Bell } from 'lucide-react';
+import { TmFunnel50View } from '@/components/telemarketing/TmFunnel';
 import {
   TmKpiGrid,
   TmManagerTable,
-  TmFunnel50View,
   TmMeetingsResultView,
   TmMonthlyView,
   TmMicroFunnelsView,
@@ -118,7 +118,7 @@ export default async function TelemarketingPage({
           <div className="bb-grid bb-grid-2" style={{ marginBottom: 16 }}>
             <div className="bb-card">
               <SectionHead icon={<Filter size={17} />} title="ТМ-воронка [50]" hint={`снимок ${data.snapshotDate ?? '—'}`} />
-              <TmFunnel50View stages={data.funnel50} />
+              <TmFunnel50View data={data.funnel50} />
             </div>
             <div className="bb-card">
               <SectionHead icon={<CalendarCheck size={17} />} title="Встречи → результат" hint={data.monthLabel} />
