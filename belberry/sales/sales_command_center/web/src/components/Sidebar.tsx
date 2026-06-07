@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import { LayoutDashboard, CalendarDays, Radio, BellRing, LogOut, Search } from 'lucide-react';
 
 const NAV = [
-  { href: '/dashboard', label: 'Dashboard', Icon: LayoutDashboard, tag: undefined },
+  { href: '/dashboard', label: 'Дашборд ОП', Icon: LayoutDashboard, tag: undefined },
   { href: '/today', label: 'Сегодня', Icon: Radio, tag: 'live' },
   { href: '/daily', label: 'Дневной отчёт', Icon: CalendarDays, tag: undefined },
   { href: '/alerts', label: 'Алерты', Icon: BellRing, tag: undefined },
