@@ -136,9 +136,9 @@ export async function getTmDashboardData(
 
   // Справочник сотрудников.
   const userRows = await db
-    .select({ id: users.bitrixId, name: users.name, dept: users.dept })
+    .select({ id: users.bitrixId, name: users.name, dept: users.dept, isActive: users.isActive })
     .from(users);
-  const userMap = new Map(userRows.map((u) => [u.id, { name: u.name, dept: u.dept ?? '' }]));
+  const userMap = new Map(userRows.map((u) => [u.id, { name: u.name, dept: u.dept ?? '', isActive: u.isActive }]));
 
   // Активность за период по всем менеджерам, затем фильтр scope ТМ по должности.
   const actRows = await db
@@ -272,15 +272,14 @@ export async function getTmDashboardData(
     .from(dealsSnapshot)
     .where(and(eq(dealsSnapshot.reportDate, snapshotDate), eq(dealsSnapshot.categoryId, 50)));
 
-  // Имена всех владельцев + статус «уволен» из owner_active (Bitrix ACTIVE,
-  // денормализован в deal_rejections; users.is_active отстаёт).
+  // Имена + статус «уволен» владельцев — из справочника users (is_active держим
+  // актуальным из Bitrix ACTIVE через sync_users_active).
   const fNameById = new Map<number, string>();
-  for (const [id, u] of userMap) fNameById.set(id, u.name);
-  const ownerActiveRows = await db
-    .selectDistinct({ id: dealRejections.assignedBy, active: dealRejections.ownerActive })
-    .from(dealRejections);
   const fActiveById = new Map<number, boolean>();
-  for (const r of ownerActiveRows) if (r.id != null && r.active != null) fActiveById.set(r.id, r.active);
+  for (const [id, u] of userMap) {
+    fNameById.set(id, u.name);
+    fActiveById.set(id, u.isActive);
+  }
 
   // Помесячная динамика по выбранному звонарю — последние 8 месяцев.
   const dynMonths: { ym: string; label: string }[] = [];
