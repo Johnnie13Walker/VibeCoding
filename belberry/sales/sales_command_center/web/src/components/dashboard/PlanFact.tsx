@@ -5,6 +5,12 @@ function money(v: number): string {
   if (v >= 1_000) return `${Math.round(v / 1_000)} тыс ₽`;
   return `${Math.round(v)} ₽`;
 }
+/** Короткий формат для строк воронки: «2.55 млн» / «383 тыс» / «0 ₽». */
+function short(v: number): string {
+  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(2)} млн`;
+  if (v >= 1_000) return `${Math.round(v / 1_000)} тыс`;
+  return `${Math.round(v)} ₽`;
+}
 function num(v: number, fmtMoney: boolean): string {
   if (!fmtMoney) return `${v}`;
   if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(2)} млн`;
@@ -13,7 +19,6 @@ function num(v: number, fmtMoney: boolean): string {
 }
 const pct = (f: number, p: number): number | null => (p > 0 ? Math.round((f / p) * 100) : null);
 
-// ── тон по проценту выполнения ────────────────────────────────────────────────
 type Tone = 'green' | 'amber' | 'red' | 'grey';
 const toneByPct = (p: number | null): Tone => (p == null ? 'grey' : p >= 100 ? 'green' : p >= 50 ? 'amber' : 'red');
 const PILL: Record<Tone, React.CSSProperties> = {
@@ -42,6 +47,17 @@ function initials(name: string): string {
   return ((x[0]?.[0] ?? '') + (x[1]?.[0] ?? '')).toUpperCase() || '—';
 }
 
+// ── читаемый заголовок секции: точка + тёмный текст ───────────────────────────
+function Sh({ dot, title, hint }: { dot: string; title: string; hint?: string }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+      <span style={{ width: 8, height: 8, borderRadius: '50%', background: dot, flex: '0 0 auto' }} />
+      <h4 style={{ fontSize: 13, fontWeight: 800, margin: 0 }}>{title}</h4>
+      {hint ? <span style={{ fontSize: 11, color: 'var(--bb-faint)', marginLeft: 'auto', fontWeight: 500 }}>{hint}</span> : null}
+    </div>
+  );
+}
+
 // ── тонированная плитка прогноза ──────────────────────────────────────────────
 const TILE: Record<string, { bg: string; bd: string; lc: string; vc: string }> = {
   violet: { bg: '#f1eefe', bd: '#e2dbfb', lc: '#6f63d6', vc: '#3a2fae' },
@@ -61,7 +77,7 @@ function Tile({ tint, label, value, sub }: { tint: keyof typeof TILE; label: str
   );
 }
 
-// ── строка план/факт ──────────────────────────────────────────────────────────
+// ── строка план/факт (оплаты, брифы) ──────────────────────────────────────────
 function Row({
   ava, name, role, fact, plan, fmtMoney, team,
 }: {
@@ -97,22 +113,35 @@ function Row({
   );
 }
 
-function ColTag({ text, tone }: { text: string; tone: 'v' | 'a' }) {
-  const bg = tone === 'v' ? 'var(--bb-violet)' : 'linear-gradient(135deg,#f4b46a,var(--bb-amber))';
-  return <span style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.05em', borderRadius: 8, padding: '4px 9px', background: bg, color: '#fff' }}>{text}</span>;
+// ── строка воронки ────────────────────────────────────────────────────────────
+function FunnelRow({ label, amount, prob, weighted, maxW }: { label: string; amount: number; prob: number; weighted: number; maxW: number }) {
+  const zero = weighted <= 0;
+  const w = maxW > 0 ? Math.round((weighted / maxW) * 100) : 0;
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '3px 12px', alignItems: 'center', padding: '7px 0', borderTop: '1px solid #f4f1ec' }}>
+      <span style={{ fontSize: 13, fontWeight: 600, color: zero ? 'var(--bb-faint)' : 'var(--bb-ink)' }}>{label}</span>
+      <span className="tabular" style={{ justifySelf: 'end', fontSize: 12, color: 'var(--bb-muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>
+        {short(amount)} · {Math.round(prob * 100)}% → <b style={{ color: 'var(--bb-ink)', fontWeight: 800 }}>{short(weighted)}</b>
+      </span>
+      <div style={{ gridColumn: '1 / -1', height: 6, borderRadius: 5, background: '#f1ede8', overflow: 'hidden' }}>
+        <i style={{ display: 'block', height: '100%', borderRadius: 5, width: `${zero ? 2 : Math.max(4, w)}%`, background: zero ? '#dcd7d0' : 'linear-gradient(90deg,#5fcf8b,#2c7a4a)' }} />
+      </div>
+    </div>
+  );
 }
 
 export function PlanFactView({ forecast, data }: { forecast: Forecast; data: PlanFact }) {
   const briefsMop = data.managers[0]?.briefsPlan ?? 0;
   const planTone = toneByPct(forecast.pct);
   const paceTone = toneByPct(forecast.pacePct);
+  const paceSub = forecast.paceExpected > 0 ? `${short(forecast.paid)} / ${short(forecast.paceExpected)}` : '—';
   const planSub = forecast.pct == null ? 'нет плана' : forecast.pct >= 100 ? 'с запасом' : forecast.pct >= 50 ? 'ниже плана' : 'риск';
-  const paceSub = forecast.pacePct == null ? '—' : forecast.pacePct >= 100 ? 'в темпе' : forecast.pacePct >= 50 ? 'догоняем' : 'отстаём';
+  const maxW = Math.max(...forecast.byStage.map((s) => s.weighted), 1);
 
   return (
     <div>
       {/* Прогноз — тонированные плитки */}
-      <div className="bb-grid bb-grid-4" style={{ marginBottom: 22 }}>
+      <div className="bb-grid bb-grid-4" style={{ marginBottom: 20 }}>
         <Tile tint="violet" label="Прогноз закрытия" value={money(forecast.forecastClose)} sub="оплаты + воронка" />
         <Tile tint="slate" label="План отдела" value={forecast.planRevenue > 0 ? money(forecast.planRevenue) : '—'} sub="командный" />
         <Tile tint={planTone === 'grey' ? 'slate' : planTone} label="Прогноз к плану" value={forecast.pct != null ? `${forecast.pct}%` : '—'} sub={planSub} />
@@ -122,26 +151,30 @@ export function PlanFactView({ forecast, data }: { forecast: Forecast; data: Pla
       {/* Две колонки: оплаты | брифы */}
       <div className="bb-pf-cols" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0 }}>
         <div style={{ paddingRight: 26, borderRight: '1px solid var(--bb-line)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-            <ColTag text="Оплаты ₽" tone="v" />
-            <span style={{ fontSize: 11, color: 'var(--bb-faint)', marginLeft: 'auto', fontWeight: 500 }}>командный + индивидуальные</span>
-          </div>
+          <Sh dot="var(--bb-violet)" title="Оплаты, ₽" hint="командный + индивидуальные" />
           <Row ava="ОП" name="Команда" role="отдел" fact={data.revenueTeamFact} plan={data.revenueTeamPlan} fmtMoney team="v" />
           {data.managers.map((m) => (
             <Row key={`rev-${m.managerId}`} ava={initials(m.name)} name={m.name} fact={m.revenueFact} plan={m.revenuePlan} fmtMoney />
           ))}
         </div>
-
         <div style={{ paddingLeft: 26 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-            <ColTag text="Брифы" tone="a" />
-            {briefsMop > 0 ? <span style={{ fontSize: 11, color: 'var(--bb-faint)', marginLeft: 'auto', fontWeight: 500 }}>план {briefsMop} на каждого</span> : null}
-          </div>
+          <Sh dot="var(--bb-amber)" title="Брифы" hint={briefsMop > 0 ? `план ${briefsMop} на каждого` : undefined} />
           {[...data.managers].sort((a, b) => b.briefsFact - a.briefsFact).map((m) => (
             <Row key={`br-${m.managerId}`} ava={initials(m.name)} name={m.name} fact={m.briefsFact} plan={m.briefsPlan} fmtMoney={false} />
           ))}
           <Row ava="ОП" name="Итого по МОП" fact={data.briefsTeamFact} plan={data.briefsTeamPlan} fmtMoney={false} team="a" />
         </div>
+      </div>
+
+      {/* Воронка · прогноз — снизу вверх (ранние стадии сверху → договор снизу) */}
+      <div style={{ height: 1, background: 'var(--bb-line)', margin: '18px 0 16px' }} />
+      <Sh dot="var(--bb-green)" title="Воронка · прогноз" hint="взвешенно по стадиям · снизу вверх" />
+      {forecast.byStage.map((s) => (
+        <FunnelRow key={s.label} label={s.label} amount={s.amount} prob={s.prob} weighted={s.weighted} maxW={maxW} />
+      ))}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center', marginTop: 4, paddingTop: 11, borderTop: '2px solid var(--bb-line)' }}>
+        <span style={{ fontSize: 13, fontWeight: 800 }}>Взвешенная воронка</span>
+        <span className="tabular" style={{ justifySelf: 'end', fontSize: 14, fontWeight: 800, color: 'var(--bb-violet)' }}>{money(forecast.weighted)}</span>
       </div>
     </div>
   );

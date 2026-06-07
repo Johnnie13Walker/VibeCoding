@@ -270,6 +270,7 @@ const STAGE_PROB: Record<string, number> = {
 
 export interface ForecastStage {
   label: string;
+  order: number;
   amount: number;
   prob: number;
   weighted: number;
@@ -297,9 +298,10 @@ export function buildForecast(
   const byStage = funnel
     .map((s) => {
       const prob = STAGE_PROB[s.stage] ?? 0;
-      return { label: s.label, amount: s.amount, prob, weighted: Math.round(s.amount * prob) };
+      return { label: s.label, order: s.order, amount: s.amount, prob, weighted: Math.round(s.amount * prob) };
     })
-    .sort((a, b) => b.weighted - a.weighted);
+    // Порядок воронки: по стадиям (ранние сверху → договор снизу).
+    .sort((a, b) => a.order - b.order);
   const weighted = byStage.reduce((acc, x) => acc + x.weighted, 0);
   const forecastClose = paid + weighted;
   const pct = planRevenue > 0 ? Math.round((forecastClose / planRevenue) * 100) : null;
