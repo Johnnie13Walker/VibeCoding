@@ -1,12 +1,10 @@
 import Link from 'next/link';
-import { Filter, FileText, TrendingUp, Target, Activity, ArrowLeftRight, Users, Phone, Mail, Clock, BarChart3, CalendarDays, XCircle } from 'lucide-react';
+import { Filter, FileText, TrendingUp, Target, Activity, ArrowLeftRight, Users, Clock, BarChart3, CalendarDays, XCircle } from 'lucide-react';
 import { FunnelBars } from '@/components/dashboard/FunnelBars';
 import { SalesFunnel } from '@/components/dashboard/SalesFunnel';
 import { OperationalMatrixView } from '@/components/dashboard/OperationalMatrix';
 import { ManagerConversions } from '@/components/dashboard/ManagerConversions';
 import { ManagerPipelineView } from '@/components/dashboard/ManagerPipeline';
-import { TmActivityView } from '@/components/dashboard/TmActivity';
-import { MessagingView } from '@/components/dashboard/Messaging';
 import { VelocityView } from '@/components/dashboard/Velocity';
 import { MonthlyDynamics } from '@/components/dashboard/MonthlyDynamics';
 import { Day2DayView } from '@/components/dashboard/Day2Day';
@@ -132,17 +130,6 @@ export default async function DashboardPage({
         <ManagerPipelineView data={data.managerPipeline} />
       </div>
 
-      {/* Активность ТМ · звонки */}
-      <div className="bb-card" style={{ marginBottom: 16 }}>
-        <SectionHead icon={<Phone size={17} />} title="Активность ТМ · звонки" hint={per} />
-        <TmActivityView data={data.tmActivity} />
-      </div>
-
-      {/* Мессенджеры и почта */}
-      <div className="bb-card" style={{ marginBottom: 16 }}>
-        <SectionHead icon={<Mail size={17} />} title="Мессенджеры и почта" hint={per} />
-        <MessagingView data={data.messaging} />
-      </div>
 
       {/* Скорость воронки + деньги по возрасту */}
       <div className="bb-card" style={{ marginBottom: 16 }}>
