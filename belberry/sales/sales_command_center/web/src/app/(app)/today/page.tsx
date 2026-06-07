@@ -55,6 +55,8 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
 
   const data: LiveData | null = isArchive ? await getDayBreakdown(selected) : await getLive();
   const empty = !data || (!isArchive && data.updatedAt === null);
+  // Live-снимок не за сегодня (выходной / cron не отработал) — не выдаём его за «Сегодня».
+  const stale = !isArchive && !empty && !!data?.reportDate && data.reportDate !== todayMsk;
 
   const t = data?.totals;
   const connect = t && t.dials ? Math.round((t.answered / t.dials) * 100) : 0;
@@ -69,14 +71,20 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
       <div className="bb-hero bb-aurora" style={{ background: 'linear-gradient(135deg, #3a3780, #5b50d6)' }}>
         <div className="bb-hero-row" style={{ alignItems: 'flex-start', gap: 16 }}>
           <div style={{ flex: 1 }}>
-            <div className="bb-hero-eyebrow">{isArchive ? 'Отдел продаж · день из архива' : 'Отдел продаж · реальное время'}</div>
+            <div className="bb-hero-eyebrow">{isArchive ? 'Отдел продаж · день из архива' : stale ? 'Отдел продаж · нет свежего снимка' : 'Отдел продаж · реальное время'}</div>
             <h1 className="bb-hero-title">
-              {isArchive ? `День ${fmtDay(selected)}` : <><span className="bb-live-dot" style={{ marginRight: 10 }} />Сегодня</>}
+              {isArchive
+                ? `День ${fmtDay(selected)}`
+                : stale
+                  ? `Последний рабочий день ${fmtDay(data!.reportDate!)}`
+                  : <><span className="bb-live-dot" style={{ marginRight: 10 }} />Сегодня</>}
             </h1>
             <div className="bb-hero-sub">
               {isArchive
                 ? 'сохранённый разбор за выбранный день (чаты — только в режиме «Сегодня»)'
-                : (data?.updatedAt ? `обновлено ${fmtMsk(data.updatedAt)} МСК · каждые ~20 мин в рабочие часы` : 'данные ещё не собраны')}
+                : stale
+                  ? `сегодня (${fmtDay(todayMsk)}) сбор не идёт — нерабочий день или ещё не было прогона · снимок за ${fmtDay(data!.reportDate!)}, обновлён ${fmtMsk(data!.updatedAt)} МСК`
+                  : (data?.updatedAt ? `обновлено ${fmtMsk(data.updatedAt)} МСК · каждые ~20 мин в рабочие часы` : 'данные ещё не собраны')}
             </div>
           </div>
           <div style={{ flex: '0 0 auto', paddingTop: 4 }}>

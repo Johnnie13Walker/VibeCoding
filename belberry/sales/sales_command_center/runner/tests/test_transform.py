@@ -7,6 +7,7 @@ from src.transform import (
     aggregate_calls,
     age_level,
     build_db_rows,
+    build_post_meeting_comms,
     compute_stale_deals,
     manager_name,
     resolve_target_date,
@@ -106,12 +107,27 @@ def test_aggregate_calls_and_manager_name_from_fixture():
     assert manager_name(raw["users"], "2832") == "Вострецов Аркадий"
 
 
+def test_aggregate_calls_hourly_buckets_by_msk_hour():
+    from src.transform import aggregate_calls_hourly
+
+    calls = [
+        {"PORTAL_USER_ID": "2832", "CALL_DURATION": "19", "CALL_START_DATE": "2026-05-29T09:06:56+03:00"},
+        {"PORTAL_USER_ID": "2832", "CALL_DURATION": "75", "CALL_START_DATE": "2026-05-29T09:30:00+03:00"},
+        {"PORTAL_USER_ID": "2772", "CALL_DURATION": "0", "CALL_START_DATE": "2026-05-29T18:10:00+03:00"},
+        {"PORTAL_USER_ID": None, "CALL_DURATION": "30", "CALL_START_DATE": "2026-05-29T10:00:00+03:00"},
+    ]
+    r = aggregate_calls_hourly(calls)
+    assert r[(2832, 9)] == {"dials": 2, "answered": 2, "calls60": 1}
+    assert r[(2772, 18)] == {"dials": 1}  # не ответили (duration 0)
+    assert (None, 10) not in r  # без PORTAL_USER_ID — пропуск
+
+
 def test_build_db_rows_matches_phase_one_schema_keys():
     raw = load_raw()
 
     rows = build_db_rows(raw, date(2026, 5, 29), NOW)
 
-    assert set(rows) == {"deals_snapshot", "meetings", "manager_activity", "kp_briefs"}
+    assert set(rows) == {"deals_snapshot", "meetings", "manager_activity", "kp_briefs", "call_hourly"}
     assert len(rows["deals_snapshot"]) > 0
     assert set(rows["deals_snapshot"][0]) == {
         "report_date",
@@ -132,6 +148,7 @@ def test_build_db_rows_matches_phase_one_schema_keys():
         "meeting_type",
         "status",
         "manager_id",
+        "created_by",
         "scheduled_at",
         "analysis_json",
         "transcript_url",
@@ -140,3 +157,50 @@ def test_build_db_rows_matches_phase_one_schema_keys():
         "analysis_status",
     }
     assert rows["meetings"][0]["analysis_json"] is None
+
+
+def test_build_post_meeting_comms_only_after_meeting():
+    meet_day = [{"id": 10, "parentId2": 100, "ufCrm16_1751009238": "2026-06-04T16:00:00+03:00"}]
+    wazzup = {
+        "100": [
+            {"CREATED": "2026-06-04T15:00:00+03:00", "COMMENT": "до встречи — не итоги"},
+            {"CREATED": "2026-06-04T17:30:00+03:00", "COMMENT": "Итоги встречи: договорились о КП"},
+        ]
+    }
+    activities = [
+        {"PROVIDER_ID": "CRM_EMAIL", "DIRECTION": "2", "OWNER_TYPE_ID": "2", "OWNER_ID": "100", "CREATED": "2026-06-04T18:00:00+03:00", "SUBJECT": "Итоги встречи и КП"},
+        {"PROVIDER_ID": "CRM_EMAIL", "DIRECTION": "1", "OWNER_TYPE_ID": "2", "OWNER_ID": "100", "CREATED": "2026-06-04T19:00:00+03:00", "SUBJECT": "входящее — игнор"},
+    ]
+    out = build_post_meeting_comms(meet_day, wazzup, activities)
+    text = out["10"]
+    assert "Итоги встречи: договорились" in text  # Wazzup после встречи
+    assert "Итоги встречи и КП" in text           # исходящее письмо после встречи
+    assert "до встречи" not in text               # сообщение до встречи отброшено
+    assert "входящее" not in text                 # входящее письмо отброшено
+
+
+def test_build_db_rows_counts_cat10_entries_vhod_holod():
+    # «Сделки» = вошедшие в C10:NEW за день; вход = создана в этот день, холод = раньше.
+    raw = {
+        "entered_deals": [
+            # созданы 04.06 (день входа) → вход (2 шт)
+            {"ID": "1", "ASSIGNED_BY_ID": "100", "DATE_CREATE": "2026-06-04T10:00:00+03:00"},
+            {"ID": "2", "ASSIGNED_BY_ID": "100", "DATE_CREATE": "2026-06-04T11:00:00+03:00"},
+            # создана раньше (12.02) → переведена из ТМ = холод
+            {"ID": "9", "ASSIGNED_BY_ID": "100", "DATE_CREATE": "2026-02-12T09:00:00+03:00"},
+        ],
+        "won_deals": [
+            {"ID": "1", "ASSIGNED_BY_ID": "100", "OPPORTUNITY": "150000"},
+            {"ID": "9", "ASSIGNED_BY_ID": "100", "OPPORTUNITY": "50000.50"},
+        ],
+        "deals_open": [],
+    }
+    rows = build_db_rows(raw, date(2026, 6, 4), NOW)
+    by_mgr = {r["manager_id"]: r for r in rows["manager_activity"]}
+    assert 100 in by_mgr
+    m = by_mgr[100]
+    assert m["deals_incoming_count"] == 2  # вход: создана в день входа
+    assert m["deals_cold_count"] == 1      # холод: создана раньше (переведена)
+    assert m["deals_created_count"] == 3   # всего в Продажи = вход + холод
+    assert m["deals_won_count"] == 2
+    assert m["deals_won_amount"] == 200000.5

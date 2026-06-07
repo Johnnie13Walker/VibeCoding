@@ -30,3 +30,17 @@ export SCC_LOCK_FD=9
 echo "$(date -Is) старт daily_runner" >>"$LOG"
 "$RUNNER_DIR/.venv/bin/python" "$RUNNER_DIR/daily_runner.py" >>"$LOG" 2>&1
 echo "$(date -Is) daily_runner завершён" >>"$LOG"
+
+# Свежесть событийного слоя отвалов ТМ (deal_rejections не в основном пайплайне).
+# Не критично для отчёта — при сбое не валим прогон.
+echo "$(date -Is) старт sync_rejections" >>"$LOG"
+( cd "$RUNNER_DIR" && "$RUNNER_DIR/.venv/bin/python" -m src.sync_rejections ) >>"$LOG" 2>&1 \
+  || echo "$(date -Is) sync_rejections WARN (не критично, отчёт уже готов)" >>"$LOG"
+echo "$(date -Is) sync_rejections завершён" >>"$LOG"
+
+# Названия сделок встреч (вкл. закрытые) — чтобы на «Анализе встреч» был домен,
+# а не «Сделка #id». Не критично для отчёта.
+echo "$(date -Is) старт sync_deal_titles" >>"$LOG"
+( cd "$RUNNER_DIR" && "$RUNNER_DIR/.venv/bin/python" -m src.sync_deal_titles ) >>"$LOG" 2>&1 \
+  || echo "$(date -Is) sync_deal_titles WARN (не критично)" >>"$LOG"
+echo "$(date -Is) sync_deal_titles завершён" >>"$LOG"

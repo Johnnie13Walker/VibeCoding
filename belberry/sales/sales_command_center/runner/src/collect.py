@@ -15,9 +15,14 @@ from typing import Any
 import requests
 
 from . import bx_client
+from .chat_attribution import attribute_dialogs
 from .timeutil import next_working_day
 
 PORTAL_BASE = "https://belberrycrm.bitrix24.ru"
+# Стадия проведённой встречи (SP 1048). NEW = ожидание, FAIL = отменена/перенесена —
+# их НЕ считаем проведёнными и НЕ анализируем.
+MEETING_HELD_STAGE = "DT1048_24:SUCCESS"
+
 SEL_1048 = [
     "id",
     "title",
@@ -277,25 +282,29 @@ def _collect_wazzup(deal_ids: set[Any], bx=None, cap: int = 600) -> dict[str, li
     return output
 
 
-def compute_messenger_dialogs(
-    wazzup: dict[Any, list[dict[str, Any]]] | None,
-    deal_manager: dict[str, str],
-    d0: str,
-    d1: str,
-) -> dict[str, int]:
-    """Число Wazzup-диалогов на менеджера ЗА ДЕНЬ (для chat-минут «Опер»).
+def collect_employees(bx=None, max_pages: int = 60) -> dict[str, str]:
+    """Полный справочник сотрудников Bitrix: id → «Фамилия Имя».
 
-    Диалог = сделка, в переписке которой есть хотя бы один Wazzup-комментарий,
-    созданный в целевой день; атрибутируется ответственному за сделку.
+    Нужен для атрибуции Wazzup-чатов фактическому отправителю (подпись в тексте
+    сообщения), а не ответственному за сделку — так чаты попадают в «Опер» тому,
+    кто реально вёл переписку, включая ТМ (они часто не ответственные).
     """
-    counts: dict[str, int] = {}
-    for deal_id, comments in (wazzup or {}).items():
-        manager_id = deal_manager.get(str(deal_id))
-        if not manager_id:
-            continue
-        if any(d0 <= str(c.get("CREATED") or "") <= d1 for c in (comments or [])):
-            counts[manager_id] = counts.get(manager_id, 0) + 1
-    return counts
+    client = _client(bx)
+    out: dict[str, str] = {}
+    start = 0
+    for _ in range(max_pages):
+        resp = client.call("user.get", {"start": start, "ADMIN_MODE": "Y"})
+        result = resp.get("result") or []
+        for user in result:
+            name = f"{user.get('LAST_NAME') or ''} {user.get('NAME') or ''}".strip()
+            uid = user.get("ID")
+            if name and uid is not None:
+                out[str(uid)] = name
+        nxt = resp.get("next")
+        if not result or nxt is None:
+            break
+        start = nxt
+    return out
 
 
 ABSENCE_NAME_HINTS = ("отпуск", "отгул", "отсутств", "больнич", "командир", "vacation")
@@ -349,6 +358,9 @@ def _absence_date_key(dt: Any) -> tuple[int, int, int]:
 
 
 REJECTION_STAGES = {"C10:LOSE", "C50:APOLOGY"}
+# «Оплата получена» = переход сделки в УСПЕХ воронки Продажи (CAT 10). ТМ-воронку
+# (C50:WON «успех») в оплаты НЕ берём — это передача в продажи, а не деньги.
+WON_STAGES = {"C10:WON"}
 
 
 def collect_rejected_deals(stagehistory: list[dict[str, Any]], bx=None) -> list[dict[str, Any]]:
@@ -368,6 +380,132 @@ def collect_rejected_deals(stagehistory: list[dict[str, Any]], bx=None) -> list[
         "crm.deal.list",
         {"filter": {"@ID": ids}, "select": ["ID", "TITLE", "ASSIGNED_BY_ID", "OPPORTUNITY", "UF_CRM_1771495464"]},
     )
+
+
+def collect_won_deals(stagehistory: list[dict[str, Any]], bx=None) -> list[dict[str, Any]]:
+    """Выигранные сегодня сделки (переход в C10:WON) — для метрики «оплаты, шт+руб»
+    и среднего чека. Сумма берётся из OPPORTUNITY сделки."""
+    ids = sorted(
+        {
+            str(h.get("OWNER_ID"))
+            for h in stagehistory
+            if h.get("STAGE_ID") in WON_STAGES and h.get("OWNER_ID")
+        }
+    )
+    if not ids:
+        return []
+    return _fetch_all(
+        bx,
+        "crm.deal.list",
+        {"filter": {"@ID": ids}, "select": ["ID", "TITLE", "ASSIGNED_BY_ID", "OPPORTUNITY"]},
+    )
+
+
+def collect_entered_deals(stagehistory: list[dict[str, Any]], bx=None) -> list[dict[str, Any]]:
+    """Сделки, ВОШЕДШИЕ в воронку Продажи за день — есть запись C10:NEW в истории
+    стадий (дата-точно, таймстампы неизменны). Тянем ответственного и дату создания:
+    в transform вход = создана в этот же день, холод = создана раньше (переведена из ТМ).
+    Не опираемся на текущий CATEGORY_ID сделки — он мог измениться после перевода."""
+    ids = sorted(
+        {
+            str(h.get("OWNER_ID"))
+            for h in stagehistory
+            if str(h.get("CATEGORY_ID")) == "10" and h.get("STAGE_ID") == "C10:NEW" and h.get("OWNER_ID")
+        }
+    )
+    if not ids:
+        return []
+    return _fetch_all(
+        bx, "crm.deal.list", {"filter": {"@ID": ids}, "select": ["ID", "ASSIGNED_BY_ID", "DATE_CREATE"]}
+    )
+
+
+def collect_flow_day(target: date, bx=None) -> dict[str, Any]:
+    """Лёгкий сбор ТОЛЬКО потоковых данных для backfill истории: сделки/встречи/
+    КП/брифы/звонки/письма/оплаты за конкретный день. БЕЗ снимка воронки
+    (deals_snapshot нельзя восстановить за прошлое), без LLM-анализа, без фото/
+    справочников/wazzup. Все фильтры — по дате целевого дня, поэтому историю
+    можно перегнать задним числом. Идемпотентно через build_db_rows + upsert."""
+    d0, d1 = _range(target)
+    deals_created = _fetch_all(
+        bx,
+        "crm.deal.list",
+        {
+            "filter": {">=DATE_CREATE": d0, "<=DATE_CREATE": d1},
+            "select": [
+                "ID", "TITLE", "CATEGORY_ID", "STAGE_ID", "OPPORTUNITY",
+                "ASSIGNED_BY_ID", "DATE_CREATE", "SOURCE_ID", "COMPANY_ID",
+                "CONTACT_ID", "UF_CRM_1771495464",
+            ],
+        },
+    )
+    stagehistory = _fetch_all(
+        bx,
+        "crm.stagehistory.list",
+        {
+            "entityTypeId": 2,
+            "filter": {">=CREATED_TIME": d0, "<=CREATED_TIME": d1},
+            "select": ["ID", "TYPE_ID", "OWNER_ID", "CREATED_TIME", "STAGE_SEMANTIC_ID", "STAGE_ID", "CATEGORY_ID"],
+        },
+    )
+    meet_day = _fetch_all(
+        bx,
+        "crm.item.list",
+        {"entityTypeId": 1048, "filter": {">=ufCrm16_1751009238": d0, "<=ufCrm16_1751009238": d1, "stageId": MEETING_HELD_STAGE}, "select": SEL_1048},
+        idfield="id",
+    )
+    meet_created_day = _fetch_all(
+        bx,
+        "crm.item.list",
+        {"entityTypeId": 1048, "filter": {">=createdTime": d0, "<=createdTime": d1}, "select": SEL_1048},
+        idfield="id",
+    )
+    briefs = _fetch_all(
+        bx,
+        "crm.item.list",
+        {
+            "entityTypeId": 1056,
+            "filter": {">=updatedTime": d0, "<=updatedTime": d1},
+            "select": ["id", "title", "stageId", "createdTime", "updatedTime", "assignedById", "ufCrm20_1754044185200", "parentId2"],
+        },
+        idfield="id",
+    )
+    kp = _fetch_all(
+        bx,
+        "crm.item.list",
+        {
+            "entityTypeId": 1106,
+            "filter": {">=updatedTime": d0, "<=updatedTime": d1},
+            "select": ["id", "title", "stageId", "createdTime", "updatedTime", "assignedById", "opportunity", "parentId2", "begindate"],
+        },
+        idfield="id",
+    )
+    activities = _fetch_all(
+        bx,
+        "crm.activity.list",
+        {
+            "filter": {">=CREATED": d0, "<=CREATED": d1},
+            "select": ["ID", "OWNER_ID", "OWNER_TYPE_ID", "TYPE_ID", "PROVIDER_ID", "PROVIDER_TYPE_ID", "SUBJECT", "COMPLETED", "RESPONSIBLE_ID", "AUTHOR_ID", "CREATED", "DIRECTION", "START_TIME", "END_TIME"],
+        },
+    )
+    calls = collect_voximplant(target, bx)
+    return {
+        "report_date": target.isoformat(),
+        "deals_created": deals_created,
+        "deals_open": [],  # снимок за прошлое не восстанавливаем
+        "stagehistory": stagehistory,
+        "won_deals": collect_won_deals(stagehistory, bx),
+        "entered_deals": collect_entered_deals(stagehistory, bx),
+        "meet_day": meet_day,
+        "meet_created_day": meet_created_day,
+        "meet_today": [],
+        "briefs": briefs,
+        "kp": kp,
+        "activities": activities,
+        "calls": calls,
+        "wazzup": {},
+        "messenger_dialogs": {},
+    }
 
 
 def collect_day(target: date, bx=None) -> dict[str, Any]:
@@ -437,7 +575,7 @@ def collect_day(target: date, bx=None) -> dict[str, Any]:
         "crm.item.list",
         {
             "entityTypeId": 1048,
-            "filter": {">=ufCrm16_1751009238": d0, "<=ufCrm16_1751009238": d1},
+            "filter": {">=ufCrm16_1751009238": d0, "<=ufCrm16_1751009238": d1, "stageId": MEETING_HELD_STAGE},
             "select": SEL_1048,
         },
         idfield="id",
@@ -539,17 +677,15 @@ def collect_day(target: date, bx=None) -> dict[str, Any]:
     # Wazzup собираем и по зависшим (open) сделкам: иначе их last_contact игнорирует
     # переписку и «дни без контакта» завышаются.
     deal_ids.update(item.get("ID") for item in deals_open)
-    deal_manager = {
-        str(d.get("ID")): str(d.get("ASSIGNED_BY_ID"))
-        for d in [*deals_open, *deals_created]
-        if d.get("ID") and d.get("ASSIGNED_BY_ID")
-    }
 
     users, photos, user_roles = _progress_step(
         "users_and_photos", lambda: collect_users_and_photos(user_ids, bx)
     )
+    employees = _progress_step("employees", lambda: collect_employees(bx))
     wazzup = _progress_step("wazzup", lambda: _collect_wazzup(deal_ids, bx))
-    messenger_dialogs = compute_messenger_dialogs(wazzup, deal_manager, d0, d1)
+    # Чаты атрибутируем по подписи отправителя в тексте сообщения (chat_attribution),
+    # а не по ответственному за сделку — иначе переписка ТМ не попадает в «Опер».
+    messenger_dialogs = attribute_dialogs(wazzup, employees, d0, d1)
     return {
         "user_roles": user_roles,
         "messenger_dialogs": messenger_dialogs,
@@ -568,6 +704,8 @@ def collect_day(target: date, bx=None) -> dict[str, Any]:
         "users": users,
         "photos": photos,
         "rejected_deals": _progress_step("rejected_deals", lambda: collect_rejected_deals(stagehistory, bx)),
+        "won_deals": _progress_step("won_deals", lambda: collect_won_deals(stagehistory, bx)),
+        "entered_deals": _progress_step("entered_deals", lambda: collect_entered_deals(stagehistory, bx)),
         "wazzup": wazzup,
     }
 

@@ -1,7 +1,17 @@
 import Link from 'next/link';
-import { Filter, Flame, Users, Goal, FileText } from 'lucide-react';
+import { Filter, FileText, TrendingUp, Target, Activity, ArrowLeftRight, Users, Phone, Mail, Clock, BarChart3, CalendarDays, Goal } from 'lucide-react';
 import { FunnelBars } from '@/components/dashboard/FunnelBars';
-import { TeamList } from '@/components/dashboard/TeamList';
+import { SalesFunnel } from '@/components/dashboard/SalesFunnel';
+import { ForecastView } from '@/components/dashboard/Forecast';
+import { OperationalMatrixView } from '@/components/dashboard/OperationalMatrix';
+import { ManagerConversions } from '@/components/dashboard/ManagerConversions';
+import { ManagerPipelineView } from '@/components/dashboard/ManagerPipeline';
+import { TmActivityView } from '@/components/dashboard/TmActivity';
+import { MessagingView } from '@/components/dashboard/Messaging';
+import { VelocityView } from '@/components/dashboard/Velocity';
+import { MonthlyDynamics } from '@/components/dashboard/MonthlyDynamics';
+import { Day2DayView } from '@/components/dashboard/Day2Day';
+import { PlanFactView } from '@/components/dashboard/PlanFact';
 import { KpiCard } from '@/components/dashboard/KpiCard';
 import { Gauge } from '@/components/dashboard/Gauge';
 import { getDashboardData } from '@/lib/dashboard';
@@ -80,62 +90,79 @@ export default async function DashboardPage({
         <KpiCard label={`Сделки ${per}`} value={data.dealsCreatedTotal} icon="zap" delta={data.deltas.deals} />
       </div>
 
-      {/* Воронка + затор */}
+      {/* Прогноз закрытия месяца + pacing (КД-хедлайн) */}
+      <div className="bb-card" style={{ marginBottom: 16 }}>
+        <SectionHead icon={<Target size={17} />} title="Прогноз закрытия месяца" hint="взвешенная воронка + темп" />
+        <ForecastView data={data.forecast} />
+      </div>
+
+      {/* Воронка продаж — снимок открытых сделок по стадиям */}
       <div className="bb-card" style={{ marginBottom: 16 }}>
         <SectionHead icon={<Filter size={17} />} title="Воронка продаж" hint={`снимок ${data.snapshotDate ?? '—'}`} />
         <FunnelBars data={data.funnel} />
-
-        {data.stuck.length > 0 ? (
-          <div style={{ marginTop: 22, borderTop: '1px solid var(--bb-line)', paddingTop: 18 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-              <Flame size={16} color="#d4202e" />
-              <h3 style={{ fontSize: 14.5, fontWeight: 700 }}>Застрявшие сделки</h3>
-              <small style={{ color: 'var(--bb-faint)', fontSize: 12.5 }}>дольше всего без движения</small>
-            </div>
-            <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column' }}>
-              {data.stuck.map((d) => (
-                <li key={d.dealId} className="bb-stuck-row">
-                  <div style={{ minWidth: 0 }}>
-                    <p className="bb-ellipsis" style={{ fontSize: 14, fontWeight: 600 }}>{d.title}</p>
-                    <p style={{ fontSize: 12, color: 'var(--bb-faint)' }}>{d.stageLabel} · {d.manager}</p>
-                  </div>
-                  <div style={{ textAlign: 'right', flex: '0 0 auto' }}>
-                    <p className="tabular" style={{ fontSize: 14, fontWeight: 700 }}>{rub(d.amount)}</p>
-                    <p style={{ fontSize: 12, fontWeight: 600, color: '#d4202e' }}>{d.stuckDays} дн. без движения</p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
       </div>
 
-      {/* Команда — кликабельные карточки → дрилл-даун */}
+      {/* Путь сделки вход→оплата — поток за период с конверсиями */}
       <div className="bb-card" style={{ marginBottom: 16 }}>
-        <SectionHead icon={<Users size={17} />} title="Команда" hint="клик по строке → разбор менеджера" />
-        <TeamList team={data.team} meetingsPlan={data.meetingsPlan} />
+        <SectionHead icon={<TrendingUp size={17} />} title="Путь сделки: вход → оплата" hint={per} />
+        <SalesFunnel data={data.salesFunnel} />
+      </div>
+
+      {/* Операционная эффективность — «Опер» по дням (детальное качество встреч — на /meetings) */}
+      <div className="bb-card" style={{ marginBottom: 16 }}>
+        <SectionHead icon={<Activity size={17} />} title="Операционная эффективность" hint="модель реальных рабочих минут · балл 0–10 по дням" />
+        <OperationalMatrixView data={data.operational} />
+      </div>
+
+      {/* Конверсии по менеджерам */}
+      <div className="bb-card" style={{ marginBottom: 16 }}>
+        <SectionHead icon={<ArrowLeftRight size={17} />} title="Конверсии по менеджерам" hint={per} />
+        <ManagerConversions data={data.managerConversions} />
+      </div>
+
+      {/* Воронка по менеджерам · текущее состояние + Δ за месяц */}
+      <div className="bb-card" style={{ marginBottom: 16 }}>
+        <SectionHead icon={<Users size={17} />} title="Воронка по менеджерам" hint="снимок + изменение за месяц" />
+        <ManagerPipelineView data={data.managerPipeline} />
+      </div>
+
+      {/* Активность ТМ · звонки */}
+      <div className="bb-card" style={{ marginBottom: 16 }}>
+        <SectionHead icon={<Phone size={17} />} title="Активность ТМ · звонки" hint={per} />
+        <TmActivityView data={data.tmActivity} />
+      </div>
+
+      {/* Мессенджеры и почта */}
+      <div className="bb-card" style={{ marginBottom: 16 }}>
+        <SectionHead icon={<Mail size={17} />} title="Мессенджеры и почта" hint={per} />
+        <MessagingView data={data.messaging} />
+      </div>
+
+      {/* Скорость воронки + деньги по возрасту */}
+      <div className="bb-card" style={{ marginBottom: 16 }}>
+        <SectionHead icon={<Clock size={17} />} title="Скорость воронки и деньги по возрасту" hint={`снимок ${data.snapshotDate ?? '—'}`} />
+        <VelocityView data={data.velocity} />
+      </div>
+
+      {/* Помесячная динамика */}
+      <div className="bb-card" style={{ marginBottom: 16 }}>
+        <SectionHead icon={<BarChart3 size={17} />} title="Помесячная динамика" hint="последние 6 месяцев" />
+        <MonthlyDynamics data={data.monthly} />
+      </div>
+
+      {/* Day2Day — дневные итоги месяца */}
+      <div className="bb-card" style={{ marginBottom: 16 }}>
+        <SectionHead icon={<CalendarDays size={17} />} title="Day2Day" hint={`${data.monthLabel} · по дням`} />
+        <Day2DayView data={data.day2day} />
       </div>
 
       {/* План / факт */}
-      {data.team.length > 0 ? (
-        <div className="bb-card" style={{ marginBottom: 16 }}>
-          <SectionHead icon={<Goal size={17} />} title="План / факт встреч" hint={`цель ${data.meetingsPlan}/чел`} />
-          <div className="bb-grid" style={{ gridTemplateColumns: 'repeat(2,1fr)', gap: 16 }}>
-            {data.team.slice(0, 4).map((m) => {
-              const pct = Math.min(100, Math.round((m.meetingsHeld / data.meetingsPlan) * 100));
-              return (
-                <div key={m.managerId}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13.5, fontWeight: 600 }}>
-                    <span>{m.name}</span>
-                    <span className="tabular" style={{ color: 'var(--bb-muted)' }}>{m.meetingsHeld} / {data.meetingsPlan}</span>
-                  </div>
-                  <div className="bb-pf-bar"><i style={{ width: `${pct}%` }} /></div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      ) : null}
+      <div className="bb-card" style={{ marginBottom: 16 }}>
+        <SectionHead icon={<Goal size={17} />} title="План / факт" hint={data.monthLabel} />
+        <PlanFactView data={data.planFact} />
+      </div>
+
+      {/* Дальше: win rate + источники (нужна мелкая правка раннера). */}
     </div>
   );
 }

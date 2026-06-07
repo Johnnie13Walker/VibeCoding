@@ -122,6 +122,8 @@ export const meetings = pgTable(
     meetingType: text('meeting_type'),
     status: text('status'),
     managerId: integer('manager_id'),
+    // Создатель встречи (ТМ): событийная атрибуция «встречу назначил ТМ».
+    createdBy: integer('created_by'),
     scheduledAt: timestamp('scheduled_at', { withTimezone: true }),
     analysisJson: jsonb('analysis_json'),
     transcriptUrl: text('transcript_url'),
@@ -157,6 +159,10 @@ export const managerActivity = pgTable(
     talkSeconds: integer('talk_seconds').default(0),
     emailsSent: integer('emails_sent').default(0),
     dealsCreatedCount: integer('deals_created_count').default(0),
+    dealsColdCount: integer('deals_cold_count').default(0),
+    dealsIncomingCount: integer('deals_incoming_count').default(0),
+    dealsWonCount: integer('deals_won_count').default(0),
+    dealsWonAmount: numeric('deals_won_amount', { precision: 14, scale: 2 }).default('0'),
     messengerDialogs: integer('messenger_dialogs'),
   },
   (table) => [
@@ -206,6 +212,71 @@ export const plans = pgTable(
       table.managerId,
       table.metric,
     ),
+  ],
+);
+
+export const payments = pgTable(
+  'payments',
+  {
+    id: serial('id').primaryKey(),
+    project: text('project'),
+    source: text('source'),
+    dept: text('dept'),
+    manager: text('manager'),
+    service: text('service'),
+    kdWithVat: numeric('kd_with_vat', { precision: 14, scale: 2 }),
+    kdNoVat: numeric('kd_no_vat', { precision: 14, scale: 2 }),
+    ddWithVat: numeric('dd_with_vat', { precision: 14, scale: 2 }),
+    ddNoVat: numeric('dd_no_vat', { precision: 14, scale: 2 }),
+    payDate: text('pay_date'),
+    payForm: text('pay_form'),
+    counterparty: text('counterparty'),
+    brand: text('brand'),
+    payMonth: smallint('pay_month'),
+    payYear: integer('pay_year'),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+  },
+  (table) => [index('payments_year_month_dept_idx').on(table.payYear, table.payMonth, table.dept)],
+);
+
+export const dealTitles = pgTable('deal_titles', {
+  dealId: integer('deal_id').primaryKey(),
+  title: text('title'),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+});
+
+export const callHourly = pgTable(
+  'call_hourly',
+  {
+    reportDate: date('report_date').notNull(),
+    managerId: integer('manager_id').notNull(),
+    hour: smallint('hour').notNull(),
+    dials: integer('dials').default(0),
+    answered: integer('answered').default(0),
+    calls60: integer('calls60').default(0),
+  },
+  (table) => [
+    unique('call_hourly_report_date_manager_id_hour_unique').on(table.reportDate, table.managerId, table.hour),
+    index('call_hourly_manager_date_idx').on(table.managerId, table.reportDate),
+  ],
+);
+
+export const dealRejections = pgTable(
+  'deal_rejections',
+  {
+    dealId: integer('deal_id').primaryKey(),
+    categoryId: integer('category_id'),
+    stageId: text('stage_id').notNull(),
+    reasonId: integer('reason_id'),
+    modifiedBy: integer('modified_by'),
+    assignedBy: integer('assigned_by'),
+    rejectedAt: timestamp('rejected_at', { withTimezone: true }),
+    title: text('title'),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+  },
+  (table) => [
+    index('deal_rejections_modified_by_reason_idx').on(table.modifiedBy, table.reasonId),
+    index('deal_rejections_stage_rejected_idx').on(table.stageId, table.rejectedAt),
   ],
 );
 

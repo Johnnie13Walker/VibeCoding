@@ -5,7 +5,12 @@ from pathlib import Path
 import pytest
 
 from src import bx_client
-from src.collect import collect_day, collect_users_and_photos
+from src.collect import (
+    collect_day,
+    collect_entered_deals,
+    collect_users_and_photos,
+    collect_won_deals,
+)
 from src.timeutil import next_working_day
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "2026-05-29"
@@ -80,6 +85,68 @@ class FakeBx:
         if method == "crm.timeline.comment.list":
             return {"result": []}
         return {"result": []}
+
+
+def test_collect_won_deals_filters_c10_won_only():
+    stagehistory = [
+        {"OWNER_ID": 20, "STAGE_ID": "C10:WON"},
+        {"OWNER_ID": 21, "STAGE_ID": "C50:WON"},   # ТМ-успех — НЕ оплата
+        {"OWNER_ID": 22, "STAGE_ID": "C10:LOSE"},  # отказ
+    ]
+
+    captured = {}
+
+    def fake_fetch(bx, method, params, idfield="ID"):
+        captured["filter"] = params["filter"]
+        return [{"ID": "20", "OPPORTUNITY": "150000", "ASSIGNED_BY_ID": "1"}]
+
+    import src.collect as collect_mod
+
+    orig = collect_mod._fetch_all
+    collect_mod._fetch_all = fake_fetch
+    try:
+        won = collect_won_deals(stagehistory, bx=None)
+    finally:
+        collect_mod._fetch_all = orig
+
+    assert captured["filter"] == {"@ID": ["20"]}  # только C10:WON
+    assert won and won[0]["ID"] == "20"
+
+
+def test_collect_won_deals_empty_without_won():
+    assert collect_won_deals([{"OWNER_ID": 1, "STAGE_ID": "C10:LOSE"}], bx=None) == []
+
+
+def test_collect_entered_deals_fetches_c10_new_with_date():
+    stagehistory = [
+        {"OWNER_ID": "1", "CATEGORY_ID": "10", "STAGE_ID": "C10:NEW"},
+        {"OWNER_ID": "9", "CATEGORY_ID": "10", "STAGE_ID": "C10:NEW"},
+        {"OWNER_ID": "1", "CATEGORY_ID": "10", "STAGE_ID": "C10:EXECUTING"},  # внутренний переход — не вход
+        {"OWNER_ID": "5", "CATEGORY_ID": "50", "STAGE_ID": "C50:NEW"},        # ТМ, не Продажи
+    ]
+    captured = {}
+
+    def fake_fetch(bx, method, params, idfield="ID"):
+        captured["filter"] = params["filter"]
+        captured["select"] = params["select"]
+        return [{"ID": "1", "ASSIGNED_BY_ID": "100", "DATE_CREATE": "2026-02-02T10:00:00+03:00"}]
+
+    import src.collect as collect_mod
+
+    orig = collect_mod._fetch_all
+    collect_mod._fetch_all = fake_fetch
+    try:
+        out = collect_entered_deals(stagehistory, bx=None)
+    finally:
+        collect_mod._fetch_all = orig
+
+    assert captured["filter"] == {"@ID": ["1", "9"]}  # только вошедшие в C10:NEW
+    assert "DATE_CREATE" in captured["select"]
+    assert out[0]["ID"] == "1"
+
+
+def test_collect_entered_deals_empty_without_entries():
+    assert collect_entered_deals([{"OWNER_ID": 1, "CATEGORY_ID": "50", "STAGE_ID": "C50:NEW"}], bx=None) == []
 
 
 def test_seed_fixture_has_data_contract_keys():
@@ -258,17 +325,30 @@ def test_resize_jpeg_pillow_shrinks_and_caps_140():
     assert max(Image.open(BytesIO(out)).size) <= 140  # 140px кап
 
 
-def test_compute_messenger_dialogs_per_manager_for_day():
-    from src.collect import compute_messenger_dialogs
-    wazzup = {
-        "100": [{"CREATED": "2026-05-29T10:00:00+03:00"}],  # сегодня
-        "200": [{"CREATED": "2026-05-20T10:00:00+03:00"}],  # старое — не считаем
-        "300": [{"CREATED": "2026-05-29T15:00:00+03:00"}],
-    }
-    deal_manager = {"100": "1", "200": "1", "300": "2", "999": "1"}
-    d0, d1 = "2026-05-29T00:00:00+03:00", "2026-05-29T23:59:59+03:00"
-    out = compute_messenger_dialogs(wazzup, deal_manager, d0, d1)
-    assert out == {"1": 1, "2": 1}
+def test_collect_employees_paged_builds_lastname_firstname():
+    from src.collect import collect_employees
+
+    class Bx:
+        def __init__(self):
+            self.calls = 0
+
+        def call(self, method, params=None):
+            assert method == "user.get"
+            self.calls += 1
+            if (params or {}).get("start", 0) == 0:
+                return {
+                    "result": [
+                        {"ID": 1, "LAST_NAME": "Семенихин", "NAME": "Егор"},
+                        {"ID": 2, "LAST_NAME": "Исаева", "NAME": "Дарья"},
+                    ],
+                    "next": 2,
+                }
+            return {"result": [{"ID": 3, "LAST_NAME": "Дудин", "NAME": "Петр"}]}  # без next → стоп
+
+    bx = Bx()
+    emps = collect_employees(bx=bx)
+    assert emps == {"1": "Семенихин Егор", "2": "Исаева Дарья", "3": "Дудин Петр"}
+    assert bx.calls == 2
 
 
 def test_collect_absences_filters_absent_and_takes_end_date():

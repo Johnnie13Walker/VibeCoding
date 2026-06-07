@@ -162,6 +162,27 @@ def aggregate_calls(calls: list[dict[str, Any]]) -> dict[int, dict[str, int]]:
     return {uid: dict(counter) for uid, counter in stats.items()}
 
 
+def aggregate_calls_hourly(calls: list[dict[str, Any]]) -> dict[tuple[int, int], dict[str, int]]:
+    """Звонки по (PORTAL_USER_ID, час МСК): наборы/ответы/дозвоны ≥60с — для heatmap
+    «когда берут трубку». Час берём из CALL_START_DATE (offset +03:00 = МСК)."""
+    stats: dict[tuple[int, int], Counter] = defaultdict(Counter)
+    for call in calls:
+        uid = _to_int(call.get("PORTAL_USER_ID"))
+        if not uid:
+            continue
+        dt = parse_dt(call.get("CALL_START_DATE"))
+        if dt is None:
+            continue
+        duration = _to_int(call.get("CALL_DURATION")) or 0
+        key = (uid, dt.hour)
+        stats[key]["dials"] += 1
+        if duration > 0:
+            stats[key]["answered"] += 1
+        if duration >= 60:
+            stats[key]["calls60"] += 1
+    return {key: dict(counter) for key, counter in stats.items()}
+
+
 def aggregate_emails(activities: list[dict[str, Any]]) -> dict[int, int]:
     """Исходящие письма (CRM_EMAIL) по автору — для «Опер» (письмо = 5 мин)."""
     counts: Counter = Counter()
@@ -216,6 +237,9 @@ def build_db_rows(raw: dict[str, Any], target_date: date, now: datetime) -> dict
             "meeting_type": _meeting_type(item),
             "status": item.get("stageId"),
             "manager_id": _to_int(item.get("assignedById")),
+            # Создатель встречи (ТМ-телемаркетолог) — для событийных метрик ТМ:
+            # «встречу назначил ТМ и она состоялась» считается запросом по этой таблице.
+            "created_by": _to_int(item.get("createdBy")),
             "scheduled_at": parse_dt(item.get("ufCrm16_1751009238")),
             "analysis_json": None,
             "transcript_url": None,
@@ -232,7 +256,10 @@ def build_db_rows(raw: dict[str, Any], target_date: date, now: datetime) -> dict
     manager_ids.update(emails_sent)
     for key in ["meet_day", "meet_created_day", "briefs", "kp"]:
         manager_ids.update(_to_int(item.get("assignedById")) for item in raw.get(key, []))
-    manager_ids.update(_to_int(d.get("ASSIGNED_BY_ID")) for d in raw.get("deals_created", []))
+    # Создатели встреч (ТМ) тоже должны получить строку активности.
+    manager_ids.update(_to_int(item.get("createdBy")) for item in raw.get("meet_created_day", []))
+    manager_ids.update(_to_int(item.get("createdBy")) for item in raw.get("meet_day", []))
+    manager_ids.update(_to_int(d.get("ASSIGNED_BY_ID")) for d in raw.get("won_deals", []))
     manager_ids.discard(None)
 
     # Назначенную встречу засчитываем СОЗДАТЕЛЮ (createdBy), а не ответственному:
@@ -242,7 +269,36 @@ def build_db_rows(raw: dict[str, Any], target_date: date, now: datetime) -> dict
     meetings_held = Counter(_to_int(item.get("assignedById")) for item in raw.get("meet_day", []))
     briefs_created = Counter(_to_int(item.get("assignedById")) for item in raw.get("briefs", []))
     kp_sent = Counter(_to_int(item.get("assignedById")) for item in raw.get("kp", []))
-    deals_created_cnt = Counter(_to_int(d.get("ASSIGNED_BY_ID")) for d in raw.get("deals_created", []))
+
+    # «Сделки» = ВОШЕДШИЕ в воронку Продажи (запись C10:NEW в истории стадий за день).
+    # История стадий неизменна и дата-точна (в отличие от текущего CATEGORY_ID сделки).
+    #   вход   — сделка СОЗДАНА в этот же день (DATE_CREATE = день входа) → прямой вход в Продажи;
+    #   холод  — создана раньше (переведена из ТМ в Продажи).
+    deals_incoming_cnt: Counter = Counter()
+    deals_cold_cnt: Counter = Counter()
+    for d in raw.get("entered_deals", []):
+        mid = _to_int(d.get("ASSIGNED_BY_ID"))
+        if mid is None:
+            continue
+        created = parse_dt(d.get("DATE_CREATE"))
+        if created is not None and created.date().isoformat() == report_date:
+            deals_incoming_cnt[mid] += 1
+        else:
+            deals_cold_cnt[mid] += 1
+    deals_created_cnt: Counter = Counter()
+    for mid, n in deals_incoming_cnt.items():
+        deals_created_cnt[mid] += n
+    for mid, n in deals_cold_cnt.items():
+        deals_created_cnt[mid] += n
+    manager_ids.update(k for k in deals_created_cnt if k is not None)
+
+    # Оплаты (выигранные сделки C10:WON) — шт и сумма по ответственному.
+    deals_won_cnt: Counter = Counter()
+    deals_won_amount: dict[int, float] = defaultdict(float)
+    for d in raw.get("won_deals", []):
+        mid = _to_int(d.get("ASSIGNED_BY_ID"))
+        deals_won_cnt[mid] += 1
+        deals_won_amount[mid] += _to_float(d.get("OPPORTUNITY")) or 0.0
 
     # Чаты Wazzup (messenger_dialogs) — посчитаны в collect_day, лежат в raw.
     # Сохраняем их в дневную статистику, чтобы они были видны в архиве за прошлый день.
@@ -273,6 +329,10 @@ def build_db_rows(raw: dict[str, Any], target_date: date, now: datetime) -> dict
                 "briefs_created": briefs_created[manager_id],
                 "kp_sent": kp_sent[manager_id],
                 "deals_created_count": deals_created_cnt[manager_id],
+                "deals_cold_count": deals_cold_cnt[manager_id],
+                "deals_incoming_count": deals_incoming_cnt[manager_id],
+                "deals_won_count": deals_won_cnt[manager_id],
+                "deals_won_amount": round(deals_won_amount[manager_id], 2),
             }
         )
 
@@ -294,15 +354,80 @@ def build_db_rows(raw: dict[str, Any], target_date: date, now: datetime) -> dict
                 }
             )
 
+    call_hourly = [
+        {
+            "report_date": report_date,
+            "manager_id": uid,
+            "hour": hour,
+            "dials": s.get("dials", 0),
+            "answered": s.get("answered", 0),
+            "calls60": s.get("calls60", 0),
+        }
+        for (uid, hour), s in aggregate_calls_hourly(raw.get("calls", [])).items()
+    ]
+
     return {
         "deals_snapshot": deals_snapshot,
         "meetings": meetings,
         "manager_activity": manager_activity,
         "kp_briefs": kp_briefs,
+        "call_hourly": call_hourly,
     }
 
 
+def build_post_meeting_comms(
+    meet_day: list[dict[str, Any]] | None,
+    wazzup: dict[Any, list[dict[str, Any]]] | None,
+    activities: list[dict[str, Any]] | None,
+) -> dict[str, str]:
+    """Пост-встречная коммуникация по каждой встрече: Wazzup-сообщения и исходящие
+    письма по сделке, отправленные ПОСЛЕ времени встречи. По ней LLM судит, отправлены
+    ли клиенту итоги встречи. Ключ — meeting_id (str), как ждёт analyze_day."""
+    emails_by_deal: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for act in activities or []:
+        if str(act.get("PROVIDER_ID")) != "CRM_EMAIL":
+            continue
+        if str(act.get("DIRECTION")) not in ("2", "O"):  # исходящее
+            continue
+        if str(act.get("OWNER_TYPE_ID")) != "2":  # сделка
+            continue
+        emails_by_deal[str(act.get("OWNER_ID"))].append(act)
+
+    out: dict[str, str] = {}
+    for item in meet_day or []:
+        mid = item.get("id")
+        if mid is None:
+            continue
+        deal = str(item.get("parentId2") or "")
+        mtime = str(item.get("ufCrm16_1751009238") or "")
+        parts: list[str] = []
+        for c in (wazzup or {}).get(deal, []) or []:
+            created = str(c.get("CREATED") or c.get("created") or "")
+            if mtime and created <= mtime:
+                continue
+            body = str(c.get("COMMENT") or "").strip()
+            if body:
+                parts.append(f"[Wazzup {created}] {body}")
+        for e in emails_by_deal.get(deal, []):
+            created = str(e.get("CREATED") or "")
+            if mtime and created <= mtime:
+                continue
+            parts.append(f"[Письмо {created}] тема: {e.get('SUBJECT') or ''}")
+        out[str(mid)] = "\n".join(parts)[:4000]
+    return out
+
+
+# Структурное поле «тип встречи» в карточке SP 1048 (enum). Надёжнее названия:
+# до марта 2026 встречи назывались доменом клиента, но поле заполнялось всегда.
+MEETING_TYPE_FIELD = "ufCrm16_1751006460"
+_MEETING_TYPE_BY_FIELD = {"2638": "briefing", "2640": "defense"}
+
+
 def _meeting_type(item: dict[str, Any]) -> str | None:
+    by_field = _MEETING_TYPE_BY_FIELD.get(str(item.get(MEETING_TYPE_FIELD)))
+    if by_field:
+        return by_field
+    # Fallback на название, если структурное поле пустое/нестандартное.
     title = (item.get("title") or "").lower()
     if "защ" in title:
         return "defense"

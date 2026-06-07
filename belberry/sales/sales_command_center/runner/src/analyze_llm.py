@@ -90,6 +90,36 @@ SYSTEM_PROMPT = """
 - meeting_segment — primary для первичного брифинга/защиты, repeat для повторной
   встречи с движением от прошлого контакта.
 - transcript_based — true только если разбор построен по реальному транскрипту.
+- summary_sent — суди ТОЛЬКО по блоку «Wazzup/итоги после встречи» (это сообщения и
+  письма клиенту ПОСЛЕ встречи, НЕ сам транскрипт). true — если там менеджер отправил
+  клиенту резюме/итоги встречи или следующие шаги. Если блок пуст («нет данных») или
+  итогов в нём нет — false.
+- budget_named — true, если на встрече НАЗВАН бюджет клиента (хотя бы ориентир суммы).
+  Если бюджет не вскрыт/не обсуждался — false.
+- products_discussed — список услуг/продуктов Belberry, которые РЕАЛЬНО обсуждались на
+  встрече. Используй короткие ярлыки: "SEO", "Контекст", "Веб-разработка", "Strapi",
+  "GEO" (маркетплейсы/гео-продвижение), "ORM" (репутация), "SMM", "Аналитика".
+  Только то, что обсуждалось; ничего не выдумывай. Если не обсуждали продукты — [].
+- kp_assessment — оцени, имело ли смысл готовить КП по этой встрече:
+  * "обоснованно" — менеджер выявил реальную потребность клиента, КП логично и нужно;
+  * "преждевременно" — потребность нормально НЕ выявлена (бриф заполнен формально,
+    диалога-вскрытия не было), КП не нужно или преждевременно;
+  * "не_применимо" — про КП речи не шло (другой тип встречи/контекст).
+- kp_assessment_note — 1 фраза: почему КП обоснованно/преждевременно (на что опираешься).
+ГЛУБОКИЙ РАЗБОР (опирайся на транскрипт, цитируй дословно, не выдумывай):
+- client_needs — реальные потребности и боли клиента: что именно болит, чего хочет,
+  скрытые мотивы за словами. 3-6 пунктов, у каждого короткая цитата-доказательство.
+- decision_makers — кто на встрече и кто реально принимает решение; упомянуты ли
+  отсутствующие ЛПР, чьё согласование нужно. Если не выяснено — так и напиши.
+- current_situation — текущая ситуация клиента: с кем работает сейчас, чем недоволен,
+  каких подрядчиков/конкурентов рассматривает, что уже пробовал.
+- budget_signals — сигналы бюджета и срочности: названные суммы, сроки, дедлайны,
+  триггеры («горит», «к сезону»). Если нет — "не озвучено".
+- dialog_quality — качество диалога: вёл диалог или анкету, кто больше говорил
+  (менеджер/клиент), глубина уточняющих вопросов менеджера.
+- coaching — КОНКРЕТНЫЙ совет менеджеру: что сделать иначе/лучше в следующий раз
+  именно по этой встрече (1-3 пункта, по делу, без воды).
+- key_quotes — 2-4 ключевые ДОСЛОВНЫЕ цитаты клиента, раскрывающие потребность/возражение/решение.
 - Верни JSON по схеме:
 {
   "meeting_type": "defense|briefing|other",
@@ -108,6 +138,18 @@ SYSTEM_PROMPT = """
   "status_discrepancy": true|false,
   "status_discrepancy_note": "..." | null,
   "verdict": "...",
+  "summary_sent": true,
+  "budget_named": true,
+  "products_discussed": ["SEO", "Контекст"],
+  "kp_assessment": "обоснованно|преждевременно|не_применимо",
+  "kp_assessment_note": "...",
+  "client_needs": [{"need": "...", "pain": "...", "evidence": "цитата"}],
+  "decision_makers": "...",
+  "current_situation": "...",
+  "budget_signals": "...",
+  "dialog_quality": "...",
+  "coaching": "...",
+  "key_quotes": ["...", "..."],
   "transcript_status": "ok"
 }
 """
@@ -395,6 +437,64 @@ def _normalize_segment(value: Any) -> str:
     return value if value in {"primary", "repeat"} else "primary"
 
 
+def _opt_bool(value: Any) -> bool | None:
+    """Дискретный флаг качества: True/False, либо None если LLM не вернул."""
+    if isinstance(value, bool):
+        return value
+    if value in (None, ""):
+        return None
+    return str(value).strip().lower() in {"true", "1", "да", "yes"}
+
+
+_KP_ASSESSMENTS = {"обоснованно", "преждевременно", "не_применимо"}
+
+
+def _normalize_products(value: Any) -> list[str]:
+    out: list[str] = []
+    for item in value or []:
+        label = str(item).strip()
+        if label and label not in out:
+            out.append(label)
+    return out[:8]
+
+
+def _normalize_kp_assessment(value: Any) -> str | None:
+    v = str(value or "").strip().lower().replace(" ", "_")
+    return v if v in _KP_ASSESSMENTS else None
+
+
+def _normalize_needs(value: Any) -> list[dict[str, str]]:
+    out: list[dict[str, str]] = []
+    for item in value or []:
+        if not isinstance(item, dict):
+            continue
+        need = str(item.get("need") or "").strip()
+        if not need:
+            continue
+        out.append(
+            {
+                "need": need,
+                "pain": str(item.get("pain") or "").strip(),
+                "evidence": str(item.get("evidence") or "").strip(),
+            }
+        )
+    return out[:6]
+
+
+def _normalize_quotes(value: Any) -> list[str]:
+    out: list[str] = []
+    for item in value or []:
+        q = str(item).strip()
+        if q and q not in out:
+            out.append(q)
+    return out[:5]
+
+
+def _opt_str(value: Any) -> str | None:
+    s = str(value or "").strip()
+    return s or None
+
+
 def _normalize_analysis(parsed: dict[str, Any]) -> dict[str, Any]:
     checklist = []
     for item in parsed.get("checklist") or []:
@@ -428,6 +528,18 @@ def _normalize_analysis(parsed: dict[str, Any]) -> dict[str, Any]:
         "status_discrepancy": bool(parsed.get("status_discrepancy")),
         "status_discrepancy_note": parsed.get("status_discrepancy_note"),
         "verdict": parsed.get("verdict") or "",
+        "summary_sent": _opt_bool(parsed.get("summary_sent")),
+        "budget_named": _opt_bool(parsed.get("budget_named")),
+        "products_discussed": _normalize_products(parsed.get("products_discussed")),
+        "kp_assessment": _normalize_kp_assessment(parsed.get("kp_assessment")),
+        "kp_assessment_note": str(parsed.get("kp_assessment_note") or "").strip() or None,
+        "client_needs": _normalize_needs(parsed.get("client_needs")),
+        "decision_makers": _opt_str(parsed.get("decision_makers")),
+        "current_situation": _opt_str(parsed.get("current_situation")),
+        "budget_signals": _opt_str(parsed.get("budget_signals")),
+        "dialog_quality": _opt_str(parsed.get("dialog_quality")),
+        "coaching": _opt_str(parsed.get("coaching")),
+        "key_quotes": _normalize_quotes(parsed.get("key_quotes")),
         "transcript_status": "ok",
     }
 
@@ -450,7 +562,9 @@ def analyze_meeting(
     response = _call_with_retry(
         client,
         model=MODEL,
-        max_tokens=2000,
+        # 8000 — глубокий разбор (потребности/боли, ЛПР, ситуация, коучинг, цитаты)
+        # даёт большой JSON; на меньшем лимите он обрезается и не парсится.
+        max_tokens=8000,
         temperature=0,
         system=_system(SYSTEM_PROMPT),
         messages=[
