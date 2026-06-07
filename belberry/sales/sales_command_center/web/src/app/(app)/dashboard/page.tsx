@@ -83,14 +83,7 @@ export default async function DashboardPage({
       {/* KPI */}
       <div className="bb-grid bb-grid-4" style={{ marginBottom: 22 }}>
         <KpiCard label="Сумма воронки" value={data.funnelAmount} money icon="wallet" />
-        <KpiCard
-          label={`Оплаты ${per}`}
-          value={data.paymentsTotal}
-          money
-          icon="coins"
-          delta={data.deltas.payments}
-          sub={data.paymentsPrevUndated > 0 ? `${data.paymentsPrevUndated} опл. пр. мес. без даты не в сравнении` : undefined}
-        />
+        <KpiCard label={`Оплаты ${per}`} value={data.paymentsTotal} money icon="coins" delta={data.deltas.payments} />
         <KpiCard label={`Сделки ${per}`} value={data.dealsCreatedTotal} icon="zap" delta={data.deltas.deals} />
         <KpiCard label={`Отказы ${per}`} value={data.rejectionsCount} icon="ban" delta={data.deltas.rejections} invert />
         <KpiCard label={`Встречи ${per}`} value={data.meetingsHeldTotal} icon="handshake" delta={data.deltas.meetings} trend={meetingsTrend} />

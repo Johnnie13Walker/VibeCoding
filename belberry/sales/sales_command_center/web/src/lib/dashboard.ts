@@ -105,8 +105,6 @@ export interface DashboardData {
   rejectionsCount: number;
   /** Количество брифов за период (manager_activity.briefs_created). */
   briefsTotal: number;
-  /** Оплат прошлого месяца без распознанной даты — не вошли в сравнение (для сноски). */
-  paymentsPrevUndated: number;
   salesFunnel: SalesFunnel;
   forecast: Forecast;
   meetingQuality: MeetingQuality;
@@ -841,7 +839,6 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
       paymentsTotal: 0,
       rejectionsCount: 0,
       briefsTotal: 0,
-      paymentsPrevUndated: 0,
       salesFunnel: buildSalesFunnel({
         dealsTotal: 0, dealsCold: 0, dealsIncoming: 0, firstMeetings: 0,
         presentations: 0, kpSent: 0, wonCount: 0, wonAmount: 0,
@@ -1360,49 +1357,30 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
   ]);
 
   // Оплаты (Приходы 2026, КД без НДС, отдел Продажи). Сравнение «по календарным дням»:
-  //  • Месяц: текущий = весь месяц снимка (надёжно по pay_year/pay_month, = «на текущий
-  //    момент»); прошлый = срез «на ту же дату» 1..N по дню оплаты (pay_date дд.мм.гггг).
-  //  • Неделя: оба окна — по полной дате оплаты в [start,end] / [prevStart,prevEnd].
-  // pay_date — свободный текст; парсим только валидные дд.мм.гггг (вложенный CASE, чтобы
-  // to_date/split_part не падали на кривых строках). Прошлый месяц без даты — в сноску.
-  const payDated = sql`${payments.payDate} ~ '^[0-9]{1,2}[.]'`;
+  // текущее окно [start,end] (для месяца = 1..N до снимка) vs прошлое [prevStart,prevEnd]
+  // (прошлый месяц 1..N). «Эффективная дата» оплаты = pay_date, если он валидный
+  // дд.мм.гггг; иначе 1-е число месяца из pay_year/pay_month (часть строк заполнена
+  // только одной из колонок — ловим обе). Вложенный CASE, чтобы to_date не падал на
+  // кривых строках. Так суммы видны независимо от того, какая колонка заполнена.
   const payFullDate = sql`${payments.payDate} ~ '^[0-9]{1,2}[.][0-9]{1,2}[.][0-9]{4}$'`;
-  let paymentsTotal: number;
-  let paymentsPrev: number;
-  let paymentsPrevUndated = 0;
-  if (range === 'month') {
-    const payN = Number(prevEnd.slice(8, 10));
-    const [curPayY, curPayM] = start.split('-').map(Number);
-    const [prevPayY, prevPayM] = prevStart.split('-').map(Number);
-    const curPayRows = await db
-      .select({ amt: sql<number>`coalesce(sum(${payments.kdNoVat}),0)` })
-      .from(payments)
-      .where(and(eq(payments.dept, 'Продажи'), eq(payments.payYear, curPayY), eq(payments.payMonth, curPayM)));
-    const prevPayRows = await db
+  const payEffDate = sql`coalesce(
+    case when ${payFullDate} then to_date(${payments.payDate}, 'DD.MM.YYYY') end,
+    case when ${payments.payYear} is not null and ${payments.payMonth} is not null
+         then make_date(${payments.payYear}, ${payments.payMonth}, 1) end
+  )`;
+  const sumPayBetween = async (s: string, e: string): Promise<number> => {
+    const r = await db
       .select({
-        amt: sql<number>`coalesce(sum(case when ${payDated} then (case when split_part(${payments.payDate}, '.', 1)::int <= ${payN} then ${payments.kdNoVat} else 0 end) else 0 end),0)`,
-        undated: sql<number>`count(*) filter (where not ${payDated})`,
+        amt: sql<number>`coalesce(sum(case when ${payEffDate} between ${s}::date and ${e}::date then ${payments.kdNoVat} else 0 end),0)`,
       })
       .from(payments)
-      .where(and(eq(payments.dept, 'Продажи'), eq(payments.payYear, prevPayY), eq(payments.payMonth, prevPayM)));
-    paymentsTotal = Number(curPayRows[0]?.amt ?? 0);
-    paymentsPrev = Number(prevPayRows[0]?.amt ?? 0);
-    paymentsPrevUndated = Number(prevPayRows[0]?.undated ?? 0);
-  } else {
-    const sumPayBetween = async (s: string, e: string): Promise<number> => {
-      const r = await db
-        .select({
-          amt: sql<number>`coalesce(sum(case when ${payFullDate} then (case when to_date(${payments.payDate}, 'DD.MM.YYYY') between ${s}::date and ${e}::date then ${payments.kdNoVat} else 0 end) else 0 end),0)`,
-        })
-        .from(payments)
-        .where(eq(payments.dept, 'Продажи'));
-      return Number(r[0]?.amt ?? 0);
-    };
-    [paymentsTotal, paymentsPrev] = await Promise.all([
-      sumPayBetween(start, end),
-      sumPayBetween(prevStart, prevEnd),
-    ]);
-  }
+      .where(eq(payments.dept, 'Продажи'));
+    return Number(r[0]?.amt ?? 0);
+  };
+  const [paymentsTotal, paymentsPrev] = await Promise.all([
+    sumPayBetween(start, end),
+    sumPayBetween(prevStart, prevEnd),
+  ]);
 
   const deltas = {
     meetings: delta(meetingsHeldTotal, prevHeld),
@@ -1532,7 +1510,6 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
     paymentsTotal,
     rejectionsCount,
     briefsTotal,
-    paymentsPrevUndated,
     salesFunnel,
     forecast,
     meetingQuality,
