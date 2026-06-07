@@ -2,7 +2,7 @@ import 'server-only';
 
 import { and, eq, gte, lte, sql } from 'drizzle-orm';
 import { db } from '@/db';
-import { dealRejections, managerActivity } from '@/db/schema';
+import { dealRejections, managerActivity, users } from '@/db/schema';
 import {
   REASON_NULL_KEY,
   SALES_LOSE_STAGE,
@@ -36,28 +36,31 @@ export async function getSalesRejections(snapshotDate: string): Promise<SalesRej
     lte(rejAtMsk, snapshotDate),
   );
 
-  // Справочник владельцев — из денормализованных полей deal_rejections (имя/
-  // должность/активность; включает УВОЛЕННЫХ, напр. Дудина, которых нет в users).
+  // Имя/должность владельца — из денормализованных полей deal_rejections (включает
+  // УВОЛЕННЫХ, напр. Дудина, которых нет в auth-таблице users).
   const ownerRows = await db
     .select({
       managerId: dealRejections.assignedBy,
       name: dealRejections.ownerName,
       dept: dealRejections.ownerDept,
-      active: dealRejections.ownerActive,
     })
     .from(dealRejections)
     .where(inYear)
-    .groupBy(dealRejections.assignedBy, dealRejections.ownerName, dealRejections.ownerDept, dealRejections.ownerActive);
+    .groupBy(dealRejections.assignedBy, dealRejections.ownerName, dealRejections.ownerDept);
   const nameById = new Map<number, string>();
-  const activeById = new Map<number, boolean>();
   // Продажники (отдел Продажи/РОП, без ТМ) — активные И уволенные.
   const eligible = new Set<number>();
   for (const o of ownerRows) {
     if (o.managerId == null) continue;
     if (o.name) nameById.set(o.managerId, o.name);
-    activeById.set(o.managerId, o.active ?? true);
     if (isSalesManager(o.dept)) eligible.add(o.managerId);
   }
+
+  // «Уволен» = НЕ в справочнике текущего состава users (Bitrix-флаг ACTIVE
+  // ненадёжен — деактивирован и у работающих). В users есть только действующий
+  // штат (провижининг логина); Дудин/Халин туда не попали → помечаем «уволен».
+  const staffRows = await db.select({ id: users.bitrixId, isActive: users.isActive }).from(users);
+  const activeStaff = new Set(staffRows.filter((u) => u.isActive).map((u) => u.id));
 
   // Менеджер × причина: количество + сумма потерь.
   const mgrReasonRows = await db
@@ -99,7 +102,7 @@ export async function getSalesRejections(snapshotDate: string): Promise<SalesRej
       e = {
         managerId: id,
         name: nameById.get(id) ?? `id ${id}`,
-        isActive: activeById.get(id) ?? true,
+        isActive: activeStaff.has(id),
         rejections: 0,
         lostAmount: 0,
         spam: 0,
