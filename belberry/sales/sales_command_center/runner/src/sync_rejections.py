@@ -95,6 +95,10 @@ def build_rejection_rows(deals: list[dict[str, Any]], reason_field: str) -> list
                 "rejected_at": parse_dt(d.get("DATE_MODIFY")),
                 "title": d.get("TITLE"),
                 "opportunity": _to_float(d.get("OPPORTUNITY")),
+                # owner_* денормализуем только для cat10 (блок «Отказы ОП»); у ТМ — null.
+                "owner_name": None,
+                "owner_dept": None,
+                "owner_active": None,
             }
         )
     return rows
@@ -149,16 +153,49 @@ def _fetch_deals_by_ids(bx, ids: list[int], reason_field: str) -> list[dict[str,
     return out
 
 
+def _is_active(value) -> bool:
+    """ACTIVE из user.get приходит булевым или 'Y'/'N'."""
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in ("true", "1", "y", "yes")
+
+
+def resolve_owners(ids: list[int], bx=None) -> dict[int, dict[str, Any]]:
+    """user.get по владельцам — имя/должность/активность (вкл. УВОЛЕННЫХ, которых
+    нет в auth-таблице users). Денормализуем в deal_rejections, чтобы блок «Отказы»
+    резолвил Дудина/Халина и помечал «уволен»."""
+    out: dict[int, dict[str, Any]] = {}
+    for uid in {i for i in ids if i is not None}:
+        resp = (bx.call if bx is not None else bx_client.call)("user.get", {"ID": uid})
+        res = resp.get("result") or []
+        if not res:
+            continue
+        u = res[0]
+        out[uid] = {
+            "name": f"{u.get('LAST_NAME', '') or ''} {u.get('NAME', '') or ''}".strip() or str(uid),
+            "dept": (u.get("WORK_POSITION") or "").strip() or None,
+            "active": _is_active(u.get("ACTIVE")),
+        }
+    return out
+
+
 def build_sales_rejection_rows(
-    deals: list[dict[str, Any]], lose_dates: dict[int, str], reason_field: str
+    deals: list[dict[str, Any]],
+    lose_dates: dict[int, str],
+    reason_field: str,
+    owners: dict[int, dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     """cat10: фиксируем отказ Продажи (даже если сделка уже уехала в ТМ) — стадию
-    и категорию ставим как у отказа, дату берём из stagehistory. Чистая функция."""
+    и категорию ставим как у отказа, дату берём из stagehistory, владельца
+    денормализуем (имя/должность/активность). Чистая функция."""
+    owners = owners or {}
     rows: list[dict[str, Any]] = []
     for d in deals:
         did = _to_int(d.get("ID"))
         if did is None:
             continue
+        owner_id = _to_int(d.get("ASSIGNED_BY_ID"))
+        o = owners.get(owner_id) if owner_id is not None else None
         rows.append(
             {
                 "deal_id": did,
@@ -166,10 +203,13 @@ def build_sales_rejection_rows(
                 "stage_id": SALES_LOSE_STAGE,
                 "reason_id": _to_int(_first(d.get(reason_field))),
                 "modified_by": _to_int(d.get("MODIFY_BY_ID")),
-                "assigned_by": _to_int(d.get("ASSIGNED_BY_ID")),
+                "assigned_by": owner_id,
                 "rejected_at": parse_dt(lose_dates.get(did)),
                 "title": d.get("TITLE"),
                 "opportunity": _to_float(d.get("OPPORTUNITY")),
+                "owner_name": o.get("name") if o else None,
+                "owner_dept": o.get("dept") if o else None,
+                "owner_active": o.get("active") if o else None,
             }
         )
     return rows
@@ -185,7 +225,9 @@ def sync(conn=None, bx=None, dry_run: bool = False, since: str | None = None) ->
     # Продажи [10] — по событиям перехода в C10:LOSE с начала года.
     lose_dates = fetch_sales_lose_dates(bx, since)
     deals_10 = _fetch_deals_by_ids(bx, list(lose_dates.keys()), REASON_FIELD_10) if lose_dates else []
-    rows += build_sales_rejection_rows(deals_10, lose_dates, REASON_FIELD_10)
+    owner_ids = [_to_int(d.get("ASSIGNED_BY_ID")) for d in deals_10]
+    owners = resolve_owners([i for i in owner_ids if i is not None], bx)
+    rows += build_sales_rejection_rows(deals_10, lose_dates, REASON_FIELD_10, owners)
 
     written = 0
     if not dry_run and conn is not None and rows:

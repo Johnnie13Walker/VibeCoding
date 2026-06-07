@@ -55,7 +55,8 @@ def test_build_sales_rejection_rows_cat10_event_sourced():
         {"STAGE_ID": "C10:LOSE"},  # без ID — пропускаем
     ]
     lose_dates = {23946: "2026-04-11T18:30:00+03:00"}
-    rows = build_sales_rejection_rows(deals, lose_dates, REASON_FIELD_10)
+    owners = {2806: {"name": "Дудин Петр", "dept": "Менеджер по продажам", "active": False}}
+    rows = build_sales_rejection_rows(deals, lose_dates, REASON_FIELD_10, owners)
     assert len(rows) == 1
     r = rows[0]
     assert r["deal_id"] == 23946
@@ -64,6 +65,10 @@ def test_build_sales_rejection_rows_cat10_event_sourced():
     assert r["reason_id"] == 8584  # первый код из списка
     assert r["assigned_by"] == 2806
     assert r["opportunity"] == 320000.0
+    # владелец денормализован (вкл. уволенного, которого нет в users)
+    assert r["owner_name"] == "Дудин Петр"
+    assert r["owner_dept"] == "Менеджер по продажам"
+    assert r["owner_active"] is False
     # дата отказа — из stagehistory, а не DATE_MODIFY
     assert r["rejected_at"] is not None
     assert r["rejected_at"].month == 4 and r["rejected_at"].day == 11

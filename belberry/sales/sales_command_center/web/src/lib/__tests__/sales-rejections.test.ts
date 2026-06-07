@@ -14,6 +14,7 @@ const perManager: SalesRejectionPerManager[] = [
   {
     managerId: 100,
     name: 'Деговцова Елизавета',
+    isActive: true,
     rejections: 10,
     lostAmount: 1_000_000,
     spam: 3,
@@ -23,7 +24,8 @@ const perManager: SalesRejectionPerManager[] = [
   },
   {
     managerId: 200,
-    name: 'Семенихин Егор',
+    name: 'Дудин Петр',
+    isActive: false, // уволенный продажник — всё равно показываем
     rejections: 5,
     lostAmount: 500_000,
     spam: 1,
@@ -69,6 +71,8 @@ describe('managersFromPerManager', () => {
     expect(rows[0].managerId).toBe(100);
     expect(rows[0].topReason).toBe('Нехватка бюджета / нет финмодели'); // 8584=7 топ у 100
     expect(rows[0].lossRate).toBe(50); // 10/(10+10)
+    expect(rows[0].isActive).toBe(true);
     expect(rows[1].lossRate).toBe(100); // 5/(5+0)
+    expect(rows[1].isActive).toBe(false); // Дудин — уволен
   });
 });

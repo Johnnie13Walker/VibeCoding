@@ -2,7 +2,7 @@ import 'server-only';
 
 import { and, eq, gte, lte, sql } from 'drizzle-orm';
 import { db } from '@/db';
-import { dealRejections, managerActivity, users } from '@/db/schema';
+import { dealRejections, managerActivity } from '@/db/schema';
 import {
   REASON_NULL_KEY,
   SALES_LOSE_STAGE,
@@ -36,14 +36,28 @@ export async function getSalesRejections(snapshotDate: string): Promise<SalesRej
     lte(rejAtMsk, snapshotDate),
   );
 
-  // Действующие продажники (отдел Продажи/РОП, без ТМ) — кого можно выбрать.
-  const userRows = await db
-    .select({ id: users.bitrixId, name: users.name, dept: users.dept, isActive: users.isActive })
-    .from(users);
-  const nameById = new Map(userRows.map((u) => [u.id, u.name]));
-  const eligible = new Set(
-    userRows.filter((u) => u.isActive && isSalesManager(u.dept)).map((u) => u.id),
-  );
+  // Справочник владельцев — из денормализованных полей deal_rejections (имя/
+  // должность/активность; включает УВОЛЕННЫХ, напр. Дудина, которых нет в users).
+  const ownerRows = await db
+    .select({
+      managerId: dealRejections.assignedBy,
+      name: dealRejections.ownerName,
+      dept: dealRejections.ownerDept,
+      active: dealRejections.ownerActive,
+    })
+    .from(dealRejections)
+    .where(inYear)
+    .groupBy(dealRejections.assignedBy, dealRejections.ownerName, dealRejections.ownerDept, dealRejections.ownerActive);
+  const nameById = new Map<number, string>();
+  const activeById = new Map<number, boolean>();
+  // Продажники (отдел Продажи/РОП, без ТМ) — активные И уволенные.
+  const eligible = new Set<number>();
+  for (const o of ownerRows) {
+    if (o.managerId == null) continue;
+    if (o.name) nameById.set(o.managerId, o.name);
+    activeById.set(o.managerId, o.active ?? true);
+    if (isSalesManager(o.dept)) eligible.add(o.managerId);
+  }
 
   // Менеджер × причина: количество + сумма потерь.
   const mgrReasonRows = await db
@@ -85,6 +99,7 @@ export async function getSalesRejections(snapshotDate: string): Promise<SalesRej
       e = {
         managerId: id,
         name: nameById.get(id) ?? `id ${id}`,
+        isActive: activeById.get(id) ?? true,
         rejections: 0,
         lostAmount: 0,
         spam: 0,
@@ -128,7 +143,7 @@ export async function getSalesRejections(snapshotDate: string): Promise<SalesRej
   }
 
   const selectableManagers = [...perManager]
-    .map((m) => ({ managerId: m.managerId, name: m.name }))
+    .map((m) => ({ managerId: m.managerId, name: m.name, isActive: m.isActive }))
     .sort((a, b) => a.name.localeCompare(b.name, 'ru'));
 
   return {

@@ -58,12 +58,15 @@ export interface SalesRejectionManager {
   /** Доля отказов = отказы / (отказы + оплаты), %. null если нет закрытых. */
   lossRate: number | null;
   topReason: string | null;
+  /** false → продажник деактивирован в Bitrix (тег «уволен»). */
+  isActive: boolean;
 }
 
-/** Гранулярные данные по одному действующему продажнику (для агрегации на клиенте). */
+/** Гранулярные данные по одному продажнику (для агрегации на клиенте). */
 export interface SalesRejectionPerManager {
   managerId: number;
   name: string;
+  isActive: boolean;
   rejections: number; // ex-spam
   lostAmount: number; // ex-spam
   spam: number;
@@ -72,13 +75,19 @@ export interface SalesRejectionPerManager {
   reasonCounts: Record<string, number>; // reasonId|'null' -> count (ex-spam)
 }
 
+export interface SelectableManager {
+  managerId: number;
+  name: string;
+  isActive: boolean;
+}
+
 /** Бандл для страницы: гранулярка для карточки 1 (мультиселект) + таблица карточки 2. */
 export interface SalesRejectionsBundle {
   yearLabel: string;
   monthsSkeleton: { ym: string; label: string }[];
   perManager: SalesRejectionPerManager[];
-  selectableManagers: { managerId: number; name: string }[];
-  /** Карточка 2 «по менеджерам» (все действующие продажники). */
+  selectableManagers: SelectableManager[];
+  /** Карточка 2 «по менеджерам» (продажники с отказами, вкл. уволенных). */
   managers: SalesRejectionManager[];
 }
 
@@ -170,6 +179,7 @@ export function managersFromPerManager(perManager: SalesRejectionPerManager[]): 
         won: m.won,
         lossRate: lossRate(m.rejections, m.won),
         topReason: top != null ? reasonLabel10(parseReasonKey(top)) : null,
+        isActive: m.isActive,
       };
     })
     .sort((a, b) => b.rejections - a.rejections);

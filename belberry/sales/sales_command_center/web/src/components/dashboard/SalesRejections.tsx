@@ -6,7 +6,16 @@ import {
   aggregateSelected,
   managersFromPerManager,
   type SalesRejectionsBundle,
+  type SelectableManager,
 } from '@/lib/sales-rejections-shared';
+
+const FiredTag = () => (
+  <span style={{
+    fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.03em',
+    color: 'var(--bb-faint)', background: 'var(--bb-canvas)', border: '1px solid var(--bb-line)',
+    borderRadius: 999, padding: '1px 7px', flex: '0 0 auto',
+  }}>уволен</span>
+);
 
 function rub(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)} млн ₽`;
@@ -42,7 +51,7 @@ const kpi = (value: string, label: string, sub: string, red = false) => (
 function ManagerPicker({
   managers, selected, onChange,
 }: {
-  managers: { managerId: number; name: string }[];
+  managers: SelectableManager[];
   selected: Set<number>;
   onChange: (s: Set<number>) => void;
 }) {
@@ -121,7 +130,8 @@ function ManagerPicker({
                 }}>
                   {on ? <Check size={13} color="#fff" /> : null}
                 </span>
-                {m.name}
+                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</span>
+                {m.isActive ? null : <FiredTag />}
               </button>
             );
           })}
@@ -233,7 +243,10 @@ export function SalesRejectionsManagers({ data }: { data: SalesRejectionsBundle 
             <td>
               <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
                 <div className="bb-mrow-ava" style={{ width: 34, height: 34, flex: '0 0 34px', fontSize: 12 }}>{initials(m.name)}</div>
-                <div><b style={{ fontSize: 14, fontWeight: 600 }}>{m.name}</b></div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <b style={{ fontSize: 14, fontWeight: 600 }}>{m.name}</b>
+                  {m.isActive ? null : <FiredTag />}
+                </div>
               </div>
             </td>
             <td className="r">{m.rejections}</td>

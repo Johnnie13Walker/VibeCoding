@@ -273,6 +273,9 @@ export const dealRejections = pgTable(
     rejectedAt: timestamp('rejected_at', { withTimezone: true }),
     title: text('title'),
     opportunity: numeric('opportunity', { precision: 14, scale: 2 }),
+    ownerName: text('owner_name'),
+    ownerDept: text('owner_dept'),
+    ownerActive: boolean('owner_active'),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
   },
   (table) => [
