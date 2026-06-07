@@ -417,38 +417,81 @@ export function TmHeatmapView({ heatmap }: { heatmap: TmHeatmap }) {
   if (heatmap.hours.length === 0 || heatmap.rows.every((r) => r.cells.every((c) => c.pct == null))) {
     return <p style={{ color: 'var(--bb-muted)' }}>Недостаточно данных о звонках для тепловой карты.</p>;
   }
-  const cellBg = (pct: number | null): string => {
-    if (pct == null) return '#f3f0ec';
-    const ratio = Math.max(0, Math.min(1, pct / heatmap.maxPct));
-    return `hsl(${Math.round(ratio * 130)}, 52%, ${Math.round(56 - ratio * 14)}%)`; // красный→зелёный
+  const { mean, minSample } = heatmap;
+  // Максимум объёма среди достоверных ячеек — для нормировки яркости.
+  const maxDials = Math.max(
+    1,
+    ...heatmap.rows.flatMap((r) => r.cells.filter((c) => c.dials >= minSample).map((c) => c.dials)),
+  );
+  // Цвет = отклонение от среднего (синий ниже · зелёный выше); текст тёмный, кроме
+  // сильного зелёного. Якорь — среднее по отделу.
+  const devColor = (pct: number): { bg: string; fg: string } => {
+    const dev = pct - mean;
+    if (dev <= -8) return { bg: '#a9bce6', fg: '#27314a' };
+    if (dev <= -3) return { bg: '#cdd8ef', fg: '#2c2a3e' };
+    if (dev < 3) return { bg: '#e4ddcf', fg: '#2c2a3e' };
+    if (dev < 8) return { bg: '#bfe3cd', fg: '#1e4a32' };
+    return { bg: '#3a9c63', fg: '#fff' };
   };
-  const cols = `34px repeat(${heatmap.hours.length}, 1fr)`;
+  const cols = `34px repeat(${heatmap.hours.length}, minmax(48px, 1fr))`;
+  const legend: { box: React.CSSProperties; label: string }[] = [
+    { box: { background: '#a9bce6' }, label: 'заметно ниже' },
+    { box: { background: '#cdd8ef' }, label: 'ниже' },
+    { box: { background: '#e4ddcf' }, label: '~среднее' },
+    { box: { background: '#bfe3cd' }, label: 'выше' },
+    { box: { background: '#3a9c63' }, label: 'заметно выше' },
+    { box: { background: '#efece6', border: '1px dashed #cfcabf' }, label: 'мало данных' },
+  ];
   return (
     <div>
       <div style={{ overflowX: 'auto' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: cols, gap: 4, minWidth: 520 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: cols, gap: 5, minWidth: 760 }}>
           <div />
           {heatmap.hours.map((h) => (
-            <div key={`h${h}`} style={{ textAlign: 'center', fontSize: 11, color: 'var(--bb-faint)', fontWeight: 600, paddingBottom: 2 }}>{h}</div>
+            <div key={`h${h}`} style={{ textAlign: 'center', fontSize: 11.5, color: 'var(--bb-faint)', fontWeight: 700, paddingBottom: 2 }}>{h}</div>
           ))}
           {heatmap.rows.map((row) => (
             <div key={`r${row.dow}`} style={{ display: 'contents' }}>
-              <div style={{ display: 'flex', alignItems: 'center', fontSize: 12, color: 'var(--bb-muted)', fontWeight: 600 }}>{row.label}</div>
-              {row.cells.map((c) => (
-                <div
-                  key={`${row.dow}-${c.hour}`}
-                  title={c.pct != null ? `${row.label} ${c.hour}:00 — дозвон ${c.pct}% (${nf(c.calls60)}/${nf(c.dials)})` : `${row.label} ${c.hour}:00 — нет звонков`}
-                  style={{ height: 26, borderRadius: 5, background: cellBg(c.pct), display: 'grid', placeItems: 'center', color: c.pct == null ? 'var(--bb-faint)' : '#fff', fontSize: 10, fontWeight: 600 }}
-                >
-                  {c.pct != null ? c.pct : ''}
-                </div>
-              ))}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', fontSize: 12.5, color: 'var(--bb-muted)', fontWeight: 700, paddingRight: 4 }}>{row.label}</div>
+              {row.cells.map((c) => {
+                if (c.pct == null) {
+                  // нет звонков в этот час
+                  return <div key={`${row.dow}-${c.hour}`} style={{ height: 40, borderRadius: 9 }} />;
+                }
+                if (c.dials < minSample) {
+                  return (
+                    <div key={`${row.dow}-${c.hour}`}
+                      title={`${row.label} ${c.hour}:00 — мало данных (${nf(c.dials)} наборов)`}
+                      style={{ height: 40, borderRadius: 9, background: '#efece6', border: '1px dashed #cfcabf', display: 'grid', placeItems: 'center', color: '#b7b2a6', fontSize: 9, fontWeight: 700, lineHeight: 1.1, textAlign: 'center' }}>
+                      мало<br />данных
+                    </div>
+                  );
+                }
+                const { bg, fg } = devColor(c.pct);
+                const opacity = Math.min(1, 0.5 + (c.dials / maxDials) * 0.5);
+                return (
+                  <div key={`${row.dow}-${c.hour}`}
+                    title={`${row.label} ${c.hour}:00 — дозвон ${c.pct}% (${nf(c.calls60)}/${nf(c.dials)} наборов) · среднее ${mean}%`}
+                    style={{ position: 'relative', height: 40, borderRadius: 9, background: bg, opacity, display: 'grid', placeItems: 'center', color: fg, fontSize: 12.5, fontWeight: 800 }}>
+                    <span className="tabular">{c.pct}%</span>
+                    <span className="tabular" style={{ position: 'absolute', bottom: 2, right: 5, fontSize: 8.5, fontWeight: 700, opacity: 0.75 }}>{nf(c.dials)}</span>
+                  </div>
+                );
+              })}
             </div>
           ))}
         </div>
       </div>
+      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'center', marginTop: 14, fontSize: 12, color: 'var(--bb-muted)' }}>
+        {legend.map((l) => (
+          <span key={l.label} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ width: 16, height: 16, borderRadius: 5, display: 'inline-block', ...l.box }} />
+            {l.label}
+          </span>
+        ))}
+      </div>
       <p style={{ fontSize: 12, color: 'var(--bb-faint)', marginTop: 10 }}>
-        % дозвона ≥60с по часам (МСК) и дням недели за последние месяцы. Зеленее — лучше берут трубку. Дозвон = разговор ≥60 секунд.
+        % дозвона ≥60с по часам (МСК) и дням недели за 3 месяца · цвет — отклонение от среднего по отделу ({mean}%), число снизу — объём наборов · ячейки с выборкой меньше {minSample} наборов помечены «мало данных». Дозвон = разговор ≥60 секунд.
       </p>
     </div>
   );

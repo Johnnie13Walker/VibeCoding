@@ -328,6 +328,17 @@ describe('buildTmHeatmap', () => {
     const wed = h.rows.find((r) => r.dow === 3)!; // нет данных
     expect(wed.cells.every((c) => c.pct === null)).toBe(true);
   });
+
+  it('среднее взвешено по объёму и игнорирует ячейки с малой выборкой (<15)', () => {
+    const h = buildTmHeatmap([
+      { dow: 1, hour: 9, dials: 100, calls60: 20 }, // 20% · большая выборка
+      { dow: 2, hour: 9, dials: 100, calls60: 30 }, // 30% · большая выборка
+      { dow: 3, hour: 9, dials: 2, calls60: 2 }, // 100% · ШУМ (2 набора) — не в среднем
+    ]);
+    expect(h.minSample).toBe(15);
+    // среднее = (20+30)/(100+100) = 25%, шумовая ячейка 100% не тянет якорь.
+    expect(h.mean).toBe(25);
+  });
 });
 
 describe('buildTmOutreach', () => {

@@ -466,8 +466,19 @@ export async function getTmDashboardData(
   const dials60PerTm = tmPlanMap['tm_dials60'] ?? 400;
   const briefingsPerTm = tmPlanMap['tm_briefings'] ?? 20;
 
-  // Heatmap «когда берут трубку»: час × день недели по ТМ за окно динамики (стабильный
-  // паттерн). dow = extract(dow): 0=Вс..6=Сб.
+  // Heatmap «когда берут трубку»: час × день недели по ТМ за последние 3 месяца —
+  // более репрезентативная выборка, одиночные дни не создают шум.
+  // dow = extract(dow): 0=Вс..6=Сб.
+  const heatStart = (() => {
+    const [hy, hm] = snapshotDate.split('-').map(Number);
+    let mm = hm - 2;
+    let yy = hy;
+    while (mm <= 0) {
+      mm += 12;
+      yy -= 1;
+    }
+    return `${yy}-${String(mm).padStart(2, '0')}-01`;
+  })();
   const dowExpr = sql<number>`extract(dow from ${callHourly.reportDate})::int`;
   const heatRows = await db
     .select({
@@ -477,7 +488,7 @@ export async function getTmDashboardData(
       calls60: sql<number>`coalesce(sum(${callHourly.calls60}),0)`,
     })
     .from(callHourly)
-    .where(and(inArray(callHourly.managerId, tmIds), gte(callHourly.reportDate, dynStart)))
+    .where(and(inArray(callHourly.managerId, tmIds), gte(callHourly.reportDate, heatStart)))
     .groupBy(dowExpr, callHourly.hour);
   const heatmap = buildTmHeatmap(
     heatRows.map<HeatInput>((r) => ({ dow: Number(r.dow), hour: Number(r.hour), dials: Number(r.dials), calls60: Number(r.calls60) })),

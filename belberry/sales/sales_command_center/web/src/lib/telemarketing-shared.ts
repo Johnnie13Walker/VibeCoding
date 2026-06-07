@@ -675,12 +675,22 @@ export interface TmHeatmap {
   rows: HeatRow[];
   /** Максимальный % по сетке (для нормировки цвета). */
   maxPct: number;
+  /** Среднее по отделу, % (взвешенно по объёму, только ячейки с достаточной
+   * выборкой). Якорь для цвета «отклонение от среднего». */
+  mean: number;
+  /** Минимум наборов в ячейке, чтобы считать её достоверной (иначе «мало данных»). */
+  minSample: number;
 }
 
 const DOW_RU: Record<number, string> = { 1: 'Пн', 2: 'Вт', 3: 'Ср', 4: 'Чт', 5: 'Пт' };
 
+/** Минимум наборов в ячейке час×день для достоверности (иначе одиночные 0%/100%
+ * создают шум). Подобрано под окно ~3 месяца. */
+export const HEATMAP_MIN_SAMPLE = 15;
+
 /** Heatmap «когда берут трубку»: час × день недели (Пн–Пт), % дозвона ≥60с.
- * Чистая функция. */
+ * Цвет в UI — отклонение от среднего (mean), ячейки с выборкой < minSample
+ * показываются как «мало данных». Чистая функция. */
 export function buildTmHeatmap(inputs: HeatInput[]): TmHeatmap {
   const work = inputs.filter((i) => i.dow >= 1 && i.dow <= 5 && i.hour >= 0 && i.hour <= 23);
   const hours = [...new Set(work.map((i) => i.hour))].sort((a, b) => a - b);
@@ -693,6 +703,10 @@ export function buildTmHeatmap(inputs: HeatInput[]): TmHeatmap {
     byKey.set(k, e);
   }
   let maxPct = 0;
+  // Среднее по отделу — взвешенно по объёму, только по достоверным ячейкам
+  // (малая выборка не должна тянуть якорь).
+  let meanDials = 0;
+  let meanC60 = 0;
   const rows: HeatRow[] = [1, 2, 3, 4, 5].map((dow) => ({
     dow,
     label: DOW_RU[dow],
@@ -700,10 +714,15 @@ export function buildTmHeatmap(inputs: HeatInput[]): TmHeatmap {
       const e = byKey.get(`${dow}:${hour}`) ?? { dials: 0, calls60: 0 };
       const pct = e.dials > 0 ? Math.round((e.calls60 / e.dials) * 100) : null;
       if (pct != null && pct > maxPct) maxPct = pct;
+      if (e.dials >= HEATMAP_MIN_SAMPLE) {
+        meanDials += e.dials;
+        meanC60 += e.calls60;
+      }
       return { hour, dials: e.dials, calls60: e.calls60, pct };
     }),
   }));
-  return { hours, rows, maxPct: Math.max(1, maxPct) };
+  const mean = meanDials > 0 ? Math.round((meanC60 / meanDials) * 1000) / 10 : 0;
+  return { hours, rows, maxPct: Math.max(1, maxPct), mean, minSample: HEATMAP_MIN_SAMPLE };
 }
 
 // ───────────────────────── ТМ-алерты ─────────────────────────
