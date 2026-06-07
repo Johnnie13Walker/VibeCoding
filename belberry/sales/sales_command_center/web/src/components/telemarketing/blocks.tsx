@@ -1,8 +1,6 @@
-import Link from 'next/link';
 import type {
   TmKpis,
   TmManagerRow,
-  TmManagerOption,
   TmMeetingsResult,
   TmMicroFunnel,
   TmMonthlyRow,
@@ -382,41 +380,6 @@ export function TmOutreachView({ outreach }: { outreach: TmOutreach }) {
   );
 }
 
-// ───────────────── Селектор звонаря (через ?manager) ─────────────────
-
-export function TmManagerSelect({
-  managers,
-  selectedId,
-  range,
-}: {
-  managers: TmManagerOption[];
-  selectedId: number | null;
-  range: 'month' | 'week';
-}) {
-  if (managers.length <= 1) return null;
-  const q = (id: number) => `/telemarketing?period=${range}&manager=${id}`;
-  return (
-    <div style={{ display: 'inline-flex', gap: 4, background: '#f3f0ec', borderRadius: 10, padding: 3, marginLeft: 'auto', flexWrap: 'wrap' }}>
-      <span style={{ alignSelf: 'center', color: 'var(--bb-faint)', fontWeight: 600, fontSize: 12.5, padding: '0 6px' }}>Звонарь:</span>
-      {managers.map((m) => {
-        const on = m.managerId === selectedId;
-        return (
-          <Link
-            key={m.managerId}
-            href={q(m.managerId)}
-            style={{
-              padding: '5px 12px', borderRadius: 7, fontSize: 12.5, fontWeight: 600, textDecoration: 'none',
-              background: on ? '#fff' : 'transparent', color: on ? 'var(--bb-violet)' : 'var(--bb-muted)',
-              boxShadow: on ? '0 1px 2px rgba(0,0,0,.05)' : 'none',
-            }}
-          >
-            {m.name}
-          </Link>
-        );
-      })}
-    </div>
-  );
-}
 
 // ───────────────────────── Heatmap времени дозвона ─────────────────────────
 

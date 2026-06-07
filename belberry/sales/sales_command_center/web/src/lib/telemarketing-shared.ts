@@ -784,13 +784,12 @@ export interface TmDashboardData {
   snapshotDate: string | null;
   workingDays: number;
   managers: TmManagerOption[];
-  selectedManagerId: number | null;
-  selectedManagerName: string | null;
   kpis: TmKpis;
   table: TmManagerRow[];
   funnel50: TmFunnel50;
   meetingsResult: TmMeetingsResult;
-  monthly: TmMonthlyRow[];
+  /** Помесячная динамика по всем ТМ + период «на ту же дату» (мультиселект на клиенте). */
+  monthlyBundle: TmMonthlyBundle;
   microFunnels: TmMicroFunnel[];
   planFact: TmPlanFact;
   outreach: TmOutreach;

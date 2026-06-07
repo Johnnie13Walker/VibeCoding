@@ -9,6 +9,8 @@ import {
   buildTmFunnel50Flat,
   aggregateTmFunnel,
   buildTmMonthly,
+  aggregateTmMonthlyRows,
+  aggregateTmMonthlyPeriod,
   buildTmMeetingsResult,
   buildTmPlanFact,
   buildTmOutreach,
@@ -153,6 +155,68 @@ describe('buildTmMonthly', () => {
     expect(rows[0].talkMin).toBe(904);
     expect(rows[0].conv).toBeCloseTo(3.8, 1);
     expect(rows[0].answerPct).toBeCloseTo(69.5, 0);
+  });
+});
+
+describe('aggregateTmMonthlyRows + aggregateTmMonthlyPeriod (мультиселект)', () => {
+  const months = [
+    { ym: '2026-04', label: 'апр 26' },
+    { ym: '2026-05', label: 'май 26' },
+    { ym: '2026-06', label: 'июн 26' },
+  ];
+  const mk = (managerId: number, name: string, isActive: boolean, vals: number[][]) => ({
+    managerId,
+    name,
+    isActive,
+    rows: months.map((mo, i) => ({
+      ym: mo.ym,
+      label: mo.label,
+      dials: vals[i][0],
+      answered: 0,
+      calls60: vals[i][1],
+      talkSeconds: 0,
+      meetingsSet: vals[i][2],
+      meetingsHeldByCreator: vals[i][3],
+      rejected: 0,
+      postponed: 0,
+    })),
+    cur: { dials: 56, calls60: 30, meetingsSet: 4, held: 3 },
+    prev: { dials: 80, calls60: 40, meetingsSet: 6, held: 5 },
+  });
+  // [dials, calls60, meetingsSet, held] помесячно
+  const isa = mk(2772, 'Исаева Дарья', true, [[100, 30, 3, 2], [1336, 370, 14, 12], [200, 69, 4, 3]]);
+  const vos = mk(2832, 'Вострецов Аркадий', true, [[90, 20, 2, 1], [1220, 219, 14, 11], [180, 56, 3, 2]]);
+  vos.cur = { dials: 44, calls60: 26, meetingsSet: 3, held: 2 };
+  vos.prev = { dials: 70, calls60: 30, meetingsSet: 5, held: 4 };
+
+  it('суммирует помесячные строки по выбранным звонарям', () => {
+    const both = aggregateTmMonthlyRows([isa, vos], new Set([2772, 2832]), months);
+    expect(both).toHaveLength(3);
+    const june = both[2];
+    expect(june.dials).toBe(380); // 200 + 180
+    expect(june.calls60).toBe(125); // 69 + 56
+    expect(june.meetingsSet).toBe(7); // 4 + 3
+    expect(june.meetingsHeldByCreator).toBe(5); // 3 + 2
+  });
+
+  it('по одному звонарю даёт только его строки', () => {
+    const only = aggregateTmMonthlyRows([isa, vos], new Set([2772]), months);
+    expect(only[1].dials).toBe(1336);
+    expect(only[1].calls60).toBe(370);
+  });
+
+  it('пустой выбор → нули по всем месяцам', () => {
+    const none = aggregateTmMonthlyRows([isa, vos], new Set(), months);
+    expect(none.every((r) => r.dials === 0 && r.meetingsSet === 0)).toBe(true);
+  });
+
+  it('aggregateTmMonthlyPeriod суммирует cur/prev «на ту же дату»', () => {
+    const p = aggregateTmMonthlyPeriod([isa, vos], new Set([2772, 2832]));
+    expect(p.cur).toEqual({ dials: 100, calls60: 56, meetingsSet: 7, held: 5 }); // 56+44, 30+26, 4+3, 3+2
+    expect(p.prev).toEqual({ dials: 150, calls60: 70, meetingsSet: 11, held: 9 }); // 80+70, 40+30, 6+5, 5+4
+    const onlyIsa = aggregateTmMonthlyPeriod([isa, vos], new Set([2772]));
+    expect(onlyIsa.cur.dials).toBe(56);
+    expect(onlyIsa.prev.dials).toBe(80);
   });
 });
 

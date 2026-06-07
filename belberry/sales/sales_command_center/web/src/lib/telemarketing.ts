@@ -27,13 +27,14 @@ import {
   buildTmManagerTable,
   buildTmMeetingsResult,
   buildTmMicroFunnel,
-  buildTmMonthly,
   buildTmOutreach,
   buildTmPlanFact,
   isTelemarketing,
   type TmDashboardData,
   type TmMember,
+  type TmMonthlyBundle,
   type TmMonthlyInput,
+  type TmMonthlyManager,
 } from './telemarketing-shared';
 
 export type TmPeriod = 'month' | 'week';
@@ -82,13 +83,11 @@ function emptyData(): TmDashboardData {
     snapshotDate: null,
     workingDays: 1,
     managers: [],
-    selectedManagerId: null,
-    selectedManagerName: null,
     kpis: buildTmKpis([], 1),
     table: [],
     funnel50: buildTmFunnel50([], new Map(), new Map()),
     meetingsResult: buildTmMeetingsResult([]),
-    monthly: [],
+    monthlyBundle: { months: [], perManager: [], selectableManagers: [], curLabel: '', prevLabel: '' },
     microFunnels: [],
     planFact: buildTmPlanFact({ dials60PerTm: 400, briefingsPerTm: 20, members: [] }),
     outreach: buildTmOutreach([]),
@@ -104,7 +103,6 @@ function emptyData(): TmDashboardData {
 
 export async function getTmDashboardData(
   range: TmPeriod = 'month',
-  managerParam?: number | null,
   monthParam?: string | null,
 ): Promise<TmDashboardData> {
   const latest = await db.select({ d: sql<string>`max(${dealsSnapshot.reportDate})` }).from(dealsSnapshot);
@@ -182,12 +180,6 @@ export async function getTmDashboardData(
   if (members.length === 0) {
     return { ...emptyData(), monthLabel: label, periodLabel, snapshotDate, workingDays };
   }
-
-  // Выбранный звонарь для динамики/конверсии (по умолчанию — топ по наборам).
-  const memberIds = new Set(members.map((m) => m.managerId));
-  const selectedManagerId =
-    managerParam != null && memberIds.has(managerParam) ? managerParam : members[0].managerId;
-  const selectedMember = members.find((m) => m.managerId === selectedManagerId) ?? members[0];
 
   // Событийная метрика «состоялось»: встречи (SP1048 SUCCESS), назначенные ТМ
   // (created_by), за период — запросом по таблице meetings, не из агрегата.
@@ -281,7 +273,7 @@ export async function getTmDashboardData(
     fActiveById.set(id, u.isActive);
   }
 
-  // Помесячная динамика по выбранному звонарю — последние 8 месяцев.
+  // Помесячная динамика по всем ТМ — последние 8 месяцев (мультиселект на клиенте).
   const dynMonths: { ym: string; label: string }[] = [];
   {
     const [cy, cm] = snapshotDate.split('-').map(Number);
@@ -296,10 +288,14 @@ export async function getTmDashboardData(
     }
   }
   const dynStart = `${dynMonths[0].ym}-01`;
+
+  // Помесячно по КАЖДОМУ ТМ (мультиселект собирается на клиенте). Группировка по
+  // (ym, владелец); для «состоялось» — по создателю, для отвалов — по владельцу.
   const ymExpr = sql<string>`to_char(${managerActivity.reportDate}, 'YYYY-MM')`;
   const monRows = await db
     .select({
       ym: ymExpr,
+      mgr: managerActivity.managerId,
       dials: sql<number>`coalesce(sum(${managerActivity.dialsTotal}),0)`,
       answered: sql<number>`coalesce(sum(${managerActivity.callsAnswered}),0)`,
       calls60: sql<number>`coalesce(sum(${managerActivity.calls60sPlus}),0)`,
@@ -307,63 +303,154 @@ export async function getTmDashboardData(
       meetingsSet: sql<number>`coalesce(sum(${managerActivity.meetingsSet}),0)`,
     })
     .from(managerActivity)
-    .where(and(gte(managerActivity.reportDate, dynStart), eq(managerActivity.managerId, selectedManagerId)))
-    .groupBy(ymExpr);
-  const monByYm = new Map(monRows.map((r) => [r.ym, r]));
+    .where(and(gte(managerActivity.reportDate, dynStart), inArray(managerActivity.managerId, tmIds)))
+    .groupBy(ymExpr, managerActivity.managerId);
+  const monByMgrYm = new Map(monRows.map((r) => [`${r.mgr}:${r.ym}`, r]));
 
-  // Состоялось по месяцам у выбранного звонаря — событийным запросом по meetings.
   const ymMeetExpr = sql<string>`to_char(${meetings.reportDate}, 'YYYY-MM')`;
   const heldMonRows = await db
-    .select({ ym: ymMeetExpr, n: sql<number>`count(*)` })
+    .select({ ym: ymMeetExpr, creator: meetings.createdBy, n: sql<number>`count(*)` })
     .from(meetings)
     .where(
       and(
         eq(meetings.status, MEETING_HELD_STAGE),
-        eq(meetings.createdBy, selectedManagerId),
+        inArray(meetings.createdBy, tmIds),
         gte(meetings.reportDate, dynStart),
       ),
     )
-    .groupBy(ymMeetExpr);
-  const heldByYm = new Map(heldMonRows.map((r) => [r.ym, Number(r.n)]));
+    .groupBy(ymMeetExpr, meetings.createdBy);
+  const heldByMgrYm = new Map<string, number>();
+  for (const r of heldMonRows) if (r.creator != null) heldByMgrYm.set(`${r.creator}:${r.ym}`, Number(r.n));
 
-  // Отвал/Отлож по месяцам у выбранного звонаря (личные закрытия).
   const ymRejExpr = sql<string>`to_char((${dealRejections.rejectedAt} AT TIME ZONE 'Europe/Moscow'), 'YYYY-MM')`;
   const monRejRows = await db
-    .select({ ym: ymRejExpr, stage: dealRejections.stageId, n: sql<number>`count(*)` })
+    .select({ ym: ymRejExpr, mgr: dealRejections.assignedBy, stage: dealRejections.stageId, n: sql<number>`count(*)` })
     .from(dealRejections)
     .where(
       and(
-        eq(dealRejections.assignedBy, selectedManagerId),
+        inArray(dealRejections.assignedBy, tmIds),
         inArray(dealRejections.stageId, [STAGE_REJECTED, STAGE_POSTPONED]),
         notRevenueAuto,
         gte(rejAtMsk, dynStart),
       ),
     )
-    .groupBy(ymRejExpr, dealRejections.stageId);
-  const rejByYm = new Map<string, { rejected: number; postponed: number }>();
+    .groupBy(ymRejExpr, dealRejections.assignedBy, dealRejections.stageId);
+  const rejByMgrYm = new Map<string, { rejected: number; postponed: number }>();
   for (const r of monRejRows) {
-    const e = rejByYm.get(r.ym) ?? { rejected: 0, postponed: 0 };
+    if (r.mgr == null) continue;
+    const k = `${r.mgr}:${r.ym}`;
+    const e = rejByMgrYm.get(k) ?? { rejected: 0, postponed: 0 };
     if (r.stage === STAGE_REJECTED) e.rejected = Number(r.n);
     else if (r.stage === STAGE_POSTPONED) e.postponed = Number(r.n);
-    rejByYm.set(r.ym, e);
+    rejByMgrYm.set(k, e);
   }
 
-  const monthlyInputs: TmMonthlyInput[] = dynMonths.map((mo) => {
-    const r = monByYm.get(mo.ym);
-    const rej = rejByYm.get(mo.ym);
+  // Период «на ту же дату» 1..N: текущий (неполный) месяц снимка vs прошлый месяц.
+  const snapYm = snapshotDate.slice(0, 7);
+  const [sy, sm] = snapYm.split('-').map(Number);
+  const snapDay = Number(snapshotDate.slice(8, 10));
+  let pm = sm - 1;
+  let py = sy;
+  if (pm <= 0) {
+    pm += 12;
+    py -= 1;
+  }
+  const prevYm = `${py}-${String(pm).padStart(2, '0')}`;
+  const prevLastDay = new Date(Date.UTC(py, pm, 0)).getUTCDate();
+  const prevDay = Math.min(snapDay, prevLastDay);
+  const curPStart = `${snapYm}-01`;
+  const curPEnd = snapshotDate;
+  const prevPStart = `${prevYm}-01`;
+  const prevPEnd = `${prevYm}-${String(prevDay).padStart(2, '0')}`;
+  const curLabel = `1–${snapDay} ${MONTHS_RU[sm - 1]}`;
+  const prevLabel = `1–${prevDay} ${MONTHS_RU[pm - 1]}`;
+
+  // Активность 1..N окна (dials/calls60/meetingsSet) — по дням managerActivity.
+  const periodActivity = async (s: string, e: string) => {
+    const rows = await db
+      .select({
+        mgr: managerActivity.managerId,
+        dials: sql<number>`coalesce(sum(${managerActivity.dialsTotal}),0)`,
+        calls60: sql<number>`coalesce(sum(${managerActivity.calls60sPlus}),0)`,
+        meetingsSet: sql<number>`coalesce(sum(${managerActivity.meetingsSet}),0)`,
+      })
+      .from(managerActivity)
+      .where(and(gte(managerActivity.reportDate, s), lte(managerActivity.reportDate, e), inArray(managerActivity.managerId, tmIds)))
+      .groupBy(managerActivity.managerId);
+    return new Map(rows.map((r) => [r.mgr, r]));
+  };
+  // Состоялось 1..N окна (по создателю-ТМ) — событийным запросом по meetings.
+  const periodHeld = async (s: string, e: string) => {
+    const rows = await db
+      .select({ creator: meetings.createdBy, n: sql<number>`count(*)` })
+      .from(meetings)
+      .where(
+        and(
+          eq(meetings.status, MEETING_HELD_STAGE),
+          inArray(meetings.createdBy, tmIds),
+          gte(meetings.reportDate, s),
+          lte(meetings.reportDate, e),
+        ),
+      )
+      .groupBy(meetings.createdBy);
+    const m = new Map<number, number>();
+    for (const r of rows) if (r.creator != null) m.set(r.creator, Number(r.n));
+    return m;
+  };
+  const [curAct, prevAct, curHeld, prevHeld] = await Promise.all([
+    periodActivity(curPStart, curPEnd),
+    periodActivity(prevPStart, prevPEnd),
+    periodHeld(curPStart, curPEnd),
+    periodHeld(prevPStart, prevPEnd),
+  ]);
+
+  const perMonthlyManager: TmMonthlyManager[] = members.map((m) => {
+    const rows: TmMonthlyInput[] = dynMonths.map((mo) => {
+      const r = monByMgrYm.get(`${m.managerId}:${mo.ym}`);
+      const rej = rejByMgrYm.get(`${m.managerId}:${mo.ym}`);
+      return {
+        ym: mo.ym,
+        label: mo.label,
+        dials: r ? Number(r.dials) : 0,
+        answered: r ? Number(r.answered) : 0,
+        calls60: r ? Number(r.calls60) : 0,
+        talkSeconds: r ? Number(r.talkSeconds) : 0,
+        meetingsSet: r ? Number(r.meetingsSet) : 0,
+        meetingsHeldByCreator: heldByMgrYm.get(`${m.managerId}:${mo.ym}`) ?? 0,
+        rejected: rej?.rejected ?? 0,
+        postponed: rej?.postponed ?? 0,
+      };
+    });
+    const ca = curAct.get(m.managerId);
+    const pa = prevAct.get(m.managerId);
     return {
-      ym: mo.ym,
-      label: mo.label,
-      dials: r ? Number(r.dials) : 0,
-      answered: r ? Number(r.answered) : 0,
-      calls60: r ? Number(r.calls60) : 0,
-      talkSeconds: r ? Number(r.talkSeconds) : 0,
-      meetingsSet: r ? Number(r.meetingsSet) : 0,
-      meetingsHeldByCreator: heldByYm.get(mo.ym) ?? 0,
-      rejected: rej?.rejected ?? 0,
-      postponed: rej?.postponed ?? 0,
+      managerId: m.managerId,
+      name: m.name,
+      isActive: userMap.get(m.managerId)?.isActive ?? true,
+      rows,
+      cur: {
+        dials: ca ? Number(ca.dials) : 0,
+        calls60: ca ? Number(ca.calls60) : 0,
+        meetingsSet: ca ? Number(ca.meetingsSet) : 0,
+        held: curHeld.get(m.managerId) ?? 0,
+      },
+      prev: {
+        dials: pa ? Number(pa.dials) : 0,
+        calls60: pa ? Number(pa.calls60) : 0,
+        meetingsSet: pa ? Number(pa.meetingsSet) : 0,
+        held: prevHeld.get(m.managerId) ?? 0,
+      },
     };
   });
+  const monthlyBundle: TmMonthlyBundle = {
+    months: dynMonths,
+    perManager: perMonthlyManager,
+    selectableManagers: perMonthlyManager
+      .map((m) => ({ managerId: m.managerId, name: m.name, isActive: m.isActive }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'ru')),
+    curLabel,
+    prevLabel,
+  };
 
 
   // План ТМ на месяц: дозвоны ≥60с (metric='tm_dials60', дефолт 400) и состоявшиеся
@@ -422,9 +509,7 @@ export async function getTmDashboardData(
   const meetingQuality = buildTmMeetingQuality(qualityInputs);
 
   // ТМ-алерты: конверсия дозвон→встреча за 2 последних ПОЛНЫХ месяца (месяц снимка —
-  // частичный, исключаем) + сжигание/явка за период.
-  const snapYm = snapshotDate.slice(0, 7);
-  const [sy, sm] = snapYm.split('-').map(Number);
+  // частичный, исключаем) + сжигание/явка за период. snapYm/sy/sm объявлены выше.
   let am = sm - 2;
   let ay = sy;
   while (am <= 0) {
@@ -480,13 +565,11 @@ export async function getTmDashboardData(
     snapshotDate,
     workingDays,
     managers: members.map((m) => ({ managerId: m.managerId, name: m.name })),
-    selectedManagerId,
-    selectedManagerName: selectedMember.name,
     kpis,
     table: buildTmManagerTable(members),
     funnel50: buildTmFunnel50(funnelCells, fNameById, fActiveById),
     meetingsResult: buildTmMeetingsResult(members),
-    monthly: buildTmMonthly(monthlyInputs),
+    monthlyBundle,
     microFunnels: members.map((m) => buildTmMicroFunnel(m)),
     planFact: buildTmPlanFact({
       dials60PerTm,
