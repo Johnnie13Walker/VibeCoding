@@ -33,9 +33,9 @@ const spUrlKp = (id: number) => spUrl(1106, id);
 // Порог годовой выручки для телемаркетинга: ниже — кандидат на автоотвал (подсветка).
 const REVENUE_LOW_THRESHOLD = 30_000_000;
 
-const MEETING_TYPE: Record<string, { label: string; color: string }> = {
-  briefing: { label: 'Брифинг', color: '#6257d6' },
-  defense: { label: 'Защита КП', color: '#c0297e' },
+const MEETING_TYPE: Record<string, { label: string; color: string; bg: string }> = {
+  briefing: { label: 'Брифинг', color: '#4a3fd0', bg: '#eef0ff' },
+  defense: { label: 'Защита КП', color: '#c0297e', bg: '#fdeef6' },
 };
 const STATUS_DOT: Record<string, { label: string; color: string }> = {
   held: { label: 'проведена', color: 'var(--bb-green)' },
@@ -83,7 +83,7 @@ function MeetingRow({ m, showDate }: { m: LiveMeeting; showDate: boolean }) {
       <div style={{ minWidth: 0, flex: 1 }}>
         {m.dealId ? <a className="bb-alert-title" href={dealUrl(m.dealId)} target="_blank" rel="noopener noreferrer">{m.title} <ExternalLink size={12} /></a> : <span style={{ fontWeight: 600, fontSize: 14 }}>{m.title}</span>}
         <p className="bb-alert-meta">
-          {ty ? <span style={{ color: ty.color, fontWeight: 600 }}>{ty.label}</span> : null}
+          {ty ? <span style={{ display: 'inline-block', fontSize: 11, fontWeight: 700, borderRadius: 6, padding: '2px 7px', background: ty.bg, color: ty.color }}>{ty.label}</span> : null}
           {ty ? ' · ' : ''}{m.manager}
           {showRevenue ? <> · <span style={{ color: low ? 'var(--bb-red)' : 'var(--bb-muted)', fontWeight: low ? 600 : 400 }}>выручка {fmtRevenue(m.companyRevenue as number)}{low ? ' ⚠' : ''}</span></> : null}
         </p>
