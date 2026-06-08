@@ -148,6 +148,10 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
   const meetingsHappening = allMeetings.filter((m) => !(m.setToday && meetingDay(m.at) !== refDay));
   const hasSetOther = meetingsSetOther.length > 0;
 
+  // «КП получено»: только закрытые по процессу — Готово (success) и Не актуально
+  // (rejected, с плашкой «Отклонено»). КП в работе не показываем.
+  const kpClosed = (data?.kp ?? []).filter((k) => k.status === 'success' || k.status === 'rejected');
+
   return (
     <div className="bb-page bb-fade">
       <div className="bb-hero bb-aurora" style={{ background: 'linear-gradient(135deg, #3a3780, #5b50d6)' }}>
@@ -268,12 +272,12 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
             </div>
 
             <div className="bb-card">
-              <div className="bb-sect-head"><span className="bb-sect-ic"><FileText size={17} /></span><h2>КП получено</h2><small>{data!.kp.length}</small></div>
-              {data!.kp.length === 0 ? (
+              <div className="bb-sect-head"><span className="bb-sect-ic"><FileText size={17} /></span><h2>КП получено</h2><small>{kpClosed.length}</small></div>
+              {kpClosed.length === 0 ? (
                 <p style={{ color: 'var(--bb-muted)' }}>КП нет.</p>
               ) : (
                 <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column' }}>
-                  {data!.kp.map((k, i) => (
+                  {kpClosed.map((k, i) => (
                     <li key={i} className="bb-alert-row" style={{ gap: 10 }}>
                       <div style={{ minWidth: 0, flex: 1 }}>
                         {k.id ? <a className="bb-alert-title" href={spUrlKp(k.id)} target="_blank" rel="noopener noreferrer">{k.title} <ExternalLink size={12} /></a> : <span style={{ fontWeight: 600, fontSize: 14 }}>{k.title}</span>}
@@ -282,7 +286,10 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
                           {k.dealId ? <> · <a href={dealUrl(k.dealId)} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--bb-violet)' }}>сделка</a></> : null}
                         </p>
                       </div>
-                      {k.service ? <span className="bb-reason" style={{ background: 'var(--bb-violet-soft)', color: 'var(--bb-violet)' }}>{k.service}</span> : null}
+                      <span style={{ display: 'inline-flex', gap: 6, flex: '0 0 auto', alignItems: 'center' }}>
+                        {k.status === 'rejected' ? <span className="bb-reason" style={{ background: '#fdeced', color: 'var(--bb-red)' }}>Отклонено</span> : null}
+                        {k.service ? <span className="bb-reason" style={{ background: 'var(--bb-violet-soft)', color: 'var(--bb-violet)' }}>{k.service}</span> : null}
+                      </span>
                     </li>
                   ))}
                 </ul>

@@ -59,6 +59,17 @@ def _deal_is_spam(deal: dict[str, Any]) -> bool:
     return str(value) == SPAM_REASON_ID
 
 
+def kp_status(stage_id: Any) -> str:
+    """Статус КП (1106) по стадии: SUCCESS=Готово (получено), FAIL=Не актуально
+    (отклонено), иначе в работе."""
+    code = str(stage_id or "").rsplit(":", 1)[-1].upper()
+    if code == "SUCCESS":
+        return "success"
+    if code == "FAIL":
+        return "rejected"
+    return "progress"
+
+
 def meeting_status(stage_id: Any) -> str:
     """Статус встречи (1048) по стадии: SUCCESS→проведена, FAIL→отменена, иначе назначена."""
     code = str(stage_id or "").rsplit(":", 1)[-1].upper()
@@ -92,7 +103,7 @@ def collect_live(today: date, bx=None) -> dict[str, Any]:
     kp = _fetch_all(
         bx, "crm.item.list",
         {"entityTypeId": 1106, "filter": {">=updatedTime": d0, "<=updatedTime": d1},
-         "select": ["id", "title", "assignedById", "parentId2", KP_SERVICE_FIELD, "updatedTime"]},
+         "select": ["id", "title", "assignedById", "parentId2", "stageId", KP_SERVICE_FIELD, "updatedTime"]},
         idfield="id",
     )
     briefs = _fetch_all(
@@ -210,7 +221,8 @@ def build_live_payload(today: date, raw: dict[str, Any], now: datetime) -> dict[
         service = KP_SERVICE_MAP.get(_to_int(k.get(KP_SERVICE_FIELD)) or 0, "")
         kp_list.append(
             {"id": _to_int(k.get("id")), "title": k.get("title") or "КП", "manager_id": uid,
-             "deal_id": _to_int(k.get("parentId2")), "service": service}
+             "deal_id": _to_int(k.get("parentId2")), "service": service,
+             "status": kp_status(k.get("stageId"))}
         )
 
     # СПАМ-сделки в «создано» не считаем (как в дневном отчёте).

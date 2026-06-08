@@ -51,6 +51,16 @@ export interface LiveBrief {
   manager: string;
   dealId: number | null;
   service: string;
+  /** Статус КП (для блока «КП»): success=Готово, rejected=Не актуально, progress=в работе. У брифов не используется. */
+  status?: 'success' | 'rejected' | 'progress' | null;
+}
+
+/** Статус КП (1106) по коду стадии: SUCCESS→success, FAIL→rejected, иначе progress. */
+function kpStatusFromStage(stage: string | null): 'success' | 'rejected' | 'progress' {
+  const code = String(stage ?? '').split(':').pop()?.toUpperCase();
+  if (code === 'SUCCESS') return 'success';
+  if (code === 'FAIL') return 'rejected';
+  return 'progress';
 }
 
 export interface LiveData {
@@ -73,7 +83,7 @@ interface RawManager {
   briefs?: number; kp?: number; deals?: number; emails?: number;
 }
 interface RawMeeting { id: number | null; title: string; manager_id: number | null; at: string; status: LiveMeeting['status']; deal_id: number | null; set_today?: boolean; type?: LiveMeeting['type']; created_by?: number | null; company_revenue?: number | null }
-interface RawBrief { id: number | null; title: string; manager_id: number | null; deal_id: number | null; service: string }
+interface RawBrief { id: number | null; title: string; manager_id: number | null; deal_id: number | null; service: string; status?: LiveBrief['status'] }
 interface RawFeed { kind: LiveFeedItem['kind']; id?: number | null; manager_id: number | null; title: string; at: string }
 
 const EMPTY: LiveData = {
@@ -158,7 +168,7 @@ export async function getLive(): Promise<LiveData> {
 
   const kp: LiveBrief[] = (payload.kp_list ?? [])
     .filter((k) => keep(k.manager_id))
-    .map((k) => ({ id: k.id, title: k.title, manager: nameOf(k.manager_id), dealId: k.deal_id, service: k.service }));
+    .map((k) => ({ id: k.id, title: k.title, manager: nameOf(k.manager_id), dealId: k.deal_id, service: k.service, status: k.status ?? null }));
 
   const feed: LiveFeedItem[] = (payload.feed ?? [])
     .filter((e) => keep(e.manager_id))
@@ -310,6 +320,7 @@ export async function getDayBreakdown(date: string): Promise<LiveData | null> {
       manager: nameOf(r.managerId),
       dealId: r.dealId,
       service: '', // услугу КП в истории пока не храним (live — есть)
+      status: kpStatusFromStage(r.stage),
     }));
 
   // Лента дня — из summary_json (сохраняется дневным прогоном с этого релиза).
