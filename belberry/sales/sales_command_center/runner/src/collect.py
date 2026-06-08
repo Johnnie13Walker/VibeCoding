@@ -282,6 +282,37 @@ def _collect_wazzup(deal_ids: set[Any], bx=None, cap: int = 600) -> dict[str, li
     return output
 
 
+def collect_last_calls(deal_ids: set[Any], bx=None, chunk: int = 50) -> dict[str, str]:
+    """Дата последнего ЗВОНКА (обе стороны) по каждой сделке → {deal_id: ISO}.
+
+    Звонок = crm.activity TYPE_ID=2 (входящий и исходящий). Тянем активности
+    пачками по @OWNER_ID (OWNER_TYPE_ID=2 — сделка), без фильтра по дате, и берём
+    максимум CREATED на сделку. Это «переписка с клиентом» в части телефонии;
+    Wazzup приходит отдельным каналом через crm.timeline.comment.list."""
+    client = _client(bx)
+    ids = sorted({str(i) for i in deal_ids if i not in (None, "", "0", 0)})
+    output: dict[str, str] = {}
+    for start in range(0, len(ids), chunk):
+        batch = ids[start : start + chunk]
+        rows = client.fetch_all(
+            "crm.activity.list",
+            {
+                "filter": {"OWNER_TYPE_ID": 2, "@OWNER_ID": batch, "TYPE_ID": 2},
+                "select": ["ID", "OWNER_ID", "CREATED"],
+                "order": {"ID": "ASC"},
+            },
+        )
+        for row in rows:
+            owner = str(row.get("OWNER_ID") or "")
+            created = row.get("CREATED")
+            if not owner or not created:
+                continue
+            prev = output.get(owner)
+            if prev is None or str(created) > str(prev):
+                output[owner] = str(created)
+    return output
+
+
 def collect_employees(bx=None, max_pages: int = 60) -> dict[str, str]:
     """Полный справочник сотрудников Bitrix: id → «Фамилия Имя».
 
@@ -683,6 +714,10 @@ def collect_day(target: date, bx=None) -> dict[str, Any]:
     )
     employees = _progress_step("employees", lambda: collect_employees(bx))
     wazzup = _progress_step("wazzup", lambda: _collect_wazzup(deal_ids, bx))
+    # Последний звонок по открытым сделкам — для метрики «Тишина» (нет коммуникации
+    # >14 дн.). Считаем только по открытым кат.10/50, чтобы не тянуть лишнее.
+    open_deal_ids = {item.get("ID") for item in deals_open}
+    last_calls = _progress_step("last_calls", lambda: collect_last_calls(open_deal_ids, bx))
     # Чаты атрибутируем по подписи отправителя в тексте сообщения (chat_attribution),
     # а не по ответственному за сделку — иначе переписка ТМ не попадает в «Опер».
     messenger_dialogs = attribute_dialogs(wazzup, employees, d0, d1)
@@ -707,6 +742,7 @@ def collect_day(target: date, bx=None) -> dict[str, Any]:
         "won_deals": _progress_step("won_deals", lambda: collect_won_deals(stagehistory, bx)),
         "entered_deals": _progress_step("entered_deals", lambda: collect_entered_deals(stagehistory, bx)),
         "wazzup": wazzup,
+        "last_calls": last_calls,
     }
 
 

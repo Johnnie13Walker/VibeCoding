@@ -90,6 +90,9 @@ export const dealsSnapshot = pgTable(
     managerId: integer('manager_id'),
     stuckDays: integer('stuck_days'),
     stageEntered: date('stage_entered'),
+    // Дата последней коммуникации с клиентом (звонок/Wazzup, обе стороны) — для
+    // блока «Тишина»: сделки без контакта >14 календарных дней. NULL = контакта не было.
+    lastCommAt: date('last_comm_at'),
     title: text('title'),
     companyId: integer('company_id'),
   },
