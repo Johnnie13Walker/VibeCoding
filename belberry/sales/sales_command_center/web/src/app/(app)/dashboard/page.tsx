@@ -60,8 +60,8 @@ export default async function DashboardPage({
       <div className="bb-hero bb-aurora">
         <div className="bb-hero-row">
           <div style={{ flex: 1 }}>
-            <div className="bb-hero-eyebrow">Отдел продаж · {data.monthLabel}</div>
-            <h1 className="bb-hero-title">Командный центр</h1>
+            <div className="bb-hero-eyebrow">Командный центр · Отдел продаж · {data.monthLabel}</div>
+            <h1 className="bb-hero-title">Дашборд ОП</h1>
             <div className="bb-hero-sub">
               Снимок воронки {data.snapshotDate ?? '—'} · {data.funnelCount} открытых сделок на {rub(data.funnelAmount)}
               {data.generatedAt ? ` · отчёт сформирован ${fmtMsk(data.generatedAt)} МСК` : ''}
