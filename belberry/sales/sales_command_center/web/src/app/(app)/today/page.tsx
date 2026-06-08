@@ -1,5 +1,5 @@
 import { PhoneCall, PhoneForwarded, Timer, Handshake, FileText, Zap, Activity, CalendarClock, ExternalLink, Mail, MessageCircle } from 'lucide-react';
-import { getLive, getDayBreakdown, type LiveData } from '@/lib/live';
+import { getLive, getDayBreakdown, type LiveData, type LiveMeeting } from '@/lib/live';
 import { DaySelect } from '@/components/DaySelect';
 
 // Данные Командного центра ведутся с запуска (1 июня 2026) — раньше выбирать нечего.
@@ -44,8 +44,40 @@ function Tile({ icon, label, value, sub }: { icon: React.ReactNode; label: strin
   );
 }
 
-export default async function TodayPage({ searchParams }: { searchParams: Promise<{ date?: string }> }) {
+const MSTATUS: Record<string, { label: string; bg: string; color: string }> = {
+  held: { label: 'проведена', bg: '#e7f4ec', color: 'var(--bb-green)' },
+  scheduled: { label: 'назначена', bg: 'var(--bb-violet-soft)', color: 'var(--bb-violet)' },
+  cancelled: { label: 'отменена', bg: '#fdeced', color: 'var(--bb-red)' },
+};
+
+function SubHead({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--bb-faint)', margin: '10px 0 2px', paddingBottom: 6, borderBottom: '1px solid var(--bb-line)' }}>
+      {children}
+    </div>
+  );
+}
+
+/** Строка встречи. showDate=true → дата+время (для назначенных на другой день), иначе только время. */
+function MeetingLi({ m, showDate }: { m: LiveMeeting; showDate: boolean }) {
+  const st = MSTATUS[m.status] ?? MSTATUS.scheduled;
+  return (
+    <li className="bb-alert-row" style={{ gap: 10 }}>
+      <span className="tabular" style={{ fontWeight: 700, fontSize: 13, color: 'var(--bb-violet)', flex: '0 0 auto', whiteSpace: 'nowrap' }}>
+        {showDate ? fmtMsk(m.at) : (timeOnly(m.at) || '—')}
+      </span>
+      <div style={{ minWidth: 0, flex: 1 }}>
+        {m.dealId ? <a className="bb-alert-title" href={dealUrl(m.dealId)} target="_blank" rel="noopener noreferrer">{m.title} <ExternalLink size={12} /></a> : <span style={{ fontWeight: 600, fontSize: 14 }}>{m.title}</span>}
+        <p className="bb-alert-meta">{m.manager}</p>
+      </div>
+      <span className="bb-reason" style={{ background: st.bg, color: st.color }}>{st.label}</span>
+    </li>
+  );
+}
+
+export default async function TodayPage({ searchParams }: { searchParams: Promise<{ date?: string; view?: string }> }) {
   const params = await searchParams;
+  const view = params.view === 'b' ? 'b' : 'a';
   const todayMsk = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Moscow' }).format(new Date());
   // принимаем любую дату в диапазоне [DATA_START; сегодня); сегодня = live
   const raw = typeof params.date === 'string' ? params.date : '';
@@ -60,11 +92,18 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
 
   const t = data?.totals;
   const connect = t && t.dials ? Math.round((t.answered / t.dials) * 100) : 0;
-  const MSTATUS: Record<string, { label: string; bg: string; color: string }> = {
-    held: { label: 'проведена', bg: '#e7f4ec', color: 'var(--bb-green)' },
-    scheduled: { label: 'назначена', bg: 'var(--bb-violet-soft)', color: 'var(--bb-violet)' },
-    cancelled: { label: 'отменена', bg: '#fdeced', color: 'var(--bb-red)' },
+
+  // Разбиение встреч: «проводятся в этот день» vs «назначены сегодня на другую дату».
+  // refDay = день, который показывает страница (сегодня в live или выбранный в архиве).
+  const refDay = isArchive ? (selected as string) : todayMsk;
+  const meetingDay = (at: string): string => {
+    if (!at) return '';
+    try { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Moscow' }).format(new Date(at)); } catch { return ''; }
   };
+  const allMeetings = data?.meetings ?? [];
+  const isOtherDate = (m: LiveMeeting) => m.setToday && meetingDay(m.at) !== refDay;
+  const meetingsHappening = allMeetings.filter((m) => !isOtherDate(m));
+  const meetingsSetOther = allMeetings.filter(isOtherDate);
 
   return (
     <div className="bb-page bb-fade">
@@ -140,22 +179,43 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
 
           <div className="bb-grid k2" style={{ gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             <div className="bb-card">
-              <div className="bb-sect-head"><span className="bb-sect-ic"><CalendarClock size={17} /></span><h2>Встречи</h2><small>{t.meetingsHeld} провед. · {t.meetingsScheduled} назнач.{isArchive ? '' : ' сегодня'} · {t.meetingsCancelled} отмен.</small></div>
-              {data!.meetings.length === 0 ? (
-                <p style={{ color: 'var(--bb-muted)' }}>Встреч нет.</p>
+              {view === 'a' ? (
+                <>
+                  <div className="bb-sect-head"><span className="bb-sect-ic"><CalendarClock size={17} /></span><h2>Встречи</h2><small>{t.meetingsHeld} провед. · {t.meetingsScheduled} назнач.{isArchive ? '' : ' сегодня'} · {t.meetingsCancelled} отмен.</small></div>
+                  {allMeetings.length === 0 ? (
+                    <p style={{ color: 'var(--bb-muted)' }}>Встреч нет.</p>
+                  ) : (
+                    <>
+                      <SubHead>Проводятся {isArchive ? 'в этот день' : 'сегодня'} · {meetingsHappening.length}</SubHead>
+                      {meetingsHappening.length === 0 ? (
+                        <p style={{ color: 'var(--bb-faint)', fontSize: 13, padding: '6px 2px' }}>—</p>
+                      ) : (
+                        <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column' }}>
+                          {meetingsHappening.map((m, i) => <MeetingLi key={`h${i}`} m={m} showDate={false} />)}
+                        </ul>
+                      )}
+                      {meetingsSetOther.length > 0 ? (
+                        <>
+                          <SubHead>Назначены сегодня на другую дату · {meetingsSetOther.length}</SubHead>
+                          <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column' }}>
+                            {meetingsSetOther.map((m, i) => <MeetingLi key={`o${i}`} m={m} showDate={true} />)}
+                          </ul>
+                        </>
+                      ) : null}
+                    </>
+                  )}
+                </>
               ) : (
-                <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column' }}>
-                  {data!.meetings.map((m, i) => (
-                    <li key={i} className="bb-alert-row" style={{ gap: 10 }}>
-                      <span className="tabular" style={{ fontWeight: 700, fontSize: 13, color: 'var(--bb-violet)', flex: '0 0 auto' }}>{fmtMsk(m.at)}</span>
-                      <div style={{ minWidth: 0, flex: 1 }}>
-                        {m.dealId ? <a className="bb-alert-title" href={dealUrl(m.dealId)} target="_blank" rel="noopener noreferrer">{m.title} <ExternalLink size={12} /></a> : <span style={{ fontWeight: 600, fontSize: 14 }}>{m.title}</span>}
-                        <p className="bb-alert-meta">{m.manager}</p>
-                      </div>
-                      <span className="bb-reason" style={{ background: MSTATUS[m.status].bg, color: MSTATUS[m.status].color }}>{MSTATUS[m.status].label}</span>
-                    </li>
-                  ))}
-                </ul>
+                <>
+                  <div className="bb-sect-head"><span className="bb-sect-ic"><CalendarClock size={17} /></span><h2>Встречи{isArchive ? '' : ' сегодня'}</h2><small>{t.meetingsHeld} провед. · {t.meetingsScheduled} назнач. · {t.meetingsCancelled} отмен.</small></div>
+                  {meetingsHappening.length === 0 ? (
+                    <p style={{ color: 'var(--bb-muted)' }}>Встреч нет.</p>
+                  ) : (
+                    <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column' }}>
+                      {meetingsHappening.map((m, i) => <MeetingLi key={`h${i}`} m={m} showDate={false} />)}
+                    </ul>
+                  )}
+                </>
               )}
             </div>
 
@@ -181,6 +241,15 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
               )}
             </div>
           </div>
+
+          {view === 'b' && meetingsSetOther.length > 0 ? (
+            <div className="bb-card" style={{ marginTop: 16 }}>
+              <div className="bb-sect-head"><span className="bb-sect-ic"><CalendarClock size={17} /></span><h2>Назначены сегодня на другую дату</h2><small>{meetingsSetOther.length}</small></div>
+              <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column' }}>
+                {meetingsSetOther.map((m, i) => <MeetingLi key={`o${i}`} m={m} showDate={true} />)}
+              </ul>
+            </div>
+          ) : null}
 
           <div className="bb-card" style={{ marginTop: 16 }}>
               <div className="bb-sect-head"><span className="bb-sect-ic"><Activity size={17} /></span><h2>Лента</h2><small>события дня</small></div>
