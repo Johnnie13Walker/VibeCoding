@@ -22,6 +22,7 @@ const cellSelect: React.CSSProperties = {
   borderRadius: 10, background: '#fafafe', color: 'var(--bb-ink, #191730)', minWidth: 140,
 };
 const pill: React.CSSProperties = { fontSize: 13, color: 'var(--bb-muted)', background: 'var(--bb-soft,#f3f2fb)', borderRadius: 999, padding: '7px 13px' };
+const bxLink: React.CSSProperties = { color: '#5b4fe0', fontWeight: 600, textDecoration: 'none', whiteSpace: 'nowrap' };
 
 export function MeetingsView({ items }: { items: MeetingItem[] }) {
   const [fDate, setDate] = useState('');
@@ -284,7 +285,8 @@ function Detail({ m }: { m: MeetingItem }) {
         <h2 style={{ margin: 0, fontSize: 21, fontWeight: 800 }}>{m.domain} {chip}</h2>
         <div style={{ color: 'var(--bb-muted)', fontSize: 13, marginTop: 4 }}>
           {fmtDate(m.date)}.{m.date.slice(0, 4)} {m.time} · {m.manager}
-          {m.dealId ? <> · <a href={`https://belberrycrm.bitrix24.ru/crm/deal/details/${m.dealId}/`} target="_blank" rel="noreferrer" style={{ color: '#5b4fe0', fontWeight: 600, textDecoration: 'none' }}>Открыть в Битрикс24 →</a></> : null}
+          {m.dealId ? <> · <a href={`https://belberrycrm.bitrix24.ru/crm/deal/details/${m.dealId}/`} target="_blank" rel="noreferrer" style={bxLink}>Сделка в Битрикс24 ↗</a></> : null}
+          {' · '}<a href={`https://belberrycrm.bitrix24.ru/crm/type/1048/details/${m.id}/`} target="_blank" rel="noreferrer" style={bxLink}>Встреча в Битрикс24 ↗</a>
         </div>
       </div>
     </div>
