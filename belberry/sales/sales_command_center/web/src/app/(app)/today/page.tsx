@@ -87,7 +87,7 @@ function MeetingRow({ m, showDate }: { m: LiveMeeting; showDate: boolean }) {
         <span className="tabular" style={{ fontWeight: 700, fontSize: 13, color: 'var(--bb-violet)', flex: '0 0 auto', minWidth: 44 }}>{timeOnly(m.at) || '—'}</span>
       )}
       <div style={{ minWidth: 0, flex: 1 }}>
-        {m.dealId ? <a className="bb-alert-title" href={dealUrl(m.dealId)} target="_blank" rel="noopener noreferrer">{cleanMeetingTitle(m.title)} <ExternalLink size={12} /></a> : <span style={{ fontWeight: 600, fontSize: 14 }}>{cleanMeetingTitle(m.title)}</span>}
+        {m.id ? <a className="bb-alert-title" href={spUrl(1048, m.id)} target="_blank" rel="noopener noreferrer">{cleanMeetingTitle(m.title)} <ExternalLink size={12} /></a> : <span style={{ fontWeight: 600, fontSize: 14 }}>{cleanMeetingTitle(m.title)}</span>}
         <p className="bb-alert-meta">
           {ty ? <span style={{ display: 'inline-block', fontSize: 11, fontWeight: 700, borderRadius: 6, padding: '2px 7px', background: ty.bg, color: ty.color }}>{ty.label}</span> : null}
           {ty ? ' · ' : ''}{m.manager}
