@@ -37,10 +37,10 @@ const MEETING_TYPE: Record<string, { label: string; color: string; bg: string }>
   briefing: { label: 'Брифинг', color: '#4a3fd0', bg: '#eef0ff' },
   defense: { label: 'Защита КП', color: '#c0297e', bg: '#fdeef6' },
 };
-const STATUS_DOT: Record<string, { label: string; color: string }> = {
-  held: { label: 'проведена', color: 'var(--bb-green)' },
-  scheduled: { label: 'назначена', color: 'var(--bb-violet)' },
-  cancelled: { label: 'отменена', color: 'var(--bb-red)' },
+const STATUS_PILL: Record<string, { label: string; bg: string; color: string }> = {
+  held: { label: 'проведена', bg: '#e7f4ec', color: 'var(--bb-green)' },
+  scheduled: { label: 'назначена', bg: 'var(--bb-violet-soft)', color: 'var(--bb-violet)' },
+  cancelled: { label: 'отменена', bg: '#fdeced', color: 'var(--bb-red)' },
 };
 const WEEKDAYS = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
 
@@ -70,34 +70,40 @@ function weekdayMsk(at: string): { wd: string; weekend: boolean } | null {
  * Строка встречи. showDate=true → колонка дата+день недели (для назначенных на
  * другую дату); иначе только время. Выручку показываем только для ТМ-брифингов.
  */
+const PILL: React.CSSProperties = { display: 'inline-block', fontSize: 11, fontWeight: 600, borderRadius: 999, padding: '3px 9px', whiteSpace: 'nowrap', lineHeight: 1.5 };
+const REV_CHIP: React.CSSProperties = { ...PILL, fontWeight: 700, background: '#fff', border: '1px solid var(--bb-line)', color: 'var(--bb-ink)' };
+const REV_CHIP_LOW: React.CSSProperties = { ...PILL, fontWeight: 700, background: '#fdeced', color: 'var(--bb-red)' };
+const TIMECOL: React.CSSProperties = { fontWeight: 600, fontSize: 13, color: 'var(--bb-violet)', flex: '0 0 auto' };
+
 function MeetingRow({ m, showDate }: { m: LiveMeeting; showDate: boolean }) {
-  const st = STATUS_DOT[m.status] ?? STATUS_DOT.scheduled;
+  const st = STATUS_PILL[m.status] ?? STATUS_PILL.scheduled;
   const ty = m.type ? MEETING_TYPE[m.type] : null;
   const showRevenue = m.type === 'briefing' && m.creatorIsTm && m.companyRevenue != null;
   const low = showRevenue && (m.companyRevenue as number) < REVENUE_LOW_THRESHOLD;
   const wk = showDate ? weekdayMsk(m.at) : null;
   return (
-    <li className="bb-alert-row" style={{ gap: 12, alignItems: 'flex-start' }}>
+    <li className="bb-alert-row" style={{ gap: 14, alignItems: 'flex-start' }}>
       {showDate ? (
-        <span style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.3, minWidth: 60, flex: '0 0 auto' }}>
-          <b className="tabular" style={{ fontWeight: 700, fontSize: 13, color: 'var(--bb-violet)' }}>{fmtDate2(m.at)}</b>
-          {wk ? <span style={{ fontSize: 11.5, fontWeight: 600, color: wk.weekend ? 'var(--bb-red)' : 'var(--bb-faint)' }}>{wk.wd}</span> : null}
+        <span style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.35, minWidth: 52, flex: '0 0 auto' }}>
+          <b className="tabular" style={TIMECOL}>{fmtDate2(m.at)}</b>
+          {wk ? <span style={{ fontSize: 11, fontWeight: 600, color: wk.weekend ? 'var(--bb-red)' : 'var(--bb-faint)' }}>{wk.wd}</span> : null}
         </span>
       ) : (
-        <span className="tabular" style={{ fontWeight: 700, fontSize: 13, color: 'var(--bb-violet)', flex: '0 0 auto', minWidth: 44 }}>{timeOnly(m.at) || '—'}</span>
+        <span className="tabular" style={{ ...TIMECOL, minWidth: 46 }}>{timeOnly(m.at) || '—'}</span>
       )}
       <div style={{ minWidth: 0, flex: 1 }}>
         {m.id ? <a className="bb-alert-title" href={spUrl(1048, m.id)} target="_blank" rel="noopener noreferrer">{cleanMeetingTitle(m.title)} <ExternalLink size={12} /></a> : <span style={{ fontWeight: 600, fontSize: 14 }}>{cleanMeetingTitle(m.title)}</span>}
         <p className="bb-alert-meta">
-          {ty ? <span style={{ display: 'inline-block', fontSize: 11, fontWeight: 700, borderRadius: 6, padding: '2px 7px', background: ty.bg, color: ty.color }}>{ty.label}</span> : null}
-          {ty ? ' · ' : ''}{m.manager}
-          {showRevenue ? <> · <span style={{ color: low ? 'var(--bb-red)' : 'var(--bb-muted)', fontWeight: low ? 600 : 400 }}>выручка {fmtRevenue(m.companyRevenue as number)}{low ? ' ⚠' : ''}</span></> : null}
+          {ty ? <span style={{ ...PILL, background: ty.bg, color: ty.color }}>{ty.label}</span> : null}
+          <span>· {m.manager}</span>
+          {showRevenue ? <span style={low ? REV_CHIP_LOW : REV_CHIP}>выручка {fmtRevenue(m.companyRevenue as number)}</span> : null}
         </p>
       </div>
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flex: '0 0 auto', fontSize: 12.5, color: m.status === 'cancelled' ? 'var(--bb-red)' : 'var(--bb-muted)', whiteSpace: 'nowrap', paddingTop: 1 }}>
-        <i style={{ width: 7, height: 7, borderRadius: '50%', background: st.color, flex: '0 0 auto', display: 'inline-block' }} />
-        {showDate ? timeOnly(m.at) || st.label : st.label}
-      </span>
+      {showDate ? (
+        <span className="tabular" style={{ ...TIMECOL, paddingTop: 1, whiteSpace: 'nowrap' }}>{timeOnly(m.at)}</span>
+      ) : (
+        <span style={{ ...PILL, background: st.bg, color: st.color, flex: '0 0 auto' }}>{st.label}</span>
+      )}
     </li>
   );
 }
