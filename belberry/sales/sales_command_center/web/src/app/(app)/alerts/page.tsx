@@ -1,4 +1,4 @@
-import { Flame, Clock, BellRing, ExternalLink } from 'lucide-react';
+import { Flame, Clock, BellRing, ExternalLink, VolumeX } from 'lucide-react';
 import { getAlerts } from '@/lib/alerts';
 
 export const dynamic = 'force-dynamic';
@@ -14,6 +14,13 @@ function fmtDeadline(iso: string | null): string {
   } catch { return iso; }
 }
 
+function fmtDate(iso: string | null): string {
+  if (!iso) return '—';
+  try {
+    return new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: '2-digit', timeZone: 'Europe/Moscow' }).format(new Date(`${iso}T00:00:00+03:00`));
+  } catch { return iso; }
+}
+
 function rub(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)} млн ₽`;
   if (n >= 1_000) return `${Math.round(n / 1_000)} тыс ₽`;
@@ -24,6 +31,7 @@ export default async function AlertsPage() {
   const data = await getAlerts();
   const criticalCount = data.burning.filter((b) => b.severity === 'critical').length;
   const overdueCount = data.tasks.filter((t) => t.overdue).length;
+  const silentCount = data.silent.length;
 
   return (
     <div className="bb-page bb-fade">
@@ -33,7 +41,7 @@ export default async function AlertsPage() {
             <div className="bb-hero-eyebrow">Требуют действий · снимок {data.snapshotDate ?? '—'}</div>
             <h1 className="bb-hero-title">Алерты</h1>
             <div className="bb-hero-sub">
-              {criticalCount} критичных сделок · {overdueCount} просроченных задач
+              {criticalCount} критичных сделок · {silentCount} молчат &gt;14 дней · {overdueCount} просроченных задач
             </div>
           </div>
           <BellRing size={40} color="#fff" style={{ opacity: 0.9 }} />
@@ -67,6 +75,41 @@ export default async function AlertsPage() {
                   <p className="tabular" style={{ fontWeight: 700, fontSize: 14 }}>{rub(d.amount)}</p>
                   <p style={{ fontSize: 12, fontWeight: 600, color: d.severity === 'critical' ? '#d4202e' : '#b5651d' }}>
                     {d.stuckDays} дн. без движения
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {/* Тишина — нет коммуникации с клиентом >14 дней */}
+      <div className="bb-card" style={{ marginBottom: 16 }}>
+        <div className="bb-sect-head">
+          <span className="bb-sect-ic" style={{ background: '#eef0fd', color: '#5b50d6' }}><VolumeX size={17} /></span>
+          <h2>Тишина</h2>
+          <small>нет коммуникации &gt;14 дней · {data.silent.length}</small>
+        </div>
+        {data.silent.length === 0 ? (
+          <p style={{ color: 'var(--bb-muted)' }}>Сделок без коммуникации больше 14 дней нет.</p>
+        ) : (
+          <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column' }}>
+            {data.silent.map((d) => (
+              <li key={d.dealId} className="bb-alert-row">
+                <span className={`bb-sev ${d.severity}`} aria-hidden />
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <a href={dealUrl(d.dealId)} target="_blank" rel="noopener noreferrer" className="bb-alert-title">
+                    {d.title} <ExternalLink size={12} />
+                  </a>
+                  <p className="bb-alert-meta">
+                    {d.stageLabel} · {d.manager}
+                    <span className={`bb-reason ${d.severity}`}>{d.reason}</span>
+                  </p>
+                </div>
+                <div style={{ textAlign: 'right', flex: '0 0 auto' }}>
+                  <p className="tabular" style={{ fontWeight: 700, fontSize: 14 }}>{rub(d.amount)}</p>
+                  <p style={{ fontSize: 12, fontWeight: 600, color: d.severity === 'critical' ? '#d4202e' : '#b5651d' }}>
+                    {d.lastCommAt ? `последний контакт ${fmtDate(d.lastCommAt)}` : `${d.silenceDays} дн. без контакта`}
                   </p>
                 </div>
               </li>

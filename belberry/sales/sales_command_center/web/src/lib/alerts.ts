@@ -16,6 +16,18 @@ export interface BurningDeal {
   reason: string;
 }
 
+export interface SilentDeal {
+  dealId: number;
+  title: string;
+  stageLabel: string;
+  amount: number;
+  silenceDays: number;
+  lastCommAt: string | null;
+  manager: string;
+  severity: 'critical' | 'warning';
+  reason: string;
+}
+
 export interface TaskItem {
   taskId: number;
   title: string;
@@ -30,8 +42,41 @@ export interface TaskItem {
 export interface AlertsData {
   snapshotDate: string | null;
   burning: BurningDeal[];
+  silent: SilentDeal[];
   tasks: TaskItem[];
   count: number;
+}
+
+/** Порог «тишины»: сделка без коммуникации с клиентом более стольких кал. дней. */
+export const SILENCE_THRESHOLD_DAYS = 14;
+
+/**
+ * Дни тишины по сделке. Если есть дата последней коммуникации — кал. дни от неё до
+ * снимка. Если коммуникации не было вовсе (lastCommAt = null) — берём возраст застоя
+ * на стадии (stuckDays) как нижнюю оценку; если и он неизвестен → null (не судим).
+ */
+export function silenceDays(
+  lastCommAt: string | null,
+  stuckDays: number | null,
+  snapshotDate: string,
+): number | null {
+  if (lastCommAt) {
+    const from = new Date(`${lastCommAt}T00:00:00Z`).getTime();
+    const to = new Date(`${snapshotDate}T00:00:00Z`).getTime();
+    if (Number.isNaN(from) || Number.isNaN(to)) return null;
+    const days = Math.floor((to - from) / 86_400_000);
+    return days >= 0 ? days : 0;
+  }
+  if (stuckDays != null && stuckDays > 0) return stuckDays;
+  return null;
+}
+
+export function silenceSeverity(days: number): 'critical' | 'warning' {
+  return days >= 30 ? 'critical' : 'warning';
+}
+
+export function silenceReason(lastCommAt: string | null, days: number): string {
+  return lastCommAt ? `молчит ${days} дн.` : 'контакта не было';
 }
 
 /** Причина риска по сделке (зеркало transform.risk_reason, web-сторона). */
@@ -69,6 +114,7 @@ export async function getAlerts(): Promise<AlertsData> {
 
   // Горящие сделки — открытые кат.10 на последнем снимке, застрявшие.
   const burning: BurningDeal[] = [];
+  const silent: SilentDeal[] = [];
   if (snapshotDate) {
     const snapRows = await db
       .select({
@@ -76,11 +122,35 @@ export async function getAlerts(): Promise<AlertsData> {
         stage: dealsSnapshot.stage,
         opportunity: dealsSnapshot.opportunity,
         stuckDays: dealsSnapshot.stuckDays,
+        lastCommAt: dealsSnapshot.lastCommAt,
         managerId: dealsSnapshot.managerId,
         title: dealsSnapshot.title,
       })
       .from(dealsSnapshot)
       .where(and(eq(dealsSnapshot.reportDate, snapshotDate), eq(dealsSnapshot.categoryId, 10)));
+
+    // Тишина — открытые кат.10 без коммуникации с клиентом >14 кал. дней.
+    for (const r of snapRows) {
+      if (!STAGE_META[r.stage]) continue;
+      const days = silenceDays(r.lastCommAt, r.stuckDays, snapshotDate);
+      if (days == null || days <= SILENCE_THRESHOLD_DAYS) continue;
+      const amount = Number(r.opportunity ?? 0);
+      silent.push({
+        dealId: r.dealId,
+        title: r.title ?? `Сделка #${r.dealId}`,
+        stageLabel: STAGE_META[r.stage]?.label ?? r.stage,
+        amount,
+        silenceDays: days,
+        lastCommAt: r.lastCommAt ?? null,
+        manager: (r.managerId && userMap.get(r.managerId)) || '—',
+        severity: silenceSeverity(days),
+        reason: silenceReason(r.lastCommAt, days),
+      });
+    }
+    silent.sort((a, b) => {
+      if (a.severity !== b.severity) return a.severity === 'critical' ? -1 : 1;
+      return b.silenceDays - a.silenceDays || b.amount - a.amount;
+    });
 
     for (const r of snapRows) {
       if (!STAGE_META[r.stage] || (r.stuckDays ?? 0) <= 0) continue;
@@ -133,6 +203,9 @@ export async function getAlerts(): Promise<AlertsData> {
     };
   });
 
-  const count = burning.filter((b) => b.severity === 'critical').length + tasks.filter((t) => t.overdue).length;
-  return { snapshotDate, burning: burning.slice(0, 12), tasks, count };
+  const count =
+    burning.filter((b) => b.severity === 'critical').length +
+    silent.filter((s) => s.severity === 'critical').length +
+    tasks.filter((t) => t.overdue).length;
+  return { snapshotDate, burning: burning.slice(0, 12), silent: silent.slice(0, 15), tasks, count };
 }
