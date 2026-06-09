@@ -91,3 +91,66 @@ def test_build_task_fields_full():
     assert f["DEADLINE"].startswith("2026-06-11T15:00:00")
     assert "insightai.ru" in f["TITLE"]
     assert "Метрик" in f["DESCRIPTION"] and "Цитата клиента" in f["DESCRIPTION"]
+
+
+# ── Семантический дедуп (Phase 1 умной постановки) ──
+
+def _steps(*whats):
+    return [{"what": w} for w in whats]
+
+
+def test_canonical_action_categories():
+    assert T.canonical_action("Отправить клиенту материалы и КП") == "send"
+    assert T.canonical_action("Получить от клиента обратную связь по смете") == "await"
+    assert T.canonical_action("Получить гостевой доступ к Яндекс.Метрике") == "await"
+    assert T.canonical_action("Оценить рынок и прогнозные значения") == "internal"
+    assert T.canonical_action("Проанализировать рекламные кампании и Метрику") == "internal"
+    assert T.canonical_action("Обсудить КП с клиентом после оценки") == "discuss"
+    # неизвестное — не сливаем (свой ключ)
+    assert T.canonical_action("Покрасить забор").startswith("other:")
+
+
+def test_dedupe_merges_homogeneous_keeps_first():
+    # 25118: 6 шагов → 3 канона (await/internal/discuss)
+    steps = _steps(
+        "Получить от клиента перечень уникальных операций",
+        "Получить обратную связь после разговора с администрацией",
+        "Оценить рынок и прогнозные значения по направлениям",
+        "Получить решение администрации и уточнённый список операций",
+        "Внутренне оценить рынок по нейрохирургии",
+        "Обсудить с клиентом КП после внутренней оценки",
+    )
+    out = T.dedupe_steps(steps, cap=10)
+    cats = [T.canonical_action(s["what"]) for s in out]
+    assert cats == ["await", "internal", "discuss"]
+    # оставлено ПЕРВОЕ вхождение каждого канона
+    assert out[0]["what"].startswith("Получить от клиента перечень")
+
+
+def test_dedupe_send_pair_to_one():
+    # 24696: send/await/send/await → send+await
+    steps = _steps(
+        "Отправить клиенту бриф/вопросы",
+        "Получить письменные ответы клиента",
+        "Отправить клиенту материалы: бриф/вопросы",
+        "Получить ответы клиента на бриф",
+    )
+    out = T.dedupe_steps(steps, cap=10)
+    assert [T.canonical_action(s["what"]) for s in out] == ["send", "await"]
+
+
+def test_dedupe_cap():
+    steps = _steps(
+        "Отправить материалы",          # send
+        "Получить ответ клиента",        # await
+        "Оценить рынок",                 # internal
+        "Обсудить КП с клиентом",        # discuss
+    )
+    assert len(T.dedupe_steps(steps, cap=2)) == 2
+
+
+def test_dedupe_cross_run_skips_existing():
+    # межпрогонная идемпотентность: канон уже стоит по встрече → не дублируем
+    steps = _steps("Отправить клиенту обновлённые материалы")
+    out = T.dedupe_steps(steps, existing_actions={"send"}, cap=10)
+    assert out == []

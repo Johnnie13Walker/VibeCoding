@@ -129,6 +129,56 @@ def actionable_steps(steps: list[dict[str, Any]] | None) -> list[dict[str, Any]]
     return out
 
 
+# ── Семантический дедуп: канон действия (глагол+объект), а не точный текст ──
+# Корень дублей 08.06: повторный разбор переформулировал шаги, а step_key (sha1
+# точного текста) их не склеил. Канон сводит однотипные действия к одной задаче:
+# все «отправить …» = одна, все «получить ответ/доступ/данные от клиента» = одна и т.д.
+# Порядок важен — первое совпадение выигрывает.
+MAX_TASKS_PER_MEETING = 3  # хард-кап; планировщик (Phase 2) ужесточит до ≤2 по важности
+
+_ACTION_RULES = [
+    ("send", re.compile(r"отправ|выслать|направи|перешл|скинуть|презентова|показать", re.I)),
+    ("await", re.compile(r"получ|дожда|запрос|обратн\w+\s+связ|доступ", re.I)),
+    ("internal", re.compile(r"оцен|проанализир|\bанализ|рассчит|расч[её]т|проверить|собрать", re.I)),
+    ("discuss", re.compile(r"обсуд|согласова|защит|созвон|встреч|презентац|договор|связаться", re.I)),
+]
+
+
+def canonical_action(what: str | None) -> str:
+    """Канон действия для дедупа — по САМОМУ РАННЕМУ глаголу в тексте (ведущее действие,
+    а не порядок правил: «Обсудить … после оценки» → discuss, не internal). Неизвестное
+    → other:<точный ключ> (не сливаем разные)."""
+    t = str(what or "").lower()
+    best: tuple[int, str] | None = None
+    for name, rx in _ACTION_RULES:
+        m = rx.search(t)
+        if m and (best is None or m.start() < best[0]):
+            best = (m.start(), name)
+    return best[1] if best else "other:" + step_key(what)
+
+
+def dedupe_steps(
+    steps: list[dict[str, Any]],
+    existing_actions: set[str] | None = None,
+    cap: int = MAX_TASKS_PER_MEETING,
+) -> list[dict[str, Any]]:
+    """Склеивает однотипные шаги по канону, отбрасывает уже созданные (existing_actions
+    — каноны задач, которые по встрече уже стоят: защита от повторного разбора), режет
+    до cap. Сохраняет порядок — оставляем первое вхождение каждого канона."""
+    skip = set(existing_actions or ())
+    seen: set[str] = set()
+    out: list[dict[str, Any]] = []
+    for s in steps:
+        ca = canonical_action(s.get("what"))
+        if ca in skip or ca in seen:
+            continue
+        seen.add(ca)
+        out.append(s)
+        if len(out) >= cap:
+            break
+    return out
+
+
 def build_description(deal_id: int, deal_title: str | None, analysis: dict[str, Any], step: dict[str, Any], deadline_text: str | None) -> str:
     """Полный контекст в описании задачи."""
     lines = [
@@ -252,6 +302,10 @@ def create_tasks_for_day(conn, bx, target: date, *, creator_id: int = DEFAULT_CR
         if not steps:
             continue
         done_keys = set() if dry_run else existing_step_keys(conn, meeting_id_)
+        prior_actions = set() if dry_run else existing_actions(conn, meeting_id_)
+        # Семантический дедуп + кап: однотипное в одну задачу, уже созданное по встрече
+        # (повторный разбор) — пропускаем, не больше MAX_TASKS_PER_MEETING.
+        steps = dedupe_steps(steps, existing_actions=prior_actions)
         for step in steps:
             sk = step_key(step.get("what"))
             entry = {"meeting_id": meeting_id_, "deal_id": deal_id, "what": step.get("what"), "step_key": sk}
@@ -327,6 +381,18 @@ def existing_step_keys(conn, meeting_id: int) -> set[str]:
     with conn.cursor() as cur:
         cur.execute("SELECT step_key FROM meeting_tasks WHERE meeting_id=%s", (int(meeting_id),))
         return {row[0] for row in cur.fetchall()}
+
+
+def existing_actions(conn, meeting_id: int) -> set[str]:
+    """Каноны действий уже созданных по встрече задач (для межпрогонного дедупа).
+    Текст шага восстанавливаем из TITLE «{сделка}: {что}» — отрезаем префикс сделки."""
+    with conn.cursor() as cur:
+        cur.execute("SELECT title FROM meeting_tasks WHERE meeting_id=%s", (int(meeting_id),))
+        out: set[str] = set()
+        for (title,) in cur.fetchall():
+            what = title.split(": ", 1)[1] if title and ": " in title else (title or "")
+            out.add(canonical_action(what))
+        return out
 
 
 def record_task(conn, *, report_date, meeting_id, deal_id, step_key, task_id, responsible_id, title, deadline) -> None:
