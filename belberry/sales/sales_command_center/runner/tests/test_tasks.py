@@ -194,3 +194,14 @@ def test_create_tasks_legacy_fallback_without_client():
     res = T.create_tasks_for_day(_FakeConn(rows), None, date(2026, 6, 8), dry_run=True)  # client=None
     planned = [r for r in res if r["status"] == "planned"]
     assert len(planned) == 1 and planned[0]["source"] == "legacy"
+
+
+def test_create_tasks_skips_already_tasked_meeting(monkeypatch):
+    from src import task_planner
+    rows = [(2228, 25118, 2188, {"next_steps": [{"what": "Отправить КП"}]}, "x.ru", "C10")]
+    monkeypatch.setattr(T, "existing_step_keys", lambda conn, mid: {"abc"})  # по встрече уже есть задачи
+    called = []
+    monkeypatch.setattr(task_planner, "plan_tasks", lambda *a, **k: called.append(1) or [])
+    res = T.create_tasks_for_day(_FakeConn(rows), None, date(2026, 6, 8), dry_run=False, client=object())
+    assert any(r["status"] == "skip_meeting_done" for r in res)
+    assert called == []  # планировщик НЕ вызывался для обработанной встречи

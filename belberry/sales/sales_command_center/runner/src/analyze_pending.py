@@ -99,10 +99,13 @@ def main(argv: list[str] | None = None) -> None:
         # встречам. Идемпотентно по meeting_tasks — ловит встречи, разобранные
         # этим прогоном И ранее без задач; дублей с дневным прогоном нет.
         if create_tasks:
+            # Умный проход постановки: планировщик (≤2 рычажных задачи) + дедуп.
+            # client включает планировщик; без него — старая логика next_steps.
+            task_client = analyze_llm.get_client()
             day = since
             while day <= today:
                 try:
-                    res = bx_tasks.create_tasks_for_day(conn, bx_client, day)
+                    res = bx_tasks.create_tasks_for_day(conn, bx_client, day, client=task_client)
                     created = sum(1 for r in res if r.get("status") == "created")
                     if created:
                         print(f"[tasks] {day.isoformat()}: создано {created}", flush=True)

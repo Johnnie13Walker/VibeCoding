@@ -362,6 +362,12 @@ def create_tasks_for_day(conn, bx, target: date, *, creator_id: int = DEFAULT_CR
     for meeting_id_, deal_id, manager_id, analysis_json, deal_title, stage in _load_day_meetings(conn, target, meeting_id):
         if not deal_id or not manager_id:
             continue
+        # Идемпотентность на уровне ВСТРЕЧИ: если по ней уже ставили задачи — больше не
+        # трогаем. Повторный разбор не плодит новые, и планировщик не вызывается зря
+        # (экономия токенов). Корень дублей 08.06 закрывается окончательно.
+        if not dry_run and existing_step_keys(conn, meeting_id_):
+            results.append({"meeting_id": meeting_id_, "deal_id": deal_id, "status": "skip_meeting_done"})
+            continue
         analysis = analysis_json if isinstance(analysis_json, dict) else _json.loads(analysis_json or "{}")
 
         plan = _plan_for_meeting(analysis, deal_title, stage, client) if client is not None else None
@@ -376,9 +382,10 @@ def create_tasks_for_day(conn, bx, target: date, *, creator_id: int = DEFAULT_CR
         if not candidates:
             continue
 
-        done_keys = set() if dry_run else existing_step_keys(conn, meeting_id_)
-        prior_actions = set() if dry_run else existing_actions(conn, meeting_id_)
-        candidates = dedupe_steps(candidates, existing_actions=prior_actions, cap=cap)
+        # Встреча гарантированно без прошлых задач (иначе skip выше) → дедуп только
+        # внутри текущего прогона.
+        done_keys: set[str] = set()
+        candidates = dedupe_steps(candidates, cap=cap)
 
         for cand in candidates:
             sk = step_key(cand.get("what"))
