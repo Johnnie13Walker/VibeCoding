@@ -1,3 +1,4 @@
+import gzip
 import io
 import re
 import time
@@ -83,8 +84,15 @@ def _extract_pdf_text(body: bytes) -> str:
 
 
 def _decode_transcript(body: bytes) -> str:
-    """Байты транскрипта → текст. PDF (`%PDF-`) извлекаем через pypdf, иначе UTF-8.
-    Раньше PDF декодился как UTF-8 → мусор → LLM не мог читать (transcript_based=false)."""
+    """Байты транскрипта → текст. Форматы: gzip (txt от сервера часто отдаётся
+    `Content-Encoding: gzip`, а urllib его не распаковывает), PDF (`%PDF-`, memoai),
+    иначе plain-text UTF-8. Раньше всё декодилось как UTF-8 → мусор → LLM не читал."""
+    if body[:2] == b"\x1f\x8b":  # gzip → распаковать, дальше как обычно (внутри txt или PDF)
+        try:
+            body = gzip.decompress(body)
+        except Exception as exc:  # noqa: BLE001
+            print(f"[enrich] gzip decompress failed: {str(exc)[:200]}", flush=True)
+            return ""
     if body[:5] == b"%PDF-":
         return _extract_pdf_text(body)
     return body.decode("utf-8", errors="replace")
