@@ -134,7 +134,8 @@ def actionable_steps(steps: list[dict[str, Any]] | None) -> list[dict[str, Any]]
 # точного текста) их не склеил. Канон сводит однотипные действия к одной задаче:
 # все «отправить …» = одна, все «получить ответ/доступ/данные от клиента» = одна и т.д.
 # Порядок важен — первое совпадение выигрывает.
-MAX_TASKS_PER_MEETING = 3  # хард-кап; планировщик (Phase 2) ужесточит до ≤2 по важности
+MAX_TASKS_PER_MEETING = 3  # хард-кап старой логики next_steps (фолбэк)
+MAX_PLANNED = 2  # хард-кап умного прохода (планировщик и так отдаёт ≤2; это бэкстоп)
 
 _ACTION_RULES = [
     ("send", re.compile(r"отправ|выслать|направи|перешл|скинуть|презентова|показать", re.I)),
@@ -238,6 +239,56 @@ def build_task_fields(
     }
 
 
+def build_description_plan(deal_id: int, deal_title: str | None, analysis: dict[str, Any], item: dict[str, Any]) -> str:
+    """Описание задачи из плана планировщика: что + зачем + контекст встречи."""
+    lines = [f"Что сделать: {_short(item.get('title'), 600)}"]
+    if item.get("rationale"):
+        lines += ["", f"Зачем: {_short(item.get('rationale'), 400)}"]
+    lines += ["", f"Сделка: {deal_title or f'#{deal_id}'} — {PORTAL}/crm/deal/details/{deal_id}/"]
+    mt = analysis.get("meeting_type")
+    mt_label = {"briefing": "первичная встреча", "defense": "защита КП"}.get(str(mt), "встреча")
+    score = analysis.get("score")
+    lines.append(f"Встреча: {mt_label}" + (f", оценка {score}/10" if score else ""))
+    if item.get("deadline"):
+        lines.append(f"Срок по договорённости (из разговора): «{_short(item.get('deadline'), 120)}»")
+    if str(item.get("owner")) == "internal":
+        lines.append("Исполнение: внутреннее (продакшн/отдел), не на стороне клиента.")
+    if analysis.get("verdict"):
+        lines += ["", f"Итог встречи: {_short(analysis.get('verdict'), 600)}"]
+    if analysis.get("client_quote"):
+        lines += ["", f"Цитата клиента: «{_short(analysis.get('client_quote'), 300)}»"]
+    lines += ["", "— Поставлено автоматически из разбора встречи (Командный центр продаж)."]
+    return "\n".join(lines)
+
+
+def build_task_fields_from_plan(
+    *,
+    deal_id: int,
+    deal_title: str | None,
+    responsible_id: int,
+    item: dict[str, Any],
+    analysis: dict[str, Any],
+    base_date: date,
+    creator_id: int = DEFAULT_CREATOR_ID,
+) -> dict[str, Any]:
+    """Поля tasks.task.add из задачи планировщика. Контроль — только если item.control;
+    срок — парсинг короткой формулировки планировщика (иначе следующий рабочий день)."""
+    deadline, _recognized = parse_deadline(item.get("deadline"), base_date)
+    title = _short(item.get("title") or "Следующий шаг по сделке", 120)
+    full_title = f"{deal_title or f'Сделка #{deal_id}'}: {title}"
+    return {
+        "TITLE": _short(full_title, 250),
+        "DESCRIPTION": build_description_plan(deal_id, deal_title, analysis, item),
+        "RESPONSIBLE_ID": int(responsible_id),
+        "CREATED_BY": int(creator_id),
+        "DEADLINE": _deadline_iso(deadline),
+        "UF_CRM_TASK": [f"D_{deal_id}"],
+        "TASK_CONTROL": "Y" if item.get("control") else "N",
+        "ALLOW_CHANGE_DEADLINE": "N",
+        "GROUP_ID": 0,
+    }
+
+
 def create_task(bx, fields: dict[str, Any]) -> int:
     """Создаёт задачу в Bitrix, возвращает её id. Бросает при ошибке API."""
     r = bx.call("tasks.task.add", {"fields": fields})
@@ -273,7 +324,7 @@ def _steps_for_meeting(analysis: dict[str, Any]) -> list[dict[str, Any]]:
 
 def _load_day_meetings(conn, target: date, meeting_id: int | None = None):
     q = (
-        "SELECT m.meeting_id, m.deal_id, m.manager_id, m.analysis_json, d.title "
+        "SELECT m.meeting_id, m.deal_id, m.manager_id, m.analysis_json, d.title, d.stage "
         "FROM meetings m LEFT JOIN deals_snapshot d "
         "ON d.report_date=m.report_date AND d.deal_id=m.deal_id "
         "WHERE m.report_date=%s AND m.analysis_json IS NOT NULL"
@@ -287,36 +338,65 @@ def _load_day_meetings(conn, target: date, meeting_id: int | None = None):
         return cur.fetchall()
 
 
-def create_tasks_for_day(conn, bx, target: date, *, creator_id: int = DEFAULT_CREATOR_ID, meeting_id: int | None = None, dry_run: bool = False) -> list[dict[str, Any]]:
-    """Создаёт задачи Bitrix по следующим шагам встреч за день. Идемпотентно:
-    пропускает шаги, по которым задача уже создана (meeting_tasks.step_key).
-    dry_run=True — только собрать план, без записи. Возвращает список результатов."""
+def _plan_for_meeting(analysis, deal_title, stage, client):
+    """Планировщик-проход. None при ошибке (→ фолбэк на старую логику next_steps);
+    список (возможно пустой) — если планировщик отработал."""
+    from . import task_planner
+
+    try:
+        return task_planner.plan_tasks(analysis, deal_title=deal_title, stage=stage, client=client)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def create_tasks_for_day(conn, bx, target: date, *, creator_id: int = DEFAULT_CREATOR_ID, meeting_id: int | None = None, dry_run: bool = False, client=None) -> list[dict[str, Any]]:
+    """Создаёт задачи Bitrix по итогам встреч за день. Идемпотентно (meeting_tasks.step_key
+    + семантический канон). dry_run=True — только собрать план, без записи в Bitrix/БД.
+
+    client задан → умный проход: планировщик (≤2 рычажных задачи, человеческий заголовок,
+    срок/контроль) → канон-дедуп → постановка. client=None или ошибка планировщика →
+    старая логика next_steps (фолбэк). Возвращает список результатов."""
     import json as _json
 
     results: list[dict[str, Any]] = []
-    for meeting_id_, deal_id, manager_id, analysis_json, deal_title in _load_day_meetings(conn, target, meeting_id):
+    for meeting_id_, deal_id, manager_id, analysis_json, deal_title, stage in _load_day_meetings(conn, target, meeting_id):
         if not deal_id or not manager_id:
             continue
         analysis = analysis_json if isinstance(analysis_json, dict) else _json.loads(analysis_json or "{}")
-        steps = _steps_for_meeting(analysis)
-        if not steps:
+
+        plan = _plan_for_meeting(analysis, deal_title, stage, client) if client is not None else None
+        planner_used = plan is not None
+        if planner_used:
+            # каждый план-айтем несёт what=title — чтобы общий дедуп/идемпотентность работали
+            candidates = [{**t, "what": t.get("title")} for t in plan]
+            cap = MAX_PLANNED
+        else:
+            candidates = _steps_for_meeting(analysis)
+            cap = MAX_TASKS_PER_MEETING
+        if not candidates:
             continue
+
         done_keys = set() if dry_run else existing_step_keys(conn, meeting_id_)
         prior_actions = set() if dry_run else existing_actions(conn, meeting_id_)
-        # Семантический дедуп + кап: однотипное в одну задачу, уже созданное по встрече
-        # (повторный разбор) — пропускаем, не больше MAX_TASKS_PER_MEETING.
-        steps = dedupe_steps(steps, existing_actions=prior_actions)
-        for step in steps:
-            sk = step_key(step.get("what"))
-            entry = {"meeting_id": meeting_id_, "deal_id": deal_id, "what": step.get("what"), "step_key": sk}
+        candidates = dedupe_steps(candidates, existing_actions=prior_actions, cap=cap)
+
+        for cand in candidates:
+            sk = step_key(cand.get("what"))
+            entry = {"meeting_id": meeting_id_, "deal_id": deal_id, "what": cand.get("what"), "step_key": sk, "source": "planner" if planner_used else "legacy"}
             if sk in done_keys:
                 entry["status"] = "skip_exists"
                 results.append(entry)
                 continue
-            fields = build_task_fields(
-                deal_id=deal_id, deal_title=deal_title, responsible_id=manager_id,
-                step=step, analysis=analysis, base_date=target, creator_id=creator_id,
-            )
+            if planner_used:
+                fields = build_task_fields_from_plan(
+                    deal_id=deal_id, deal_title=deal_title, responsible_id=manager_id,
+                    item=cand, analysis=analysis, base_date=target, creator_id=creator_id,
+                )
+            else:
+                fields = build_task_fields(
+                    deal_id=deal_id, deal_title=deal_title, responsible_id=manager_id,
+                    step=cand, analysis=analysis, base_date=target, creator_id=creator_id,
+                )
             entry["fields"] = fields
             if dry_run:
                 entry["status"] = "planned"

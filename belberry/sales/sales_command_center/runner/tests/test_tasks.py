@@ -154,3 +154,43 @@ def test_dedupe_cross_run_skips_existing():
     steps = _steps("Отправить клиенту обновлённые материалы")
     out = T.dedupe_steps(steps, existing_actions={"send"}, cap=10)
     assert out == []
+
+
+# ── Интеграция планировщика в create_tasks_for_day (dry-run, без LLM/Bitrix) ──
+
+class _FakeCur:
+    def __init__(self, rows): self._rows = rows
+    def __enter__(self): return self
+    def __exit__(self, *a): return False
+    def execute(self, *a, **k): pass
+    def fetchall(self): return self._rows
+
+class _FakeConn:
+    def __init__(self, rows): self._rows = rows
+    def cursor(self): return _FakeCur(self._rows)
+
+
+def test_create_tasks_planner_path(monkeypatch):
+    from src import task_planner
+    rows = [(2228, 25118, 2188, {"meeting_type": "defense", "verdict": "v"}, "pedklin.ru", "C10:PREPAYMENT")]
+    monkeypatch.setattr(task_planner, "plan_tasks", lambda *a, **k: [
+        {"title": "Оценить рынок по нейрохирургии для Директа", "type": "internal", "owner": "manager", "deadline": "через неделю", "significance": "high", "rationale": "усилить аргументацию", "control": True},
+        {"title": "Дожать решение администрации", "type": "await", "owner": "manager", "deadline": None, "significance": "high", "rationale": "без решения не двинется", "control": False},
+    ])
+    res = T.create_tasks_for_day(_FakeConn(rows), None, date(2026, 6, 8), dry_run=True, client=object())
+    planned = [r for r in res if r["status"] == "planned"]
+    assert len(planned) == 2
+    assert all(r["source"] == "planner" for r in planned)
+    titles = [r["fields"]["TITLE"] for r in planned]
+    assert titles[0].startswith("pedklin.ru: Оценить рынок")
+    # контроль только на первой; срок «через неделю» от 08.06 → 15.06
+    assert [r["fields"]["TASK_CONTROL"] for r in planned] == ["Y", "N"]
+    assert planned[0]["fields"]["DEADLINE"].startswith("2026-06-15")
+    assert "Зачем: усилить аргументацию" in planned[0]["fields"]["DESCRIPTION"]
+
+
+def test_create_tasks_legacy_fallback_without_client():
+    rows = [(2228, 25118, 2188, {"next_steps": [{"what": "Отправить клиенту КП и кейсы"}]}, "pedklin.ru", "C10:PREPAYMENT")]
+    res = T.create_tasks_for_day(_FakeConn(rows), None, date(2026, 6, 8), dry_run=True)  # client=None
+    planned = [r for r in res if r["status"] == "planned"]
+    assert len(planned) == 1 and planned[0]["source"] == "legacy"
