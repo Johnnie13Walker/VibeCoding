@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Handshake, FileText, Zap } from 'lucide-react';
+import { Handshake, FileText, Zap, Ban } from 'lucide-react';
 import type { LiveFeedItem } from '@/lib/live';
 
 const PORTAL = 'https://belberrycrm.bitrix24.ru';
@@ -9,15 +9,16 @@ const SP_TYPE: Record<string, number> = { meeting: 1048, brief: 1056, kp: 1106 }
 
 function entityUrl(e: LiveFeedItem): string | null {
   if (e.id == null) return null;
-  if (e.kind === 'deal') return `${PORTAL}/crm/deal/details/${e.id}/`;
+  if (e.kind === 'deal' || e.kind === 'reject') return `${PORTAL}/crm/deal/details/${e.id}/`;
   const t = SP_TYPE[e.kind];
   return t ? `${PORTAL}/crm/type/${t}/details/${e.id}/` : null;
 }
 
 const ICON: Record<string, React.ReactNode> = {
   meeting: <Handshake size={16} />, brief: <FileText size={16} />, kp: <FileText size={16} />, deal: <Zap size={16} />,
+  reject: <Ban size={16} />,
 };
-const LABEL: Record<string, string> = { meeting: 'встреча', brief: 'бриф', kp: 'КП', deal: 'сделка' };
+const LABEL: Record<string, string> = { meeting: 'встреча', brief: 'бриф', kp: 'КП', deal: 'сделка', reject: 'отказ' };
 
 function timeOnly(at: string): string {
   try {
@@ -31,6 +32,7 @@ const FILTERS: { key: string; label: string }[] = [
   { key: 'brief', label: 'Брифы' },
   { key: 'kp', label: 'КП' },
   { key: 'deal', label: 'Сделки' },
+  { key: 'reject', label: 'Отказы' },
 ];
 
 export function FeedView({ items, isArchive }: { items: LiveFeedItem[]; isArchive: boolean }) {
@@ -66,7 +68,7 @@ export function FeedView({ items, isArchive }: { items: LiveFeedItem[]; isArchiv
               const url = entityUrl(e);
               const inner = (
                 <>
-                  <span style={{ color: 'var(--bb-violet)', display: 'inline-flex', flex: '0 0 auto' }}>{ICON[e.kind]}</span>
+                  <span style={{ color: e.kind === 'reject' ? '#dc2626' : 'var(--bb-violet)', display: 'inline-flex', flex: '0 0 auto' }}>{ICON[e.kind]}</span>
                   <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     <b style={{ fontWeight: 600 }}>{e.title}</b> <span style={{ color: 'var(--bb-faint)' }}>· {e.manager} · {LABEL[e.kind]}</span>
                   </span>

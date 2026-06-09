@@ -1,9 +1,11 @@
 import 'server-only';
 
-import { eq } from 'drizzle-orm';
+import { and, eq, or, sql } from 'drizzle-orm';
 import { db } from '@/db';
-import { liveChats, liveSnapshot, users, managerActivity, meetings, kpBriefs, dealsSnapshot, reports } from '@/db/schema';
+import { liveChats, liveSnapshot, users, managerActivity, meetings, kpBriefs, dealsSnapshot, reports, dealRejections } from '@/db/schema';
 import { isSalesDept, isTelemarketing } from './dashboard';
+import { SPAM_REASON_10, reasonLabel10 } from './sales-rejections-shared';
+import { reasonLabel as reasonLabel50 } from './telemarketing-shared';
 
 export interface LiveManager {
   managerId: number;
@@ -22,11 +24,62 @@ export interface LiveManager {
 }
 
 export interface LiveFeedItem {
-  kind: 'meeting' | 'brief' | 'kp' | 'deal';
+  kind: 'meeting' | 'brief' | 'kp' | 'deal' | 'reject';
   id: number | null;
   manager: string;
   title: string;
   at: string;
+}
+
+/**
+ * Лента отказов за календарный день (МСК) из событийного слоя deal_rejections
+ * (наполняется sync_rejections.py). «Отказ» = воронка Продажи C10:LOSE (без СПАМа)
+ * + ТМ C50:APOLOGY (отвал; C50:LOSE «отложено» сюда не входит). Имя — из
+ * денормализованного owner_name (cat10, вкл. уволенных), иначе из справочника
+ * (cat50 owner_name=null). Возвращает [] при любой ошибке/отсутствии таблицы.
+ */
+async function rejectionFeed(date: string, nameOf: (id: number | null) => string): Promise<LiveFeedItem[]> {
+  const rejAtMsk = sql`(${dealRejections.rejectedAt} AT TIME ZONE 'Europe/Moscow')::date`;
+  let rows: Array<{
+    dealId: number; categoryId: number | null; reasonId: number | null;
+    assignedBy: number | null; ownerName: string | null; title: string | null; rejectedAt: Date | null;
+  }>;
+  try {
+    rows = await db
+      .select({
+        dealId: dealRejections.dealId,
+        categoryId: dealRejections.categoryId,
+        reasonId: dealRejections.reasonId,
+        assignedBy: dealRejections.assignedBy,
+        ownerName: dealRejections.ownerName,
+        title: dealRejections.title,
+        rejectedAt: dealRejections.rejectedAt,
+      })
+      .from(dealRejections)
+      .where(
+        and(
+          eq(rejAtMsk, date),
+          or(
+            and(eq(dealRejections.stageId, 'C10:LOSE'), sql`${dealRejections.reasonId} IS DISTINCT FROM ${SPAM_REASON_10}`),
+            eq(dealRejections.stageId, 'C50:APOLOGY'),
+          ),
+        ),
+      );
+  } catch {
+    return [];
+  }
+  return rows
+    .filter((r) => r.rejectedAt)
+    .map((r) => {
+      const label = r.categoryId === 50 ? reasonLabel50(r.reasonId) : reasonLabel10(r.reasonId);
+      return {
+        kind: 'reject' as const,
+        id: r.dealId,
+        manager: r.ownerName || nameOf(r.assignedBy),
+        title: `${r.title || 'Сделка'} (${label})`,
+        at: r.rejectedAt ? new Date(r.rejectedAt).toISOString() : '',
+      };
+    });
 }
 
 export interface LiveMeeting {
@@ -170,9 +223,17 @@ export async function getLive(): Promise<LiveData> {
     .filter((k) => keep(k.manager_id))
     .map((k) => ({ id: k.id, title: k.title, manager: nameOf(k.manager_id), dealId: k.deal_id, service: k.service, status: k.status ?? null }));
 
-  const feed: LiveFeedItem[] = (payload.feed ?? [])
+  const baseFeed: LiveFeedItem[] = (payload.feed ?? [])
     .filter((e) => keep(e.manager_id))
     .map((e) => ({ kind: e.kind, id: e.id ?? null, manager: nameOf(e.manager_id), title: e.title, at: e.at }));
+
+  // Отказы дня — отдельный событийный слой (deal_rejections), вплетаем в ленту.
+  const repDate = rows[0].reportDate ? String(rows[0].reportDate) : null;
+  const rejFeed = repDate ? await rejectionFeed(repDate, nameOf) : [];
+  // По реальному моменту времени: baseFeed.at в формате Bitrix (+03:00),
+  // rejFeed.at — ISO/UTC; лексикографически их мешать нельзя.
+  const ts = (s: string) => { const t = Date.parse(s); return Number.isNaN(t) ? 0 : t; };
+  const feed: LiveFeedItem[] = [...baseFeed, ...rejFeed].sort((a, b) => ts(b.at) - ts(a.at)).slice(0, 30);
 
   const totals = {
     dials: shown.reduce((s, m) => s + m.dials, 0),
@@ -326,9 +387,14 @@ export async function getDayBreakdown(date: string): Promise<LiveData | null> {
   // Лента дня — из summary_json (сохраняется дневным прогоном с этого релиза).
   const summaryFeed =
     (repRows[0]?.summary as { feed?: Array<{ kind: LiveFeedItem['kind']; id?: number | null; manager_id: number | null; title: string; at: string }> } | null)?.feed ?? [];
-  const feed: LiveFeedItem[] = summaryFeed
+  const baseFeed: LiveFeedItem[] = summaryFeed
     .filter((e) => keep(e.manager_id))
     .map((e) => ({ kind: e.kind, id: e.id ?? null, manager: nameOf(e.manager_id), title: e.title, at: e.at }));
+  const rejFeed = await rejectionFeed(date, nameOf);
+  // По реальному моменту времени: baseFeed.at в формате Bitrix (+03:00),
+  // rejFeed.at — ISO/UTC; лексикографически их мешать нельзя.
+  const ts = (s: string) => { const t = Date.parse(s); return Number.isNaN(t) ? 0 : t; };
+  const feed: LiveFeedItem[] = [...baseFeed, ...rejFeed].sort((a, b) => ts(b.at) - ts(a.at)).slice(0, 30);
 
   const totals = {
     dials: shown.reduce((s, m) => s + m.dials, 0),
