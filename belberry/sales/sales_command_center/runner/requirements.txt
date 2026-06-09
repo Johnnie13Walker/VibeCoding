@@ -10,3 +10,4 @@ requests==2.32.3
 Pillow==11.0.0
 google-api-python-client==2.149.0
 google-auth==2.35.0
+pypdf==6.13.1

@@ -1,3 +1,4 @@
+import io
 import re
 import time
 import urllib.request
@@ -67,6 +68,26 @@ def _download_transcript(
                 return b""
         time.sleep(2.0 * (attempt + 1))
     return b""
+
+
+def _extract_pdf_text(body: bytes) -> str:
+    """Текст из PDF-транскрипта (memoai.tech отдаёт PDF). Пусто при сбое/скан-PDF."""
+    try:
+        from pypdf import PdfReader
+
+        reader = PdfReader(io.BytesIO(body))
+        return "\n".join((page.extract_text() or "") for page in reader.pages).strip()
+    except Exception as exc:  # noqa: BLE001
+        print(f"[enrich] PDF extract failed: {str(exc)[:200]}", flush=True)
+        return ""
+
+
+def _decode_transcript(body: bytes) -> str:
+    """Байты транскрипта → текст. PDF (`%PDF-`) извлекаем через pypdf, иначе UTF-8.
+    Раньше PDF декодился как UTF-8 → мусор → LLM не мог читать (transcript_based=false)."""
+    if body[:5] == b"%PDF-":
+        return _extract_pdf_text(body)
+    return body.decode("utf-8", errors="replace")
 
 
 def _duration_seconds_from_text(text: str) -> int | None:
@@ -140,7 +161,16 @@ def enrich_meetings(
                 "meeting_title": meeting.get("title"),
             }
             continue
-        text = body.decode("utf-8", errors="replace")
+        text = _decode_transcript(body)
+        # PDF без текстового слоя (скан) или сбой извлечения → нет пригодного транскрипта.
+        if not text.strip():
+            cache[meeting_id] = {
+                "text": "",
+                "transcript_status": "missing",
+                "url": url,
+                "meeting_title": meeting.get("title"),
+            }
+            continue
         cache[meeting_id] = {
             "text": text,
             "transcript_status": _validate_match(meeting, text),
