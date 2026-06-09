@@ -1,11 +1,10 @@
 import 'server-only';
 
-import { and, eq, or, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { liveChats, liveSnapshot, users, managerActivity, meetings, kpBriefs, dealsSnapshot, reports, dealRejections } from '@/db/schema';
 import { isSalesDept, isTelemarketing } from './dashboard';
-import { SPAM_REASON_10, reasonLabel10 } from './sales-rejections-shared';
-import { reasonLabel as reasonLabel50 } from './telemarketing-shared';
+import { SALES_LOSE_STAGE, SPAM_REASON_10, reasonLabel10 } from './sales-rejections-shared';
 
 export interface LiveManager {
   managerId: number;
@@ -33,22 +32,21 @@ export interface LiveFeedItem {
 
 /**
  * Лента отказов за календарный день (МСК) из событийного слоя deal_rejections
- * (наполняется sync_rejections.py). «Отказ» = воронка Продажи C10:LOSE (без СПАМа)
- * + ТМ C50:APOLOGY (отвал; C50:LOSE «отложено» сюда не входит). Имя — из
- * денормализованного owner_name (cat10, вкл. уволенных), иначе из справочника
- * (cat50 owner_name=null). Возвращает [] при любой ошибке/отсутствии таблицы.
+ * (наполняется sync_rejections.py). «Отказ» = ТОЛЬКО воронка Продажи C10:LOSE
+ * (без СПАМа); ТМ-отвалы сюда не входят. Имя владельца — из денормализованного
+ * owner_name (вкл. уволенных), иначе из справочника. Возвращает [] при любой
+ * ошибке/отсутствии таблицы.
  */
 async function rejectionFeed(date: string, nameOf: (id: number | null) => string): Promise<LiveFeedItem[]> {
   const rejAtMsk = sql`(${dealRejections.rejectedAt} AT TIME ZONE 'Europe/Moscow')::date`;
   let rows: Array<{
-    dealId: number; categoryId: number | null; reasonId: number | null;
+    dealId: number; reasonId: number | null;
     assignedBy: number | null; ownerName: string | null; title: string | null; rejectedAt: Date | null;
   }>;
   try {
     rows = await db
       .select({
         dealId: dealRejections.dealId,
-        categoryId: dealRejections.categoryId,
         reasonId: dealRejections.reasonId,
         assignedBy: dealRejections.assignedBy,
         ownerName: dealRejections.ownerName,
@@ -59,10 +57,8 @@ async function rejectionFeed(date: string, nameOf: (id: number | null) => string
       .where(
         and(
           eq(rejAtMsk, date),
-          or(
-            and(eq(dealRejections.stageId, 'C10:LOSE'), sql`${dealRejections.reasonId} IS DISTINCT FROM ${SPAM_REASON_10}`),
-            eq(dealRejections.stageId, 'C50:APOLOGY'),
-          ),
+          eq(dealRejections.stageId, SALES_LOSE_STAGE),
+          sql`${dealRejections.reasonId} IS DISTINCT FROM ${SPAM_REASON_10}`,
         ),
       );
   } catch {
@@ -70,16 +66,13 @@ async function rejectionFeed(date: string, nameOf: (id: number | null) => string
   }
   return rows
     .filter((r) => r.rejectedAt)
-    .map((r) => {
-      const label = r.categoryId === 50 ? reasonLabel50(r.reasonId) : reasonLabel10(r.reasonId);
-      return {
-        kind: 'reject' as const,
-        id: r.dealId,
-        manager: r.ownerName || nameOf(r.assignedBy),
-        title: `${r.title || 'Сделка'} (${label})`,
-        at: r.rejectedAt ? new Date(r.rejectedAt).toISOString() : '',
-      };
-    });
+    .map((r) => ({
+      kind: 'reject' as const,
+      id: r.dealId,
+      manager: r.ownerName || nameOf(r.assignedBy),
+      title: `${r.title || 'Сделка'} (${reasonLabel10(r.reasonId)})`,
+      at: r.rejectedAt ? new Date(r.rejectedAt).toISOString() : '',
+    }));
 }
 
 export interface LiveMeeting {
