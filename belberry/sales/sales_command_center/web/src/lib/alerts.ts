@@ -11,6 +11,7 @@ export interface BurningDeal {
   stageLabel: string;
   amount: number;
   stuckDays: number;
+  managerId: number | null;
   manager: string;
   severity: 'critical' | 'warning';
   reason: string;
@@ -23,6 +24,7 @@ export interface SilentDeal {
   amount: number;
   silenceDays: number;
   lastCommAt: string | null;
+  managerId: number | null;
   manager: string;
   severity: 'critical' | 'warning';
   reason: string;
@@ -32,6 +34,7 @@ export interface TaskItem {
   taskId: number;
   title: string;
   dealId: number | null;
+  managerId: number | null;
   manager: string;
   deadline: string | null;
   status: number | null;
@@ -39,11 +42,21 @@ export interface TaskItem {
   overdue: boolean;
 }
 
+/** Менеджер для фильтра-мультивыбора (собирается из всех алертов). */
+export interface AlertManager {
+  managerId: number;
+  name: string;
+  isActive: boolean;
+}
+
 export interface AlertsData {
   snapshotDate: string | null;
+  /** Полные отсортированные списки (срез топ-N делается на клиенте после фильтра). */
   burning: BurningDeal[];
   silent: SilentDeal[];
   tasks: TaskItem[];
+  /** Менеджеры, встречающиеся в алертах, — опции фильтра. */
+  managers: AlertManager[];
   count: number;
 }
 
@@ -109,8 +122,11 @@ export async function getAlerts(): Promise<AlertsData> {
   const latest = await db.select({ d: sql<string>`max(${dealsSnapshot.reportDate})` }).from(dealsSnapshot);
   const snapshotDate = latest[0]?.d ?? null;
 
-  const userRows = await db.select({ id: users.bitrixId, name: users.name }).from(users);
-  const userMap = new Map(userRows.map((u) => [u.id, u.name]));
+  const userRows = await db
+    .select({ id: users.bitrixId, name: users.name, isActive: users.isActive })
+    .from(users);
+  const userMap = new Map(userRows.map((u) => [u.id, u]));
+  const nameOf = (id: number | null | undefined) => (id && userMap.get(id)?.name) || '—';
 
   // Горящие сделки — открытые кат.10 на последнем снимке, застрявшие.
   const burning: BurningDeal[] = [];
@@ -142,7 +158,8 @@ export async function getAlerts(): Promise<AlertsData> {
         amount,
         silenceDays: days,
         lastCommAt: r.lastCommAt ?? null,
-        manager: (r.managerId && userMap.get(r.managerId)) || '—',
+        managerId: r.managerId ?? null,
+        manager: nameOf(r.managerId),
         severity: silenceSeverity(days),
         reason: silenceReason(r.lastCommAt, days),
       });
@@ -162,7 +179,8 @@ export async function getAlerts(): Promise<AlertsData> {
         stageLabel: STAGE_META[r.stage]?.label ?? r.stage,
         amount,
         stuckDays,
-        manager: (r.managerId && userMap.get(r.managerId)) || '—',
+        managerId: r.managerId ?? null,
+        manager: nameOf(r.managerId),
         severity: dealSeverity(amount, stuckDays),
         reason: dealReason(amount, stuckDays),
       });
@@ -187,7 +205,7 @@ export async function getAlerts(): Promise<AlertsData> {
     .from(meetingTasks)
     .where(eq(meetingTasks.closed, false))
     .orderBy(asc(meetingTasks.deadline))
-    .limit(50);
+    .limit(200);
 
   const tasks: TaskItem[] = taskRows.map((t) => {
     const deadline = t.deadline ? new Date(t.deadline) : null;
@@ -195,7 +213,8 @@ export async function getAlerts(): Promise<AlertsData> {
       taskId: t.taskId,
       title: t.title ?? `Задача #${t.taskId}`,
       dealId: t.dealId,
-      manager: (t.responsibleId && userMap.get(t.responsibleId)) || '—',
+      managerId: t.responsibleId ?? null,
+      manager: nameOf(t.responsibleId),
       deadline: deadline ? deadline.toISOString() : null,
       status: t.status,
       statusLabel: (t.status != null && STATUS_LABEL[t.status]) || 'в работе',
@@ -203,9 +222,22 @@ export async function getAlerts(): Promise<AlertsData> {
     };
   });
 
+  // Менеджеры для фильтра — уникальные из всех трёх списков, по алфавиту.
+  const seen = new Map<number, AlertManager>();
+  for (const id of [
+    ...burning.map((b) => b.managerId),
+    ...silent.map((s) => s.managerId),
+    ...tasks.map((t) => t.managerId),
+  ]) {
+    if (id == null || seen.has(id)) continue;
+    const u = userMap.get(id);
+    seen.set(id, { managerId: id, name: u?.name ?? `#${id}`, isActive: u?.isActive ?? true });
+  }
+  const managers = [...seen.values()].sort((a, b) => a.name.localeCompare(b.name, 'ru'));
+
   const count =
     burning.filter((b) => b.severity === 'critical').length +
     silent.filter((s) => s.severity === 'critical').length +
     tasks.filter((t) => t.overdue).length;
-  return { snapshotDate, burning: burning.slice(0, 12), silent: silent.slice(0, 15), tasks, count };
+  return { snapshotDate, burning, silent, tasks, managers, count };
 }
