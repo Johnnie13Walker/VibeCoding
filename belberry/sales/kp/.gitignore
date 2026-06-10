@@ -1,0 +1,12 @@
+# рабочие артефакты прогонов (пер-запуск, генерятся скриптами в cwd)
+/audit.json
+/bitrix.json
+/metrika.json
+/prodoctorov.json
+/seo_benchmark.html
+/problem_solution.html
+clients/*/kp_job.json
+# скачанные КП выигравших сделок (клиентские сметы, тянутся из Bitrix скриптом)
+won_kp/
+# дубликаты Finder
+* 2.*

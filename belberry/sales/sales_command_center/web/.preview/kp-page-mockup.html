@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Мокап · /kp · сборка КП в Командном центре</title>
+<style>
+  :root {
+    --bb-violet: #5b50d6; --bb-violet-soft: #f0eefb; --bb-ink: #1d1d1f;
+    --bb-muted: #6e6e73; --bb-faint: #9a9aa0; --bb-line: #ece8e3;
+    --bb-red: #d4202e; --bb-amber: #e88a3b; --bb-green: #2c7a4a;
+    --bb-shadow: 0 1px 2px rgba(0,0,0,.04), 0 8px 24px rgba(20,18,60,.05);
+    --bb-canvas: #f6f5f2;
+  }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bb-canvas); color: var(--bb-ink); margin: 0; padding: 28px; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1.page { font-size: 22px; margin: 0 0 6px; letter-spacing: -0.02em; }
+  p.lead { color: var(--bb-muted); font-size: 14px; margin: 0 0 8px; }
+  ul.notes { color: var(--bb-faint); font-size: 12.5px; margin: 0 0 22px; padding-left: 18px; }
+  ul.notes li { margin: 3px 0; }
+  ul.notes b { color: var(--bb-muted); }
+
+  .bb-card { background: #fff; border: 1px solid var(--bb-line); border-radius: 18px; padding: 20px; box-shadow: var(--bb-shadow); margin-bottom: 16px; }
+  .bb-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; margin-bottom: 16px; }
+  .bb-grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; align-items: stretch; }
+  .bb-sect-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .bb-sect-head h2 { font-size: 17px; font-weight: 700; letter-spacing: -0.02em; margin: 0; }
+  .bb-sect-head small { color: var(--bb-faint); font-size: 12.5px; font-weight: 500; margin-left: auto; }
+  .bb-sect-ic { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; background: var(--bb-violet-soft); color: var(--bb-violet); flex: 0 0 30px; font-size: 16px; }
+  .title { display: inline-flex; align-items: center; gap: 5px; font-size: 14px; font-weight: 600; color: var(--bb-ink); text-decoration: none; }
+  .title:hover { color: var(--bb-violet); }
+  .ext { opacity: .45; font-size: 11px; }
+  .meta { font-size: 12px; color: var(--bb-faint); margin: 2px 0 0; }
+  .b-svc { background: var(--bb-violet-soft); color: var(--bb-violet); font-size: 11px; font-weight: 700; border-radius: 999px; padding: 3px 9px; white-space: nowrap; }
+  .mtype-bf { color: #6257d6; font-weight: 600; }
+  .mtype-df { color: #c0297e; font-weight: 600; }
+
+  /* ─── Кнопки ─── */
+  .btn { display: inline-flex; align-items: center; gap: 7px; font-size: 13.5px; font-weight: 600; border-radius: 10px; padding: 9px 16px; border: 1px solid var(--bb-line); background: #fff; color: var(--bb-ink); cursor: pointer; text-decoration: none; }
+  .btn:hover { border-color: var(--bb-violet); color: var(--bb-violet); }
+  .btn-primary { background: var(--bb-violet); border-color: var(--bb-violet); color: #fff; }
+  .btn-primary:hover { background: #4a40c2; color: #fff; }
+  .btn-ghost { background: transparent; border-color: transparent; color: var(--bb-muted); padding: 9px 10px; }
+  .btn:disabled, .btn.is-disabled { opacity: .45; cursor: not-allowed; }
+
+  /* ─── Карточка-триггер (как в карточке встречи) ─── */
+  .trigger { display: flex; align-items: center; gap: 16px; }
+  .trigger .grow { flex: 1; min-width: 0; }
+  .trigger .acts { display: flex; gap: 9px; flex: 0 0 auto; }
+  .dealbadges { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 7px; }
+  .pill { font-size: 11.5px; font-weight: 600; border-radius: 999px; padding: 3px 10px; border: 1px solid var(--bb-line); color: var(--bb-muted); }
+  .pill.ok { color: var(--bb-green); border-color: #cfe6d8; background: #f1f9f4; }
+  .pill.warn { color: var(--bb-amber); border-color: #f4e0c8; background: #fdf6ec; }
+
+  /* ─── Степпер пайплайна ─── */
+  .steps { display: flex; flex-direction: column; gap: 0; }
+  .step { display: flex; gap: 14px; padding: 13px 0; border-bottom: 1px solid var(--bb-line); align-items: flex-start; }
+  .step:last-child { border-bottom: 0; }
+  .step-dot { flex: 0 0 26px; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 700; }
+  .s-done .step-dot { background: #eaf6ef; color: var(--bb-green); }
+  .s-run .step-dot { background: var(--bb-violet-soft); color: var(--bb-violet); animation: pulse 1.4s ease-in-out infinite; }
+  .s-wait .step-dot { background: #f1f0ee; color: var(--bb-faint); }
+  @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(91,80,214,.35);} 50% { box-shadow: 0 0 0 5px rgba(91,80,214,0);} }
+  .step-body { flex: 1; min-width: 0; }
+  .step-t { font-size: 14px; font-weight: 600; }
+  .step-d { font-size: 12.5px; color: var(--bb-muted); margin-top: 2px; }
+  .step-src { font-size: 11.5px; color: var(--bb-faint); margin-top: 3px; }
+  .step-src code { background: #f4f3f1; border-radius: 5px; padding: 1px 5px; font-size: 11px; }
+  .step-stat { flex: 0 0 auto; font-size: 12px; font-weight: 600; padding-top: 3px; white-space: nowrap; }
+  .s-done .step-stat { color: var(--bb-green); }
+  .s-run .step-stat { color: var(--bb-violet); }
+  .s-wait .step-stat { color: var(--bb-faint); }
+
+  /* ─── Аудит-плитки ─── */
+  .audit { display: flex; flex-direction: column; height: 100%; }
+  .audit-h { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; margin-bottom: 8px; }
+  .audit-h .src { margin-left: auto; font-size: 11px; font-weight: 500; color: var(--bb-faint); }
+  .metric { display: flex; justify-content: space-between; font-size: 12.5px; padding: 4px 0; border-bottom: 1px dashed var(--bb-line); }
+  .metric:last-child { border-bottom: 0; }
+  .metric .v { font-weight: 700; font-variant-numeric: tabular-nums; }
+  .v.bad { color: var(--bb-red); } .v.good { color: var(--bb-green); }
+
+  /* ─── Слайды черновика ─── */
+  .slides { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .slide { aspect-ratio: 4/3; border: 1px solid var(--bb-line); border-radius: 10px; background: linear-gradient(160deg, #fbfaff, #f3f1fb); padding: 9px; font-size: 10.5px; color: var(--bb-muted); position: relative; overflow: hidden; }
+  .slide b { display: block; color: var(--bb-ink); font-size: 11px; margin-bottom: 3px; }
+  .slide .num { position: absolute; bottom: 6px; right: 8px; font-size: 9px; color: var(--bb-faint); }
+
+  .verdict { font-size: 13.5px; line-height: 1.5; }
+  .verdict .q { color: var(--bb-muted); font-style: italic; border-left: 2px solid var(--bb-violet); padding-left: 10px; margin: 8px 0; }
+  .kv { display: flex; gap: 8px; font-size: 13px; padding: 5px 0; }
+  .kv .k { color: var(--bb-faint); flex: 0 0 130px; }
+  .kv .val { font-weight: 600; }
+
+  .footer-acts { display: flex; gap: 10px; flex-wrap: wrap; padding-top: 4px; }
+  .legend { display: flex; gap: 14px; font-size: 11.5px; color: var(--bb-faint); margin: 2px 0 18px; }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .ldot { width: 9px; height: 9px; border-radius: 50%; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1 class="page">/kp · Сборка коммерческого предложения</h1>
+  <p class="lead">Мокап встройки КП-движка в Командный центр продаж. Запуск из карточки встречи → сквозной пайплайн → закреплённое КП со стратегией защиты. Тестовые данные.</p>
+  <ul class="notes">
+    <li>Точка входа — кнопка <b>«Собрать КП»</b> в карточке встречи (Защита КП) или по команде <b>/kp &lt;deal&gt;</b> в Telegram.</li>
+    <li>Пайплайн переиспользует то, что уже в SCC: <b>deal_brain</b> (разбор), <b>kp/ аудиты</b> (PR-CY / Метрика / ПроДокторов / Bitrix), <b>build.sh</b> (HTML→PDF→PPTX), <b>bx_client</b> (прикреп).</li>
+    <li>Состояние стадий — в Postgres (<b>kp_jobs</b>), идемпотентно: повторный запуск догоняет с прерванной стадии, а не с нуля.</li>
+    <li>«Прикрепить в Bitrix» отдельной кнопкой — менеджер сперва смотрит черновик, не автопостинг.</li>
+  </ul>
+
+  <!-- ─── ТРИГГЕР: контекст сделки ─── -->
+  <div class="bb-card">
+    <div class="trigger">
+      <span class="bb-sect-ic" style="width:38px;height:38px;font-size:19px;flex:0 0 38px">📑</span>
+      <div class="grow">
+        <a class="title" href="#" style="font-size:16px">dental-lux.ru <span class="ext">↗</span></a>
+        <p class="meta"><span class="mtype-df">Защита КП</span> · сделка #24012 · Деговцова Мария · воронка Продажи</p>
+        <div class="dealbadges">
+          <span class="pill ok">✓ 2 транскрипта (брифинг + защита)</span>
+          <span class="pill ok">✓ ИНН найден</span>
+          <span class="pill ok">✓ Метрика 100600199</span>
+          <span class="pill warn">⚠ бюджет сделки 0 ₽</span>
+        </div>
+      </div>
+      <div class="acts">
+        <a class="btn btn-ghost" href="#">Открыть сделку ↗</a>
+        <a class="btn btn-primary" href="#">⚙ Собрать КП</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span><i class="ldot" style="background:var(--bb-green)"></i> готово</span>
+    <span><i class="ldot" style="background:var(--bb-violet)"></i> выполняется</span>
+    <span><i class="ldot" style="background:var(--bb-faint)"></i> в очереди</span>
+  </div>
+
+  <!-- ─── ПАЙПЛАЙН ─── -->
+  <div class="bb-card">
+    <div class="bb-sect-head"><span class="bb-sect-ic">🔄</span><h2>Пайплайн</h2><small>job #kp-24012-1 · стадия 4/7 · ~40 сек</small></div>
+    <div class="steps">
+
+      <div class="step s-done">
+        <span class="step-dot">✓</span>
+        <div class="step-body">
+          <div class="step-t">1 · Разбор сделки</div>
+          <div class="step-d">Оба транскрипта прочитаны, разобрано как коммерческий директор: реальные потребности, главная боль, kp_alignment.</div>
+          <div class="step-src">источник: <code>deal_brain_proto.py</code> · модель Opus · 2 встречи СП 1048</div>
+        </div>
+        <div class="step-stat">3.1 сек</div>
+      </div>
+
+      <div class="step s-done">
+        <span class="step-dot">✓</span>
+        <div class="step-body">
+          <div class="step-t">2 · Аудиты сайта и репутации</div>
+          <div class="step-d">ИКС/индексация + динамика трафика + карточки-отзывы + Bitrix-в-движок. Результаты — в карточках ниже.</div>
+          <div class="step-src">источник: <code>kp/ bitrix_audit.py · metrika_audit.py · prodoctorov_audit.py</code> · PR-CY API</div>
+        </div>
+        <div class="step-stat">11 сек</div>
+      </div>
+
+      <div class="step s-done">
+        <span class="step-dot">✓</span>
+        <div class="step-body">
+          <div class="step-t">3 · Подбор кейсов и продуктов</div>
+          <div class="step-d">3 релевантных кейса из портфолио (мед-ниша) + товарные строки сметы по PRODUCT-MATRIX.</div>
+          <div class="step-src">источник: портфолио-таблица · <code>PRODUCT-MATRIX.md</code></div>
+        </div>
+        <div class="step-stat">2.4 сек</div>
+      </div>
+
+      <div class="step s-run">
+        <span class="step-dot">●</span>
+        <div class="step-body">
+          <div class="step-t">4 · Сборка деки</div>
+          <div class="step-d">Рендер HTML по эталону med-shushary → PDF → PPTX. Денежный поток 1-й / 2-й / 12 мес, дисклеймер прогнозов.</div>
+          <div class="step-src">источник: <code>kp/build.sh</code> · эталон clients/med-shushary (16 слайдов)</div>
+        </div>
+        <div class="step-stat">рендер…</div>
+      </div>
+
+      <div class="step s-wait">
+        <span class="step-dot">5</span>
+        <div class="step-body">
+          <div class="step-t">5 · Стратегия защиты</div>
+          <div class="step-d">Аргументация по возражениям с брифинга + запрос следующих шагов у клиента → комментарий менеджеру.</div>
+          <div class="step-src">источник: <code>analyze_llm</code> · чек-лист «защита КП»</div>
+        </div>
+        <div class="step-stat">в очереди</div>
+      </div>
+
+      <div class="step s-wait">
+        <span class="step-dot">6</span>
+        <div class="step-body">
+          <div class="step-t">6 · Превью менеджеру</div>
+          <div class="step-d">Черновик КП + стратегия показываются здесь и уходят в Telegram. Прикреп — по подтверждению.</div>
+          <div class="step-src">источник: <code>notify.py</code> · web /kp</div>
+        </div>
+        <div class="step-stat">в очереди</div>
+      </div>
+
+      <div class="step s-wait">
+        <span class="step-dot">7</span>
+        <div class="step-body">
+          <div class="step-t">7 · Прикреп в Bitrix</div>
+          <div class="step-d">.docx-разбор → поле «Аудит сделки (Word)», .pdf КП → таймлайн-комментарий. Только после кнопки.</div>
+          <div class="step-src">источник: <code>bx_client</code> · crm.deal.update <code>UF_CRM_DEAL_AUDIT</code></div>
+        </div>
+        <div class="step-stat">по кнопке</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ─── АУДИТЫ ─── -->
+  <div class="bb-sect-head"><span class="bb-sect-ic">🔍</span><h2>Результаты аудита</h2><small>фактура для слайдов КП</small></div>
+  <div class="bb-grid3" style="margin-bottom:16px">
+    <div class="bb-card audit">
+      <div class="audit-h">📊 SEO-показатели <span class="src">PR-CY</span></div>
+      <div class="metric"><span>ИКС</span><span class="v">1 200</span></div>
+      <div class="metric"><span>Индексация Яндекс</span><span class="v bad">412 / 1 380</span></div>
+      <div class="metric"><span>Индексация Google</span><span class="v good">1 290</span></div>
+      <div class="metric"><span>Трафик 6 мес</span><span class="v bad">−34%</span></div>
+    </div>
+    <div class="bb-card audit">
+      <div class="audit-h">📈 Посещаемость <span class="src">Метрика</span></div>
+      <div class="metric"><span>Визиты / мес</span><span class="v">8 420</span></div>
+      <div class="metric"><span>Отказы</span><span class="v bad">31%</span></div>
+      <div class="metric"><span>Из поиска</span><span class="v">46%</span></div>
+      <div class="metric"><span>Конверсия заявок</span><span class="v">1.8%</span></div>
+    </div>
+    <div class="bb-card audit">
+      <div class="audit-h">⭐ Репутация <span class="src">ПроДокторов</span></div>
+      <div class="metric"><span>Рейтинг клиники</span><span class="v">4.6</span></div>
+      <div class="metric"><span>Отзывов</span><span class="v">218</span></div>
+      <div class="metric"><span>Без ответа врача</span><span class="v bad">73</span></div>
+      <div class="metric"><span>Карточек врачей</span><span class="v">12</span></div>
+    </div>
+  </div>
+
+  <!-- ─── ЧЕРНОВИК + СТРАТЕГИЯ ─── -->
+  <div class="bb-grid2">
+    <div class="bb-card">
+      <div class="bb-sect-head"><span class="bb-sect-ic">🖼</span><h2>Черновик КП</h2><small>16 слайдов · собирается</small></div>
+      <div class="slides">
+        <div class="slide"><b>Титул</b>dental-lux.ru · Belberry<span class="num">01</span></div>
+        <div class="slide"><b>Проблема</b>трафик −34%, отказы 31%<span class="num">03</span></div>
+        <div class="slide"><b>SEO вы и соседи</b>ИКС 1200 vs конкуренты<span class="num">05</span></div>
+        <div class="slide"><b>Решение</b>SEO + лендинг<span class="num">08</span></div>
+        <div class="slide"><b>Кейсы</b>3 мед-клиники<span class="num">11</span></div>
+        <div class="slide"><b>Смета</b>со скидкой 5%<span class="num">13</span></div>
+        <div class="slide"><b>Ден. поток</b>1 / 2 / 12 мес<span class="num">14</span></div>
+        <div class="slide"><b>Дипломы</b>Рейтинг Рунета<span class="num">16</span></div>
+      </div>
+      <div class="footer-acts" style="margin-top:14px">
+        <a class="btn is-disabled" href="#">⬇ PDF</a>
+        <a class="btn is-disabled" href="#">⬇ PPTX</a>
+        <span style="font-size:12px;color:var(--bb-faint);align-self:center">доступно после сборки</span>
+      </div>
+    </div>
+
+    <div class="bb-card">
+      <div class="bb-sect-head"><span class="bb-sect-ic">🛡</span><h2>Стратегия защиты</h2><small>превью</small></div>
+      <div class="verdict">
+        <div class="kv"><span class="k">Главная боль</span><span class="val">Заявки падают — поиск просел, лендинга под услугу нет</span></div>
+        <div class="kv"><span class="k">kp_alignment</span><span class="val" style="color:var(--bb-green)">соответствует</span></div>
+        <div class="kv"><span class="k">Вероятность закрытия</span><span class="val">средняя · упереть в просадку трафика</span></div>
+        <p style="margin:12px 0 6px;font-weight:600">Ключевой аргумент на защите:</p>
+        <div class="q">«У вас за полгода −34% органики и 73 отзыва без ответа врача. КП закрывает оба: SEO вытягивает поиск, ORM — карточки на ПроДокторов.»</div>
+        <p style="margin:10px 0 6px;font-weight:600">Закрыть встречу:</p>
+        <div class="q">«Запросить у клиента следующий шаг — договор/пилот, не отпускать на „мы подумаем“.»</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── ФИНАЛЬНЫЕ ДЕЙСТВИЯ ─── -->
+  <div class="bb-card" style="display:flex;align-items:center;gap:14px">
+    <div class="grow" style="flex:1">
+      <div style="font-size:14px;font-weight:600">Готово к закреплению</div>
+      <div style="font-size:12.5px;color:var(--bb-muted);margin-top:2px">.docx разбор → поле «Аудит сделки (Word)» · .pdf КП → комментарий в таймлайн сделки #24012</div>
+    </div>
+    <a class="btn" href="#">Отправить в Telegram</a>
+    <a class="btn btn-primary is-disabled" href="#">📎 Прикрепить в Bitrix</a>
+  </div>
+
+</div>
+</body>
+</html>
