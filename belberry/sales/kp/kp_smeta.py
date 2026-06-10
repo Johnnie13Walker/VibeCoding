@@ -36,7 +36,8 @@ MIN_CHECK = {
     "lp": 140_000, "branding": 77_500,
 }
 
-# заготовки строк по услугам (тарифы матрицы; часы/состав правит сейлс)
+# заготовки строк по услугам (тарифы матрицы, сняты 10.06.2026; состав правит сейлс)
+# строка-«секция» {"section": "..."} рисует заголовок этапа; итог этапа считается сам
 PRESETS = {
     "seo": {"service": "seo", "items": [
         {"name": "SEO-продвижение: техника, контент, ссылки (42 ч/мес)", "monthly": 85_000},
@@ -45,12 +46,86 @@ PRESETS = {
     "program": {"service": "program", "items": [
         {"name": "Техподдержка, тариф «Цикл» (10 ч/мес)", "hours": 10, "rate": 3_100},
     ]},
+    "program-deposit": {"service": "program", "items": [
+        {"name": "Техподдержка, тариф «Депозит» (10 ч/мес)", "hours": 10, "rate": 3_900},
+    ]},
     "orm": {"service": "orm", "items": [
         {"name": "Управление репутацией, тариф «Старт» (от 3 карточек)", "monthly": 60_000},
     ]},
     "ppc": {"service": "ppc", "items": [
         {"name": "Ведение контекстной рекламы (фикс, бюджет 150–300 тыс)", "monthly": 65_000},
         {"name": "Рекламный бюджет Яндекса — оплачивается напрямую, в смету не входит", "monthly": 0},
+    ]},
+    # сайт на шаблоне 1С-Битрикс (вкладка «ТВ»; ставка 2 800 ₽/ч; итог матрицы 681 100)
+    "tv": {"service": "tv", "items": [
+        {"section": "ЭТАП 1: ДИЗАЙН"},
+        {"name": "Разработка технического задания", "hours": 12, "rate": 2_800},
+        {"name": "Покупка шаблона сайта (medberry.website)", "once": 69_000},
+        {"name": "Разворот шаблона на хостинге, настройка под 1С-Битрикс", "hours": 12, "rate": 2_800},
+        {"name": "Подбор и покупка фотоконтента (5 шт)", "once": 14_000},
+        {"name": "Отрисовка баннеров под акции (до 5 шт)", "hours": 10, "rate": 2_800},
+        {"name": "Корректировка цветовой гаммы шаблона", "hours": 8, "rate": 2_800},
+        {"name": "Корректировка страницы «Услуга»", "hours": 10, "rate": 2_800},
+        {"name": "Корректировка главной страницы", "hours": 14, "rate": 2_800},
+        {"section": "ЭТАП 2: ВЁРСТКА И ПРОГРАММИРОВАНИЕ"},
+        {"name": "Вёрстка индивидуальных компонентов (десктоп + адаптив)", "hours": 20, "rate": 2_800},
+        {"name": "Программная связка всех элементов сайта", "hours": 22, "rate": 2_800},
+        {"name": "Лицензия 1С-Битрикс «Стандарт»", "once": 20_500},
+        {"name": "Версия для слабовидящих", "hours": 30, "rate": 2_800},
+        {"section": "ЭТАП 3: НАПОЛНЕНИЕ КОНТЕНТОМ"},
+        {"name": "Подготовка ТЗ для статей (4 шт)", "once": 5_200},
+        {"name": "Тексты услуговых страниц (4 шт)", "once": 20_800},
+        {"name": "Наполнение контентом", "hours": 30, "rate": 2_800},
+        {"name": "Перенос сайта на рабочий домен", "hours": 4, "rate": 2_800},
+        {"name": "Менеджмент проекта", "hours": 10, "rate": 2_800},
+        {"name": "Тестирование сайта", "hours": 15, "rate": 2_800},
+    ]},
+    # интернет-магазин «под ключ» на 1С-Битрикс (вкладка «TA»; итог матрицы 676 101)
+    "ta": {"service": "ta", "items": [
+        {"section": "ЭТАП 1: ДИЗАЙН"},
+        {"name": "Разработка технического задания", "hours": 12, "rate": 2_800},
+        {"name": "Покупка шаблона сайта (acoola-shop.ru, спецпредложение)", "once": 1},
+        {"name": "Разворот шаблона на хостинге, настройка под 1С-Битрикс", "hours": 12, "rate": 2_800},
+        {"name": "Подбор и покупка фотоконтента (5 шт)", "once": 14_000},
+        {"name": "Отрисовка баннеров под спецпредложения (до 5 шт)", "hours": 10, "rate": 2_800},
+        {"name": "Корректировка цветовой гаммы шаблона", "hours": 14, "rate": 2_800},
+        {"name": "Корректировка страницы «Карточка товара»", "hours": 8, "rate": 2_800},
+        {"name": "Корректировка главной страницы", "hours": 14, "rate": 2_800},
+        {"section": "ЭТАП 2: ВЁРСТКА И ПРОГРАММИРОВАНИЕ (VUE)"},
+        {"name": "Вёрстка индивидуальных компонентов (десктоп + адаптив)", "hours": 20, "rate": 2_800},
+        {"name": "Программная связка всех элементов сайта", "hours": 35, "rate": 2_800},
+        {"name": "Лицензия 1С-Битрикс «Малый бизнес»", "once": 47_000},
+        {"section": "ЭТАП 3: НАПОЛНЕНИЕ КОНТЕНТОМ"},
+        {"name": "Подготовка ТЗ для статей (4 шт)", "once": 5_200},
+        {"name": "Тексты услуговых страниц (4 шт)", "once": 20_800},
+        {"name": "Перенос контента с текущего сайта", "hours": 16, "rate": 2_800},
+        {"name": "Интеграция системы оплаты (банк)", "once": 46_000},
+        {"name": "Интеграция системы оплаты (СБП)", "once": 16_100},
+        {"name": "Интеграция системы доставки", "once": 23_000},
+        {"name": "Перенос сайта на рабочий домен", "hours": 4, "rate": 2_800},
+        {"name": "Менеджмент проекта", "hours": 20, "rate": 2_800},
+        {"name": "Тестирование сайта", "hours": 15, "rate": 2_800},
+    ]},
+    # посадочная страница (вкладка «LP»; итог матрицы 145 300)
+    "lp": {"service": "lp", "items": [
+        {"name": "Разработка дизайна", "hours": 20, "rate": 2_800},
+        {"name": "Вёрстка посадочной страницы (десктоп + адаптив)", "hours": 15, "rate": 2_800},
+        {"name": "Наполнение контентом", "hours": 4, "rate": 2_800},
+        {"name": "Написание контента (до 5 000 символов)", "once": 10_000},
+        {"name": "Корректировка и редактирование текста", "hours": 3, "rate": 2_500},
+        {"name": "Тестирование и проверка форм записи", "hours": 2, "rate": 3_100},
+        {"name": "Перенос на рабочий хостинг и домен", "hours": 4, "rate": 3_100},
+    ]},
+    # фирменный стиль (вкладка «Branding»; ставка 3 100 ₽/ч; итог матрицы 517 700)
+    "branding": {"service": "branding", "items": [
+        {"name": "Логотип (3 первоначальных варианта, 3 доработки одного)", "hours": 25, "rate": 3_100},
+        {"name": "Подбор цветов и шрифтов", "hours": 10, "rate": 3_100},
+        {"name": "Фирменный бланк", "hours": 8, "rate": 3_100},
+        {"name": "Шаблон презентации", "hours": 10, "rate": 3_100},
+        {"name": "Визитка", "hours": 10, "rate": 3_100},
+        {"name": "Наружная вывеска", "hours": 14, "rate": 3_100},
+        {"name": "Упаковка товара", "hours": 20, "rate": 3_100},
+        {"name": "Гайдлайн", "hours": 70, "rate": 3_100},
     ]},
 }
 
@@ -95,6 +170,36 @@ def min_check_guard(subtotal: float, service: str | None,
     return None
 
 
+def build_rows(items: list[dict]) -> tuple[list[dict], float]:
+    """Строки к отрисовке (item / section / section_total) + общий итог без НДС.
+
+    Итог этапа добавляется автоматически перед следующей секцией и в конце,
+    как в выигравших сметах («ИТОГО ЗА ЭТАП …»).
+    """
+    rows, subtotal = [], 0.0
+    sec_name, sec_sum = None, 0.0
+
+    def close_section():
+        nonlocal sec_name, sec_sum
+        if sec_name is not None:
+            rows.append({"kind": "section_total",
+                         "name": f"Итого за {sec_name.lower()}", "total": round(sec_sum, 2)})
+        sec_name, sec_sum = None, 0.0
+
+    for it in items:
+        if "section" in it:
+            close_section()
+            sec_name, sec_sum = it["section"], 0.0
+            rows.append({"kind": "section", "name": it["section"]})
+            continue
+        total = line_total(it)
+        subtotal += total
+        sec_sum += total
+        rows.append({"kind": "item", "item": it, "total": round(total, 2)})
+    close_section()
+    return rows, round(subtotal, 2)
+
+
 def validate_smeta(spec: dict) -> list[str]:
     """Ошибки спеки до генерации: пустые строки, отрицательные суммы, нет клиента."""
     errs = []
@@ -104,6 +209,10 @@ def validate_smeta(spec: dict) -> list[str]:
     if not items:
         errs.append("нет строк items")
     for i, it in enumerate(items, 1):
+        if "section" in it:
+            if not it["section"]:
+                errs.append(f"строка {i}: пустое имя секции")
+            continue
         if not it.get("name"):
             errs.append(f"строка {i}: нет name")
         if line_total(it) < 0:
@@ -154,17 +263,34 @@ def write_xlsx(spec: dict, out_path: Path) -> None:
         c.alignment = Alignment(horizontal="left" if col == 1 else "right")
     r += 1
 
-    subtotal = 0.0
-    for it in spec["items"]:
-        total = line_total(it)
-        subtotal += total
+    rows, subtotal = build_rows(spec["items"])
+    soft = PatternFill("solid", fgColor="F2F2F4")
+    for row in rows:
+        if row["kind"] == "section":
+            c = ws.cell(row=r, column=1, value=row["name"])
+            c.font = Font(bold=True, size=10, color=accent)
+            for col in range(1, 5):
+                ws.cell(row=r, column=col).fill = soft
+            r += 1
+            continue
+        if row["kind"] == "section_total":
+            lc = ws.cell(row=r, column=1, value=row["name"])
+            vc = ws.cell(row=r, column=4, value=row["total"])
+            vc.number_format = money
+            vc.alignment = Alignment(horizontal="right")
+            lc.font = vc.font = Font(bold=True, size=10, color=ink)
+            for col in range(1, 5):
+                ws.cell(row=r, column=col).border = border
+            r += 1
+            continue
+        it = row["item"]
         ws.cell(row=r, column=1, value=it["name"]).alignment = Alignment(wrap_text=True)
         if it.get("hours") is not None:
             ws.cell(row=r, column=2, value=it["hours"]).alignment = Alignment(horizontal="right")
             rc = ws.cell(row=r, column=3, value=it.get("rate"))
             rc.number_format = money
             rc.alignment = Alignment(horizontal="right")
-        tc = ws.cell(row=r, column=4, value=total)
+        tc = ws.cell(row=r, column=4, value=row["total"])
         tc.number_format = money
         tc.alignment = Alignment(horizontal="right")
         for col in range(1, 5):

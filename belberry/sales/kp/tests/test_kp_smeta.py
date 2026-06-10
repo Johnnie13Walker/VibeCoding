@@ -6,7 +6,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from kp_smeta import (  # noqa: E402
+    PRESETS,
     VAT,
+    build_rows,
     cascade,
     line_total,
     min_check_guard,
@@ -79,3 +81,60 @@ def test_validate_ok():
 def test_vat_is_five_percent():
     """Решение 10.06: все сделки с НДС 5% без указания юрлица."""
     assert VAT == 0.05
+
+
+# ── build_rows (секции-этапы) ─────────────────────────────────────────────────
+
+def test_build_rows_flat_no_section_totals():
+    rows, subtotal = build_rows([{"name": "a", "once": 100}, {"name": "b", "once": 50}])
+    assert subtotal == 150
+    assert [r["kind"] for r in rows] == ["item", "item"]
+
+
+def test_build_rows_sections_with_totals():
+    rows, subtotal = build_rows([
+        {"section": "ЭТАП 1"}, {"name": "a", "once": 100}, {"name": "b", "once": 50},
+        {"section": "ЭТАП 2"}, {"name": "c", "once": 200},
+    ])
+    kinds = [r["kind"] for r in rows]
+    assert kinds == ["section", "item", "item", "section_total",
+                     "section", "item", "section_total"]
+    assert rows[3]["total"] == 150 and rows[6]["total"] == 200
+    assert subtotal == 350
+
+
+def test_validate_allows_sections():
+    assert validate_smeta({"client": "x", "items": [{"section": "ЭТАП 1"},
+                                                    {"name": "a", "once": 1}]}) == []
+
+
+# ── пресеты = итоги продуктовой матрицы (снято 10.06.2026) ───────────────────
+
+def _preset_total(key):
+    return build_rows(PRESETS[key]["items"])[1]
+
+
+def test_preset_tv_total_matches_matrix():
+    assert _preset_total("tv") == 681_100  # ОБЩАЯ СУММА БЕЗ НДС, вкладка «ТВ»
+
+
+def test_preset_tv_section_totals_match_matrix():
+    rows, _ = build_rows(PRESETS["tv"]["items"])
+    sec = [r["total"] for r in rows if r["kind"] == "section_total"]
+    assert sec == [267_800, 222_100, 191_200]  # этапы: дизайн / вёрстка / контент
+
+
+def test_preset_ta_total_matches_matrix():
+    assert _preset_total("ta") == 676_101  # вкладка «TA» (шаблон за 1 ₽ — спецпредложение)
+
+
+def test_preset_lp_total_matches_matrix():
+    assert _preset_total("lp") == 145_300
+
+
+def test_preset_branding_total_matches_matrix():
+    assert _preset_total("branding") == 517_700
+
+
+def test_preset_program_deposit():
+    assert _preset_total("program-deposit") == 39_000
