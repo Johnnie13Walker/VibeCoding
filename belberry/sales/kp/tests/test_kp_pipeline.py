@@ -14,6 +14,7 @@ from kp_pipeline import (  # noqa: E402
     domain_from_bitrix,
     inject_auto_blocks,
     plan_stages,
+    traffic_dynamics,
 )
 
 
@@ -84,6 +85,27 @@ def test_plan_respects_skip():
 def test_plan_failed_stage_retried():
     job = {"stages": {"bitrix": {"status": "error"}}}
     assert plan_stages(job)[0] == "bitrix"
+
+
+def test_plan_skipped_stage_not_rerun():
+    """Стадия skipped (Метрика недоступна) не должна перезапускаться при повторе."""
+    job = {"stages": {"metrika": {"status": "skipped"}}}
+    assert "metrika" not in plan_stages(job)
+
+
+# ── traffic_dynamics ──────────────────────────────────────────────────────────
+
+def test_traffic_drop_real_case():
+    """Кейс evromedika: пик 52500 (08.2018) → 2500 = −95%."""
+    hist = {"201808": 52500, "202206": 11100, "202212": 0}
+    d = traffic_dynamics(hist, current=2500)
+    assert d == {"peak": 52500, "peak_month": "08.2018", "current": 2500, "drop_pct": -95}
+
+
+def test_traffic_drop_ignores_zero_months_and_growth():
+    assert traffic_dynamics({"202401": 0}) is None
+    assert traffic_dynamics({"202401": 100}, current=200) is None  # рост — не просадка
+    assert traffic_dynamics({}) is None
 
 
 # ── assemble_kp_data ──────────────────────────────────────────────────────────

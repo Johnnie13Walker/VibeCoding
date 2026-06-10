@@ -72,14 +72,33 @@ def competitors_from_brief(bx: dict, limit: int = 5) -> list[str]:
 
 def plan_stages(job: dict, force: str | None = None,
                 skip: set[str] | None = None) -> list[str]:
-    """Какие стадии выполнять: не-done, минус пропущенные; force=имя|all сбрасывает."""
+    """Какие стадии выполнять: не-done/skipped, минус пропущенные; force=имя|all сбрасывает."""
     skip = skip or set()
-    done = {s for s, st in (job.get("stages") or {}).items() if st.get("status") == "done"}
+    done = {s for s, st in (job.get("stages") or {}).items()
+            if st.get("status") in ("done", "skipped")}
     if force == "all":
         done = set()
     elif force:
         done.discard(force)
     return [s for s in STAGES if s not in done and s not in skip]
+
+
+def traffic_dynamics(history: dict, current=None) -> dict | None:
+    """Просадка трафика из visits_history PR-CY: пик → текущее → % падения.
+
+    Слайд «остановить просадку» — главный аргумент SEO-КП. Ключи YYYYMM, нули
+    игнорируем (PR-CY ставит 0 за месяцы без данных).
+    """
+    points = {m: v for m, v in (history or {}).items() if isinstance(v, (int, float)) and v > 0}
+    if not points:
+        return None
+    peak_month, peak = max(points.items(), key=lambda kv: kv[1])
+    cur = current if isinstance(current, (int, float)) and current > 0 else points[max(points)]
+    if peak <= cur:
+        return None
+    ym = str(peak_month)
+    return {"peak": int(peak), "peak_month": f"{ym[4:6]}.{ym[:4]}",
+            "current": int(cur), "drop_pct": -round((peak - cur) / peak * 100)}
 
 
 def assemble_kp_data(bitrix: dict | None, audit: dict | None,
@@ -100,10 +119,16 @@ def assemble_kp_data(bitrix: dict | None, audit: dict | None,
                   "Регион продвижения", "Опишите вашу целевую аудиторию", "УТП и офферы"):
             fact(f"brief:{k}", brief.get(k), "bitrix.json:бриф СП1056")
     if audit:
-        cl = audit.get("client") or audit.get(next(iter(audit), ""), {})
+        cl = audit.get("client") or {}
         if isinstance(cl, dict):
-            for k in ("iks", "yandex_index", "google_index", "load_time"):
+            for k in ("sqi", "yandex_index", "google_index", "organic_pct",
+                      "bounce_rate", "visits_monthly", "load_time", "schema_org"):
                 fact(k, cl.get(k), "audit.json:pr-cy")
+            drop = traffic_dynamics(cl.get("visits_history") or {}, cl.get("visits_monthly"))
+            if drop:
+                fact("traffic_drop",
+                     f"пик {drop['peak']} ({drop['peak_month']}) → сейчас {drop['current']} "
+                     f"= {drop['drop_pct']}%", "audit.json:pr-cy:visits_history")
     if metrika:
         for k in ("visits", "users", "organic_share", "goals"):
             fact(f"metrika:{k}", metrika.get(k), "metrika.json")
