@@ -177,3 +177,27 @@ def test_golden_template_has_markers():
     tpl = Path(__file__).resolve().parents[1] / "templates" / "seo-belberry" / "kp.html"
     html = tpl.read_text(encoding="utf-8")
     assert MARK_BENCH in html and MARK_PROBLEMS in html
+
+
+def test_acoola_template_has_markers_and_no_med():
+    tpl = Path(__file__).resolve().parents[1] / "templates" / "seo-acoola" / "kp.html"
+    html = tpl.read_text(encoding="utf-8")
+    assert MARK_BENCH in html and MARK_PROBLEMS in html
+    for word in ("пациент", "клиник", "ПроДокторов", "5b50d6"):
+        assert word not in html, f"мед-след в acoola-шаблоне: {word}"
+
+
+def test_no_kpi_guarantee_in_templates():
+    """Решение заказчика 10.06: KPI с клиентами НЕТ — в шаблонах не обещаем."""
+    base = Path(__file__).resolve().parents[1] / "templates"
+    for tpl in ("seo-belberry", "seo-acoola", "program-belberry"):
+        html = (base / tpl / "kp.html").read_text(encoding="utf-8")
+        assert "KPI и гарантия результата" not in html, tpl
+        assert "ответственность за результат" not in html, tpl
+
+
+def test_pick_template_by_brand():
+    from kp_pipeline import pick_template
+    assert pick_template("belberry").name == "seo-belberry"
+    assert pick_template("acoola").name == "seo-acoola"
+    assert pick_template("несуществующий").name == "med-shushary"

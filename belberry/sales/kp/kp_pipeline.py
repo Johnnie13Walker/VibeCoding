@@ -25,9 +25,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 KP_DIR = Path(__file__).resolve().parent
-# золотой шаблон с маркерами AUTO; запасной вариант — клиентский эталон
-_TEMPLATE = KP_DIR / "templates" / "seo-belberry"
-ETALON = _TEMPLATE if (_TEMPLATE / "kp.html").exists() else KP_DIR / "clients" / "med-shushary"
+
+
+def pick_template(brand: str = "belberry") -> Path:
+    """Золотой шаблон деки по бренду; запасной вариант — клиентский эталон."""
+    tpl = KP_DIR / "templates" / f"seo-{brand}"
+    if (tpl / "kp.html").exists():
+        return tpl
+    return KP_DIR / "clients" / "med-shushary"
 STAGES = ["bitrix", "audit", "metrika", "prodoctorov", "assemble", "scaffold"]
 
 # Маркеры в kp.html эталона для автовставки (если их нет — оставляем файлы рядом)
@@ -104,7 +109,8 @@ def traffic_dynamics(history: dict, current=None) -> dict | None:
 
 
 def assemble_kp_data(bitrix: dict | None, audit: dict | None,
-                     metrika: dict | None, prodoc: list | None) -> dict:
+                     metrika: dict | None, prodoc: list | None,
+                     brand: str = "belberry") -> dict:
     """Свод фактов с источниками + чек-лист ручных шагов. Без источника — не факт."""
     facts, hypotheses = [], []
 
@@ -147,7 +153,7 @@ def assemble_kp_data(bitrix: dict | None, audit: dict | None,
     return {
         "deal_id": (bitrix or {}).get("deal_id"),
         "domain": domain_from_bitrix(bitrix or {}),
-        "brand": "Belberry",
+        "brand": "Acoola Team" if brand == "acoola" else "Belberry",
         "facts": facts,
         "hypotheses": hypotheses,
         "manual_checklist": [
@@ -252,7 +258,8 @@ def run_pipeline(a: argparse.Namespace) -> int:
             _run("prodoctorov_audit.py", a.prodoctorov, tmp_dir)
         elif stage == "assemble":
             data = assemble_kp_data(_load(tmp_dir / "bitrix.json"), _load(tmp_dir / "audit.json"),
-                                    _load(tmp_dir / "metrika.json"), _load(tmp_dir / "prodoctorov.json"))
+                                    _load(tmp_dir / "metrika.json"), _load(tmp_dir / "prodoctorov.json"),
+                                    brand=a.brand)
             (tmp_dir / "kp_data.json").write_text(
                 json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
             print(f"  факты: {len(data['facts'])}, гипотезы: {len(data['hypotheses'])}, "
@@ -260,7 +267,7 @@ def run_pipeline(a: argparse.Namespace) -> int:
         elif stage == "scaffold":
             dst = tmp_dir / "kp.html"
             if not dst.exists():
-                shutil.copy(ETALON / "kp.html", dst)
+                shutil.copy(pick_template(a.brand) / "kp.html", dst)
                 print(f"  эталон скопирован: {dst.relative_to(KP_DIR)}")
             html = dst.read_text(encoding="utf-8")
             bench = (tmp_dir / "seo_benchmark.html")
@@ -276,8 +283,10 @@ def run_pipeline(a: argparse.Namespace) -> int:
 
     print("\nГотово. Дальше руками:")
     print(f"  1. Чек-лист: {tmp_dir / 'kp_data.json'} → manual_checklist")
-    print(f"  2. Цены из сметы → kp.html")
-    print(f"  3. bash build.sh clients/{tmp_dir.name} \"КП Belberry — {tmp_dir.name}\"")
+    print(f"  2. Смета: python3 kp_smeta.py clients/{tmp_dir.name} --init --service seo"
+          f" → правка smeta.json → python3 kp_smeta.py clients/{tmp_dir.name}")
+    print(f"  3. Цены из сметы → kp.html")
+    print(f"  4. bash build.sh clients/{tmp_dir.name} \"КП Belberry — {tmp_dir.name}\"")
     return 0
 
 
@@ -285,6 +294,8 @@ def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("deal_id", type=int)
     p.add_argument("--client")
+    p.add_argument("--brand", choices=["belberry", "acoola"], default="belberry",
+                   help="шаблон деки: Belberry (медицина) или Acoola Team (остальные ниши)")
     p.add_argument("--competitors", nargs="*", default=[])
     p.add_argument("--days", type=int, default=90)
     p.add_argument("--prodoctorov", nargs="*", default=[])
