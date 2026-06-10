@@ -58,6 +58,20 @@ def brief_fields_titles() -> dict:
     return {k: (v.get("title") or k) for k, v in fields.items()}
 
 
+SVC_SEO = 2730  # enum «Список услуг» брифа (ufCrm20_1753290430)
+
+
+def pick_brief(briefs: list, service_id: int = SVC_SEO) -> dict:
+    """У сделки бывает несколько брифов (контекст+SEO+SEO…) — берём бриф нужной
+    услуги, при нескольких — самый свежий (больший id); иначе первый по той же логике."""
+    def services(b):
+        v = b.get("ufCrm20_1753290430") or []
+        return v if isinstance(v, list) else [v]
+    matched = [b for b in briefs if service_id in services(b)]
+    pool = matched or briefs
+    return max(pool, key=lambda b: b.get("id") or 0)
+
+
 def main():
     if len(sys.argv) < 2:
         print("usage: bitrix_audit.py <deal_id>")
@@ -88,7 +102,7 @@ def main():
                                      "filter": {"parentId2": deal_id}}).get("result", {}).get("items", [])
     if briefs:
         titles = brief_fields_titles()
-        b = briefs[0]
+        b = pick_brief(briefs)
         for k, v in b.items():
             if k.startswith("ufCrm20_") and isinstance(v, str) and v.strip():
                 out["brief"][titles.get(k, k)] = v

@@ -25,7 +25,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 KP_DIR = Path(__file__).resolve().parent
-ETALON = KP_DIR / "clients" / "med-shushary"
+# золотой шаблон с маркерами AUTO; запасной вариант — клиентский эталон
+_TEMPLATE = KP_DIR / "templates" / "seo-belberry"
+ETALON = _TEMPLATE if (_TEMPLATE / "kp.html").exists() else KP_DIR / "clients" / "med-shushary"
 STAGES = ["bitrix", "audit", "metrika", "prodoctorov", "assemble", "scaffold"]
 
 # Маркеры в kp.html эталона для автовставки (если их нет — оставляем файлы рядом)

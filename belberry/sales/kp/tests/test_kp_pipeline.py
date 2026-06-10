@@ -145,3 +145,35 @@ def test_inject_reports_missing_markers():
 def test_inject_no_fragments_noop():
     out, missing = inject_auto_blocks("x", None, None)
     assert out == "x" and missing == []
+
+
+# ── pick_brief (bitrix_audit) ─────────────────────────────────────────────────
+
+from bitrix_audit import SVC_SEO, pick_brief  # noqa: E402
+
+
+def test_pick_brief_prefers_seo_service():
+    """zn48-кейс: контекст(2726) + два SEO(2730) → свежий SEO-бриф."""
+    briefs = [{"id": 1388, "ufCrm20_1753290430": [2726]},
+              {"id": 1390, "ufCrm20_1753290430": [2730]},
+              {"id": 1484, "ufCrm20_1753290430": [2730]}]
+    assert pick_brief(briefs)["id"] == 1484
+
+
+def test_pick_brief_falls_back_to_latest_any():
+    briefs = [{"id": 10, "ufCrm20_1753290430": [2726]},
+              {"id": 20, "ufCrm20_1753290430": 2734}]
+    assert pick_brief(briefs)["id"] == 20
+
+
+def test_pick_brief_scalar_service_value():
+    briefs = [{"id": 5, "ufCrm20_1753290430": SVC_SEO}, {"id": 9, "ufCrm20_1753290430": [2726]}]
+    assert pick_brief(briefs)["id"] == 5
+
+
+# ── золотой шаблон ────────────────────────────────────────────────────────────
+
+def test_golden_template_has_markers():
+    tpl = Path(__file__).resolve().parents[1] / "templates" / "seo-belberry" / "kp.html"
+    html = tpl.read_text(encoding="utf-8")
+    assert MARK_BENCH in html and MARK_PROBLEMS in html

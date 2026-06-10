@@ -175,7 +175,7 @@ def render_benchmark(data: dict) -> str:
     for c in rows:
         me = c["domain"] == client["domain"]
         cls = ' class="totalrow"' if me else ""
-        name = ('Заботливый Доктор <span class="pill">вы</span>'
+        name = (f'{c["domain"]} <span class="pill">вы</span>'
                 if me else f'<strong>{c["domain"]}</strong>')
         sqi = c.get("sqi") or "—"
         yi = c.get("yandex_index") or "—"
