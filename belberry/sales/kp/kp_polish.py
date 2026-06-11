@@ -39,6 +39,7 @@ JSON с данными клиента и HTML ОДНОГО слайда деки
 4. Никаких «гарантируем», обещаний результата и англицизмов.
 5. Если слайд уже хорош или менять нечего — верни его без изменений.
 6. Объём текстов сохраняй примерно прежним: слайд 1280×800, переполнение ломает вёрстку.
+7. Узлы с атрибутом data-lock НЕ редактировать — их текст обязан остаться дословно.
 Ответ — ТОЛЬКО HTML секции от <section до </section>, без markdown и пояснений."""
 
 
@@ -67,6 +68,14 @@ def allowed_numbers(slide_html: str, data_json: str) -> set[str]:
         str(i) for i in range(SMALL_INT_OK + 1)}
 
 
+LOCKED_RE = re.compile(r'<([a-z]+)[^>]*\bdata-lock\b[^>]*>(.*?)</\1>', re.S)
+
+
+def locked_texts(html: str) -> list[str]:
+    """Содержимое узлов с data-lock — редактору запрещено их менять."""
+    return [m.group(2).strip() for m in LOCKED_RE.finditer(html)]
+
+
 def validate_slide(original: str, polished: str, data_json: str) -> str | None:
     """None — слайд принят; иначе причина отказа."""
     polished = polished.strip()
@@ -74,6 +83,8 @@ def validate_slide(original: str, polished: str, data_json: str) -> str | None:
         return "не секция"
     if tag_multiset(original) != tag_multiset(polished):
         return "изменена структура тегов"
+    if locked_texts(original) != locked_texts(polished):
+        return "изменён запертый текст (data-lock)"
     foreign = extract_numbers(polished) - allowed_numbers(original, data_json)
     if foreign:
         return f"выдуманные числа: {sorted(foreign)[:5]}"
