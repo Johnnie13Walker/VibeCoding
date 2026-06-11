@@ -127,7 +127,8 @@ def call_llm(prompt: str, provider: str, api_key: str) -> dict:
             "model": OPENAI_MODEL,
             "messages": [{"role": "system", "content": SYSTEM},
                          {"role": "user", "content": prompt}],
-            "max_tokens": 2000,
+            # новые модели OpenAI (gpt-5.x) не принимают max_tokens
+            "max_completion_tokens": 4000,
         }).encode()
         req = urllib.request.Request(OPENAI_URL, data=body, headers={
             "Content-Type": "application/json", "Authorization": "Bearer " + api_key})
