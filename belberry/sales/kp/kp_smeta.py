@@ -43,11 +43,27 @@ PRESETS = {
         {"name": "SEO-продвижение: техника, контент, ссылки (42 ч/мес)", "monthly": 85_000},
         {"name": "GEO: карточки Яндекс.Карт и геосервисов", "monthly": 0},
     ]},
+    # типовые работы 1-го месяца — из вопросов брифа техподдержки СП1056; списываются
+    # из пакета часов тарифа, поэтому идут строками «включено» без отдельной цены
     "program": {"service": "program", "items": [
         {"name": "Техподдержка, тариф «Цикл» (10 ч/мес)", "hours": 10, "rate": 3_100},
+        {"section": "ТИПОВЫЕ РАБОТЫ ПЕРВОГО МЕСЯЦА (в рамках пакета часов)"},
+        {"name": "Диагностика сайта и приоритизация задач", "included": True},
+        {"name": "Обновление CMS и модулей, настройка резервных копий", "included": True},
+        {"name": "Поиск и устранение ошибок вёрстки и логики", "included": True},
+        {"name": "Оптимизация скорости загрузки", "included": True},
+        {"name": "Мелкие правки контента и баннеров", "included": True},
+        {"name": "Взаимодействие с хостинг-провайдером", "included": True},
     ]},
     "program-deposit": {"service": "program", "items": [
         {"name": "Техподдержка, тариф «Депозит» (10 ч/мес)", "hours": 10, "rate": 3_900},
+        {"section": "ТИПОВЫЕ РАБОТЫ ПЕРВОГО МЕСЯЦА (в рамках пакета часов)"},
+        {"name": "Диагностика сайта и приоритизация задач", "included": True},
+        {"name": "Обновление CMS и модулей, настройка резервных копий", "included": True},
+        {"name": "Поиск и устранение ошибок вёрстки и логики", "included": True},
+        {"name": "Оптимизация скорости загрузки", "included": True},
+        {"name": "Мелкие правки контента и баннеров", "included": True},
+        {"name": "Взаимодействие с хостинг-провайдером", "included": True},
     ]},
     "orm": {"service": "orm", "items": [
         {"name": "Управление репутацией, тариф «Старт» (от 3 карточек)", "monthly": 60_000},
@@ -181,7 +197,8 @@ def build_rows(items: list[dict]) -> tuple[list[dict], float]:
 
     def close_section():
         nonlocal sec_name, sec_sum
-        if sec_name is not None:
+        # секция из «включено»-строк денег не несёт — нулевой подытог не печатаем
+        if sec_name is not None and sec_sum > 0:
             rows.append({"kind": "section_total",
                          "name": f"Итого за {sec_name.lower()}", "total": round(sec_sum, 2)})
         sec_name, sec_sum = None, 0.0
@@ -290,8 +307,12 @@ def write_xlsx(spec: dict, out_path: Path) -> None:
             rc = ws.cell(row=r, column=3, value=it.get("rate"))
             rc.number_format = money
             rc.alignment = Alignment(horizontal="right")
-        tc = ws.cell(row=r, column=4, value=row["total"])
-        tc.number_format = money
+        if it.get("included"):
+            tc = ws.cell(row=r, column=4, value="включено")
+            tc.font = Font(size=9, color="6E6E73")
+        else:
+            tc = ws.cell(row=r, column=4, value=row["total"])
+            tc.number_format = money
         tc.alignment = Alignment(horizontal="right")
         for col in range(1, 5):
             ws.cell(row=r, column=col).border = border
