@@ -13,3 +13,11 @@ describe('canSeeKp — пилотный гейт страницы КП', () => {
     expect(canSeeKp(null)).toBe(false);
   });
 });
+
+import { jobDirName } from '../kp';
+
+describe('jobDirName — папка артефактов задания', () => {
+  it('совпадает с форматом воркера (_job_<id>_<deal>)', () => {
+    expect(jobDirName(2, 16076)).toBe('_job_2_16076');
+  });
+});
