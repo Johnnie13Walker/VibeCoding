@@ -182,6 +182,97 @@ def render_iks_bars(audit: dict | None, width: int = 560) -> str | None:
     return "".join(parts)
 
 
+
+
+def problem_paths_from_metrika(metrika: dict | None, limit: int = 2) -> list[str]:
+    """Пути проблемных страниц из находок Метрики («/rent собирает 10%…»)."""
+    out = []
+    for p in (metrika or {}).get("problems") or []:
+        m = re.search(r"(/[a-z0-9_\-/]+)", p.get("fact", ""))
+        if m and m.group(1) not in out:
+            out.append(m.group(1))
+    return out[:limit]
+
+
+def render_problem_shots(tmp_dir: Path, metrika: dict | None) -> str | None:
+    """Мини-скрины проблемных страниц с подписями (слайд «проблема → решение»)."""
+    import base64
+    shots = []
+    for p in (metrika or {}).get("problems") or []:
+        m = re.search(r"(/[a-z0-9_\-/]+)", p.get("fact", ""))
+        if not m:
+            continue
+        slug = m.group(1).strip("/").replace("/", "_") or "page"
+        png = tmp_dir / f"page_{slug}.png"
+        if png.exists():
+            b64 = base64.b64encode(png.read_bytes()).decode()
+            ev = p.get("evidence") or {}
+            bounce = ev.get("page_bounce")
+            cap = f"{m.group(1)} — отказы {bounce}%" if bounce else m.group(1)
+            shots.append(
+                f'<div style="flex:1;min-width:0;"><div style="border:1px solid #EDF1F7;'
+                f'border-radius:10px;overflow:hidden;"><img src="data:image/png;base64,{b64}" '
+                f'style="width:100%;display:block;"/></div>'
+                f'<div style="font-size:11px;color:#a13442;font-weight:700;margin-top:6px;">'
+                f'{cap} <span style="color:#717885;font-weight:500;">[Метрика]</span></div></div>')
+    if not shots:
+        return None
+    return ('<div style="display:flex;gap:14px;margin-top:14px;">' + "".join(shots) + "</div>")
+
+
+def render_sources_svg(metrika: dict | None, width: int = 520) -> str | None:
+    """Источники трафика: визиты барами + конверсия подписью (топ-5)."""
+    rows = [(s.get("source", "")[:28], s.get("visits") or 0, s.get("conversion"))
+            for s in (metrika or {}).get("source_conversion") or [] if s.get("visits")]
+    if len(rows) < 2:
+        return None
+    rows = sorted(rows, key=lambda r: -r[1])[:5]
+    vmax = rows[0][1] or 1
+    bar_h, gap, label_w = 20, 9, 190
+    h = len(rows) * (bar_h + gap)
+    parts = [f'<svg width="{width}" height="{h}" viewBox="0 0 {width} {h}" '
+             f'xmlns="http://www.w3.org/2000/svg" font-family="Manrope,sans-serif">']
+    for i, (name, visits, conv) in enumerate(rows):
+        y = i * (bar_h + gap)
+        w = (width - label_w - 120) * visits / vmax
+        is_search = "поиск" in name.lower()
+        color = "#3086FB" if is_search else "#C9D7EC"
+        conv_txt = f" · {conv}% в заявку" if conv else ""
+        parts.append(
+            f'<text x="0" y="{y + bar_h - 5}" font-size="11" '
+            f'font-weight="{"800" if is_search else "500"}" fill="#313131">{name}</text>'
+            f'<rect x="{label_w}" y="{y}" width="{w:.0f}" height="{bar_h}" rx="5" fill="{color}"/>'
+            f'<text x="{label_w + w + 7:.0f}" y="{y + bar_h - 5}" font-size="11" '
+            f'font-weight="700" fill="#313131">{visits:,}'.replace(",", " ") + f'{conv_txt}</text>')
+    parts.append("</svg>")
+    return "".join(parts)
+
+
+def render_geo_svg(metrika: dict | None, width: int = 480) -> str | None:
+    """География спроса: топ-5 регионов барами."""
+    rows = [(g.get("region", "")[:26], g.get("visits") or 0)
+            for g in (metrika or {}).get("geo") or []
+            if g.get("visits") and "Не определено" not in (g.get("region") or "")]
+    if len(rows) < 2:
+        return None
+    rows = rows[:5]
+    vmax = max(v for _, v in rows) or 1
+    bar_h, gap, label_w = 20, 9, 200
+    h = len(rows) * (bar_h + gap)
+    parts = [f'<svg width="{width}" height="{h}" viewBox="0 0 {width} {h}" '
+             f'xmlns="http://www.w3.org/2000/svg" font-family="Manrope,sans-serif">']
+    for i, (name, visits) in enumerate(rows):
+        y = i * (bar_h + gap)
+        w = (width - label_w - 70) * visits / vmax
+        parts.append(
+            f'<text x="0" y="{y + bar_h - 5}" font-size="11" fill="#313131">{name}</text>'
+            f'<rect x="{label_w}" y="{y}" width="{w:.0f}" height="{bar_h}" rx="5" fill="#7FB5FF"/>'
+            f'<text x="{label_w + w + 7:.0f}" y="{y + bar_h - 5}" font-size="11" '
+            f'font-weight="700" fill="#313131">{visits:,}'.replace(",", " ") + '</text>')
+    parts.append("</svg>")
+    return "".join(parts)
+
+
 def offer_substitutions(metrika: dict | None, spec: dict | None) -> dict[str, str]:
     """Оффер на титул и стоимость заявки — честный расчёт из прогноза и сметы."""
     f = forecast_numbers(metrika)
@@ -459,6 +550,9 @@ MARK_FORECAST = "<!--AUTO:FORECAST-->"
 MARK_TREND = "<!--AUTO:TREND_SVG-->"
 MARK_IKS = "<!--AUTO:IKS_BARS-->"
 MARK_SHOT = "<!--AUTO:SITE_SHOT-->"
+MARK_PSHOTS = "<!--AUTO:PROBLEM_SHOTS-->"
+MARK_SOURCES = "<!--AUTO:SOURCES_SVG-->"
+MARK_GEO = "<!--AUTO:GEO_SVG-->"
 
 CHROME_CANDIDATES = [
     os.environ.get("CHROME_BIN"),
@@ -748,6 +842,18 @@ def run_pipeline(a: argparse.Namespace) -> int:
                 mark(stage, "skipped")
                 continue
             print(f"  скрин сайта: {((tmp_dir / 'site.png').stat().st_size // 1024)} КБ")
+            # проблемные страницы из находок Метрики
+            mt = _load(tmp_dir / "metrika.json") or {}
+            for path_ in problem_paths_from_metrika(mt):
+                slug = path_.strip("/").replace("/", "_") or "page"
+                subprocess.run([chrome, "--headless", "--disable-gpu", "--no-sandbox",
+                    "--disable-dev-shm-usage",
+                    "--screenshot=" + str(tmp_dir / f"page_{slug}.png"),
+                    "--window-size=1280,860", "--hide-scrollbars",
+                    "--virtual-time-budget=6000", f"https://{dom}{path_}"],
+                    capture_output=True, timeout=90)
+                if (tmp_dir / f"page_{slug}.png").exists():
+                    print(f"  скрин проблемной: {path_}")
         elif stage == "pdf":
             chrome = find_chrome()
             if not chrome or not (tmp_dir / "kp.html").exists():
@@ -878,6 +984,13 @@ def run_pipeline(a: argparse.Namespace) -> int:
                         embed_screenshot_html(b64, data.get("domain") or ""))
                 else:
                     html = html.replace(MARK_SHOT, "")
+            if MARK_PSHOTS in html:
+                html = html.replace(MARK_PSHOTS, render_problem_shots(tmp_dir, metrika) or "")
+            if MARK_SOURCES in html:
+                html = html.replace(MARK_SOURCES, render_sources_svg(metrika) or
+                    '<div style="font-size:12px;color:#717885;">нужен доступ к Метрике</div>')
+            if MARK_GEO in html:
+                html = html.replace(MARK_GEO, render_geo_svg(metrika) or "")
             iks_svg = render_iks_bars(_load(tmp_dir / "audit.json"))
             if MARK_IKS in html:
                 html = html.replace(MARK_IKS, iks_svg or
