@@ -50,6 +50,30 @@ def preset_for_brief(brief_services: list | None, default: str = "seo") -> str:
     return default
 
 
+
+
+CODE_JUNK_RE = re.compile(r"[\[{(]+[^\]})]*[\"'_$][^\]})]*[\]})]+")
+
+
+def sanitize_text(value: str, limit: int = 160) -> str:
+    """Чистка текста для слайда: куски кода/JSON — вон, обрыв — по границе слова."""
+    t = CODE_JUNK_RE.sub(" ", str(value))
+    t = re.sub(r"\s+", " ", t).strip(" -–,.;:")
+    if len(t) > limit:
+        t = t[:limit].rsplit(" ", 1)[0].rstrip(" -–,.;:") + "…"
+    return t
+
+
+def first_clause(value: str, limit: int = 60) -> str:
+    """Первая законченная мысль бриф-значения («Основной продукт - радиогид»)."""
+    t = sanitize_text(value, 200)
+    for sep in (", но", ",", ";", "."):
+        if sep in t and len(t.split(sep)[0]) >= 8:
+            t = t.split(sep)[0]
+            break
+    return t[:limit].rstrip(" -–,.")
+
+
 def brief_pick(facts: dict, *prefixes: str):
     """Значение бриф-факта по ПРЕФИКСУ подписи — подписи полей гуляют между
     брифами («Приоритетные товары/услуги…» vs «Приоритетные услуги или направления»)."""
@@ -231,7 +255,7 @@ def render_problem_shots(tmp_dir: Path, metrika: dict | None) -> str | None:
             shots.append(
                 f'<div style="flex:1;min-width:0;"><div style="border:1px solid #EDF1F7;'
                 f'border-radius:10px;overflow:hidden;"><img src="data:image/png;base64,{b64}" '
-                f'style="width:100%;display:block;"/></div>'
+                f'style="width:100%;max-height:170px;object-fit:cover;object-position:top;display:block;"/></div>'
                 f'<div style="font-size:11px;color:#a13442;font-weight:700;margin-top:6px;">'
                 f'{cap} <span style="color:#717885;font-weight:500;">[Метрика]</span></div></div>')
     if not shots:
@@ -417,7 +441,7 @@ def deck_substitutions(data: dict, today: str) -> dict[str, str]:
         subs["{{ГЕО}}"] = str(region)
     services = brief_pick(facts, "Приоритетные")
     if services:
-        subs["{{ПРИОРИТЕТНЫЕ_УСЛУГИ}}"] = str(services)
+        subs["{{ПРИОРИТЕТНЫЕ_УСЛУГИ}}"] = first_clause(str(services))
     return subs
 
 
@@ -458,10 +482,20 @@ def filter_prcy_rows(rows_html: str | None, has_metrika: bool, brand: str) -> st
     return "\n".join(kept) if kept else None
 
 
-def combine_problem_rows(prcy_rows: str | None, metrika_rows: str | None) -> str | None:
-    """Слайд «проблема → решение»: техфлаги PR-CY + находки Метрики одним списком."""
+def combine_problem_rows(prcy_rows: str | None, metrika_rows: str | None,
+                         max_rows: int = 6) -> str | None:
+    """Слайд «проблема → решение»: строки одним списком, чистка кода, максимум 6."""
     chunks = [c for c in (prcy_rows, metrika_rows) if c and c.strip()]
-    return "\n".join(chunks) if chunks else None
+    if not chunks:
+        return None
+    rows = re.findall(r"<tr>.*?</tr>", "\n".join(chunks), re.S)
+    cleaned = []
+    for row in rows[:max_rows]:
+        # сырой код в ячейках (json-«мусор» из evidence) — вычистить
+        row = re.sub(r">([^<]*)<", lambda m: ">" + sanitize_text(m.group(1), 180) + "<"
+                     if CODE_JUNK_RE.search(m.group(1)) else m.group(0), row)
+        cleaned.append(row)
+    return "\n".join(cleaned)
 
 
 def render_blockers_html(audit: dict | None, metrika: dict | None,
