@@ -253,14 +253,14 @@ def render_problem_shots(tmp_dir: Path, metrika: dict | None) -> str | None:
             bounce = ev.get("page_bounce")
             cap = f"{m.group(1)} — отказы {bounce}%" if bounce else m.group(1)
             shots.append(
-                f'<div style="flex:1;min-width:0;"><div style="border:1px solid #EDF1F7;'
+                f'<div style="flex:1;min-width:0;max-width:460px;"><div style="border:1px solid #EDF1F7;'
                 f'border-radius:10px;overflow:hidden;"><img src="data:image/png;base64,{b64}" '
-                f'style="width:100%;max-height:170px;object-fit:cover;object-position:top;display:block;"/></div>'
+                f'style="width:100%;max-height:100px;object-fit:cover;object-position:top;display:block;"/></div>'
                 f'<div style="font-size:11px;color:#a13442;font-weight:700;margin-top:6px;">'
                 f'{cap} <span style="color:#717885;font-weight:500;">[Метрика]</span></div></div>')
     if not shots:
         return None
-    return ('<div style="display:flex;gap:14px;margin-top:14px;">' + "".join(shots) + "</div>")
+    return ('<div style="display:flex;gap:14px;margin-top:8px;">' + "".join(shots) + "</div>")
 
 
 def render_sources_svg(metrika: dict | None, width: int = 520) -> str | None:
@@ -496,6 +496,84 @@ def combine_problem_rows(prcy_rows: str | None, metrika_rows: str | None,
                      if CODE_JUNK_RE.search(m.group(1)) else m.group(0), row)
         cleaned.append(row)
     return "\n".join(cleaned)
+
+
+PROBLEM_ROW_RE = re.compile(
+    r'<tr>\s*<td class="metric">(.*?)</td>\s*<td>(.*?)</td>\s*</tr>', re.S)
+
+
+def _plural_problems(n: int) -> str:
+    if n % 10 == 1 and n % 100 != 11:
+        return "проблему нашли в аудите"
+    if n % 10 in (2, 3, 4) and n % 100 not in (12, 13, 14):
+        return "проблемы нашли в аудите"
+    return "проблем нашли в аудите"
+
+
+def render_problem_cards(rows_html: str | None) -> str | None:
+    """Слайд «проблема → решение»: tr-строки четырёх аудитов → карточки-гибрид.
+
+    Каждая строка: номер → находка (+ серое «увидели: …») → стрелка → зелёное
+    решение с галкой. Внизу — счётчик находок и плашка «как закрываем».
+    Вход — строки combine_problem_rows (формат <td class="metric">), текст
+    в них уже экранирован и вычищен от кода.
+    """
+    if not rows_html:
+        return None
+    pairs = PROBLEM_ROW_RE.findall(rows_html)
+    if not pairs:
+        return None
+    import html as _h
+    esc = _h.escape
+    strip = lambda t: re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", t)).strip()
+    cards = []
+    for i, (raw_prob, raw_act) in enumerate(pairs, 1):
+        prob = _h.unescape(strip(raw_prob))
+        act = _h.unescape(strip(raw_act))
+        # «находка — подтверждение»: длинный хвост после тире уводим в серую строку
+        evidence = ""
+        head, sep, tail = prob.partition(" — ")
+        if sep and len(head) >= 40:
+            tail = tail.strip(' «»"\'')
+            prob, evidence = head, (tail if len(tail) >= 25 else "")
+        ev_html = ""
+        if evidence:
+            ev_html = (f'<div style="font-size:10.5px;color:#9aa3b2;margin-top:4px;'
+                       f'line-height:1.4;">увидели: {esc(sanitize_text(evidence, 90))}</div>')
+        cards.append(
+            f'<div style="display:grid;grid-template-columns:30px 1.05fr 34px 1fr;'
+            f'gap:14px;align-items:center;background:#fff;border:1px solid #EDF1F7;'
+            f'border-radius:13px;padding:10px 18px;">'
+            f'<span style="width:26px;height:26px;border-radius:8px;background:#fdecee;'
+            f'color:#a13442;font-size:12.5px;font-weight:800;display:inline-flex;'
+            f'align-items:center;justify-content:center;">{i}</span>'
+            f'<div><div style="font-size:12.5px;line-height:1.4;color:#313131;'
+            f'font-weight:700;">{esc(sanitize_text(prob, 160))}</div>{ev_html}</div>'
+            f'<svg width="24" height="14" viewBox="0 0 26 14" fill="none">'
+            f'<path d="M1 7h22m0 0-5-5m5 5-5 5" stroke="#3086FB" stroke-width="2.2" '
+            f'stroke-linecap="round"/></svg>'
+            f'<div style="display:flex;gap:8px;align-items:flex-start;">'
+            f'<svg width="15" height="15" viewBox="0 0 16 16" style="flex:none;margin-top:1px;">'
+            f'<circle cx="8" cy="8" r="8" fill="#e7f5ee"/>'
+            f'<path d="m4.5 8 2.5 2.5 4.5-5" stroke="#0a8f5f" stroke-width="1.8" '
+            f'fill="none" stroke-linecap="round"/></svg>'
+            f'<span style="font-size:12px;line-height:1.45;color:#0a8f5f;'
+            f'font-weight:600;">{esc(sanitize_text(act, 165))}</span></div></div>')
+    n = len(pairs)
+    return ('<div style="display:flex;flex-direction:column;gap:7px;">'
+            + "".join(cards) + "</div>"
+            '<div style="display:grid;grid-template-columns:200px 1fr;gap:14px;margin-top:10px;">'
+            '<div style="background:linear-gradient(135deg,#3086FB,#1F6FDE);'
+            'border-radius:13px;padding:11px 20px;color:#fff;">'
+            f'<div style="font-size:28px;font-weight:900;line-height:1;">{n}</div>'
+            f'<div style="font-size:10.5px;font-weight:700;opacity:.8;margin-top:3px;">'
+            f'{_plural_problems(n)}</div></div>'
+            '<div style="background:#EEF5FF;border-radius:13px;padding:14px 22px;'
+            'display:flex;align-items:center;">'
+            '<div style="font-size:12px;line-height:1.5;color:#1d3a63;font-weight:600;" '
+            'data-lock="1">Все находки закрываем в первый этап работ — технические '
+            'правки идут параллельно со сбором семантики и не задерживают '
+            'продвижение.</div></div></div>')
 
 
 def render_blockers_html(audit: dict | None, metrika: dict | None,
@@ -1069,7 +1147,7 @@ def run_pipeline(a: argparse.Namespace) -> int:
                 prcy_rows, metrika_rows), site_rows), wm_rows)
             html, missing = inject_auto_blocks(
                 html, bench.read_text(encoding="utf-8") if bench.exists() else None,
-                all_problems)
+                render_problem_cards(all_problems))
             # кейсы с сайта Акулы — по нише клиента (только для бренда acoola)
             if a.brand == "acoola":
                 try:
