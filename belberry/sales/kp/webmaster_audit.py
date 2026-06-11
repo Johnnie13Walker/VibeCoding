@@ -32,7 +32,7 @@ class ScopeError(RuntimeError):
 
 
 def call(path: str, token: str, params: dict | None = None) -> dict:
-    url = BASE + path + ("?" + urllib.parse.urlencode(params) if params else "")
+    url = BASE + path + ("?" + urllib.parse.urlencode(params, doseq=True) if params else "")
     req = urllib.request.Request(url, headers={"Authorization": "OAuth " + token})
     try:
         with urllib.request.urlopen(req, timeout=60) as r:
@@ -45,15 +45,26 @@ def call(path: str, token: str, params: dict | None = None) -> dict:
 
 
 def find_host(domain: str) -> tuple[str, str, str] | None:
-    """(host_id, токен, имя_аккаунта) — перебираем оба агентских аккаунта."""
+    """(host_id, токен, имя_аккаунта) — перебираем оба агентских аккаунта.
+
+    Аккаунт со старым токеном (без webmaster:verify) пропускаем молча:
+    ScopeError всплывает только если НИ ОДИН аккаунт не имеет права.
+    """
     needle = domain.lower().lstrip("www.")
+    scope_errors = 0
     for acc, token in TOKENS:
-        uid = call("/user/", token).get("user_id")
-        for h in call(f"/user/{uid}/hosts", token).get("hosts", []):
-            if needle in h.get("ascii_host_url", "") or needle in h.get("unicode_host_url", ""):
-                if h.get("verified"):
-                    print(f"  хост найден в Вебмастере аккаунта «{acc}»")
-                    return f"/user/{uid}/hosts/{h['host_id']}", token, acc
+        try:
+            uid = call("/user/", token).get("user_id")
+            for h in call(f"/user/{uid}/hosts", token).get("hosts", []):
+                if needle in h.get("ascii_host_url", "") or needle in h.get("unicode_host_url", ""):
+                    if h.get("verified"):
+                        print(f"  хост найден в Вебмастере аккаунта «{acc}»")
+                        return f"/user/{uid}/hosts/{h['host_id']}", token, acc
+        except ScopeError:
+            print(f"  аккаунт «{acc}»: токен без права Вебмастера — пропускаю")
+            scope_errors += 1
+    if scope_errors == len(TOKENS):
+        raise ScopeError("ни один токен не имеет права webmaster:verify")
     return None
 
 
