@@ -93,6 +93,7 @@ def main():
         "site": deal.get("UF_CRM_69E8AB2E0715A"),
         "company_revenue": deal.get("UF_CRM_1774971054"),
         "services_note": deal.get("UF_CRM_1775402408"),
+        "sfera_id": deal.get("UF_CRM_6179712C57A4D"),  # «Сфера деятельности» (enum id)
         "brief": {},
         "transcript": None,
         "wazzup": [],
@@ -110,6 +111,13 @@ def main():
         # «Список услуг» (enum ids) — для автоподбора пресета сметы в пайплайне
         svc = b.get("ufCrm20_1753290430") or []
         out["brief_services"] = svc if isinstance(svc, list) else [svc]
+
+    # подпись сферы деятельности (для подбора кейсов по нише)
+    if out.get("sfera_id"):
+        df = call("crm.deal.fields", {}).get("result", {})
+        items = (df.get("UF_CRM_6179712C57A4D") or {}).get("items", [])
+        out["sfera"] = next((i["VALUE"] for i in items
+                             if str(i["ID"]) == str(out["sfera_id"])), None)
 
     # встреча СП1048 → транскрипт (текст)
     meets = call("crm.item.list", {"entityTypeId": 1048,
