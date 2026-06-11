@@ -502,3 +502,23 @@ def test_iks_bars_svg():
     assert svg.startswith("<svg") and "crystal-sound.com · вы" in svg
     assert "270" in svg and "170" in svg and "retekess" not in svg  # без данных — нет бара
     assert render_iks_bars({"client": {"sqi": 100}, "competitors": []}) is None
+
+
+def test_funnel_svg_and_hide_empty():
+    from kp_pipeline import hide_empty_optional, render_funnel_svg
+    svg = render_funnel_svg(MT_FX)
+    assert svg.startswith("<svg") and "1 589" in svg and "34–45" in svg
+    assert render_funnel_svg(None) is None
+    html = ('<div data-optional="r" class="card"><table><tbody></tbody></table>  </div></div>'
+            '<div data-optional="x" class="card"><p>4.8</p></div></div>')
+    out, n = hide_empty_optional(html)
+    assert n == 1 and "4.8" in out
+
+
+def test_drop_empty_marker_slides():
+    from kp_pipeline import drop_empty_marker_slides
+    html = ('<section class="slide"><p>живой</p></section>'
+            '<section class="slide"><!--AUTO:PAINS--></section>'
+            '<section class="slide"><div><!--AUTO:FUNNEL_SVG--></div></section>')
+    out, n = drop_empty_marker_slides(html)
+    assert n == 2 and "живой" in out and "AUTO:" not in out

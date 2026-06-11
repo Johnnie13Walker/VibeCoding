@@ -98,6 +98,25 @@ def benchmark_substitutions(audit: dict | None) -> dict[str, str]:
 SLIDE_SECTION_RE = re.compile(r'<section class="slide[^"]*"[^>]*>.*?</section>', re.S)
 
 
+
+
+def drop_empty_marker_slides(html: str) -> tuple[str, int]:
+    """Слайды с незаполненными <!--AUTO:*--> маркерами удаляются целиком.
+
+    Данных не случилось (нет LLM-ключа/Метрики) — лучше нет слайда, чем пустой каркас.
+    """
+    dropped = 0
+
+    def repl(m):
+        nonlocal dropped
+        if "<!--AUTO:" in m.group(0):
+            dropped += 1
+            return ""
+        return m.group(0)
+
+    return SLIDE_SECTION_RE.sub(repl, html), dropped
+
+
 def renumber_pagenums(html: str) -> str:
     """Нумерация слайдов ПО ФАКТУ после всех вставок: «NN / total».
 
@@ -271,6 +290,82 @@ def render_geo_svg(metrika: dict | None, width: int = 480) -> str | None:
             f'font-weight="700" fill="#313131">{visits:,}'.replace(",", " ") + '</text>')
     parts.append("</svg>")
     return "".join(parts)
+
+
+
+
+def render_funnel_svg(metrika: dict | None, width: int = 1080, height: int = 120) -> str | None:
+    """Воронка поиска: визиты органики/мес → заявки (по фактической конверсии)."""
+    f = forecast_numbers(metrika)
+    if not f:
+        return None
+    return _funnel_build(f, width, height)
+
+
+def _funnel_build(f: dict, width: int, height: int) -> str:
+    mid = height // 2
+    left_w, right_w = 420, 200
+    fmt = lambda n: f"{n:,}".replace(",", " ")  # noqa: E731
+    return (f'<svg width="{width}" height="{height}" viewBox="0 0 {width} {height}" '
+            f'xmlns="http://www.w3.org/2000/svg" font-family="Manrope,sans-serif">'
+            f'<polygon points="0,8 {left_w},22 {left_w},{height-22} 0,{height-8}" fill="#3086FB" opacity="0.92"/>'
+            f'<text x="20" y="{mid-6}" font-size="13" fill="#fff">Визиты из поиска / мес</text>'
+            f'<text x="20" y="{mid+22}" font-size="24" fill="#fff" font-weight="800">~{fmt(f["visits_now"])}</text>'
+            f'<polygon points="{left_w+8},26 {left_w+248},{mid-14} {left_w+248},{mid+14} {left_w+8},{height-26}" fill="#C9D7EC"/>'
+            f'<text x="{left_w+34}" y="{mid+5}" font-size="12" fill="#313131" font-weight="700">× {f["conv"]}% — ваша конверсия</text>'
+            f'<polygon points="{left_w+264},{mid-26} {left_w+264+right_w},{mid-20} {left_w+264+right_w},{mid+20} {left_w+264},{mid+26}" fill="#0a8f5f"/>'
+            f'<text x="{left_w+282}" y="{mid-2}" font-size="11" fill="#fff">Заявок / мес</text>'
+            f'<text x="{left_w+282}" y="{mid+16}" font-size="18" fill="#fff" font-weight="800">~{f["leads_now"]}</text>'
+            f'<text x="{left_w+264+right_w+22}" y="{mid-2}" font-size="11" fill="#717885">рост органики ×1,5–2 за 6–12 мес →</text>'
+            f'<text x="{left_w+264+right_w+22}" y="{mid+18}" font-size="15" font-weight="800" '
+            f'fill="#0a8f5f">{f["leads_lo"]}–{f["leads_hi"]} заявок</text></svg>')
+
+
+def fetch_favicon_b64(domain: str) -> str | None:
+    """Фавиконка домена (сервис Google s2) → base64 PNG, 32px. Ошибки молча."""
+    import base64
+    import urllib.request
+    try:
+        req = urllib.request.Request(
+            f"https://www.google.com/s2/favicons?domain={domain}&sz=32",
+            headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=15) as r:
+            data = r.read()
+        return base64.b64encode(data).decode() if len(data) > 100 else None
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def inject_favicons(html: str, domains: list[str]) -> str:
+    """Фавиконки перед доменами в таблицах (бенчмарк): <strong>dom</strong> и строка клиента."""
+    for dom in domains:
+        b64 = fetch_favicon_b64(dom)
+        if not b64:
+            continue
+        icon = (f'<img src="data:image/png;base64,{b64}" width="16" height="16" '
+                f'style="vertical-align:-3px;margin-right:7px;border-radius:4px;"/>')
+        html = html.replace(f"<strong>{dom}</strong>", f"{icon}<strong>{dom}</strong>")
+        html = html.replace(f"{dom} <span class=\"pill\">вы</span>",
+                            f"{icon}{dom} <span class=\"pill\">вы</span>")
+    return html
+
+
+HIDE_EMPTY_RE = re.compile(
+    r'<div[^>]*data-optional[^>]*>(?:(?!data-optional).)*?</div>\s*</div>', re.S)
+
+
+def hide_empty_optional(html: str) -> tuple[str, int]:
+    """Удаление data-optional блоков без цифр (пустые ручные зоны не показываем)."""
+    removed = 0
+    def repl(m):
+        nonlocal removed
+        inner = re.sub(r"<[^>]+>", " ", m.group(0))
+        if re.search(r"\d", inner):
+            return m.group(0)
+        removed += 1
+        return ""
+    html = HIDE_EMPTY_RE.sub(repl, html)
+    return html, removed
 
 
 def offer_substitutions(metrika: dict | None, spec: dict | None) -> dict[str, str]:
@@ -553,6 +648,7 @@ MARK_SHOT = "<!--AUTO:SITE_SHOT-->"
 MARK_PSHOTS = "<!--AUTO:PROBLEM_SHOTS-->"
 MARK_SOURCES = "<!--AUTO:SOURCES_SVG-->"
 MARK_GEO = "<!--AUTO:GEO_SVG-->"
+MARK_FUNNEL = "<!--AUTO:FUNNEL_SVG-->"
 
 CHROME_CANDIDATES = [
     os.environ.get("CHROME_BIN"),
@@ -999,6 +1095,9 @@ def run_pipeline(a: argparse.Namespace) -> int:
                     '<div style="font-size:12px;color:#717885;">нужен доступ к Метрике</div>')
             if MARK_GEO in html:
                 html = html.replace(MARK_GEO, render_geo_svg(metrika) or "")
+            if MARK_FUNNEL in html:
+                html = html.replace(MARK_FUNNEL, render_funnel_svg(metrika) or
+                    '<div style="font-size:12px;color:#717885;">нужен доступ к Метрике</div>')
             iks_svg = render_iks_bars(_load(tmp_dir / "audit.json"))
             if MARK_IKS in html:
                 html = html.replace(MARK_IKS, iks_svg or
@@ -1008,6 +1107,18 @@ def run_pipeline(a: argparse.Namespace) -> int:
             if left:
                 print(f"  ⚠ вычищено незаполненных плейсхолдеров: {left} "
                       f"(данных в брифе не нашлось)")
+            # фавиконки конкурентов в таблицы (живость без выдумок)
+            audit_d = _load(tmp_dir / "audit.json") or {}
+            doms = [data.get("domain")] + [c.get("domain") for c in audit_d.get("competitors", [])]
+            html = inject_favicons(html, [d for d in doms if d])
+            # пустые ручные зоны не показываем
+            html, hidden = hide_empty_optional(html)
+            if hidden:
+                print(f"  скрыто пустых блоков: {hidden}")
+            # слайды с сиротскими маркерами — долой (лучше нет слайда, чем пустой)
+            html, dropped = drop_empty_marker_slides(html)
+            if dropped:
+                print(f"  удалено пустых слайдов: {dropped}")
             # нумерация по факту — после ВСЕХ вставок
             html = renumber_pagenums(html)
             dst.write_text(html, encoding="utf-8")

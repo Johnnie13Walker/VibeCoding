@@ -243,6 +243,11 @@ BRAND_STYLE = {
     "Belberry": {"accent": "5B50D6", "name": "Belberry — маркетинг для медицины"},
     "Acoola Team": {"accent": "3086FB", "name": "Acoola Team — digital-агентство"},
 }
+# фирменная шапка сметы: тёмный текст, акцентная полоса, контакты в подвале листа
+SMETA_CONTACTS = {
+    "Acoola Team": "hello@acoola.team · +7 (495) 796-66-90 · acoola.team",
+    "Belberry": "hello@belberry.net · +7 (495) 845-37-89 · belberry.net",
+}
 
 
 def write_xlsx(spec: dict, out_path: Path) -> None:
@@ -271,6 +276,10 @@ def write_xlsx(spec: dict, out_path: Path) -> None:
     ws["A2"].font = Font(size=10, color="6E6E73")
     ws["A3"] = f"Дата: {spec.get('date') or date.today().strftime('%d.%m.%Y')}"
     ws["A3"].font = Font(size=10, color="6E6E73")
+    # фирменная полоса бренда под шапкой
+    for col in range(1, 5):
+        ws.cell(row=4, column=col).fill = PatternFill("solid", fgColor=accent)
+    ws.row_dimensions[4].height = 4
 
     r = 5
     for col, head in enumerate(["Работы", "Часы", "Ставка", "Стоимость, без НДС"], 1):
@@ -343,6 +352,10 @@ def write_xlsx(spec: dict, out_path: Path) -> None:
     for n in notes:
         ws.cell(row=r, column=1, value=n).font = Font(size=9, color="6E6E73")
         r += 1
+
+    r += 1
+    ws.cell(row=r, column=1, value=SMETA_CONTACTS.get(brand, "")).font = Font(
+        size=9, color="6E6E73", italic=True)
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     wb.save(out_path)
