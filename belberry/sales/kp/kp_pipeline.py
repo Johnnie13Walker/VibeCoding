@@ -150,6 +150,38 @@ def render_trend_svg(metrika: dict | None, width: int = 520, height: int = 110) 
             f'text-anchor="end">{last["month"]} · визиты из поиска [Метрика]</text></svg>')
 
 
+def render_iks_bars(audit: dict | None, width: int = 560) -> str | None:
+    """Горизонтальный бар-чарт ИКС: клиент против конкурентов (визуал бенчмарка)."""
+    cl = (audit or {}).get("client") or {}
+    if not cl.get("sqi"):
+        return None
+    rows = [(cl.get("domain", "вы"), cl["sqi"], True)] + [
+        (c["domain"], c["sqi"], False)
+        for c in (audit or {}).get("competitors", []) if c.get("sqi")]
+    if len(rows) < 2:
+        return None
+    rows.sort(key=lambda r: -r[1])
+    vmax = rows[0][1] or 1
+    bar_h, gap, label_w = 21, 8, 150
+    h = len(rows) * (bar_h + gap)
+    parts = [f'<svg width="{width}" height="{h}" viewBox="0 0 {width} {h}" '
+             f'xmlns="http://www.w3.org/2000/svg" font-family="Manrope,sans-serif">']
+    for i, (name, val, me) in enumerate(rows):
+        y = i * (bar_h + gap)
+        w = (width - label_w - 60) * val / vmax
+        color = "#3086FB" if me else "#C9D7EC"
+        weight = "800" if me else "500"
+        label = f"{name} · вы" if me else name
+        parts.append(
+            f'<text x="0" y="{y + bar_h - 8}" font-size="12" font-weight="{weight}" '
+            f'fill="#313131">{label[:22]}</text>'
+            f'<rect x="{label_w}" y="{y}" width="{w:.0f}" height="{bar_h}" rx="6" fill="{color}"/>'
+            f'<text x="{label_w + w + 8:.0f}" y="{y + bar_h - 8}" font-size="13" '
+            f'font-weight="800" fill="#313131">{val}</text>')
+    parts.append("</svg>")
+    return "".join(parts)
+
+
 def offer_substitutions(metrika: dict | None, spec: dict | None) -> dict[str, str]:
     """Оффер на титул и стоимость заявки — честный расчёт из прогноза и сметы."""
     f = forecast_numbers(metrika)
@@ -425,6 +457,7 @@ MARK_PAINS = "<!--AUTO:PAINS-->"
 MARK_BLOCKERS = "<!--AUTO:BLOCKERS-->"
 MARK_FORECAST = "<!--AUTO:FORECAST-->"
 MARK_TREND = "<!--AUTO:TREND_SVG-->"
+MARK_IKS = "<!--AUTO:IKS_BARS-->"
 
 DOMAIN_RE = re.compile(r"\b((?:[a-zа-я0-9-]+\.)+(?:ru|com|net|org|рф|su|online|site|clinic|moscow|спб))\b",
                        re.IGNORECASE)
@@ -771,10 +804,14 @@ def run_pipeline(a: argparse.Namespace) -> int:
             forecast = render_forecast_html(metrika)
             if MARK_FORECAST in html:
                 html = html.replace(MARK_FORECAST, forecast or FORECAST_FALLBACK_ROW)
-            # спарклайн органики из Метрики (единственный график деки)
+            # графики из данных: спарклайн органики + бар-чарт ИКС
             trend_svg = render_trend_svg(metrika)
             if MARK_TREND in html:
                 html = html.replace(MARK_TREND, trend_svg or "")
+            iks_svg = render_iks_bars(_load(tmp_dir / "audit.json"))
+            if MARK_IKS in html:
+                html = html.replace(MARK_IKS, iks_svg or
+                    '<div style="font-size:12px;color:#717885;">данных по конкурентам нет</div>')
             # клиент никогда не должен увидеть {{ПЛЕЙСХОЛДЕР}}
             html, left = scrub_placeholders(html)
             if left:
