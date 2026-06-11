@@ -22,6 +22,8 @@ from pathlib import Path
 
 MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-6")
 API_URL = "https://api.anthropic.com/v1/messages"
+OPENAI_MODEL = os.environ.get("LLM_MODEL", "gpt-4o")
+OPENAI_URL = "https://api.openai.com/v1/chat/completions"
 MAX_TRANSCRIPT = 14_000   # символов транскрипта в промт
 MAX_PAGE = 4_000          # символов текста одной страницы сайта
 MAX_PAGES = 4             # сколько внутренних страниц краулим
@@ -110,17 +112,39 @@ def build_prompt(bitrix: dict, pages: dict[str, str]) -> str:
 
 # ── LLM ──────────────────────────────────────────────────────────────────────
 
-def call_llm(prompt: str, api_key: str) -> dict:
-    body = json.dumps({
-        "model": MODEL, "max_tokens": 2000, "system": SYSTEM,
-        "messages": [{"role": "user", "content": prompt}],
-    }).encode()
-    req = urllib.request.Request(API_URL, data=body, headers={
-        "Content-Type": "application/json", "x-api-key": api_key,
-        "anthropic-version": "2023-06-01"})
-    with urllib.request.urlopen(req, timeout=180) as r:
-        resp = json.loads(r.read())
-    text = "".join(b.get("text", "") for b in resp.get("content", []))
+def pick_provider() -> tuple[str, str] | None:
+    """(провайдер, ключ): Anthropic в приоритете, OpenAI как на проде SCC."""
+    if os.environ.get("ANTHROPIC_API_KEY"):
+        return "anthropic", os.environ["ANTHROPIC_API_KEY"]
+    if os.environ.get("OPENAI_API_KEY"):
+        return "openai", os.environ["OPENAI_API_KEY"]
+    return None
+
+
+def call_llm(prompt: str, provider: str, api_key: str) -> dict:
+    if provider == "openai":
+        body = json.dumps({
+            "model": OPENAI_MODEL,
+            "messages": [{"role": "system", "content": SYSTEM},
+                         {"role": "user", "content": prompt}],
+            "max_tokens": 2000,
+        }).encode()
+        req = urllib.request.Request(OPENAI_URL, data=body, headers={
+            "Content-Type": "application/json", "Authorization": "Bearer " + api_key})
+        with urllib.request.urlopen(req, timeout=180) as r:
+            resp = json.loads(r.read())
+        text = resp["choices"][0]["message"]["content"]
+    else:
+        body = json.dumps({
+            "model": MODEL, "max_tokens": 2000, "system": SYSTEM,
+            "messages": [{"role": "user", "content": prompt}],
+        }).encode()
+        req = urllib.request.Request(API_URL, data=body, headers={
+            "Content-Type": "application/json", "x-api-key": api_key,
+            "anthropic-version": "2023-06-01"})
+        with urllib.request.urlopen(req, timeout=180) as r:
+            resp = json.loads(r.read())
+        text = "".join(b.get("text", "") for b in resp.get("content", []))
     return parse_insights(text)
 
 
@@ -178,10 +202,12 @@ def main() -> int:
     if len(sys.argv) < 2:
         print("usage: kp_insights.py <папка-клиента>")
         return 1
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key:
-        print("⚠ нет ANTHROPIC_API_KEY — смысловой слой пропущен")
+    prov = pick_provider()
+    if not prov:
+        print("⚠ нет ANTHROPIC_API_KEY/OPENAI_API_KEY — смысловой слой пропущен")
         return 2
+    provider, api_key = prov
+    print(f"  модель: {provider} ({MODEL if provider == 'anthropic' else OPENAI_MODEL})")
     client_dir = Path(sys.argv[1])
     bitrix = json.loads((client_dir / "bitrix.json").read_text(encoding="utf-8"))
     domain = (bitrix.get("site") or bitrix.get("title") or "").strip()
@@ -192,7 +218,7 @@ def main() -> int:
     print(f"  материал: бриф={len(bitrix.get('brief') or {})} полей, "
           f"транскрипт={'есть' if bitrix.get('transcript') else 'нет'}, "
           f"страниц сайта={len(pages)}")
-    insights = call_llm(prompt, api_key)
+    insights = call_llm(prompt, provider, api_key)
     (client_dir / "insights.json").write_text(
         json.dumps(insights, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"  болей: {len(insights['pains'])}, проблем сайта: {len(insights['site_issues'])}"
