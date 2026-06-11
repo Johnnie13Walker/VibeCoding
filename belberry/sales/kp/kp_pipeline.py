@@ -224,6 +224,22 @@ def niche_text_from_bitrix(bx: dict) -> str:
     return " ".join(p for p in parts if p).strip()
 
 
+def filter_prcy_rows(rows_html: str | None, has_metrika: bool, brand: str) -> str | None:
+    """Чистка строк техаудита PR-CY: при живой Метрике — без его оценок трафика
+    (отказы/визиты), для немедицинских брендов — без мед-флагов (онлайн-запись)."""
+    if not rows_html:
+        return rows_html
+    kept = []
+    for row in re.findall(r"<tr>.*?</tr>", rows_html, re.S):
+        low = row.lower()
+        if has_metrika and ("отказ" in low or "визит" in low):
+            continue  # есть факт Метрики — оценки PR-CY не показываем
+        if brand != "belberry" and "онлайн-запис" in low:
+            continue  # мед-флаг неприменим вне медицины
+        kept.append(row)
+    return "\n".join(kept) if kept else None
+
+
 def combine_problem_rows(prcy_rows: str | None, metrika_rows: str | None) -> str | None:
     """Слайд «проблема → решение»: техфлаги PR-CY + находки Метрики одним списком."""
     chunks = [c for c in (prcy_rows, metrika_rows) if c and c.strip()]
@@ -705,9 +721,11 @@ def run_pipeline(a: argparse.Namespace) -> int:
                 wm_rows = render_webmaster_rows(wm)
                 if wm_rows:
                     print(f"  Вебмастер: быстрых побед {len(wm.get('quick_wins') or [])}")
-            all_problems = combine_problem_rows(combine_problem_rows(combine_problem_rows(
+            prcy_rows = filter_prcy_rows(
                 probs.read_text(encoding="utf-8") if probs.exists() else None,
-                metrika_rows), site_rows), wm_rows)
+                bool(metrika), a.brand)
+            all_problems = combine_problem_rows(combine_problem_rows(combine_problem_rows(
+                prcy_rows, metrika_rows), site_rows), wm_rows)
             html, missing = inject_auto_blocks(
                 html, bench.read_text(encoding="utf-8") if bench.exists() else None,
                 all_problems)
