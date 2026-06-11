@@ -570,3 +570,19 @@ def test_smeta_substitutions_prepay_ladder():
     with_vat = subs["{{ЦЕНА_С_НДС}}"]
     # 20% скидка от цены с НДС: 105 000 → 84 000
     assert subs["{{ЦЕНА_ПРЕДОПЛ_12}}"] == "84 000 ₽", (with_vat, subs["{{ЦЕНА_ПРЕДОПЛ_12}}"])
+
+
+def test_render_budget_rows_from_smeta():
+    """Состав бюджета: платные с ценой и сверху, included — «включено»."""
+    from kp_pipeline import render_budget_rows
+    html = render_budget_rows({"items": [
+        {"name": "Внедрение правок на Тильде", "included": True},
+        {"name": "SEO-продвижение: семантика и контент", "monthly": 80000},
+        {"name": "Разовый аудит", "once": 30000},
+        {"section": "ЭТАП 1"}]})
+    assert "80 000 ₽" in html and "/месяц" in html
+    assert "30 000 ₽" in html and "разово" in html
+    assert "включено" in html and "ЭТАП 1" not in html
+    assert html.index("80 000") < html.index("включено")  # платные сверху
+    assert render_budget_rows(None) is None
+    assert render_budget_rows({"items": []}) is None
