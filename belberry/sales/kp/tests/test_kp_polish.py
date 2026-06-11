@@ -59,3 +59,13 @@ def test_small_ints_allowed():
 def test_split_slides():
     html = ORIG + "\n" + ORIG.replace("Заголовок", "Второй")
     assert len(split_slides(html)) == 2
+
+def test_locked_text_rejected_on_change():
+    from kp_polish import locked_texts, validate_slide
+    orig = ('<section class="slide"><div data-lock="1">+12–23 заявок</div>'
+            '<p>текст</p></section>')
+    assert locked_texts(orig) == ["+12–23 заявок"]
+    ok = orig.replace("текст", "новый текст про клиента")
+    assert validate_slide(orig, ok, "{}") is None
+    bad = orig.replace("+12–23 заявок", "4 761 визит")
+    assert "data-lock" in validate_slide(orig, bad, '{"x": 4761}')
