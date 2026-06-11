@@ -738,7 +738,7 @@ def run_pipeline(a: argparse.Namespace) -> int:
                 print("  ⚠ нет Chrome/домена — скрин пропущен")
                 mark(stage, "skipped")
                 continue
-            r = subprocess.run([chrome, "--headless", "--disable-gpu",
+            r = subprocess.run([chrome, "--headless", "--disable-gpu", "--no-sandbox", "--disable-dev-shm-usage",
                 "--screenshot=" + str(tmp_dir / "site.png"),
                 "--window-size=1280,860", "--hide-scrollbars",
                 "--virtual-time-budget=6000", f"https://{dom}/"],
@@ -754,12 +754,16 @@ def run_pipeline(a: argparse.Namespace) -> int:
                 print("  ⚠ нет Chrome/деки — PDF пропущен")
                 mark(stage, "skipped")
                 continue
-            subprocess.run([chrome, "--headless", "--disable-gpu",
+            subprocess.run([chrome, "--headless", "--disable-gpu", "--no-sandbox", "--disable-dev-shm-usage",
                 "--no-pdf-header-footer", "--print-to-pdf=" + str(tmp_dir / "deck.pdf"),
                 "--virtual-time-budget=4000",
                 "file://" + str(tmp_dir / "kp.html")], capture_output=True, timeout=180)
             if (tmp_dir / "deck.pdf").exists():
                 print(f"  deck.pdf: {((tmp_dir / 'deck.pdf').stat().st_size // 1024)} КБ")
+            else:
+                print("  ⚠ PDF не собрался — пропуск")
+                mark(stage, "skipped")
+                continue
         elif stage == "insights":
             # смысловой слой: бриф + транскрипт + сайт → боли и решения (LLM)
             if not (os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("OPENAI_API_KEY")):
