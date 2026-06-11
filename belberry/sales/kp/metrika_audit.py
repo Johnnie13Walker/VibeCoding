@@ -15,6 +15,8 @@
 Выход: metrika.json + краткий отчёт. Если счётчика нет в аккаунте — честно сообщает
 (значит нужен гостевой доступ от клиента).
 """
+from __future__ import annotations
+
 import os
 import sys
 import json
@@ -22,48 +24,63 @@ import datetime
 import urllib.request
 import urllib.parse
 
-ENV_PATH = os.path.expanduser("~/.config/vibecoding/assistant/secrets/metrika-belberry.env")
+# два агентских аккаунта: Belberry (медицина) и Acoola (остальные ниши)
+ENV_PATHS = [
+    ("belberry", os.path.expanduser("~/.config/vibecoding/assistant/secrets/metrika-belberry.env")),
+    ("acoola", os.path.expanduser("~/.config/vibecoding/assistant/secrets/metrika-acoola.env")),
+]
 BASE = "https://api-metrika.yandex.net"
 
 
-def _token() -> str:
+def _tokens() -> list[tuple[str, str]]:
     tok = os.environ.get("METRIKA_OAUTH_TOKEN")
     if tok:
-        return tok
-    try:
-        for line in open(ENV_PATH, encoding="utf-8"):
-            if line.strip().startswith("METRIKA_OAUTH_TOKEN="):
-                return line.split("=", 1)[1].strip()
-    except FileNotFoundError:
-        pass
-    sys.exit(f"❌ Нет токена Метрики. METRIKA_OAUTH_TOKEN в {ENV_PATH} или env.")
+        return [("env", tok)]
+    out = []
+    for name, path in ENV_PATHS:
+        try:
+            for line in open(path, encoding="utf-8"):
+                if line.strip().startswith("METRIKA_OAUTH_TOKEN="):
+                    out.append((name, line.split("=", 1)[1].strip()))
+                    break
+        except FileNotFoundError:
+            continue
+    if not out:
+        sys.exit(f"❌ Нет токена Метрики ни в одном из: {[p for _, p in ENV_PATHS]}")
+    return out
 
 
-TOKEN = _token()
+TOKENS = _tokens()
+ACTIVE_TOKEN = TOKENS[0][1]  # find_counter переключает на аккаунт, где нашёлся счётчик
 
 
-def call(path: str, params: dict) -> dict:
+def call(path: str, params: dict, token: str | None = None) -> dict:
     url = BASE + path + "?" + urllib.parse.urlencode(params)
-    req = urllib.request.Request(url, headers={"Authorization": "OAuth " + TOKEN})
+    req = urllib.request.Request(url, headers={"Authorization": "OAuth " + (token or ACTIVE_TOKEN)})
     with urllib.request.urlopen(req, timeout=60) as r:
         return json.loads(r.read().decode("utf-8", "ignore"))
 
 
 def find_counter(needle: str):
-    """По id (если число) или по домену среди ВСЕХ счётчиков агентского аккаунта."""
+    """По id (число) или по домену — перебираем ОБА агентских аккаунта."""
+    global ACTIVE_TOKEN
     if needle.isdigit():
         return int(needle), needle
     needle = needle.lower().replace("https://", "").replace("http://", "").strip("/")
-    offset = 1
-    while True:
-        r = call("/management/v1/counters", {"per_page": 200, "offset": offset})
-        cs = r.get("counters", [])
-        for c in cs:
-            if needle in (c.get("site") or "").lower():
-                return c["id"], c.get("site")
-        if len(cs) < 200:
-            return None, None
-        offset += 200
+    for acc_name, tok in TOKENS:
+        offset = 1
+        while True:
+            r = call("/management/v1/counters", {"per_page": 200, "offset": offset}, token=tok)
+            cs = r.get("counters", [])
+            for c in cs:
+                if needle in (c.get("site") or "").lower():
+                    ACTIVE_TOKEN = tok
+                    print(f"  счётчик найден в аккаунте «{acc_name}»")
+                    return c["id"], c.get("site")
+            if len(cs) < 200:
+                break
+            offset += 200
+    return None, None
 
 
 def stat(counter_id: int, d1: str, d2: str, metrics: str, dimensions: str = "",
@@ -130,7 +147,7 @@ def main():
 
     cid, site = find_counter(needle)
     if not cid:
-        print(f"⚠ Счётчик для «{needle}» НЕ найден в агентском аккаунте Belberry.")
+        print(f"⚠ Счётчик для «{needle}» НЕ найден в агентских аккаунтах (Belberry + Acoola).")
         print("  → нужен гостевой доступ к Метрике от клиента (или счётчик не наш).")
         sys.exit(2)
 
