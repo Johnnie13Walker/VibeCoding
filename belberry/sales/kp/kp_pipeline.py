@@ -69,6 +69,21 @@ def deck_substitutions(data: dict, today: str) -> dict[str, str]:
     return subs
 
 
+def niche_text_from_bitrix(bx: dict) -> str:
+    """Текст ниши клиента для подбора кейсов: сфера + приоритетные услуги + продукт."""
+    brief = bx.get("brief") or {}
+    parts = [bx.get("sfera") or "",
+             brief.get("Приоритетные товары/услуги, которые нужно продвигать") or "",
+             brief.get("Что представляет собой продукт (товар, услуга или компания)?") or ""]
+    return " ".join(p for p in parts if p).strip()
+
+
+def combine_problem_rows(prcy_rows: str | None, metrika_rows: str | None) -> str | None:
+    """Слайд «проблема → решение»: техфлаги PR-CY + находки Метрики одним списком."""
+    chunks = [c for c in (prcy_rows, metrika_rows) if c and c.strip()]
+    return "\n".join(chunks) if chunks else None
+
+
 def render_traffic_drop(data: dict) -> str | None:
     """HTML-фрагмент баннера просадки для маркера AUTO:TRAFFIC_DROP."""
     fact = next((f for f in data.get("facts", []) if f["key"] == "traffic_drop"), None)
@@ -297,8 +312,12 @@ def run_pipeline(a: argparse.Namespace) -> int:
             _run("build_kp.py", [domain, *comps], tmp_dir)
         elif stage == "metrika":
             bx = _load(tmp_dir / "bitrix.json") or {}
+            args = [domain_from_bitrix(bx), str(a.days)]
+            region = (bx.get("brief") or {}).get("Регион продвижения")
+            if region:
+                args.append(region)  # гео-проблемы считаются от целевого региона брифа
             try:
-                _run("metrika_audit.py", [domain_from_bitrix(bx), str(a.days)], tmp_dir)
+                _run("metrika_audit.py", args, tmp_dir)
             except RuntimeError as e:
                 print(f"  ⚠ Метрика недоступна ({e}) — продолжаем без неё")
                 mark(stage, "skipped")
@@ -321,9 +340,33 @@ def run_pipeline(a: argparse.Namespace) -> int:
             html = dst.read_text(encoding="utf-8")
             bench = (tmp_dir / "seo_benchmark.html")
             probs = (tmp_dir / "problem_solution.html")
+            # проблемы = техфлаги PR-CY + находки глубокого аудита Метрики
+            metrika = _load(tmp_dir / "metrika.json") or {}
+            metrika_rows = None
+            if metrika.get("problems"):
+                from metrika_audit import render_problems_html
+                metrika_rows = render_problems_html(metrika["problems"])
+                print(f"  проблем из Метрики: {len(metrika['problems'])}")
+            all_problems = combine_problem_rows(
+                probs.read_text(encoding="utf-8") if probs.exists() else None, metrika_rows)
             html, missing = inject_auto_blocks(
                 html, bench.read_text(encoding="utf-8") if bench.exists() else None,
-                probs.read_text(encoding="utf-8") if probs.exists() else None)
+                all_problems)
+            # кейсы с сайта Акулы — по нише клиента (только для бренда acoola)
+            if a.brand == "acoola":
+                try:
+                    import acoola_cases
+                    bx = _load(tmp_dir / "bitrix.json") or {}
+                    niche = niche_text_from_bitrix(bx) or domain_from_bitrix(bx)
+                    cases = acoola_cases.pick(niche)
+                    if cases:
+                        html, injected = acoola_cases.inject_cases(
+                            html, acoola_cases.render_cases_html(cases))
+                        mark_note = "" if injected else " (маркер AUTO:CASES не найден!)"
+                        print(f"  кейсы подобраны по нише «{niche[:50]}»{mark_note}: "
+                              + ", ".join(c.get("title", "?")[:25] for c in cases))
+                except Exception as e:  # noqa: BLE001 — кейсы не должны ронять сборку
+                    print(f"  ⚠ кейсы не подобраны: {e}")
             # факты в слайды: плейсхолдеры + баннер просадки трафика
             data = _load(tmp_dir / "kp_data.json") or {}
             for ph, val in deck_substitutions(data, datetime.now().strftime("%d.%m.%Y")).items():

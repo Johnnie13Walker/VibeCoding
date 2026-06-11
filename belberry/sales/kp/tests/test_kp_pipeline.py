@@ -244,3 +244,22 @@ def test_templates_have_traffic_marker():
     base = Path(__file__).resolve().parents[1] / "templates"
     for tpl in ("seo-belberry", "seo-acoola"):
         assert MARK_TRAFFIC in (base / tpl / "kp.html").read_text(encoding="utf-8"), tpl
+
+
+# ── интеграция: ниша для кейсов и объединение проблем ────────────────────────
+
+from kp_pipeline import combine_problem_rows, niche_text_from_bitrix  # noqa: E402
+
+
+def test_niche_text_from_bitrix():
+    bx = {"sfera": "Производство",
+          "brief": {"Приоритетные товары/услуги, которые нужно продвигать": "аудиогиды",
+                    "Что представляет собой продукт (товар, услуга или компания)?": "радиогиды"}}
+    assert niche_text_from_bitrix(bx) == "Производство аудиогиды радиогиды"
+    assert niche_text_from_bitrix({}) == ""
+
+
+def test_combine_problem_rows():
+    assert combine_problem_rows("<tr>a</tr>", "<tr>b</tr>") == "<tr>a</tr>\n<tr>b</tr>"
+    assert combine_problem_rows(None, "<tr>b</tr>") == "<tr>b</tr>"
+    assert combine_problem_rows("", None) is None

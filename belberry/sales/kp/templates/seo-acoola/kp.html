@@ -552,7 +552,7 @@
     </div>
     <div class="cell">
       <div class="label">ПОДГОТОВЛЕНО</div>
-      <div class="value">09.06.2026</div>
+      <div class="value">{{ДАТА}}</div>
       <div class="note">{{МЕНЕДЖЕР}} · менеджер проекта</div>
     </div>
     <div class="cell">
@@ -707,12 +707,6 @@
       <div style="width:34px;height:34px;border-radius:9px;background:linear-gradient(140deg,#5C9FFC,#3086FB);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px;flex:none;">PM</div>
       <div><div style="font-size:11.5px;font-weight:700;line-height:1.2;color:#313131;">Проджект</div><div style="font-size:9.5px;color:#99A0A9;">ведёт проект</div></div>
     </div>
-  </div>
-
-  <div class="contact-bar">
-    <div class="cb-cell"><span class="cb-k">КОНТАКТ</span><span class="cb-v">{{МЕНЕДЖЕР}}</span><span class="cb-s">менеджер проекта · Acoola Team</span></div>
-    <div class="cb-cell"><span class="cb-k">EMAIL · ТЕЛЕФОН</span><span class="cb-v">hello@acoola.team</span><span class="cb-s">+7 (495) 796-66-90</span></div>
-    <div class="cb-cell"><span class="cb-k">САЙТ · КЕЙСЫ</span><span class="cb-v">acoola.team</span><span class="cb-s">кейсы — acoola.team</span></div>
   </div>
 </section>
 
@@ -941,7 +935,7 @@
 
   <div class="disclaimer">
     <div class="d-title">ВАЖНО — ОЦЕНКА НА ТЕКУЩИЙ МОМЕНТ</div>
-    Внешняя оценка на <strong>09.06.2026</strong> без доступа к вашей Метрике — открытые счётчики на малых сайтах часто занижают реальный трафик, поэтому базу уточняем по Метрике. SEO даёт результат на горизонте 3–6 месяцев. Факт vs прогноз сверяем каждый месяц.
+    Внешняя оценка на <strong>{{ДАТА}}</strong> без доступа к вашей Метрике — открытые счётчики на малых сайтах часто занижают реальный трафик, поэтому базу уточняем по Метрике. SEO даёт результат на горизонте 3–6 месяцев. Факт vs прогноз сверяем каждый месяц.
   </div>
 
   <div class="contact-bar">
@@ -1176,6 +1170,7 @@
   </div>
 
   <div class="proof-grid">
+<!--AUTO:CASES-->
       <a class="tile fill" href="{{КЕЙС_1_ССЫЛКА}}" target="_blank">
         <div class="tt">{{КЕЙС_1_НИША}} ↗</div>
         <div class="tn">{{КЕЙС_1_КЛИЕНТ}}</div>
@@ -1218,6 +1213,7 @@
         <div class="tm">{{КЕЙС_6_МЕТРИКА}}</div>
         <div class="tcap">{{КЕЙС_6_КОММЕНТАРИЙ}}</div>
       </a>
+<!--/AUTO:CASES-->
   </div>
 
   <a href="{{КЕЙСЫ_ССЫЛКА}}" target="_blank" style="display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:13px;text-decoration:none;background:linear-gradient(135deg,#3086FB 0%,#1F6FDE 100%);color:#fff;border-radius:12px;padding:15px 22px;box-shadow:0 6px 18px rgba(48,134,251,0.22);">
@@ -1234,7 +1230,7 @@
   <div class="slide-footer">
     <span class="belb-mark">ACOOLA TEAM</span>
     <span>КП · {{КЛИЕНТ}} · {{ДОМЕН}}</span>
-    <span>09.06.2026</span>
+    <span>{{ДАТА}}</span>
   </div>
 </section>
 
@@ -1293,7 +1289,7 @@
   <div class="slide-footer">
     <span class="belb-mark">ACOOLA TEAM</span>
     <span>КП · {{КЛИЕНТ}} · {{ДОМЕН}}</span>
-    <span>09.06.2026</span>
+    <span>{{ДАТА}}</span>
   </div>
 </section>
 
