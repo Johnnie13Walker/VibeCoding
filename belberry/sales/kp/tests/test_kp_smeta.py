@@ -138,3 +138,13 @@ def test_preset_branding_total_matches_matrix():
 
 def test_preset_program_deposit():
     assert _preset_total("program-deposit") == 39_000
+
+
+def test_preset_program_included_rows_dont_change_total():
+    """Типовые работы 1-го месяца — «включено», сумма пакета не меняется."""
+    assert _preset_total("program") == 31_000
+    rows, _ = build_rows(PRESETS["program"]["items"])
+    included = [r for r in rows if r["kind"] == "item" and r["item"].get("included")]
+    assert len(included) == 6 and all(r["total"] == 0 for r in included)
+    # нулевой подытог секции «включено» не печатается
+    assert not any(r["kind"] == "section_total" and r["total"] == 0 for r in rows)
