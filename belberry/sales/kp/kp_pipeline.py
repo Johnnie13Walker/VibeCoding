@@ -329,8 +329,8 @@ def run_pipeline(a: argparse.Namespace) -> int:
             _run("prodoctorov_audit.py", a.prodoctorov, tmp_dir)
         elif stage == "insights":
             # смысловой слой: бриф + транскрипт + сайт → боли и решения (LLM)
-            if not os.environ.get("ANTHROPIC_API_KEY"):
-                print("  ⚠ нет ANTHROPIC_API_KEY — смысловой слой пропущен")
+            if not (os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("OPENAI_API_KEY")):
+                print("  ⚠ нет LLM-ключа (ANTHROPIC/OPENAI) — смысловой слой пропущен")
                 mark(stage, "skipped")
                 continue
             try:
