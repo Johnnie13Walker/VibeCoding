@@ -418,8 +418,12 @@ def smeta_substitutions(spec: dict | None) -> dict[str, str]:
     if subtotal <= 0:
         return {}
     fmt = lambda n: f"{round(n):,}".replace(",", " ") + " ₽"  # noqa: E731
+    monthly = subtotal * (1 + kp_smeta.VAT)
     subs = {"{{ЦЕНА_БЕЗ_НДС}}": fmt(subtotal),
-            "{{ЦЕНА_С_НДС}}": fmt(subtotal * (1 + kp_smeta.VAT))}
+            "{{ЦЕНА_С_НДС}}": fmt(monthly)}
+    # лестница предоплаты (слайд «Бюджет», перенята из питч-шаблона Acoola)
+    for months, pct in ((3, 5), (6, 10), (9, 15), (12, 20)):
+        subs[f"{{{{ЦЕНА_ПРЕДОПЛ_{months}}}}}"] = fmt(monthly * (1 - pct / 100))
     if spec.get("deadline"):
         subs["{{ДЕДЛАЙН_ПОДАРКА}}"] = str(spec["deadline"])
     return subs
