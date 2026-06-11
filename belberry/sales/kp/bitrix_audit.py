@@ -107,6 +107,9 @@ def main():
         for k, v in b.items():
             if k.startswith("ufCrm20_") and isinstance(v, str) and v.strip():
                 out["brief"][titles.get(k, k)] = v
+        # «Список услуг» (enum ids) — для автоподбора пресета сметы в пайплайне
+        svc = b.get("ufCrm20_1753290430") or []
+        out["brief_services"] = svc if isinstance(svc, list) else [svc]
 
     # встреча СП1048 → транскрипт (текст)
     meets = call("crm.item.list", {"entityTypeId": 1048,

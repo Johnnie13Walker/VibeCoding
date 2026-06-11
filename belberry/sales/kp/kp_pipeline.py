@@ -26,6 +26,12 @@ from pathlib import Path
 
 KP_DIR = Path(__file__).resolve().parent
 
+# enum «Список услуг» брифа СП1056 → пресет сметы kp_smeta (тарифы матрицы)
+BRIEF_SVC_TO_PRESET = {
+    2730: "seo", 2726: "ppc", 2732: "orm", 2738: "program",
+    2740: "lp", 2742: "branding", 2736: "tv",
+}
+
 
 def pick_template(brand: str = "belberry") -> Path:
     """Золотой шаблон деки по бренду; запасной вариант — клиентский эталон."""
@@ -33,11 +39,54 @@ def pick_template(brand: str = "belberry") -> Path:
     if (tpl / "kp.html").exists():
         return tpl
     return KP_DIR / "clients" / "med-shushary"
-STAGES = ["bitrix", "audit", "metrika", "prodoctorov", "assemble", "scaffold"]
+
+
+def preset_for_brief(brief_services: list | None, default: str = "seo") -> str:
+    """Пресет сметы по услугам брифа: первая знакомая услуга, иначе default."""
+    for svc in brief_services or []:
+        if svc in BRIEF_SVC_TO_PRESET:
+            return BRIEF_SVC_TO_PRESET[svc]
+    return default
+
+
+def deck_substitutions(data: dict, today: str) -> dict[str, str]:
+    """Карта замен плейсхолдеров деки реальными фактами (только то, что знаем)."""
+    facts = {f["key"]: f["value"] for f in data.get("facts", [])}
+    subs: dict[str, str] = {}
+    domain = data.get("domain") or ""
+    if domain:
+        subs["{{ДОМЕН}}"] = domain
+        subs["{{домен}}"] = domain
+        subs["{{КЛИЕНТ}}"] = str(facts.get("deal_title") or domain)
+    subs["{{ДАТА}}"] = today
+    region = facts.get("brief:Регион продвижения")
+    if region:
+        subs["{{ГОРОД}}"] = str(region)
+        subs["{{ГЕО}}"] = str(region)
+    services = facts.get("brief:Приоритетные товары/услуги, которые нужно продвигать")
+    if services:
+        subs["{{ПРИОРИТЕТНЫЕ_УСЛУГИ}}"] = str(services)
+    return subs
+
+
+def render_traffic_drop(data: dict) -> str | None:
+    """HTML-фрагмент баннера просадки для маркера AUTO:TRAFFIC_DROP."""
+    fact = next((f for f in data.get("facts", []) if f["key"] == "traffic_drop"), None)
+    if not fact:
+        return None
+    # «пик 66500 (05.2024) → сейчас 16500 = -75%»
+    txt = str(fact["value"])
+    pct = txt.split("=")[-1].strip() if "=" in txt else ""
+    return (f'<div class="pb-num">{pct}</div>\n'
+            f'<div class="pb-txt"><b>Трафик из поиска просел.</b> {txt}. '
+            f'Кривая идёт вниз — без работ просадка продолжится. '
+            f'<span style="opacity:.7">[данные API-аудита]</span></div>')
+STAGES = ["bitrix", "audit", "metrika", "prodoctorov", "assemble", "scaffold", "smeta"]
 
 # Маркеры в kp.html эталона для автовставки (если их нет — оставляем файлы рядом)
 MARK_BENCH = "<!--AUTO:SEO_BENCHMARK-->"
 MARK_PROBLEMS = "<!--AUTO:PROBLEM_SOLUTION-->"
+MARK_TRAFFIC = "<!--AUTO:TRAFFIC_DROP-->"
 
 DOMAIN_RE = re.compile(r"\b((?:[a-zа-я0-9-]+\.)+(?:ru|com|net|org|рф|su|online|site|clinic|moscow|спб))\b",
                        re.IGNORECASE)
@@ -275,10 +324,36 @@ def run_pipeline(a: argparse.Namespace) -> int:
             html, missing = inject_auto_blocks(
                 html, bench.read_text(encoding="utf-8") if bench.exists() else None,
                 probs.read_text(encoding="utf-8") if probs.exists() else None)
+            # факты в слайды: плейсхолдеры + баннер просадки трафика
+            data = _load(tmp_dir / "kp_data.json") or {}
+            for ph, val in deck_substitutions(data, datetime.now().strftime("%d.%m.%Y")).items():
+                html = html.replace(ph, val)
+            drop_html = render_traffic_drop(data)
+            if drop_html and MARK_TRAFFIC in html:
+                html = html.replace(MARK_TRAFFIC, drop_html)
             dst.write_text(html, encoding="utf-8")
             if missing:
                 print(f"  ⚠ маркеры {missing} в эталоне не найдены — вставь фрагменты вручную "
                       f"(карта слайдов: SEO-KP-PLAYBOOK.md)")
+        elif stage == "smeta":
+            import kp_smeta
+            spec_path = tmp_dir / "smeta.json"
+            if spec_path.exists():
+                # ручные правки сейлса священны — только пересобираем xlsx
+                spec = json.loads(spec_path.read_text(encoding="utf-8"))
+                print("  smeta.json уже есть — пересобираю xlsx без перезаписи спеки")
+            else:
+                bx = _load(tmp_dir / "bitrix.json") or {}
+                preset_key = preset_for_brief(bx.get("brief_services"))
+                spec = {"client": domain_from_bitrix(bx) or tmp_dir.name,
+                        "brand": "Acoola Team" if a.brand == "acoola" else "Belberry",
+                        "deadline": "", "flags": {"logo_discount": False, "fast_pay": True},
+                        **kp_smeta.PRESETS[preset_key]}
+                spec_path.write_text(json.dumps(spec, ensure_ascii=False, indent=2),
+                                     encoding="utf-8")
+                print(f"  пресет «{preset_key}» (тарифы матрицы) — состав и суммы "
+                      f"подтвердить со сметчиком")
+            kp_smeta.write_xlsx(spec, tmp_dir / f"Смета_{spec['client']}.xlsx")
         mark(stage)
 
     print("\nГотово. Дальше руками:")

@@ -201,3 +201,46 @@ def test_pick_template_by_brand():
     assert pick_template("belberry").name == "seo-belberry"
     assert pick_template("acoola").name == "seo-acoola"
     assert pick_template("несуществующий").name == "med-shushary"
+
+
+# ── автозаполнение деки и смета по брифу ─────────────────────────────────────
+
+from kp_pipeline import (  # noqa: E402
+    MARK_TRAFFIC,
+    deck_substitutions,
+    preset_for_brief,
+    render_traffic_drop,
+)
+
+
+def test_preset_for_brief_maps_services():
+    assert preset_for_brief([2730]) == "seo"
+    assert preset_for_brief([2722, 2738]) == "program"  # Дзен незнаком → техподдержка
+    assert preset_for_brief([2726]) == "ppc"
+    assert preset_for_brief([]) == "seo"
+    assert preset_for_brief(None) == "seo"
+
+
+def test_deck_substitutions_only_known_facts():
+    data = {"domain": "x.ru", "facts": [
+        {"key": "deal_title", "value": "x.ru", "source": "s", "status": "факт"},
+        {"key": "brief:Регион продвижения", "value": "СПб", "source": "s", "status": "факт"},
+    ]}
+    subs = deck_substitutions(data, "11.06.2026")
+    assert subs["{{ДОМЕН}}"] == "x.ru" and subs["{{ГОРОД}}"] == "СПб"
+    assert subs["{{ДАТА}}"] == "11.06.2026"
+    assert "{{ПРИОРИТЕТНЫЕ_УСЛУГИ}}" not in subs  # неизвестное не подставляем
+
+
+def test_render_traffic_drop_builds_banner():
+    data = {"facts": [{"key": "traffic_drop", "source": "s", "status": "факт",
+                       "value": "пик 66500 (05.2024) → сейчас 16500 = -75%"}]}
+    html = render_traffic_drop(data)
+    assert "-75%" in html and "66500" in html
+    assert render_traffic_drop({"facts": []}) is None
+
+
+def test_templates_have_traffic_marker():
+    base = Path(__file__).resolve().parents[1] / "templates"
+    for tpl in ("seo-belberry", "seo-acoola"):
+        assert MARK_TRAFFIC in (base / tpl / "kp.html").read_text(encoding="utf-8"), tpl
