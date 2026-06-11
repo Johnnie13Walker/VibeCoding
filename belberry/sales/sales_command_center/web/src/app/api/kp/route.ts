@@ -1,23 +1,30 @@
 import { createKpJob, listKpJobs } from '@/lib/kp';
+import { canSeeKp } from '@/lib/kp-access';
 import { isPreviewMode } from '@/lib/preview';
 import { getSession } from '@/lib/session';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+/** Пилотный доступ: для остальных эндпоинт неотличим от несуществующего (404). */
+async function guard(): Promise<Response | null> {
   const session = await getSession();
-  if (!session.bitrixId && !isPreviewMode()) {
-    return new Response('Unauthorized', { status: 401 });
-  }
+  if (isPreviewMode()) return null;
+  if (!session.bitrixId) return new Response('Unauthorized', { status: 401 });
+  if (!canSeeKp(session.email)) return new Response('Not Found', { status: 404 });
+  return null;
+}
+
+export async function GET() {
+  const denied = await guard();
+  if (denied) return denied;
   const jobs = await listKpJobs();
   return Response.json({ jobs });
 }
 
 export async function POST(req: Request) {
+  const denied = await guard();
+  if (denied) return denied;
   const session = await getSession();
-  if (!session.bitrixId && !isPreviewMode()) {
-    return new Response('Unauthorized', { status: 401 });
-  }
   const body = await req.json().catch(() => null);
   const dealId = Number(body?.dealId);
   if (!Number.isInteger(dealId) || dealId <= 0) {
