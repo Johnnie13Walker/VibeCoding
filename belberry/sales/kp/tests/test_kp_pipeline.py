@@ -441,3 +441,39 @@ def test_templates_have_blockers_marker():
         i = s.find("Что сейчас мешает")
         chunk = s[i:s.find("</section>", i)]
         assert "ИКС 80" not in chunk and "354" not in chunk
+
+
+# ── апгрейды качества КП (ревью 11.06: нумерация, оффер, спарклайн) ──────────
+
+from kp_pipeline import offer_substitutions, render_trend_svg, renumber_pagenums  # noqa: E402
+
+
+def test_renumber_pagenums_after_insertions():
+    html = ('<section class="slide"><div class="pagenum">07 / 12</div></section>'
+            '<section class="slide"><div class="pagenum">NN / NN</div></section>'
+            '<section class="slide title"><p>без номера</p></section>')
+    out = renumber_pagenums(html)
+    assert '>01 / 3<' in out and '>02 / 3<' in out and "NN" not in out
+
+
+def test_offer_substitutions_from_forecast_and_price():
+    spec = {"items": [{"name": "SEO", "monthly": 95_000}]}
+    subs = offer_substitutions(MT_FX, spec)
+    assert subs["{{ОФФЕР_ЗАЯВКИ}}"] == "+12–23 заявок в месяц из поиска"
+    # 99 750 / 45 ≈ 2 217; / 34 ≈ 2 934
+    assert subs["{{ЦЕНА_ЗА_ЗАЯВКУ}}"] == "2 217–2 934 ₽"
+    assert offer_substitutions(None, spec) == {}
+
+
+def test_trend_svg_from_metrika_months():
+    mt = {"trend": {"organic": {"months": [
+        {"month": "2026-03", "visits": 918, "partial": True},
+        {"month": "2026-04", "visits": 1721, "partial": False},
+        {"month": "2026-05", "visits": 1589, "partial": False},
+        {"month": "2026-06", "visits": 1480, "partial": False}]}}}
+    svg = render_trend_svg(mt)
+    assert svg.startswith("<svg") and "polyline" in svg and "1721" not in svg.split("polyline")[0]
+    assert "2026-04" in svg and "1480" in svg and "918" not in svg  # partial исключён
+    assert render_trend_svg({"trend": {"organic": {"months": [
+        {"month": "a", "visits": 1, "partial": False},
+        {"month": "b", "visits": 2, "partial": False}]}}}) is None  # 2 точки — не тренд
