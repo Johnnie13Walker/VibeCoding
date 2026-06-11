@@ -109,6 +109,78 @@ def combine_problem_rows(prcy_rows: str | None, metrika_rows: str | None) -> str
     return "\n".join(chunks) if chunks else None
 
 
+def render_blockers_html(audit: dict | None, metrika: dict | None,
+                         insights: dict | None) -> str | None:
+    """Слайд «Что мешает» — 3 колонки ТОЛЬКО из реальных данных клиента.
+
+    Заменяет ручную сетку с цифрами-образцами (баг: med-shushary-числа выглядели
+    как аудит клиента). Пункт появляется только при наличии данных; пусто — None.
+    """
+    import html as _h
+    cl = (audit or {}).get("client") or {}
+    comps = [c for c in (audit or {}).get("competitors", []) if c.get("sqi")]
+
+    vis: list[str] = []
+    sqi = cl.get("sqi")
+    if sqi and comps:
+        leader = max(comps, key=lambda c: c["sqi"])
+        if sqi < leader["sqi"]:
+            vis.append(f"Авторитет сайта <b>ИКС {sqi}</b> — у лидера ниши "
+                       f"{_h.escape(leader['domain'])} <b>{leader['sqi']}</b>")
+    yi, gi = cl.get("yandex_index"), cl.get("google_index")
+    if yi and gi and min(yi, gi) < max(yi, gi) * 0.7:
+        worse = "Google" if gi < yi else "Яндексе"
+        vis.append(f"В {worse} проиндексировано <b>{min(yi, gi)}</b> страниц "
+                   f"против <b>{max(yi, gi)}</b> — дисбаланс видимости")
+    donors = cl.get("donors")
+    if donors is not None and donors < 30:
+        vis.append(f"Внешних ссылок всего <b>{donors}</b> — ссылочный профиль "
+                   f"не даёт расти в выдаче")
+
+    tech: list[str] = []
+    if cl.get("schema_org") is False:
+        tech.append("<b>Нет Schema-разметки</b> — поисковики не показывают "
+                    "расширенные карточки в выдаче")
+    if (cl.get("load_time") or 0) > 2:
+        tech.append(f"Загрузка <b>{cl['load_time']:.1f} с</b> — медленно, "
+                    f"посетители уходят не дождавшись")
+    for flag, name in (("robots", "robots.txt"), ("sitemap", "карта сайта")):
+        if cl.get(flag) is False:
+            tech.append(f"Отсутствует <b>{name}</b>")
+    for issue in ((insights or {}).get("site_issues") or [])[:2]:
+        tech.append(f"{_h.escape(issue.get('issue', ''))} "
+                    f"<span style='opacity:.65'>({_h.escape(issue.get('evidence', '')[:60])})</span>")
+
+    flow: list[str] = []
+    for p in ((metrika or {}).get("problems") or [])[:2]:
+        flow.append(_h.escape(p.get("fact", "")))
+    for src in (metrika or {}).get("source_conversion") or []:
+        if "рекламе" in src.get("source", "") and src.get("visits"):
+            org = next((s for s in metrika["source_conversion"]
+                        if "поисков" in s.get("source", "")), None)
+            if org and org.get("conversion", 0) > (src.get("conversion") or 0):
+                flow.append(f"Реклама даёт <b>{src['visits']}</b> визитов, но конвертит "
+                            f"<b>{src['conversion']}%</b> против <b>{org['conversion']}%</b> "
+                            f"у поиска — платный трафик дороже и слабее")
+            break
+    pains = (insights or {}).get("pains") or []
+    if pains:
+        flow.append(f"{_h.escape(pains[0].get('pain', ''))} "
+                    f"<span style='opacity:.65'>— из разбора встречи</span>")
+
+    cols = [("Видимость в поиске", "red", vis, "🔍 API-аудит сайта"),
+            ("Сайт и техническая база", "amber", tech, "🔍 аудит + текст страниц"),
+            ("Поток и аналитика", "blue", flow, "📊 Яндекс.Метрика · 🗣 встреча")]
+    blocks = []
+    for title, color, items, src in cols:
+        if not items:
+            continue
+        lis = "".join(f"<li>{it}</li>" for it in items)
+        blocks.append(f'<div class="pgroup bad"><span class="ph {color}">{title}</span>'
+                      f'<ul>{lis}</ul><div class="src">{src}</div></div>')
+    return "\n".join(blocks) if blocks else None
+
+
 def render_traffic_drop(data: dict) -> str | None:
     """HTML-фрагмент баннера просадки для маркера AUTO:TRAFFIC_DROP."""
     fact = next((f for f in data.get("facts", []) if f["key"] == "traffic_drop"), None)
@@ -129,6 +201,7 @@ MARK_BENCH = "<!--AUTO:SEO_BENCHMARK-->"
 MARK_PROBLEMS = "<!--AUTO:PROBLEM_SOLUTION-->"
 MARK_TRAFFIC = "<!--AUTO:TRAFFIC_DROP-->"
 MARK_PAINS = "<!--AUTO:PAINS-->"
+MARK_BLOCKERS = "<!--AUTO:BLOCKERS-->"
 
 DOMAIN_RE = re.compile(r"\b((?:[a-zа-я0-9-]+\.)+(?:ru|com|net|org|рф|su|online|site|clinic|moscow|спб))\b",
                        re.IGNORECASE)
@@ -428,6 +501,10 @@ def run_pipeline(a: argparse.Namespace) -> int:
                 html = html.replace(MARK_TRAFFIC, drop_html)
             if pains_html and MARK_PAINS in html:
                 html = html.replace(MARK_PAINS, pains_html)
+            # слайд «Что мешает» — только реальные данные клиента
+            blockers = render_blockers_html(_load(tmp_dir / "audit.json"), metrika, insights)
+            if blockers and MARK_BLOCKERS in html:
+                html = html.replace(MARK_BLOCKERS, blockers)
             # клиент никогда не должен увидеть {{ПЛЕЙСХОЛДЕР}}
             html, left = scrub_placeholders(html)
             if left:

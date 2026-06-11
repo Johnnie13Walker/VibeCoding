@@ -297,3 +297,52 @@ def test_scrub_placeholders_cleans_with_separator():
 def test_scrub_noop_when_clean():
     out, left = scrub_placeholders("<p>чисто</p>")
     assert left == 0 and out == "<p>чисто</p>"
+
+
+# ── слайд «Что мешает» из реальных данных (баг: med-shushary-цифры) ──────────
+
+from kp_pipeline import MARK_BLOCKERS, render_blockers_html  # noqa: E402
+
+AUDIT_FX = {"client": {"sqi": 270, "yandex_index": 309, "google_index": 301,
+                       "donors": 12, "schema_org": True, "load_time": 0.5,
+                       "robots": True, "sitemap": True},
+            "competitors": [{"domain": "cromi.ru", "sqi": 170}]}
+
+
+def test_blockers_only_real_facts():
+    html = render_blockers_html(AUDIT_FX, None, None)
+    assert "12" in html and "Внешних ссылок" in html
+    # ИКС 270 ВЫШЕ конкурента — пункта про отставание быть не должно
+    assert "ИКС 270" not in html
+    # индексация 309/301 сбалансирована — пункта нет
+    assert "дисбаланс" not in html
+    # med-shushary-чисел нет по построению
+    for ghost in ("ИКС 80", "130", "354", "−45%"):
+        assert ghost not in html
+
+
+def test_blockers_metrika_and_pains():
+    mt = {"problems": [{"fact": "Страница /rent собирает 10% трафика, отказы 40.8%"}],
+          "source_conversion": [
+              {"source": "Переходы по рекламе", "visits": 8598, "conversion": 0.65},
+              {"source": "Переходы из поисковых систем", "visits": 4745, "conversion": 1.41}]}
+    ins = {"pains": [{"pain": "SEO занимались минимально"}], "site_issues": [
+        {"issue": "УТП не на главной", "evidence": "нет блока отличий"}]}
+    html = render_blockers_html(AUDIT_FX, mt, ins)
+    assert "/rent" in html and "0.65%" in html and "1.41%" in html
+    assert "УТП не на главной" in html and "из разбора встречи" in html
+
+
+def test_blockers_empty_data_none():
+    assert render_blockers_html(None, None, None) is None
+
+
+def test_templates_have_blockers_marker():
+    base = Path(__file__).resolve().parents[1] / "templates"
+    for tpl in ("seo-belberry", "seo-acoola"):
+        s = (base / tpl / "kp.html").read_text(encoding="utf-8")
+        assert MARK_BLOCKERS in s, tpl
+        # шаблонных цифр-образцов в слайде «Что мешает» больше нет
+        i = s.find("Что сейчас мешает")
+        chunk = s[i:s.find("</section>", i)]
+        assert "ИКС 80" not in chunk and "354" not in chunk
