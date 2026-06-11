@@ -41,13 +41,31 @@
     margin-bottom: 96px;
   }
   .title h1 {
-    font-size: 64px;
-    line-height: 1.05;
-    font-weight: 700;
-    letter-spacing: -0.02em;
+    line-height: 1.08;
     margin-bottom: 28px;
-    max-width: 1000px;
+    max-width: 1040px;
+    position: relative;
   }
+  .title h1 .h1-top {
+    display: block;
+    font-size: 36px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: #CFE2FD;
+    margin-bottom: 10px;
+  }
+  .title h1 .h1-client {
+    display: block;
+    font-size: 66px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    color: #fff;
+  }
+  .rings {
+    position: absolute;
+    pointer-events: none;
+  }
+  .title .rings { top: -170px; right: -190px; }
   .title .lead {
     font-size: 22px;
     color: #CCE0FD;
@@ -58,14 +76,16 @@
   }
   .title .divider {
     height: 1px;
-    background: rgba(255,255,255,0.18);
-    margin-bottom: 36px;
+    background: rgba(255,255,255,0.14);
+    margin-bottom: 32px;
   }
   .title-meta {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 32px;
+    gap: 36px;
+    position: relative;
   }
+  .title-meta .cell { padding-left: 18px; border-left: 1px solid rgba(255,255,255,0.14); }
   .title-meta .cell .label {
     font-size: 11px;
     letter-spacing: 0.24em;
@@ -93,11 +113,11 @@
     margin-bottom: 8px;
   }
   .slide-header h2 {
-    font-size: 34px;
-    font-weight: 700;
-    letter-spacing: -0.01em;
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
     color: #313131;
-    line-height: 1.1;
+    line-height: 1.08;
   }
   .slide-header .pagenum {
     font-size: 12px;
@@ -107,34 +127,36 @@
     margin-top: 14px;
   }
   .slide-subheader {
-    font-size: 14px;
-    color: #6C737D;
-    margin-bottom: 16px;
+    font-size: 13px;
+    color: #717885;
+    margin-bottom: 14px;
+    line-height: 1.45;
   }
   .slide-rule {
-    height: 3px;
-    background: #313131;
-    margin-bottom: 20px;
+    height: 2px;
+    background: linear-gradient(90deg, #3086FB 0, #3086FB 64px, #E4E9F2 64px, #E4E9F2 100%);
+    margin-bottom: 22px;
     width: 100%;
+    border-radius: 1px;
   }
 
   /* CARDS GRID */
-  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
-  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
-  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
 
   .card {
     background: #ffffff;
-    border-radius: 8px;
-    padding: 18px 20px;
+    border-radius: 12px;
+    padding: 20px 22px;
     position: relative;
-    box-shadow: 0 1px 0 rgba(20,32,46,0.04);
+    box-shadow: 0 1px 2px rgba(20,32,46,0.05);
   }
   .card .bar {
-    position: absolute; top: 0; left: 0;
-    width: 56px; height: 3px;
+    position: absolute; top: 0; left: 22px;
+    width: 44px; height: 3px;
     background: #3086FB;
-    border-radius: 2px;
+    border-radius: 0 0 2px 2px;
   }
   .card .tag {
     display: inline-block;
@@ -164,19 +186,20 @@
     margin-bottom: 2px;
   }
   .card .kpi-value {
-    font-size: 21px;
-    font-weight: 700;
+    font-size: 27px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
     color: #313131;
     line-height: 1.1;
   }
   .card .kpi-value.purple { color: #3086FB; }
   .card .desc {
     font-size: 11.5px;
-    line-height: 1.5;
+    line-height: 1.55;
     color: #4A5058;
-    margin-top: 9px;
-    border-top: 1px dashed #D4DDE9;
-    padding-top: 9px;
+    margin-top: 10px;
+    border-top: 1px solid #EDF1F7;
+    padding-top: 10px;
   }
   .card .desc-tight {
     font-size: 11.5px;
@@ -214,7 +237,7 @@
   .tile.fill .tt { color: #DFEDFE; }
   .tile:not(.fill) .tt { color: #3086FB; }
   .tile .tn { font-size: 15.5px; font-weight: 700; margin-top: 3px; line-height: 1.15; }
-  .tile .tnum { font-size: 36px; font-weight: 800; line-height: 1.0; margin-top: 14px; letter-spacing: -0.02em; }
+  .tile .tnum { font-size: 40px; font-weight: 900; line-height: 1.0; margin-top: 14px; letter-spacing: -0.03em; }
   .tile:not(.fill) .tnum { color: #3086FB; }
   .tile .tnum .arrow { font-weight: 700; opacity: .5; margin: 0 1px; }
   .tile .tm { font-size: 10.5px; margin-top: 6px; opacity: .85; }
@@ -223,28 +246,32 @@
   .tile:not(.fill) .tcap { border-top: 1px solid #E7EFFB; color: #7B828C; }
 
   /* PROBLEM / SOLUTION GROUPS */
-  .pgroup { background:#fff; border:1px solid #E2E9F3; border-radius:12px; padding:14px 16px 13px; display:flex; flex-direction:column; }
+  .pgroup { background:#fff; border:1px solid #E8EDF5; border-radius:12px; padding:16px 18px 15px; display:flex; flex-direction:column; }
   .pgroup .ph { font-size:10px; font-weight:800; letter-spacing:0.05em; text-transform:uppercase;
        padding:5px 11px; border-radius:100px; align-self:flex-start; margin-bottom:11px; }
   .ph.red { background:#fdecea; color:#c8483d; }
   .ph.amber { background:#fbf1e2; color:#b5751a; }
   .ph.blue { background:#e9f0fc; color:#2d6cdf; }
-  .pgroup ul { list-style:none; display:flex; flex-direction:column; gap:9px; margin:0; padding:0; }
-  .pgroup li { font-size:11.5px; line-height:1.38; color:#4A5058; padding-left:19px; position:relative; }
+  .pgroup ul { list-style:none; display:flex; flex-direction:column; gap:10px; margin:0; padding:0; }
+  .pgroup li { font-size:11.5px; line-height:1.42; color:#4A5058; padding-left:22px; position:relative; }
   .pgroup li b { color:#313131; font-weight:700; }
-  .pgroup.bad li::before { content:'✕'; position:absolute; left:0; top:0; color:#dd5b4f; font-weight:800; font-size:11px; }
-  .pgroup.good li::before { content:'✓'; position:absolute; left:0; top:0; color:#12a273; font-weight:800; font-size:11px; }
+  .pgroup li::before { content:''; position:absolute; left:0; top:1px; width:14px; height:14px;
+       border-radius:50%; background-position:center; background-repeat:no-repeat; background-size:8px 8px; }
+  .pgroup.bad li::before { background-color:#FDECEA;
+       background-image:url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><path d="M2 2l6 6M8 2l-6 6" fill="none" stroke="%23dd5b4f" stroke-width="2" stroke-linecap="round"/></svg>'); }
+  .pgroup.good li::before { background-color:#DCF2E8;
+       background-image:url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><path d="M1.8 5.4l2.3 2.3 4.1-4.9" fill="none" stroke="%230a8f5f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'); }
   .pgroup .src { font-size:9px; color:#A5ABB4; margin-top:11px; letter-spacing:0.03em; }
   .pgroup .outcome { margin-top:auto; padding-top:11px; margin-top:13px; border-top:1px dashed #cfe7dc;
        font-size:11px; line-height:1.38; color:#0a8f5f; font-weight:600; }
   .pgroup .outcome b { color:#077a51; }
-  .pain-banner { background:linear-gradient(135deg,#e0564f 0%,#c8483d 100%); color:#fff; border-radius:12px;
-       padding:12px 20px; display:flex; align-items:center; gap:20px; margin-bottom:13px; box-shadow:0 4px 14px rgba(200,72,61,0.25); }
-  .pain-banner .pb-num { font-size:40px; font-weight:900; line-height:1; flex:none; letter-spacing:-0.02em; }
-  .pain-banner .pb-txt { font-size:12.5px; line-height:1.42; }
+  .pain-banner { background:linear-gradient(135deg,#e0564f 0%,#c8483d 100%); color:#fff; border-radius:14px;
+       padding:16px 24px; display:flex; align-items:center; gap:24px; margin-bottom:16px; box-shadow:0 4px 14px rgba(200,72,61,0.25); }
+  .pain-banner .pb-num { font-size:52px; font-weight:900; line-height:1; flex:none; letter-spacing:-0.03em; }
+  .pain-banner .pb-txt { font-size:13px; line-height:1.45; }
   .pain-banner .pb-txt b { font-weight:800; }
-  .win-banner { background:linear-gradient(135deg,#12a273 0%,#0a8f5f 100%); color:#fff; border-radius:12px;
-       padding:12px 20px; display:flex; align-items:center; gap:20px; margin-bottom:13px; box-shadow:0 4px 14px rgba(10,143,95,0.25); }
+  .win-banner { background:linear-gradient(135deg,#12a273 0%,#0a8f5f 100%); color:#fff; border-radius:14px;
+       padding:16px 24px; display:flex; align-items:center; gap:24px; margin-bottom:16px; box-shadow:0 4px 14px rgba(10,143,95,0.25); }
   .win-banner .wb-ic { font-size:30px; flex:none; }
   .win-banner .wb-txt { font-size:12.5px; line-height:1.42; }
   .win-banner .wb-txt b { font-weight:800; }
@@ -253,8 +280,8 @@
   .highlight {
     background: linear-gradient(135deg, #3086FB 0%, #1F6FDE 100%);
     color: #fff;
-    border-radius: 8px;
-    padding: 18px 24px;
+    border-radius: 12px;
+    padding: 20px 26px;
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 20px;
@@ -270,8 +297,9 @@
     margin-bottom: 5px;
   }
   .highlight .cell .value {
-    font-size: 26px;
-    font-weight: 700;
+    font-size: 29px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
     line-height: 1.05;
   }
   .highlight .cell .note {
@@ -284,23 +312,24 @@
   table.belb {
     width: 100%;
     border-collapse: collapse;
-    font-size: 12.5px;
+    font-size: 13px;
   }
   table.belb th {
     text-align: left;
     font-size: 10px;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: #6C737D;
+    color: #717885;
     font-weight: 600;
-    padding: 7px 10px;
-    border-bottom: 1px solid #D4DDE9;
+    padding: 9px 12px;
+    border-bottom: 1px solid #DCE3EE;
   }
   table.belb th.right, table.belb td.right { text-align: right; }
   table.belb td {
-    padding: 7px 10px;
-    border-bottom: 1px solid #E8EDF4;
+    padding: 10px 12px;
+    border-bottom: 1px solid #e8ebf2;
     color: #313131;
+    line-height: 1.4;
   }
   table.belb td.metric { color: #4A5058; }
   table.belb td.num { font-variant-numeric: tabular-nums; font-weight: 600; }
@@ -433,14 +462,17 @@
 
   .checkmark {
     display: inline-block;
-    width: 16px; height: 16px;
-    background: #3086FB;
-    color: #fff;
-    border-radius: 8px;
-    font-size: 10px;
-    text-align: center;
-    line-height: 16px;
-    margin-right: 8px;
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background-color: #E3EEFE;
+    background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12"><path d="M2.6 6.3l2.4 2.4 4.4-5.2" fill="none" stroke="%233086FB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>');
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: 10px 10px;
+    color: transparent;
+    font-size: 0;
+    line-height: 18px;
+    margin-right: 9px;
     vertical-align: middle;
   }
 
@@ -484,19 +516,20 @@
     font-weight: 600;
     margin-bottom: 12px;
   }
-  .facts-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; align-items: stretch; margin-bottom: 16px; }
+  .facts-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; align-items: stretch; margin-bottom: 16px; position: relative; }
   .fact-card {
-    background: linear-gradient(160deg, #3086FB 0%, #1B64CC 100%);
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.16);
     border-radius: 16px;
     padding: 26px 24px 20px;
     color: #fff;
     display: flex;
     flex-direction: column;
     min-height: 170px;
-    box-shadow: 0 8px 24px rgba(27,100,204,0.35);
   }
-  .fact-num { font-size: 46px; font-weight: 800; line-height: 1; letter-spacing: -0.02em; margin-bottom: 14px; }
-  .fact-cap { font-size: 13px; line-height: 1.4; color: rgba(255,255,255,0.88); margin-top: auto; }
+  .fact-num { font-size: 54px; font-weight: 900; line-height: 1; letter-spacing: -0.03em; margin-bottom: 14px; color: #9CC3FD; }
+  .fact-cap { font-size: 13px; line-height: 1.4; color: rgba(255,255,255,0.85); margin-top: auto; }
+  .closing .rings { bottom: -230px; right: -210px; }
 
   /* Горизонтальная полоса фактов */
   .closing-strip {
@@ -522,6 +555,26 @@
     font-size: 24px; font-weight: 700; color: #fff; letter-spacing: -0.01em;
     margin-right: 8px;
   }
+
+  /* DESIGN PASS — акцентные слайды и иконки */
+  .slide.accent { background: #EEF5FF; }
+  .slide.accent .slide-rule { background: linear-gradient(90deg, #3086FB 0, #3086FB 64px, #D7E5F8 64px, #D7E5F8 100%); }
+  .card.fill-blue {
+    background: linear-gradient(135deg, #3086FB 0%, #1F6FDE 100%);
+    color: #fff;
+    box-shadow: 0 8px 22px rgba(48,134,251,0.25);
+  }
+  .card.fill-blue h3 { color: #fff; }
+  .li-ic {
+    display: inline-flex;
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    align-items: center; justify-content: center;
+    margin-right: 10px;
+    vertical-align: -4px;
+    flex: none;
+  }
+  .li-ic svg { display: block; }
 </style>
 </head>
 <body>
@@ -535,8 +588,16 @@
 
 
 <section class="slide title">
+  <svg class="rings" width="760" height="760" viewBox="0 0 760 760" xmlns="http://www.w3.org/2000/svg" fill="none">
+    <circle cx="380" cy="380" r="90"  stroke="rgba(255,255,255,0.15)" stroke-width="1.5"/>
+    <circle cx="380" cy="380" r="160" stroke="rgba(255,255,255,0.12)" stroke-width="1.5"/>
+    <circle cx="380" cy="380" r="230" stroke="rgba(255,255,255,0.10)" stroke-width="1.5"/>
+    <circle cx="380" cy="380" r="300" stroke="rgba(255,255,255,0.08)" stroke-width="1.5"/>
+    <circle cx="380" cy="380" r="370" stroke="rgba(255,255,255,0.06)" stroke-width="1.5"/>
+    <circle cx="380" cy="380" r="6" fill="rgba(255,255,255,0.30)"/>
+  </svg>
   <div class="eyebrow">ACOOLA TEAM · СТРАТЕГИЧЕСКИЙ ОТДЕЛ</div>
-  <h1>Коммерческое предложение<br>для компании «{{КЛИЕНТ}}»</h1>
+  <h1><span class="h1-top">Коммерческое предложение</span><span class="h1-client">для компании «{{КЛИЕНТ}}»</span></h1>
   <div class="lead">SEO-продвижение под ключевые направления. Больше клиентов и заявок из поиска: {{ПРИОРИТЕТНЫЕ_УСЛУГИ}}.
     <div data-lock="1" style="margin-top:14px;font-size:21px;font-weight:800;color:#7fb5ff;">{{ОФФЕР_ЗАЯВКИ}} — расчёт от вашей фактической конверсии</div></div>
   <div class="divider"></div>
@@ -805,7 +866,7 @@
 </section>
 
 
-<section class="slide">
+<section class="slide accent">
   <div class="slide-header">
     <h2>{{БЕНЧМАРК_ЗАГОЛОВОК}}</h2>
     <div class="pagenum">05 / 12</div>
@@ -836,7 +897,7 @@
     </div>
     <div class="card">
       <div class="bar"></div>
-      <h3 style="margin-bottom:10px;">Видимость — вы отстаёте <span class="pill">индекс Яндекса</span></h3>
+      <h3 style="margin-bottom:10px;">{{БЕНЧМАРК_ПОДЗАГОЛОВОК}} <span class="pill">индекс Яндекса</span></h3>
       <table class="belb">
         <thead>
           <tr>
@@ -905,10 +966,9 @@
         <h3 style="font-size:14px;margin-bottom:6px">Сначала &mdash; остановить просадку</h3>
         <div style="font-size:12px;line-height:1.5;color:#5b3a1a;">Поисковый трафик уже проседает &mdash; динамика видна по данным пресейл-аудита (слайд «Что мешает»). Первая задача &mdash; развернуть падение и вернуть рост.</div>
       </div>
-      <div class="card">
-        <div class="bar"></div>
-        <h3 style="font-size:14px;margin-bottom:6px">Окупаемость &mdash; по-честному</h3>
-        <div style="font-size:12px;line-height:1.5;color:#4A5058;">К 12-му месяцу доп. выручка из поиска <strong style="color:#313131;">сопоставима со стоимостью SEO уже на одном среднем чеке</strong>. Клиент возвращается и докупает &mdash; реальная отдача выше и раньше.</div>
+      <div class="card fill-blue">
+        <h3 style="font-size:16px;margin-bottom:7px">Окупаемость &mdash; по-честному</h3>
+        <div style="font-size:12.5px;line-height:1.55;color:rgba(255,255,255,0.92);">К 12-му месяцу доп. выручка из поиска <strong style="color:#fff;">сопоставима со стоимостью SEO уже на одном среднем чеке</strong>. Клиент возвращается и докупает &mdash; реальная отдача выше и раньше.</div>
       </div>
       <div class="card" style="background:#EAF3FE;">
         <div class="bar"></div>
@@ -941,11 +1001,11 @@
   <div class="two-col-block" style="margin-bottom: 12px;">
     <div class="card" style="border-left:3px solid #e88a3b;">
       <h3 style="margin-bottom: 12px;">Что происходит, пока ничего не менять</h3>
-      <div style="font-size:12.5px;line-height:1.7;color:#4A5058;">
-        <div><span style="display:inline-block;width:7px;height:7px;border-radius:2px;background:#a13442;margin-right:10px;vertical-align:middle;"></span>Трафик из поиска продолжает падать — тренд вниз по данным пресейл-аудита</div>
-        <div><span style="display:inline-block;width:7px;height:7px;border-radius:2px;background:#e88a3b;margin-right:10px;vertical-align:middle;"></span>Конкуренты наращивают авторитет сайтов — разрыв в видимости растёт</div>
-        <div><span style="display:inline-block;width:7px;height:7px;border-radius:2px;background:#e88a3b;margin-right:10px;vertical-align:middle;"></span>Тёплые запросы ниши забирают конкуренты — клиент идёт к тому, кого нашёл</div>
-        <div><span style="display:inline-block;width:7px;height:7px;border-radius:2px;background:#a13442;margin-right:10px;vertical-align:middle;"></span>Деньги на текущее «поддержание» идут, а видимость не растёт</div>
+      <div style="font-size:12.5px;line-height:1.5;color:#4A5058;display:flex;flex-direction:column;gap:11px;">
+        <div><span class="li-ic" style="background:#FDECEA;"><svg width="10" height="10" viewBox="0 0 12 12"><path d="M2 4l4 4M6 8l4-4M6 8V2" fill="none" stroke="#c8483d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Трафик из поиска продолжает падать — тренд вниз по данным пресейл-аудита</div>
+        <div><span class="li-ic" style="background:#FBF1E2;"><svg width="10" height="10" viewBox="0 0 12 12"><path d="M2 8l4-4M6 4l4 4M6 4v6" fill="none" stroke="#b5751a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Конкуренты наращивают авторитет сайтов — разрыв в видимости растёт</div>
+        <div><span class="li-ic" style="background:#FBF1E2;"><svg width="10" height="10" viewBox="0 0 12 12"><path d="M2 6h8M7 3l3 3-3 3" fill="none" stroke="#b5751a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Тёплые запросы ниши забирают конкуренты — клиент идёт к тому, кого нашёл</div>
+        <div><span class="li-ic" style="background:#FDECEA;"><svg width="10" height="10" viewBox="0 0 12 12"><path d="M2 4l4 4M6 8l4-4M6 8V2" fill="none" stroke="#c8483d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Деньги на текущее «поддержание» идут, а видимость не растёт</div>
       </div>
     </div>
 
@@ -1256,7 +1316,7 @@
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;">
     <div style="background:#eaf2fe;border-radius:12px;padding:14px 18px;">
       <div style="font-size:11px;font-weight:800;letter-spacing:.05em;color:#3086FB;">СТОИМОСТЬ ЗАЯВКИ ИЗ ПОИСКА</div>
-      <div style="font-size:26px;font-weight:900;color:#313131;margin:4px 0;">{{ЦЕНА_ЗА_ЗАЯВКУ}}</div>
+      <div style="font-size:32px;font-weight:900;letter-spacing:-0.02em;color:#313131;margin:5px 0;">{{ЦЕНА_ЗА_ЗАЯВКУ}}</div>
       <div style="font-size:11.5px;color:#555;">по прогнозу от вашей конверсии — и в отличие от рекламы, страницы и позиции остаются вашим активом</div>
     </div>
     <div style="background:#fff;border:1px solid #e3e6ef;border-radius:12px;padding:14px 18px;">
@@ -1265,15 +1325,22 @@
         Помесячная оплата — выход в любой месяц без штрафов · правки внедряем сами ·
         отчёт каждый месяц в заявках и звонках, а не «позициях» · все доступы и наработки остаются у вас</div>
     </div>
+  </div>
   <div class="slide-footer">
     <span class="belb-mark">ACOOLA TEAM</span>
     <span>КП · {{КЛИЕНТ}} · {{ДОМЕН}}</span>
     <span>{{ДАТА}}</span>
   </div>
-  </div>
 </section>
 
 <section class="slide closing">
+  <svg class="rings" width="760" height="760" viewBox="0 0 760 760" xmlns="http://www.w3.org/2000/svg" fill="none">
+    <circle cx="380" cy="380" r="90"  stroke="rgba(255,255,255,0.14)" stroke-width="1.5"/>
+    <circle cx="380" cy="380" r="160" stroke="rgba(255,255,255,0.11)" stroke-width="1.5"/>
+    <circle cx="380" cy="380" r="230" stroke="rgba(255,255,255,0.09)" stroke-width="1.5"/>
+    <circle cx="380" cy="380" r="300" stroke="rgba(255,255,255,0.07)" stroke-width="1.5"/>
+    <circle cx="380" cy="380" r="370" stroke="rgba(255,255,255,0.05)" stroke-width="1.5"/>
+  </svg>
   <div class="closing-eyebrow">ACOOLA TEAM · DIGITAL-АГЕНТСТВО ПОЛНОГО ЦИКЛА</div>
 
   <div class="closing-quote">
