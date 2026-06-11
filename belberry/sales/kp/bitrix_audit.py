@@ -112,6 +112,13 @@ def main():
         svc = b.get("ufCrm20_1753290430") or []
         out["brief_services"] = svc if isinstance(svc, list) else [svc]
 
+    # менеджер сделки — в подвалы и титул деки
+    if deal.get("ASSIGNED_BY_ID"):
+        u = call("user.get", {"ID": deal["ASSIGNED_BY_ID"]}).get("result", [{}])[0]
+        fio = f"{u.get('LAST_NAME', '')} {u.get('NAME', '')}".strip()
+        if fio:
+            out["manager"] = fio
+
     # подпись сферы деятельности (для подбора кейсов по нише)
     if out.get("sfera_id"):
         df = call("crm.deal.fields", {}).get("result", {})

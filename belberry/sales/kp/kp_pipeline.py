@@ -95,6 +95,78 @@ def benchmark_substitutions(audit: dict | None) -> dict[str, str]:
     }
 
 
+SLIDE_SECTION_RE = re.compile(r'<section class="slide[^"]*"[^>]*>.*?</section>', re.S)
+
+
+def renumber_pagenums(html: str) -> str:
+    """Нумерация слайдов ПО ФАКТУ после всех вставок: «NN / total».
+
+    Вставные data-слайды ломали статическую нумерацию («07 / 12» на 9-м из 14).
+    """
+    total = len(SLIDE_SECTION_RE.findall(html))
+    if not total:
+        return html
+    counter = {"n": 0}
+
+    def slide_sub(m):
+        counter["n"] += 1
+        return re.sub(r'(class="pagenum">)[^<]*(<)',
+                      rf"\g<1>{counter['n']:02d} / {total}\g<2>", m.group(0))
+
+    return SLIDE_SECTION_RE.sub(slide_sub, html)
+
+
+def render_trend_svg(metrika: dict | None, width: int = 520, height: int = 110) -> str | None:
+    """Спарклайн органики по месяцам (Метрика) — единственный график деки.
+
+    Только полные месяцы; подписи первого/последнего значения. Данных < 3 точек —
+    графика нет (две точки — не тренд).
+    """
+    months = [m for m in (((metrika or {}).get("trend") or {}).get("organic") or {})
+              .get("months", []) if not m.get("partial") and m.get("visits") is not None]
+    if len(months) < 3:
+        return None
+    vals = [m["visits"] for m in months]
+    vmax, vmin = max(vals), min(vals)
+    span = (vmax - vmin) or 1
+    pad, w, h = 8, width, height
+    step = (w - 2 * pad) / (len(vals) - 1)
+    pts = [(pad + i * step, pad + (h - 2 * pad) * (1 - (v - vmin) / span))
+           for i, v in enumerate(vals)]
+    poly = " ".join(f"{x:.0f},{y:.0f}" for x, y in pts)
+    first, last = months[0], months[-1]
+    lx, ly = pts[-1]
+    return (f'<svg width="{w}" height="{h + 26}" viewBox="0 0 {w} {h + 26}" '
+            f'xmlns="http://www.w3.org/2000/svg">'
+            f'<polyline points="{poly}" fill="none" stroke="#3086FB" stroke-width="3" '
+            f'stroke-linecap="round" stroke-linejoin="round"/>'
+            + "".join(f'<circle cx="{x:.0f}" cy="{y:.0f}" r="3.5" fill="#3086FB"/>'
+                      for x, y in pts)
+            + f'<text x="{pad}" y="{h + 18}" font-size="11" fill="#6b6f88">'
+              f'{first["month"]}: {first["visits"]}</text>'
+            f'<text x="{lx:.0f}" y="{ly - 9:.0f}" font-size="12" font-weight="700" '
+            f'fill="#313131" text-anchor="end">{last["visits"]}</text>'
+            f'<text x="{w - pad}" y="{h + 18}" font-size="11" fill="#6b6f88" '
+            f'text-anchor="end">{last["month"]} · визиты из поиска [Метрика]</text></svg>')
+
+
+def offer_substitutions(metrika: dict | None, spec: dict | None) -> dict[str, str]:
+    """Оффер на титул и стоимость заявки — честный расчёт из прогноза и сметы."""
+    f = forecast_numbers(metrika)
+    if not f:
+        return {}
+    subs = {"{{ОФФЕР_ЗАЯВКИ}}": f"+{f['leads_lo'] - f['leads_now']}–"
+                                f"{f['leads_hi'] - f['leads_now']} заявок в месяц из поиска"}
+    if spec and spec.get("items"):
+        import kp_smeta
+        _, subtotal = kp_smeta.build_rows(spec["items"])
+        price = subtotal * (1 + kp_smeta.VAT)
+        if price > 0 and f["leads_lo"]:
+            lo, hi = round(price / f["leads_hi"]), round(price / f["leads_lo"])
+            subs["{{ЦЕНА_ЗА_ЗАЯВКУ}}"] = (f"{lo:,}–{hi:,} ₽".replace(",", " "))
+    return subs
+
+
 def smeta_substitutions(spec: dict | None) -> dict[str, str]:
     """Ценовые плейсхолдеры деки из сметы (тарифы матрицы — официальные цены)."""
     if not spec or not spec.get("items"):
@@ -336,6 +408,7 @@ MARK_TRAFFIC = "<!--AUTO:TRAFFIC_DROP-->"
 MARK_PAINS = "<!--AUTO:PAINS-->"
 MARK_BLOCKERS = "<!--AUTO:BLOCKERS-->"
 MARK_FORECAST = "<!--AUTO:FORECAST-->"
+MARK_TREND = "<!--AUTO:TREND_SVG-->"
 
 DOMAIN_RE = re.compile(r"\b((?:[a-zа-я0-9-]+\.)+(?:ru|com|net|org|рф|su|online|site|clinic|moscow|спб))\b",
                        re.IGNORECASE)
@@ -656,8 +729,13 @@ def run_pipeline(a: argparse.Namespace) -> int:
             # факты в слайды: плейсхолдеры + баннер просадки трафика
             data = _load(tmp_dir / "kp_data.json") or {}
             subs = deck_substitutions(data, datetime.now().strftime("%d.%m.%Y"))
-            subs.update(smeta_substitutions(_load(tmp_dir / "smeta.json")))
+            spec = _load(tmp_dir / "smeta.json")
+            subs.update(smeta_substitutions(spec))
             subs.update(benchmark_substitutions(_load(tmp_dir / "audit.json")))
+            subs.update(offer_substitutions(metrika, spec))
+            bx_data = _load(tmp_dir / "bitrix.json") or {}
+            if bx_data.get("manager"):
+                subs["{{МЕНЕДЖЕР}}"] = bx_data["manager"]
             for ph, val in subs.items():
                 html = html.replace(ph, val)
             drop_html = render_traffic_drop(data, metrika)
@@ -675,11 +753,17 @@ def run_pipeline(a: argparse.Namespace) -> int:
             forecast = render_forecast_html(metrika)
             if MARK_FORECAST in html:
                 html = html.replace(MARK_FORECAST, forecast or FORECAST_FALLBACK_ROW)
+            # спарклайн органики из Метрики (единственный график деки)
+            trend_svg = render_trend_svg(metrika)
+            if MARK_TREND in html:
+                html = html.replace(MARK_TREND, trend_svg or "")
             # клиент никогда не должен увидеть {{ПЛЕЙСХОЛДЕР}}
             html, left = scrub_placeholders(html)
             if left:
                 print(f"  ⚠ вычищено незаполненных плейсхолдеров: {left} "
                       f"(данных в брифе не нашлось)")
+            # нумерация по факту — после ВСЕХ вставок
+            html = renumber_pagenums(html)
             dst.write_text(html, encoding="utf-8")
             if missing:
                 print(f"  ⚠ маркеры {missing} в эталоне не найдены — вставь фрагменты вручную "
