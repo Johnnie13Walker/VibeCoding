@@ -50,7 +50,7 @@ def test_render_pains_escapes_and_marks_source():
     html = render_pains_html({"pains": [
         {"pain": "<b>дорого</b>", "quote": "нам дорого", "source": "встреча"}],
         "key_argument": "аргумент"})
-    assert "&lt;b&gt;" in html and "со встречи" in html and "Главный аргумент" in html
+    assert "&lt;b&gt;" in html and "встреча" in html and "ГЛАВНЫЙ АРГУМЕНТ" in html
     assert render_pains_html({"pains": []}) is None
 
 
