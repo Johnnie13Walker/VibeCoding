@@ -580,6 +580,50 @@ def render_problem_cards(rows_html: str | None) -> str | None:
             'продвижение.</div></div></div>')
 
 
+MARK_BUDGET = "<!--AUTO:BUDGET_ROWS-->"
+
+
+def render_budget_rows(spec: dict | None) -> str | None:
+    """Слайд «Бюджет»: строки состава из smeta.json (маркер AUTO:BUDGET_ROWS).
+
+    Платные позиции — с ценой, included — «включено в бюджет». Первое слово
+    позиции — синим, как акцент (компоновка одобрена пользователем 11.06).
+    """
+    items = (spec or {}).get("items") or []
+    rows = []
+    import html as _h
+    for it in items:
+        if it.get("section") or not it.get("name"):
+            continue
+        name = sanitize_text(str(it["name"]), 90)
+        lead, _, rest = name.partition(" ")
+        lead_html = (f'<b style="color:#3086FB;">{_h.escape(lead)}</b> '
+                     f'{_h.escape(rest)}' if rest else _h.escape(name))
+        if it.get("included"):
+            price = ('<span style="font-size:13.5px;font-weight:800;color:#3086FB;">включено'
+                     '</span> <span style="font-size:11px;color:#717885;">в бюджет</span>')
+        elif it.get("monthly"):
+            price = (f'<span style="font-size:15px;font-weight:800;color:#3086FB;">'
+                     f'{round(it["monthly"]):,} ₽'.replace(",", " ") +
+                     '</span> <span style="font-size:11px;color:#717885;">/месяц</span>')
+        elif it.get("once"):
+            price = (f'<span style="font-size:15px;font-weight:800;color:#3086FB;">'
+                     f'{round(it["once"]):,} ₽'.replace(",", " ") +
+                     '</span> <span style="font-size:11px;color:#717885;">разово</span>')
+        else:
+            continue
+        rows.append(
+            f'<div style="display:flex;align-items:center;justify-content:space-between;'
+            f'gap:24px;padding:17px 4px;border-bottom:1px solid #EDF1F7;">'
+            f'<span style="font-size:14px;color:#313131;">{lead_html}</span>'
+            f'<span style="flex:none;">{price}</span></div>')
+    if not rows:
+        return None
+    # платные позиции сверху
+    rows.sort(key=lambda r: "включено" in r)
+    return "".join(rows[:7])
+
+
 def render_blockers_html(audit: dict | None, metrika: dict | None,
                          insights: dict | None) -> str | None:
     """Слайд «Что мешает» — 3 колонки ТОЛЬКО из реальных данных клиента.
@@ -1214,6 +1258,9 @@ def run_pipeline(a: argparse.Namespace) -> int:
                     '<div style="font-size:12px;color:#717885;">нужен доступ к Метрике</div>')
             if MARK_GEO in html:
                 html = html.replace(MARK_GEO, render_geo_svg(metrika) or "")
+            if MARK_BUDGET in html:
+                budget_rows = render_budget_rows(_load(tmp_dir / "smeta.json"))
+                html = html.replace(MARK_BUDGET, budget_rows or "")
             if MARK_FUNNEL in html:
                 html = html.replace(MARK_FUNNEL, render_funnel_svg(metrika) or
                     '<div style="font-size:12px;color:#717885;">нужен доступ к Метрике</div>')
