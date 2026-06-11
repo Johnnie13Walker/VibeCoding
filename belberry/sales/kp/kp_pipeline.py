@@ -282,21 +282,51 @@ def render_forecast_html(metrika: dict | None) -> str | None:
             <td class="right num">{f["leads_hi"]} <span style="font-weight:400">(+{f["leads_hi"] - f["leads_now"]})</span></td></tr>'''
 
 
-def render_traffic_drop(data: dict) -> str | None:
-    """HTML-фрагмент баннера просадки для маркера AUTO:TRAFFIC_DROP."""
+def render_traffic_drop(data: dict, metrika: dict | None = None) -> str | None:
+    """Баннер боли (маркер AUTO:TRAFFIC_DROP). ПРАВИЛО ЗАКАЗЧИКА 11.06:
+    есть Метрика — ориентируемся ТОЛЬКО на Метрику; PR-CY — лишь запасной.
+
+    Метрика-тренд падает → красный баннер из её чисел. Стабилен/растёт —
+    про просадку НЕ врём: баннер про недоинвестированный поиск (конверсии
+    из Метрики). Метрики нет → старый PR-CY-вариант с явной пометкой [оценка].
+    """
+    organic = ((metrika or {}).get("trend") or {}).get("organic") or {}
+    if organic.get("current"):
+        if organic.get("direction") == "падение":
+            peak, cur = organic.get("peak"), organic.get("current")
+            pct = organic.get("change_pct")
+            return (f'<div class="pb-num">{pct}%</div>\n'
+                    f'<div class="pb-txt"><b>Органика падает.</b> '
+                    f'{peak} визитов ({organic.get("peak_month", "")}) → {cur} '
+                    f'({organic.get("current_month", "")}). Без работ тренд продолжится. '
+                    f'<span style="opacity:.7">[Яндекс.Метрика]</span></div>')
+        # органика не падает — честный баннер про главный рычаг из конверсий
+        src = {s.get("source"): s for s in (metrika or {}).get("source_conversion") or []}
+        ads = next((v for k, v in src.items() if k and "рекламе" in k), None)
+        org = next((v for k, v in src.items() if k and "поисков" in k), None)
+        if ads and org and org.get("conversion", 0) > (ads.get("conversion") or 0):
+            total = sum(v.get("visits") or 0 for v in src.values()) or 1
+            share = round((ads.get("visits") or 0) * 100 / total)
+            return (f'<div class="pb-num">×{org["conversion"] / max(ads["conversion"], 0.01):.1f}</div>\n'
+                    f'<div class="pb-txt"><b>Поиск конвертит лучше рекламы.</b> '
+                    f'Органика даёт заявку с {org["conversion"]}% визитов против '
+                    f'{ads["conversion"]}% у рекламы ({share}% трафика — платный). '
+                    f'Каждый визит из поиска ценнее — и этот канал недоинвестирован. '
+                    f'<span style="opacity:.7">[Яндекс.Метрика]</span></div>')
+        return None  # Метрика есть, но боли по трафику нет — баннер не показываем
+    # Метрики нет — внешняя оценка с явной пометкой
     fact = next((f for f in data.get("facts", []) if f["key"] == "traffic_drop"), None)
     if not fact:
         return None
-    # «пик 66500 (05.2024) → сейчас 16500 = -75%»
     txt = str(fact["value"])
     pct = txt.split("=")[-1].strip() if "=" in txt else ""
     return (f'<div class="pb-num">{pct}</div>\n'
             f'<div class="pb-txt"><b>Трафик из поиска просел.</b> {txt}. '
-            f'Кривая идёт вниз — без работ просадка продолжится. '
-            f'<span style="opacity:.7">[данные API-аудита]</span></div>')
+            f'<span style="opacity:.7">[оценка PR-CY — для точных цифр нужна '
+            f'ваша Метрика]</span></div>')
 # smeta ДО scaffold: ценовые плейсхолдеры деки заполняются из сметы (тарифы матрицы)
 # polish — финальный LLM-редактор текстов (механические гарды в kp_polish)
-STAGES = ["bitrix", "audit", "metrika", "prodoctorov", "insights",
+STAGES = ["bitrix", "audit", "metrika", "webmaster", "prodoctorov", "insights",
           "assemble", "smeta", "scaffold", "polish"]
 
 # Маркеры в kp.html эталона для автовставки (если их нет — оставляем файлы рядом)
@@ -397,20 +427,32 @@ def assemble_kp_data(bitrix: dict | None, audit: dict | None,
                    ("Приоритетные", "Регион", "Опишите вашу целевую",
                     "УТП", "Сильные стороны")):
                 fact(f"brief:{k}", v, "bitrix.json:бриф СП1056")
+    has_metrika_trend = bool(((metrika or {}).get("trend") or {}).get("organic", {}).get("current"))
     if audit:
         cl = audit.get("client") or {}
         if isinstance(cl, dict):
-            for k in ("sqi", "yandex_index", "google_index", "organic_pct",
-                      "bounce_rate", "visits_monthly", "load_time", "schema_org"):
+            # ПРАВИЛО: есть Метрика — трафик-показатели PR-CY (оценки) не используем
+            keys = ("sqi", "yandex_index", "google_index", "load_time", "schema_org")
+            if not metrika:
+                keys += ("organic_pct", "bounce_rate", "visits_monthly")
+            for k in keys:
                 fact(k, cl.get(k), "audit.json:pr-cy")
-            drop = traffic_dynamics(cl.get("visits_history") or {}, cl.get("visits_monthly"))
-            if drop:
-                fact("traffic_drop",
-                     f"пик {drop['peak']} ({drop['peak_month']}) → сейчас {drop['current']} "
-                     f"= {drop['drop_pct']}%", "audit.json:pr-cy:visits_history")
+            if not has_metrika_trend:
+                drop = traffic_dynamics(cl.get("visits_history") or {}, cl.get("visits_monthly"))
+                if drop:
+                    fact("traffic_drop",
+                         f"пик {drop['peak']} ({drop['peak_month']}) → сейчас {drop['current']} "
+                         f"= {drop['drop_pct']}%", "audit.json:pr-cy:visits_history (оценка)")
     if metrika:
-        for k in ("visits", "users", "organic_share", "goals"):
+        for k in ("visits", "users", "bounce_rate", "organic_share", "goals"):
             fact(f"metrika:{k}", metrika.get(k), "metrika.json")
+        organic = (metrika.get("trend") or {}).get("organic") or {}
+        if organic.get("current"):
+            fact("metrika:organic_trend",
+                 f"{organic.get('peak')} ({organic.get('peak_month')}) → "
+                 f"{organic.get('current')} ({organic.get('current_month')}), "
+                 f"{organic.get('change_pct')}% — {organic.get('direction')}",
+                 "metrika.json:trend")
     if prodoc:
         for i, c in enumerate(prodoc):
             if isinstance(c, dict):
@@ -529,6 +571,14 @@ def run_pipeline(a: argparse.Namespace) -> int:
                 print(f"  ⚠ Метрика недоступна ({e}) — продолжаем без неё")
                 mark(stage, "skipped")
                 continue
+        elif stage == "webmaster":
+            bx = _load(tmp_dir / "bitrix.json") or {}
+            try:
+                _run("webmaster_audit.py", [domain_from_bitrix(bx)], tmp_dir)
+            except RuntimeError:
+                print("  ⚠ Вебмастер недоступен (нет права/делегирования) — пропускаем")
+                mark(stage, "skipped")
+                continue
         elif stage == "prodoctorov":
             _run("prodoctorov_audit.py", a.prodoctorov, tmp_dir)
         elif stage == "insights":
@@ -575,9 +625,16 @@ def run_pipeline(a: argparse.Namespace) -> int:
                 pains_html = render_pains_html(insights)
                 print(f"  смысловой слой: болей {len(insights.get('pains') or [])}, "
                       f"проблем сайта {len(insights.get('site_issues') or [])}")
-            all_problems = combine_problem_rows(combine_problem_rows(
+            wm = _load(tmp_dir / "webmaster.json") or {}
+            wm_rows = None
+            if wm.get("found"):
+                from webmaster_audit import render_webmaster_rows
+                wm_rows = render_webmaster_rows(wm)
+                if wm_rows:
+                    print(f"  Вебмастер: быстрых побед {len(wm.get('quick_wins') or [])}")
+            all_problems = combine_problem_rows(combine_problem_rows(combine_problem_rows(
                 probs.read_text(encoding="utf-8") if probs.exists() else None,
-                metrika_rows), site_rows)
+                metrika_rows), site_rows), wm_rows)
             html, missing = inject_auto_blocks(
                 html, bench.read_text(encoding="utf-8") if bench.exists() else None,
                 all_problems)
@@ -603,9 +660,11 @@ def run_pipeline(a: argparse.Namespace) -> int:
             subs.update(benchmark_substitutions(_load(tmp_dir / "audit.json")))
             for ph, val in subs.items():
                 html = html.replace(ph, val)
-            drop_html = render_traffic_drop(data)
-            if drop_html and MARK_TRAFFIC in html:
-                html = html.replace(MARK_TRAFFIC, drop_html)
+            drop_html = render_traffic_drop(data, metrika)
+            if MARK_TRAFFIC in html:
+                html = html.replace(MARK_TRAFFIC, drop_html or
+                    '<div class="pb-txt">Главные точки роста — в аудите '
+                    'на следующих слайдах.</div>')
             if pains_html and MARK_PAINS in html:
                 html = html.replace(MARK_PAINS, pains_html)
             # слайд «Что мешает» — только реальные данные клиента
