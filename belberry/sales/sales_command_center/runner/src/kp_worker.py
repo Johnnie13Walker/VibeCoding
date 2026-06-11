@@ -52,7 +52,7 @@ def run_collect(deal_id: int, brand: str, workdir: Path) -> dict:
     cmd = [sys.executable, str(KP_ENGINE_DIR / "kp_pipeline.py"), str(deal_id),
            "--client", workdir.name, "--brand", brand, "--skip-prodoctorov"]
     # папку клиента пайплайн делает в KP_ENGINE_DIR/clients/<имя> — направим во временную
-    r = subprocess.run(cmd, cwd=KP_ENGINE_DIR, capture_output=True, text=True, timeout=600)
+    r = subprocess.run(cmd, cwd=KP_ENGINE_DIR, capture_output=True, text=True, timeout=1500)  # polish-стадия (LLM по слайдам) добавляет до ~5 мин
     if r.returncode != 0:
         tail = (r.stdout + "\n" + r.stderr).strip().splitlines()[-6:]
         raise RuntimeError("pipeline: " + " | ".join(tail))

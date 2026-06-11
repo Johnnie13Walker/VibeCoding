@@ -121,32 +121,36 @@ def pick_provider() -> tuple[str, str] | None:
     return None
 
 
-def call_llm(prompt: str, provider: str, api_key: str) -> dict:
+def llm_text(prompt: str, system: str, provider: str, api_key: str,
+             max_tokens: int = 4000, timeout: int = 240) -> str:
+    """Универсальный вызов LLM (OpenAI на проде / Anthropic локально), сырой текст."""
     if provider == "openai":
         body = json.dumps({
             "model": OPENAI_MODEL,
-            "messages": [{"role": "system", "content": SYSTEM},
+            "messages": [{"role": "system", "content": system},
                          {"role": "user", "content": prompt}],
             # новые модели OpenAI (gpt-5.x) не принимают max_tokens
-            "max_completion_tokens": 4000,
+            "max_completion_tokens": max_tokens,
         }).encode()
         req = urllib.request.Request(OPENAI_URL, data=body, headers={
             "Content-Type": "application/json", "Authorization": "Bearer " + api_key})
-        with urllib.request.urlopen(req, timeout=180) as r:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
             resp = json.loads(r.read())
-        text = resp["choices"][0]["message"]["content"]
-    else:
-        body = json.dumps({
-            "model": MODEL, "max_tokens": 2000, "system": SYSTEM,
-            "messages": [{"role": "user", "content": prompt}],
-        }).encode()
-        req = urllib.request.Request(API_URL, data=body, headers={
-            "Content-Type": "application/json", "x-api-key": api_key,
-            "anthropic-version": "2023-06-01"})
-        with urllib.request.urlopen(req, timeout=180) as r:
-            resp = json.loads(r.read())
-        text = "".join(b.get("text", "") for b in resp.get("content", []))
-    return parse_insights(text)
+        return resp["choices"][0]["message"]["content"]
+    body = json.dumps({
+        "model": MODEL, "max_tokens": max_tokens, "system": system,
+        "messages": [{"role": "user", "content": prompt}],
+    }).encode()
+    req = urllib.request.Request(API_URL, data=body, headers={
+        "Content-Type": "application/json", "x-api-key": api_key,
+        "anthropic-version": "2023-06-01"})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        resp = json.loads(r.read())
+    return "".join(b.get("text", "") for b in resp.get("content", []))
+
+
+def call_llm(prompt: str, provider: str, api_key: str) -> dict:
+    return parse_insights(llm_text(prompt, SYSTEM, provider, api_key))
 
 
 def parse_insights(text: str) -> dict:

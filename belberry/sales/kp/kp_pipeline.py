@@ -295,8 +295,9 @@ def render_traffic_drop(data: dict) -> str | None:
             f'Кривая идёт вниз — без работ просадка продолжится. '
             f'<span style="opacity:.7">[данные API-аудита]</span></div>')
 # smeta ДО scaffold: ценовые плейсхолдеры деки заполняются из сметы (тарифы матрицы)
+# polish — финальный LLM-редактор текстов (механические гарды в kp_polish)
 STAGES = ["bitrix", "audit", "metrika", "prodoctorov", "insights",
-          "assemble", "smeta", "scaffold"]
+          "assemble", "smeta", "scaffold", "polish"]
 
 # Маркеры в kp.html эталона для автовставки (если их нет — оставляем файлы рядом)
 MARK_BENCH = "<!--AUTO:SEO_BENCHMARK-->"
@@ -624,6 +625,20 @@ def run_pipeline(a: argparse.Namespace) -> int:
             if missing:
                 print(f"  ⚠ маркеры {missing} в эталоне не найдены — вставь фрагменты вручную "
                       f"(карта слайдов: SEO-KP-PLAYBOOK.md)")
+        elif stage == "polish":
+            if a.no_polish:
+                mark(stage, "skipped")
+                continue
+            if not (os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("OPENAI_API_KEY")):
+                print("  ⚠ нет LLM-ключа — полировка пропущена")
+                mark(stage, "skipped")
+                continue
+            try:
+                _run("kp_polish.py", [str(tmp_dir)], tmp_dir)
+            except RuntimeError as e:
+                print(f"  ⚠ полировка не удалась ({e}) — дека остаётся как после scaffold")
+                mark(stage, "skipped")
+                continue
         elif stage == "smeta":
             import kp_smeta
             spec_path = tmp_dir / "smeta.json"
@@ -665,6 +680,8 @@ def main() -> int:
     p.add_argument("--prodoctorov", nargs="*", default=[])
     p.add_argument("--skip-metrika", action="store_true")
     p.add_argument("--skip-prodoctorov", action="store_true")
+    p.add_argument("--no-polish", action="store_true",
+                   help="без LLM-полировки текстов (быстрее/дешевле)")
     p.add_argument("--status", action="store_true")
     p.add_argument("--force", help="имя стадии или all")
     return run_pipeline(p.parse_args())
