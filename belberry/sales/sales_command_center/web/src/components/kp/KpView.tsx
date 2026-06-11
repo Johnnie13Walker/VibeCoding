@@ -72,8 +72,25 @@ function JobDetails({ job }: { job: KpJob }) {
           ))}
         </ul>
       </div>
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+        <a
+          href={`/api/kp/${job.id}/deck`}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 7, borderRadius: 10,
+            padding: '9px 16px', fontSize: 13.5, fontWeight: 700, textDecoration: 'none',
+            background: 'var(--bb-violet)', color: '#fff',
+          }}
+        >
+          <FileText size={15} /> Черновик деки
+        </a>
+        <span style={{ fontSize: 11.5, color: '#b5651d', fontWeight: 600 }}>
+          цены в черновике шаблонные — заменить из сметы сметчика перед отправкой
+        </span>
+      </div>
       <p style={{ fontSize: 11.5, color: 'var(--bb-faint)' }}>
-        Дека и смета собираются движком kp/ (kp_pipeline.py · kp_smeta.py) — данные выше уже лежат в папке клиента.
+        Печать в PDF — из открывшейся деки (Cmd/Ctrl+P). Смета — kp_smeta.py по матрице.
       </p>
     </div>
   );

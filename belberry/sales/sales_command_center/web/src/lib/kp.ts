@@ -1,4 +1,4 @@
-import { desc } from 'drizzle-orm';
+import { desc, eq } from 'drizzle-orm';
 import { db } from '@/db';
 import { kpJobs } from '@/db/schema';
 
@@ -50,4 +50,20 @@ export async function createKpJob(dealId: number, brand: string, requestedBy: nu
     .values({ dealId, brand: safeBrand, requestedBy })
     .returning({ id: kpJobs.id });
   return row.id;
+}
+
+/** Папка задания в движке kp/: воркер собирает туда артефакты (kp.html и json). */
+export function jobDirName(jobId: number, dealId: number): string {
+  return `_job_${jobId}_${dealId}`;
+}
+
+export async function getKpJob(id: number): Promise<KpJob | null> {
+  const rows = await db.select().from(kpJobs).where(eq(kpJobs.id, id)).limit(1);
+  if (!rows[0]) return null;
+  const r = rows[0];
+  return {
+    id: r.id, dealId: r.dealId, brand: r.brand, status: r.status, stage: r.stage,
+    error: r.error, kpData: (r.kpData as KpData | null) ?? null,
+    createdAt: r.createdAt, updatedAt: r.updatedAt,
+  };
 }
