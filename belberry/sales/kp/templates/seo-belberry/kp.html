@@ -558,28 +558,28 @@
 <section class="slide title">
   <div class="eyebrow">BELBERRY · СТРАТЕГИЧЕСКИЙ ОТДЕЛ</div>
   <h1>Коммерческое предложение<br>для клиники «{{КЛИЕНТ}}»</h1>
-  <div class="lead">SEO-продвижение под ключевые услуги. Больше пациентов из поиска на гинекологию, УЗИ и анализы.</div>
+  <div class="lead">SEO-продвижение под ключевые услуги. Больше пациентов из поиска по приоритетным направлениям клиники.</div>
   <div class="divider"></div>
   <div class="title-meta">
     <div class="cell">
       <div class="label">ДЛЯ</div>
       <div class="value">{{КЛИЕНТ}}</div>
-      <div class="note">{{ДОМЕН}} · Шушары, СПб</div>
+      <div class="note">{{ДОМЕН}} · {{ГЕО}}</div>
     </div>
     <div class="cell">
       <div class="label">УСЛУГА</div>
       <div class="value">SEO-продвижение</div>
-      <div class="note">состав обсуждён на встрече 02.06</div>
+      <div class="note">состав обсуждён на встрече — {{ДАТА_ВСТРЕЧИ}}</div>
     </div>
     <div class="cell">
       <div class="label">ПОДГОТОВЛЕНО</div>
-      <div class="value">09.06.2026</div>
+      <div class="value">{{ДАТА}}</div>
       <div class="note">Семенихин Егор · менеджер проекта</div>
     </div>
     <div class="cell">
       <div class="label">ПОДАРОК</div>
       <div class="value">Внедрение правок</div>
-      <div class="note">бесплатно при старте до 19.06.2026</div>
+      <div class="note">бесплатно при раннем старте — {{ДЕДЛАЙН_СТАРТА}}</div>
     </div>
   </div>
 </section>
@@ -590,7 +590,7 @@
     <h2>Что сейчас мешает потоку пациентов</h2>
     <div class="pagenum">02 / 12</div>
   </div>
-  <div class="slide-subheader">Диагноз по пресейл-аудиту вашего сайта на 10.06.2026 · только проверяемые данные</div>
+  <div class="slide-subheader">Диагноз по пресейл-аудиту вашего сайта на {{ДАТА}} · только проверяемые данные</div>
   <div class="slide-rule"></div>
 
   <div class="pain-banner">
@@ -601,7 +601,7 @@
 <!--AUTO:BLOCKERS-->
 </div>
 
-  <div style="font-size:10.5px;color:#6b6f88;margin-top:12px;line-height:1.4;">🔍 — данные из автоматического аудита сайта (ИКС, индексация, ссылки, трафик через API, на 10.06.2026). 🗣 — из разбора встречи с вами. Цифры не выдуманы.</div>
+  <div style="font-size:10.5px;color:#6b6f88;margin-top:12px;line-height:1.4;">🔍 — данные из автоматического аудита сайта (ИКС, индексация, ссылки, трафик через API, на {{ДАТА}}). 🗣 — из разбора встречи с вами. Цифры не выдуманы.</div>
 
   <div class="contact-bar">
     <div class="cb-cell"><span class="cb-k">КОНТАКТ</span><span class="cb-v">Семенихин Егор</span><span class="cb-s">менеджер проекта · Belberry</span></div>
@@ -626,14 +626,14 @@
         <li>Наращиваем <b>ИКС</b>: проработка страниц, внутренняя перелинковка, поведенческие факторы</li>
         <li>Ссылочная масса: <b>тематические медицинские доноры</b> и каталоги</li>
       </ul>
-      <div class="outcome">→ Индекс и авторитет <b>к уровню соседей 130–140</b>, разворот трафика вверх</div>
+      <div class="outcome">→ Индекс и авторитет <b>к уровню лидеров ниши</b>, разворот трафика вверх</div>
     </div>
     <div class="pgroup good">
       <span class="ph amber">Техническая база и разметка</span>
       <ul>
         <li>Внедряем <b>медицинскую Schema</b>: <b>Physician</b> на врачей, <b>MedicalProcedure</b> на услуги → расширенные карточки докторов и услуг в выдаче, фид врачей в Яндекс</li>
         <li>Добавляем в карточки <b>квалификации врачей</b> (категория, к.м.н.) — усиливаем E-E-A-T</li>
-        <li>Добираем <b>семантику</b>: коммерческие и симптомные запросы района + перелинковка существующих страниц услуг (их 26+)</li>
+        <li>Добираем <b>семантику</b>: коммерческие и симптомные запросы района + перелинковка существующих страниц услуг</li>
       </ul>
       <div class="outcome">→ Расширенные сниппеты и <b>больше точек входа</b> из поиска при той же базе сайта</div>
     </div>
@@ -715,7 +715,7 @@
     <h2>SEO-продвижение · что именно делаем</h2>
     <div class="pagenum">04 / 12</div>
   </div>
-  <div class="slide-subheader">42 часа в месяц · приоритет — {{ПРИОРИТЕТНЫЕ_УСЛУГИ}} · гео {{ГЕО}}</div>
+  <div class="slide-subheader">Фиксированный объём часов команды в месяц · приоритет — {{ПРИОРИТЕТНЫЕ_УСЛУГИ}} · гео {{ГЕО}}</div>
   <div class="slide-rule"></div>
 
   <div class="grid-3" style="margin-bottom: 12px;">
@@ -724,8 +724,8 @@
       <span class="tag">БЛОК 1 · СТАРТ</span>
       <h3>Аудит и техническая база</h3>
       <div style="font-size:11px;line-height:1.5;color:#4a4f6a;margin-top:6px;">
-        · Полный технический аудит сайта на WordPress<br>
-        · Исправление индексации в Google (сейчас 130 страниц против 354 в Яндексе)<br>
+        · Полный технический аудит сайта<br>
+        · Исправление индексации в Google и Яндексе<br>
         · Скорость загрузки по чек-листу (PageSpeed)<br>
         · robots, карта сайта, корректные ответы сервера<br>
         · Настройка целей в Яндекс.Метрике на онлайн-запись
@@ -737,7 +737,7 @@
       <h3>Семантика и страницы</h3>
       <div style="font-size:11px;line-height:1.5;color:#4a4f6a;margin-top:6px;">
         · Семантика проработана частично — <strong>основной резерв роста</strong><br>
-        · Добор коммерческих запросов («гинеколог Шушары», «УЗИ Пушкинский»)<br>
+        · Добор коммерческих гео-запросов по услугам клиники<br>
         · Доработка услуг и карточек врачей (Schema, фид) + страницы симптомов<br>
         · Коммерческие блоки: врачи, цены, отзывы, регалии<br>
         · Фид врачей для Яндекса — карточки докторов в выдаче
@@ -748,11 +748,11 @@
       <span class="tag">БЛОК 3 · АВТОРИТЕТ</span>
       <h3>Ссылочная масса и гео</h3>
       <div style="font-size:11px;line-height:1.5;color:#4a4f6a;margin-top:6px;">
-        · Расширение списка площадок, ссылающихся на сайт (сейчас их мало)<br>
+        · Расширение списка площадок, ссылающихся на сайт<br>
         · Безопасная замена «однотипных» ссылок на качественные<br>
-        · Яндекс.Бизнес и Карты, синергия с ПроДокторов<br>
+        · Яндекс.Бизнес и Карты, синергия с площадками отзывов<br>
         · Страницы по районам и станциям — локальная привязка<br>
-        · По Google Бизнес — поможем восстановить доступ
+        · Google Бизнес-профиль — настройка и актуализация
       </div>
     </div>
   </div>
@@ -834,36 +834,36 @@
 
 <section class="slide">
   <div class="slide-header">
-    <h2>Вы — лидер района по репутации. А в поиске вас не находят</h2>
+    <h2>Репутация и видимость в поиске: где разрыв</h2>
     <div class="pagenum">05 / 12</div>
   </div>
-  <div class="slide-subheader">Репутация — с ПроДокторов · видимость — индекс Яндекса · только проверяемые данные на 10.06.2026</div>
+  <div class="slide-subheader">Репутация — с ПроДокторов · видимость — индекс Яндекса · только проверяемые данные на {{ДАТА}}</div>
   <div class="slide-rule"></div>
 
   <div class="card" style="margin-bottom:12px;background:#eaf7f0;padding:11px 18px;border-left:3px solid #12a273;">
-    <div style="font-size:13.5px;line-height:1.45;color:#1a1f3a;">На ПроДокторов у вас <strong>105 отзывов и оценка 97</strong> — больше и выше всех соседей. Но по <strong>авторитету сайта (ИКС 80)</strong> вы лишь в середине, а в Google уступаете каждому. <strong style="color:#0a8f5f;">Дело не в клинике и не в репутации — вас просто не находят в поиске.</strong></div>
+    <div style="font-size:13.5px;line-height:1.45;color:#1a1f3a;">Репутация на площадках отзывов <strong>не конвертируется в пациентов сама по себе</strong>: если авторитет и видимость сайта в поиске отстают от соседей, тёплый спрос уходит к ним. <strong style="color:#0a8f5f;">Дело не в клинике и не в репутации — вас просто не находят в поиске.</strong></div>
   </div>
 
   <div class="two-col-block" style="margin-bottom:12px;">
     <div class="card">
       <div class="bar"></div>
-      <h3 style="margin-bottom:10px;">Репутация — вы первые <span class="pill">ПроДокторов</span></h3>
+      <h3 style="margin-bottom:10px;">Репутация клиник рядом <span class="pill">ПроДокторов</span></h3>
       <table class="belb">
         <thead>
           <tr><th>Клиника</th><th class="right">Врачи</th><th class="right">Отзывы</th><th class="right">Оценка*</th></tr>
         </thead>
         <tbody>
-          <tr class="totalrow"><td>{{КЛИЕНТ}}<br><a href="https://{{ДОМЕН}}" target="_blank" style="font-size:10.5px;color:#5b50d6;text-decoration:none;font-weight:600;">{{ДОМЕН}} ↗</a></td><td class="right num">27</td><td class="right num">105</td><td class="right num">97</td></tr>
-          <tr><td><strong>Веда</strong><br><a href="https://cl-veda.ru" target="_blank" style="font-size:10.5px;color:#5b50d6;text-decoration:none;font-weight:600;">cl-veda.ru ↗</a></td><td class="right num">18</td><td class="right num now">25</td><td class="right num now">64</td></tr>
-          <tr><td><strong>Мир семьи</strong><br><a href="https://flmed.ru" target="_blank" style="font-size:10.5px;color:#5b50d6;text-decoration:none;font-weight:600;">flmed.ru ↗</a></td><td class="right num">34</td><td class="right num now">17</td><td class="right num now">59</td></tr>
-          <tr><td><strong>Феникс-Мед</strong><br><a href="https://feniksmed.ru" target="_blank" style="font-size:10.5px;color:#5b50d6;text-decoration:none;font-weight:600;">feniksmed.ru ↗</a></td><td class="right num">21</td><td class="right num now">5</td><td class="right num now">50</td></tr>
+          <tr class="totalrow"><td>{{КЛИЕНТ}}<br><a href="https://{{ДОМЕН}}" target="_blank" style="font-size:10.5px;color:#5b50d6;text-decoration:none;font-weight:600;">{{ДОМЕН}} ↗</a></td><td class="right num">{{ВРАЧИ_КЛИЕНТА}}</td><td class="right num">{{ОТЗЫВЫ_КЛИЕНТА}}</td><td class="right num">{{ОЦЕНКА_КЛИЕНТА}}</td></tr>
+          <tr><td><strong>{{КОНКУРЕНТ_1}}</strong></td><td class="right num">{{КОНКУРЕНТ_1_ВРАЧИ}}</td><td class="right num now">{{КОНКУРЕНТ_1_ОТЗЫВЫ}}</td><td class="right num now">{{КОНКУРЕНТ_1_ОЦЕНКА}}</td></tr>
+          <tr><td><strong>{{КОНКУРЕНТ_2}}</strong></td><td class="right num">{{КОНКУРЕНТ_2_ВРАЧИ}}</td><td class="right num now">{{КОНКУРЕНТ_2_ОТЗЫВЫ}}</td><td class="right num now">{{КОНКУРЕНТ_2_ОЦЕНКА}}</td></tr>
+          <tr><td><strong>{{КОНКУРЕНТ_3}}</strong></td><td class="right num">{{КОНКУРЕНТ_3_ВРАЧИ}}</td><td class="right num now">{{КОНКУРЕНТ_3_ОТЗЫВЫ}}</td><td class="right num now">{{КОНКУРЕНТ_3_ОЦЕНКА}}</td></tr>
         </tbody>
       </table>
-      <div style="font-size:10px;color:#6b6f88;margin-top:8px;line-height:1.5;">* оценка ПроДокторов 0–100. По отзывам и оценке вы — <strong>первые в районе</strong>.</div>
+      <div style="font-size:10px;color:#6b6f88;margin-top:8px;line-height:1.5;">* оценка ПроДокторов 0–100, с публичных карточек клиник.</div>
     </div>
     <div class="card">
       <div class="bar"></div>
-      <h3 style="margin-bottom:10px;">Видимость — вы отстаёте <span class="pill">индекс Яндекса</span></h3>
+      <h3 style="margin-bottom:10px;">{{БЕНЧМАРК_ПОДЗАГОЛОВОК}} <span class="pill">индекс Яндекса</span></h3>
       <table class="belb">
         <thead>
           <tr>
@@ -883,12 +883,12 @@
 
   <div class="card" style="background:#f3effc;">
     <div class="bar"></div>
-    <div style="font-size:12px;line-height:1.48;color:#4a4f6a;">В Яндексе у вас <strong style="color:#1a1f3a;">354 страницы — больше любого соседа</strong>: материал уже есть, а авторитет ниже → дело в <strong>проработке и ссылках, а не в объёме</strong>. Это чинится быстрее, чем строить с нуля. Плюс сильная репутация — новый трафик из поиска у вас <strong>конвертится выше среднего</strong>.</div>
+    <div style="font-size:12px;line-height:1.48;color:#4a4f6a;">Если страницы услуг на сайте уже есть, а авторитет ниже, чем у соседей, → дело в <strong>проработке и ссылках, а не в объёме</strong>. Это чинится быстрее, чем строить с нуля. Плюс наработанная репутация — новый трафик из поиска у клиники <strong>конвертится выше среднего</strong>.</div>
   </div>
 
   <div class="disclaimer">
     <div class="d-title">ИСТОЧНИКИ И КОНТРОЛЬ ДОСТОВЕРНОСТИ</div>
-    Врачи / отзывы / оценка — с карточек ПроДокторов (live, 10.06.2026). ИКС и индексация — данные Яндекса/Google через PR-CY; ваш ИКС (80) и страницы (354/130) точно совпали с нашим пресейл-аудитом — значит цифры реальные. Трафик и заявки конкурентов снаружи не измеряются — их не приводим.
+    Врачи / отзывы / оценка — с карточек ПроДокторов (live, {{ДАТА}}). ИКС и индексация — данные Яндекса/Google через PR-CY, сверены с нашим пресейл-аудитом — цифры проверяемые. Трафик и заявки конкурентов снаружи не измеряются — их не приводим.
   </div>
 
   <div class="contact-bar">
@@ -910,29 +910,14 @@
     <div class="card">
       <div class="bar"></div>
       <h3 style="margin-bottom: 12px;">Воронка из поиска</h3>
-      <table class="belb">
-        <thead>
-          <tr>
-            <th>Показатель</th>
-            <th class="right">Сейчас</th>
-            <th class="right">6 мес</th>
-            <th class="right">12 мес</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr><td>Визиты из поиска / мес</td><td class="right num now">~1 880</td><td class="right num">3 200&ndash;3 800</td><td class="right num future">4 500&ndash;5 500</td></tr>
-          <tr><td>Обращений / мес</td><td class="right num now">~35&ndash;40</td><td class="right num">60&ndash;75</td><td class="right num future">90&ndash;110</td></tr>
-          <tr><td>Доп. обращений к сегодня</td><td class="right num now">&mdash;</td><td class="right num">+25&ndash;40</td><td class="right num future">+55&ndash;70</td></tr>
-          <tr class="totalrow"><td>Доп. выручка / мес*</td><td class="right num">&mdash;</td><td class="right num">40&ndash;65 тыс ₽</td><td class="right num">90&ndash;145 тыс ₽</td></tr>
-        </tbody>
-      </table>
-      <div style="font-size:10px;color:#6b6f88;margin-top:8px;line-height:1.5;">* при среднем чеке 2 500 ₽ (с ваших слов на встрече 02.06) и консервативной конверсии обращения→запись; <strong>без учёта повторных визитов, семей и многопрофиля</strong> — с ними выручка выше.</div>
+<!--AUTO:FORECAST-->
+      <div style="font-size:10px;color:#6b6f88;margin-top:8px;line-height:1.5;">* при среднем чеке с ваших слов и консервативной конверсии обращения→запись; <strong>без учёта повторных визитов, семей и многопрофиля</strong> — с ними выручка выше.</div>
     </div>
 
     <div style="display: flex; flex-direction: column; gap: 12px;">
       <div class="card" style="background:#fff4ec;border-left:4px solid #e88a3b;">
         <h3 style="font-size:14px;margin-bottom:6px">Сначала &mdash; остановить просадку</h3>
-        <div style="font-size:12px;line-height:1.5;color:#5b3a1a;">Трафик уже упал с <strong>3 390</strong> (ноябрь 2025) до <strong>1 880</strong> визитов &mdash; это цена «поддержания за 30к». Первая задача &mdash; развернуть падение и вернуть рост.</div>
+        <div style="font-size:12px;line-height:1.5;color:#5b3a1a;">Если поисковый трафик снижается, каждый месяц формального «поддержания» работает в минус. Первая задача &mdash; развернуть падение и вернуть рост.</div>
       </div>
       <div class="card">
         <div class="bar"></div>
@@ -942,14 +927,14 @@
       <div class="card" style="background:#f3effc;">
         <div class="bar"></div>
         <h3 style="font-size:13px;margin-bottom:5px">Откуда цифры</h3>
-        <div style="font-size:10.5px;line-height:1.5;color:#4a4f6a;">«Сейчас» &mdash; наш пресейл-аудит по открытым данным (PR-CY, Яндекс/Google) на 09.06. Прогноз &mdash; модель Belberry по 100+ медпроектам. Точные текущие цифры дадим по вашей Метрике.</div>
+        <div style="font-size:10.5px;line-height:1.5;color:#4a4f6a;">«Сейчас» &mdash; наш пресейл-аудит по открытым данным (PR-CY, Яндекс/Google) на {{ДАТА}}. Прогноз &mdash; модель Belberry по 100+ медпроектам. Точные текущие цифры дадим по вашей Метрике.</div>
       </div>
     </div>
   </div>
 
   <div class="disclaimer">
     <div class="d-title">ВАЖНО — ОЦЕНКА НА ТЕКУЩИЙ МОМЕНТ</div>
-    Внешняя оценка на <strong>09.06.2026</strong> без доступа к вашей Метрике — открытые счётчики на малых сайтах часто занижают реальный трафик, поэтому базу уточняем по Метрике. SEO даёт результат на горизонте 3–6 месяцев. Факт vs прогноз сверяем каждый месяц.
+    Внешняя оценка на <strong>{{ДАТА}}</strong> без доступа к вашей Метрике — открытые счётчики на малых сайтах часто занижают реальный трафик, поэтому базу уточняем по Метрике. SEO даёт результат на горизонте 3–6 месяцев. Факт vs прогноз сверяем каждый месяц.
   </div>
 
   <div class="contact-bar">
@@ -971,10 +956,10 @@
     <div class="card" style="border-left:3px solid #e88a3b;">
       <h3 style="margin-bottom: 12px;">Что происходит, пока ничего не менять</h3>
       <div style="font-size:12.5px;line-height:1.7;color:#4a4f6a;">
-        <div><span style="display:inline-block;width:7px;height:7px;border-radius:2px;background:#a13442;margin-right:10px;vertical-align:middle;"></span>Трафик продолжает падать — уже <strong>3 390 → 1 880</strong> визитов за полгода, тренд вниз</div>
-        <div><span style="display:inline-block;width:7px;height:7px;border-radius:2px;background:#e88a3b;margin-right:10px;vertical-align:middle;"></span>Соседи наращивают авторитет: <strong>Феникс 140, Мир семьи 130</strong> против вашего 80 — разрыв растёт</div>
-        <div><span style="display:inline-block;width:7px;height:7px;border-radius:2px;background:#e88a3b;margin-right:10px;vertical-align:middle;"></span>Тёплые запросы района («УЗИ, анализы Шушары») забирают они — пациент идёт к тому, кого нашёл</div>
-        <div><span style="display:inline-block;width:7px;height:7px;border-radius:2px;background:#a13442;margin-right:10px;vertical-align:middle;"></span>Деньги на «поддержание за 30к» идут, а видимость не растёт</div>
+        <div><span style="display:inline-block;width:7px;height:7px;border-radius:2px;background:#a13442;margin-right:10px;vertical-align:middle;"></span>Трафик из поиска <strong>не разворачивается сам</strong> — без системной работы тренд продолжается</div>
+        <div><span style="display:inline-block;width:7px;height:7px;border-radius:2px;background:#e88a3b;margin-right:10px;vertical-align:middle;"></span>Соседи наращивают авторитет сайтов — <strong>разрыв с лидерами ниши растёт</strong> с каждым месяцем</div>
+        <div><span style="display:inline-block;width:7px;height:7px;border-radius:2px;background:#e88a3b;margin-right:10px;vertical-align:middle;"></span>Тёплые запросы района забирают конкуренты — пациент идёт к тому, кого нашёл</div>
+        <div><span style="display:inline-block;width:7px;height:7px;border-radius:2px;background:#a13442;margin-right:10px;vertical-align:middle;"></span>Деньги на формальное «поддержание» идут, а видимость не растёт</div>
       </div>
     </div>
 
@@ -985,8 +970,8 @@
         <table class="belb">
           <thead><tr><th>Отложить старт на</th><th class="right">Недополучено обращений*</th></tr></thead>
           <tbody>
-            <tr><td class="metric">3 месяца</td><td class="right num">~30–55</td></tr>
-            <tr><td class="metric">6 месяцев</td><td class="right num future">~110–190</td></tr>
+            <tr><td class="metric">3 месяца</td><td class="right num">{{НЕДОПОЛУЧЕНО_3_МЕС}}</td></tr>
+            <tr><td class="metric">6 месяцев</td><td class="right num future">{{НЕДОПОЛУЧЕНО_6_МЕС}}</td></tr>
           </tbody>
         </table>
         <div style="font-size:10px;color:#6b6f88;margin-top:8px;line-height:1.5;">* накопленным итогом, по консервативному прогнозу роста из поиска. Плюс за это время соседи уходят дальше в отрыв.</div>
@@ -1024,25 +1009,25 @@
       <thead>
         <tr>
           <th style="width:30%;">Что важно</th>
-          <th>Текущий подрядчик<br><span style="font-weight:400;text-transform:none;letter-spacing:0;">«поддержание ~30к»</span></th>
+          <th>Текущий подрядчик<br><span style="font-weight:400;text-transform:none;letter-spacing:0;">как сейчас</span></th>
           <th>Свой SEO-штат<br><span style="font-weight:400;text-transform:none;letter-spacing:0;">нанимать самим</span></th>
           <th class="right">Belberry</th>
         </tr>
       </thead>
       <tbody>
-        <tr><td class="metric">Полный цикл: техника + контент + ссылки</td><td><span class="pill bad">поверхностно</span></td><td><span class="pill warn">зависит от людей</span></td><td class="right"><span class="pill ok">42 ч/мес, всё в смете</span></td></tr>
+        <tr><td class="metric">Полный цикл: техника + контент + ссылки</td><td><span class="pill bad">поверхностно</span></td><td><span class="pill warn">зависит от людей</span></td><td class="right"><span class="pill ok">объём часов в смете</span></td></tr>
         <tr><td class="metric">Контент с врачами и E-E-A-T</td><td>—</td><td>редко</td><td class="right"><span class="pill ok">копирайтеры-медики</span></td></tr>
         <tr><td class="metric">Отчёт в обращениях, а не «позициях»</td><td><span class="pill bad">отчётов нет</span></td><td>редко</td><td class="right"><span class="pill ok">каждый месяц</span></td></tr>
         <tr><td class="metric">Опыт именно в медицине</td><td class="metric">—</td><td class="metric">низкий</td><td class="right"><span class="pill ok">11 лет · 700+</span></td></tr>
         <tr><td class="metric">Обязательства в договоре: объём работ и отчётность</td><td>—</td><td>—</td><td class="right"><span class="pill ok">фиксируем</span></td></tr>
-        <tr class="totalrow"><td>Стоимость в месяц</td><td>~30 000 ₽<br><span style="font-size:10px;color:#a13442;">без результата</span></td><td>150–250 тыс ₽<br><span style="font-size:10px;color:#6b6f88;">ФОТ штата</span></td><td class="right">120 750 ₽<br><span style="font-size:10px;color:#5b50d6;">+ внедрение в подарок</span></td></tr>
+        <tr class="totalrow"><td>Стоимость в месяц</td><td>дешевле по цифре<br><span style="font-size:10px;color:#a13442;">но без результата</span></td><td>кратно дороже агентства<br><span style="font-size:10px;color:#6b6f88;">ФОТ штата</span></td><td class="right">{{ЦЕНА_SEO}}<br><span style="font-size:10px;color:#5b50d6;">+ внедрение в подарок</span></td></tr>
       </tbody>
     </table>
   </div>
 
   <div class="disclaimer">
     <div class="d-title">СУТЬ</div>
-    «Поддержание за 30к» дешевле по цифре, но платится за процесс без результата. Свой штат — дорого и долго собирать. Belberry — полный цикл, медицинская экспертиза и прозрачная отчётность по фиксированной цене.
+    Формальное «поддержание» дешевле по цифре, но платится за процесс без результата. Свой штат — дорого и долго собирать. Belberry — полный цикл, медицинская экспертиза и прозрачная отчётность по фиксированной цене.
   </div>
 
   <div class="contact-bar">
@@ -1057,7 +1042,7 @@
     <h2>Как начинаем работу</h2>
     <div class="pagenum">09 / 12</div>
   </div>
-  <div class="slide-subheader">5 шагов до старта · внедрение SEO-правок в подарок при старте до 19.06.2026</div>
+  <div class="slide-subheader">5 шагов до старта · внедрение SEO-правок в подарок при раннем старте — {{ДЕДЛАЙН_СТАРТА}}</div>
   <div class="slide-rule"></div>
 
   <div class="two-col-block" style="margin-bottom: 12px;">
@@ -1068,7 +1053,7 @@
         <div class="roadmap-step">
           <div class="roadmap-num">1</div>
           <div class="body">
-            <div class="title-line">До 16.06 · решение</div>
+            <div class="title-line">Решение — {{ДЕДЛАЙН_РЕШЕНИЯ}}</div>
             <div class="desc-line">Согласуете состав работ и подтверждаете выход на договор.</div>
           </div>
         </div>
@@ -1076,8 +1061,8 @@
         <div class="roadmap-step">
           <div class="roadmap-num">2</div>
           <div class="body">
-            <div class="title-line">До 19.06 · договор и оплата</div>
-            <div class="desc-line">При старте до 19.06 — внедрение всех SEO-правок на сайт в подарок. Договор готовим за 24 часа.</div>
+            <div class="title-line">Договор и оплата — {{ДЕДЛАЙН_СТАРТА}}</div>
+            <div class="desc-line">При раннем старте — {{ДЕДЛАЙН_СТАРТА}} — внедрение всех SEO-правок на сайт в подарок. Договор готовим за 24 часа.</div>
           </div>
         </div>
         <div class="roadmap-divider"></div>
@@ -1093,7 +1078,7 @@
           <div class="roadmap-num">4</div>
           <div class="body">
             <div class="title-line">1-й месяц · аудит + быстрые победы</div>
-            <div class="desc-line">Углублённый аудит, технические правки, настройка целей в Метрике, старт работы по гинекологии/УЗИ/анализам.</div>
+            <div class="desc-line">Углублённый аудит, технические правки, настройка целей в Метрике, старт работы по приоритетным услугам.</div>
           </div>
         </div>
         <div class="roadmap-divider"></div>
@@ -1188,7 +1173,7 @@
         <div class="tn">ММЦ «Синай»</div>
         <div class="tnum">20 <span class="arrow">→</span> 190</div>
         <div class="tm">ИКС сайта</div>
-        <div class="tcap">за 2,5 месяца · у вас сейчас 80</div>
+        <div class="tcap">за 2,5 месяца работы</div>
       </a>
       <a class="tile" href="https://belberry.net/works/seo-sayta-kliniki-k-meditsina/" target="_blank">
         <div class="tt">МНОГОПРОФИЛЬ ↗</div>
@@ -1241,7 +1226,7 @@
   <div class="slide-footer">
     <span class="belb-mark">BELBERRY</span>
     <span>КП · {{КЛИЕНТ}} · {{ДОМЕН}}</span>
-    <span>09.06.2026</span>
+    <span>{{ДАТА}}</span>
   </div>
 </section>
 
@@ -1257,18 +1242,18 @@
     <div class="bar"></div>
     <span class="tag">ЕЖЕМЕСЯЧНО</span>
     <h3>SEO-продвижение сайта</h3>
-    <div class="desc" style="border-top: none; padding-top: 0; margin-top: 0;">42 часа работы команды в месяц. Вывод в топ коммерческих запросов по гинекологии, УЗИ и анализам с привязкой к Шушарам и Пушкинскому району. Технический порядок, страницы услуг и врачей, ссылочная масса, аналитика и понятный отчёт «сколько обращений принёс поиск».</div>
+    <div class="desc" style="border-top: none; padding-top: 0; margin-top: 0;">Фиксированный объём часов команды в месяц. Вывод в топ коммерческих запросов по приоритетным услугам клиники с локальной привязкой. Технический порядок, страницы услуг и врачей, ссылочная масса, аналитика и понятный отчёт «сколько обращений принёс поиск».</div>
     <div style="display:flex;gap:36px;margin-top:10px;">
-      <div><div class="kpi-label">ЦЕНА С НДС 5% / МЕС</div><div class="kpi-value purple">120 750 ₽</div></div>
-      <div><div class="kpi-label">БАЗА БЕЗ НДС</div><div class="kpi-value" style="color:#6b6f88;">115 000 ₽</div></div>
+      <div><div class="kpi-label">ЦЕНА С НДС 5% / МЕС</div><div class="kpi-value purple">{{ЦЕНА_SEO}}</div></div>
+      <div><div class="kpi-label">БАЗА БЕЗ НДС</div><div class="kpi-value" style="color:#6b6f88;">{{ЦЕНА_SEO_БЕЗ_НДС}}</div></div>
     </div>
   </div>
 
   <div class="highlight" style="margin-bottom:12px;">
     <div class="cell">
       <div class="label">ЦЕНА С НДС 5% / МЕС</div>
-      <div class="value">120 750 ₽</div>
-      <div class="note">база 115 000 ₽ + НДС 5%</div>
+      <div class="value">{{ЦЕНА_SEO}}</div>
+      <div class="note">база без НДС — {{ЦЕНА_SEO_БЕЗ_НДС}}</div>
     </div>
     <div class="cell">
       <div class="label">В 1-Й МЕСЯЦ</div>
@@ -1283,24 +1268,24 @@
   </div>
 
   <div class="card" style="margin-bottom:12px;background:#f0effb;border-left:3px solid #5b50d6;padding:12px 18px;">
-    <div style="font-size:12.5px;line-height:1.5;color:#1a1f3a;"><strong>Окупаемость.</strong> По консервативному прогнозу к концу первого года дополнительная выручка из поиска выходит на <strong>90–145 тыс ₽/мес</strong> — это сопоставимо с абонплатой, а дальше работает в плюс. В отличие от рекламы и порталов, <strong style="color:#5b50d6;">страницы и позиции остаются вашим активом</strong> — вы не платите за каждого пациента снова.</div>
+    <div style="font-size:12.5px;line-height:1.5;color:#1a1f3a;"><strong>Окупаемость.</strong> По консервативному прогнозу к концу первого года дополнительная выручка из поиска выходит на <strong>уровень, сопоставимый с абонплатой</strong>, а дальше работает в плюс. В отличие от рекламы и порталов, <strong style="color:#5b50d6;">страницы и позиции остаются вашим активом</strong> — вы не платите за каждого пациента снова.</div>
   </div>
 
   <div style="background:linear-gradient(135deg,#12a273 0%,#0a8f5f 100%);color:#fff;border-radius:10px;padding:13px 18px;display:flex;align-items:center;gap:16px;box-shadow:0 4px 14px rgba(10,143,95,0.28);">
     <div style="flex:0 0 auto;text-align:center;background:rgba(255,255,255,0.18);border-radius:8px;padding:7px 13px;">
       <div style="font-size:12.5px;font-weight:800;letter-spacing:0.12em;">ПОДАРОК</div>
-      <div style="font-size:10px;color:#d6f5e9;margin-top:2px;font-weight:700;">до 19.06</div>
+      <div style="font-size:10px;color:#d6f5e9;margin-top:2px;font-weight:700;">{{ДЕДЛАЙН_СТАРТА}}</div>
     </div>
     <div style="min-width:0;">
       <div style="font-size:15.5px;font-weight:700;line-height:1.2;">Внедрение всех SEO-правок на сайт — бесплатно</div>
-      <div style="font-size:11.5px;color:#d6f5e9;margin-top:3px;line-height:1.4;">Обычно правки внедряет ваш программист или это отдельная статья сметы. Берём внедрение на себя — <strong style="color:#fff;">но только при старте до 19.06.2026.</strong> Успеваем зафиксировать условия в этом месяце.</div>
+      <div style="font-size:11.5px;color:#d6f5e9;margin-top:3px;line-height:1.4;">Обычно правки внедряет ваш программист или это отдельная статья сметы. Берём внедрение на себя — <strong style="color:#fff;">но только при раннем старте — {{ДЕДЛАЙН_СТАРТА}}.</strong> Успеваем зафиксировать условия на старте.</div>
     </div>
   </div>
 
   <div class="slide-footer">
     <span class="belb-mark">BELBERRY</span>
     <span>КП · {{КЛИЕНТ}} · {{ДОМЕН}}</span>
-    <span>09.06.2026</span>
+    <span>{{ДАТА}}</span>
   </div>
 </section>
 

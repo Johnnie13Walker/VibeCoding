@@ -62,6 +62,55 @@ def brief_pick(facts: dict, *prefixes: str):
     return None
 
 
+def benchmark_substitutions(audit: dict | None) -> dict[str, str]:
+    """Заголовок и вывод бенчмарк-слайда — ПО ДАННЫМ, а не из шаблона.
+
+    Шаблонный заголовок «вы отстаёте» врал лидерам ниши (crystal-sound: ИКС 270
+    против 170 у лучшего конкурента) — теперь формулировка следует фактам.
+    """
+    cl = (audit or {}).get("client") or {}
+    comps = [c for c in (audit or {}).get("competitors", []) if c.get("sqi")]
+    sqi = cl.get("sqi")
+    if not sqi or not comps:
+        return {}
+    best = max(comps, key=lambda c: c["sqi"])
+    if sqi >= best["sqi"]:
+        return {
+            "{{БЕНЧМАРК_ЗАГОЛОВОК}}": "По авторитету вы впереди — закрепляем отрыв",
+            "{{БЕНЧМАРК_ПОДЗАГОЛОВОК}}": "Видимость — вы впереди",
+            "{{БЕНЧМАРК_ВЫВОД}}": (
+                f"По <strong>авторитету сайта (ИКС {sqi})</strong> вы впереди конкурентов "
+                f"(лучший — {best['domain']}, ИКС {best['sqi']}). "
+                f'<strong style="color:#0a8f5f;">Авторитет уже есть — задача конвертировать '
+                f"его в позиции и заявки, пока конкуренты не догнали.</strong>"),
+        }
+    return {
+        "{{БЕНЧМАРК_ЗАГОЛОВОК}}": "В поиске вас находят реже, чем конкурентов",
+        "{{БЕНЧМАРК_ПОДЗАГОЛОВОК}}": "Видимость — вы отстаёте",
+        "{{БЕНЧМАРК_ВЫВОД}}": (
+            f"По <strong>авторитету сайта (ИКС {sqi})</strong> вы отстаёте от лидера ниши "
+            f"({best['domain']}, ИКС {best['sqi']}). "
+            f'<strong style="color:#0a8f5f;">Дело не в продукте — вас просто '
+            f"не находят в поиске.</strong>"),
+    }
+
+
+def smeta_substitutions(spec: dict | None) -> dict[str, str]:
+    """Ценовые плейсхолдеры деки из сметы (тарифы матрицы — официальные цены)."""
+    if not spec or not spec.get("items"):
+        return {}
+    import kp_smeta
+    _, subtotal = kp_smeta.build_rows(spec["items"])
+    if subtotal <= 0:
+        return {}
+    fmt = lambda n: f"{round(n):,}".replace(",", " ") + " ₽"  # noqa: E731
+    subs = {"{{ЦЕНА_БЕЗ_НДС}}": fmt(subtotal),
+            "{{ЦЕНА_С_НДС}}": fmt(subtotal * (1 + kp_smeta.VAT))}
+    if spec.get("deadline"):
+        subs["{{ДЕДЛАЙН_ПОДАРКА}}"] = str(spec["deadline"])
+    return subs
+
+
 def deck_substitutions(data: dict, today: str) -> dict[str, str]:
     """Карта замен плейсхолдеров деки реальными фактами (только то, что знаем)."""
     facts = {f["key"]: f["value"] for f in data.get("facts", [])}
@@ -181,6 +230,58 @@ def render_blockers_html(audit: dict | None, metrika: dict | None,
     return "\n".join(blocks) if blocks else None
 
 
+def forecast_numbers(metrika: dict | None) -> dict | None:
+    """Прогноз ОТ ФАКТИЧЕСКОЙ конверсии клиента: визиты органики × его конверсия.
+
+    Консервативно: конверсию НЕ повышаем, рост органики ×1,5–2 за 6–12 мес —
+    диапазон, не точка. Нет Метрики (визитов или конверсии) → None, прогноза нет.
+    """
+    if not metrika:
+        return None
+    organic = ((metrika.get("trend") or {}).get("organic") or {})
+    visits = organic.get("current")
+    conv = next((s.get("conversion") for s in metrika.get("source_conversion") or []
+                 if "поисков" in (s.get("source") or "")), None)
+    if not visits or not conv:
+        return None
+    leads_now = visits * conv / 100
+    return {"visits_now": int(visits), "conv": conv,
+            "leads_now": round(leads_now),
+            "visits_lo": int(visits * 1.5), "visits_hi": int(visits * 2),
+            "leads_lo": round(leads_now * 1.5), "leads_hi": round(leads_now * 2),
+            "goal": ((metrika.get("main_goal") or {}).get("name") or "обращение")}
+
+
+FORECAST_FALLBACK_ROW = (
+    '<tr><td colspan="4" style="color:#6b6f88;padding:14px 0;">Для честного прогноза '
+    'нужен доступ к вашей Яндекс.Метрике — посчитаем от фактической конверсии, '
+    'а не от «средних по рынку».</td></tr>')
+
+
+def render_forecast_html(metrika: dict | None) -> str | None:
+    """Строки прогноза для маркера AUTO:FORECAST (tbody таблицы
+    «Показатель | Сейчас | 6 мес | 12 мес» в шаблонах).
+
+    6 мес = рост органики ×1,5, 12 мес = ×2; конверсия клиента не повышается.
+    """
+    f = forecast_numbers(metrika)
+    if not f:
+        return None
+    fmt = lambda n: f"{n:,}".replace(",", " ")  # noqa: E731
+    return f'''          <tr><td>Визиты из поиска / мес</td>
+            <td class="right num now">~{fmt(f["visits_now"])}</td>
+            <td class="right num">{fmt(f["visits_lo"])}</td>
+            <td class="right num future">{fmt(f["visits_hi"])}</td></tr>
+          <tr><td>Конверсия в заявку — ваша, цель «{f["goal"]}» (не повышаем)</td>
+            <td class="right num">{f["conv"]}%</td>
+            <td class="right num">{f["conv"]}%</td>
+            <td class="right num">{f["conv"]}%</td></tr>
+          <tr class="totalrow"><td>Обращений из поиска / мес</td>
+            <td class="right num">~{f["leads_now"]}</td>
+            <td class="right num">{f["leads_lo"]} <span style="font-weight:400">(+{f["leads_lo"] - f["leads_now"]})</span></td>
+            <td class="right num">{f["leads_hi"]} <span style="font-weight:400">(+{f["leads_hi"] - f["leads_now"]})</span></td></tr>'''
+
+
 def render_traffic_drop(data: dict) -> str | None:
     """HTML-фрагмент баннера просадки для маркера AUTO:TRAFFIC_DROP."""
     fact = next((f for f in data.get("facts", []) if f["key"] == "traffic_drop"), None)
@@ -193,8 +294,9 @@ def render_traffic_drop(data: dict) -> str | None:
             f'<div class="pb-txt"><b>Трафик из поиска просел.</b> {txt}. '
             f'Кривая идёт вниз — без работ просадка продолжится. '
             f'<span style="opacity:.7">[данные API-аудита]</span></div>')
+# smeta ДО scaffold: ценовые плейсхолдеры деки заполняются из сметы (тарифы матрицы)
 STAGES = ["bitrix", "audit", "metrika", "prodoctorov", "insights",
-          "assemble", "scaffold", "smeta"]
+          "assemble", "smeta", "scaffold"]
 
 # Маркеры в kp.html эталона для автовставки (если их нет — оставляем файлы рядом)
 MARK_BENCH = "<!--AUTO:SEO_BENCHMARK-->"
@@ -202,6 +304,7 @@ MARK_PROBLEMS = "<!--AUTO:PROBLEM_SOLUTION-->"
 MARK_TRAFFIC = "<!--AUTO:TRAFFIC_DROP-->"
 MARK_PAINS = "<!--AUTO:PAINS-->"
 MARK_BLOCKERS = "<!--AUTO:BLOCKERS-->"
+MARK_FORECAST = "<!--AUTO:FORECAST-->"
 
 DOMAIN_RE = re.compile(r"\b((?:[a-zа-я0-9-]+\.)+(?:ru|com|net|org|рф|su|online|site|clinic|moscow|спб))\b",
                        re.IGNORECASE)
@@ -494,7 +597,10 @@ def run_pipeline(a: argparse.Namespace) -> int:
                     print(f"  ⚠ кейсы не подобраны: {e}")
             # факты в слайды: плейсхолдеры + баннер просадки трафика
             data = _load(tmp_dir / "kp_data.json") or {}
-            for ph, val in deck_substitutions(data, datetime.now().strftime("%d.%m.%Y")).items():
+            subs = deck_substitutions(data, datetime.now().strftime("%d.%m.%Y"))
+            subs.update(smeta_substitutions(_load(tmp_dir / "smeta.json")))
+            subs.update(benchmark_substitutions(_load(tmp_dir / "audit.json")))
+            for ph, val in subs.items():
                 html = html.replace(ph, val)
             drop_html = render_traffic_drop(data)
             if drop_html and MARK_TRAFFIC in html:
@@ -505,6 +611,10 @@ def run_pipeline(a: argparse.Namespace) -> int:
             blockers = render_blockers_html(_load(tmp_dir / "audit.json"), metrika, insights)
             if blockers and MARK_BLOCKERS in html:
                 html = html.replace(MARK_BLOCKERS, blockers)
+            # прогноз — от фактической конверсии Метрики; нет данных — честная заглушка
+            forecast = render_forecast_html(metrika)
+            if MARK_FORECAST in html:
+                html = html.replace(MARK_FORECAST, forecast or FORECAST_FALLBACK_ROW)
             # клиент никогда не должен увидеть {{ПЛЕЙСХОЛДЕР}}
             html, left = scrub_placeholders(html)
             if left:

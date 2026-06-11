@@ -337,6 +337,63 @@ def test_blockers_empty_data_none():
     assert render_blockers_html(None, None, None) is None
 
 
+def test_benchmark_substitutions_follow_data():
+    """Лидеру ниши не пишем «вы отстаёте» (crystal-sound: 270 против 170)."""
+    from kp_pipeline import benchmark_substitutions
+    leader = benchmark_substitutions({"client": {"sqi": 270},
+        "competitors": [{"domain": "cromi.ru", "sqi": 170}]})
+    assert "впереди" in leader["{{БЕНЧМАРК_ЗАГОЛОВОК}}"]
+    assert "отстаёте" not in leader["{{БЕНЧМАРК_ВЫВОД}}"]
+    laggard = benchmark_substitutions({"client": {"sqi": 80},
+        "competitors": [{"domain": "x.ru", "sqi": 140}]})
+    assert "отстаёте" in laggard["{{БЕНЧМАРК_ПОДЗАГОЛОВОК}}"]
+    assert benchmark_substitutions(None) == {}
+
+
+def test_smeta_substitutions_prices_from_matrix():
+    from kp_pipeline import smeta_substitutions
+    spec = {"deadline": "25.06.2026",
+            "items": [{"name": "SEO", "monthly": 80_000},
+                      {"name": "GEO", "monthly": 15_000},
+                      {"name": "правки", "included": True}]}
+    subs = smeta_substitutions(spec)
+    assert subs["{{ЦЕНА_БЕЗ_НДС}}"] == "95 000 ₽"
+    assert subs["{{ЦЕНА_С_НДС}}"] == "99 750 ₽"
+    assert subs["{{ДЕДЛАЙН_ПОДАРКА}}"] == "25.06.2026"
+    assert smeta_substitutions(None) == {}
+
+
+# ── прогноз от фактической конверсии ─────────────────────────────────────────
+
+from kp_pipeline import forecast_numbers, render_forecast_html  # noqa: E402
+
+MT_FX = {"trend": {"organic": {"current": 1589}},
+         "source_conversion": [
+             {"source": "Переходы из поисковых систем", "conversion": 1.41}],
+         "main_goal": {"name": "Отправка любой формы"}}
+
+
+def test_forecast_from_real_conversion():
+    f = forecast_numbers(MT_FX)
+    assert f["visits_now"] == 1589 and f["conv"] == 1.41
+    assert f["leads_now"] == 22                      # 1589 × 1.41%
+    assert (f["leads_lo"], f["leads_hi"]) == (34, 45)  # ×1.5–2, конверсия та же
+
+
+def test_forecast_none_without_metrika_or_conv():
+    assert forecast_numbers(None) is None
+    assert forecast_numbers({"trend": {"organic": {"current": 100}}}) is None
+
+
+def test_render_forecast_html_rows_no_promises():
+    html = render_forecast_html(MT_FX)
+    assert "не повышаем" in html and "гарант" not in html.lower()
+    assert "1 589" in html          # числа с пробелом-разделителем
+    assert "<table" not in html     # только строки — thead уже в шаблоне
+    assert html.count("<tr") == 3  # включая totalrow с классом
+    assert render_forecast_html(None) is None
+
+
 def test_templates_have_blockers_marker():
     base = Path(__file__).resolve().parents[1] / "templates"
     for tpl in ("seo-belberry", "seo-acoola"):
