@@ -21,7 +21,8 @@ import urllib.request
 import urllib.parse
 import urllib.error
 
-STATE = os.path.expanduser(
+# тот же env, что у runner/bx_client (на проде /opt/scc/state/bitrix_app/…)
+STATE = os.environ.get("BITRIX_STATE_PATH") or os.path.expanduser(
     "~/Desktop/VibeCoding/shared/config/bitrix24-state/install.latest.json")
 _s = json.loads(open(STATE, encoding="utf-8").read())["payload"]
 EP = _s["auth[client_endpoint]"].rstrip("/")
