@@ -477,3 +477,16 @@ def test_trend_svg_from_metrika_months():
     assert render_trend_svg({"trend": {"organic": {"months": [
         {"month": "a", "visits": 1, "partial": False},
         {"month": "b", "visits": 2, "partial": False}]}}}) is None  # 2 точки — не тренд
+
+
+def test_filter_prcy_rows_metrika_and_brand():
+    from kp_pipeline import filter_prcy_rows
+    rows = ('<tr><td class="metric">Высокий процент отказов (89%)</td><td>x</td></tr>\n'
+            '<tr><td class="metric">На сайте не видно онлайн-записи</td><td>y</td></tr>\n'
+            '<tr><td class="metric">Мало внешних ссылок (доноров: 8)</td><td>z</td></tr>')
+    out = filter_prcy_rows(rows, has_metrika=True, brand="acoola")
+    assert "отказов" not in out and "онлайн-запис" not in out and "доноров" in out
+    # без Метрики и для медицины — строки остаются
+    out2 = filter_prcy_rows(rows, has_metrika=False, brand="belberry")
+    assert "отказов" in out2 and "онлайн-запис" in out2
+    assert filter_prcy_rows(None, True, "acoola") is None
