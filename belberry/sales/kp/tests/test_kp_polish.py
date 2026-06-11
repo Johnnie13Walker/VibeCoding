@@ -69,3 +69,12 @@ def test_locked_text_rejected_on_change():
     assert validate_slide(orig, ok, "{}") is None
     bad = orig.replace("+12–23 заявок", "4 761 визит")
     assert "data-lock" in validate_slide(orig, bad, '{"x": 4761}')
+
+
+def test_images_protected_from_llm():
+    from kp_polish import protect_images, restore_images
+    html = '<img src="data:image/png;base64,AAAA"/><img src="data:image/png;base64,BBBB"/>'
+    prot, stash = protect_images(html)
+    assert "base64" not in prot and len(stash) == 2
+    assert restore_images(prot, stash) == html
+    assert restore_images(prot.replace("__IMG_1__", "x"), stash) is None  # токен потерян → брак

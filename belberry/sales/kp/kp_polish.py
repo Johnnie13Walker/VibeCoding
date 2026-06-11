@@ -114,16 +114,48 @@ def collect_data_json(client_dir: Path) -> str:
     return json.dumps(blob, ensure_ascii=False)
 
 
+
+
+IMG_SRC_RE = re.compile(r'src="data:image/[^"]+"')
+
+
+def protect_images(html: str) -> tuple[str, list[str]]:
+    """data-URI картинок → токены: LLM не должен видеть/жевать мегабайты base64."""
+    stash: list[str] = []
+
+    def repl(m):
+        stash.append(m.group(0))
+        return f'src="__IMG_{len(stash) - 1}__"'
+
+    return IMG_SRC_RE.sub(repl, html), stash
+
+
+def restore_images(html: str, stash: list[str]) -> str | None:
+    """Вернуть картинки; потерян хоть один токен — слайд бракуется (None)."""
+    for i, src in enumerate(stash):
+        token = f'src="__IMG_{i}__"'
+        if token not in html:
+            return None
+        html = html.replace(token, src)
+    return html
+
+
 def polish_slide(slide: str, data_json: str, provider: str, key: str) -> tuple[str, str | None]:
     """(итоговый слайд, причина отказа|None). Ошибка вызова → оригинал."""
-    prompt = f"ДАННЫЕ КЛИЕНТА (JSON):\n{data_json[:24000]}\n\nСЛАЙД:\n{slide}"
+    protected, stash = protect_images(slide)
+    prompt = f"ДАННЫЕ КЛИЕНТА (JSON):\n{data_json[:24000]}\n\nСЛАЙД:\n{protected}"
     try:
         out = llm_text(prompt, SYSTEM, provider, key, max_tokens=6000)
     except Exception as e:  # noqa: BLE001
         return slide, f"вызов не удался: {e}"
     out = re.sub(r"^```(?:html)?\s*|\s*```$", "", out.strip())
-    reason = validate_slide(slide, out, data_json)
-    return (slide, reason) if reason else (out, None)
+    reason = validate_slide(protected, out, data_json)
+    if reason:
+        return slide, reason
+    restored = restore_images(out, stash)
+    if restored is None:
+        return slide, "потерян токен картинки"
+    return restored, None
 
 
 def polish_deck(client_dir: Path) -> int:
