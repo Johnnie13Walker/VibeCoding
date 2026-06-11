@@ -832,11 +832,15 @@ def run_pipeline(a: argparse.Namespace) -> int:
                 print("  ⚠ нет Chrome/домена — скрин пропущен")
                 mark(stage, "skipped")
                 continue
-            r = subprocess.run([chrome, "--headless", "--disable-gpu", "--no-sandbox", "--disable-dev-shm-usage",
-                "--screenshot=" + str(tmp_dir / "site.png"),
-                "--window-size=1280,860", "--hide-scrollbars",
-                "--virtual-time-budget=6000", f"https://{dom}/"],
-                capture_output=True, timeout=90)
+            try:
+                subprocess.run([chrome, "--headless", "--disable-gpu", "--no-sandbox",
+                    "--disable-dev-shm-usage", "--timeout=25000",
+                    "--screenshot=" + str(tmp_dir / "site.png"),
+                    "--window-size=1280,860", "--hide-scrollbars",
+                    "--virtual-time-budget=6000", f"https://{dom}/"],
+                    capture_output=True, timeout=60)
+            except subprocess.TimeoutExpired:
+                pass  # скрин — украшение, не повод ронять задание
             if not (tmp_dir / "site.png").exists():
                 print("  ⚠ скрин не снялся — пропуск")
                 mark(stage, "skipped")
@@ -846,12 +850,16 @@ def run_pipeline(a: argparse.Namespace) -> int:
             mt = _load(tmp_dir / "metrika.json") or {}
             for path_ in problem_paths_from_metrika(mt):
                 slug = path_.strip("/").replace("/", "_") or "page"
-                subprocess.run([chrome, "--headless", "--disable-gpu", "--no-sandbox",
-                    "--disable-dev-shm-usage",
-                    "--screenshot=" + str(tmp_dir / f"page_{slug}.png"),
-                    "--window-size=1280,860", "--hide-scrollbars",
-                    "--virtual-time-budget=6000", f"https://{dom}{path_}"],
-                    capture_output=True, timeout=90)
+                try:
+                    subprocess.run([chrome, "--headless", "--disable-gpu", "--no-sandbox",
+                        "--disable-dev-shm-usage", "--timeout=25000",
+                        "--screenshot=" + str(tmp_dir / f"page_{slug}.png"),
+                        "--window-size=1280,860", "--hide-scrollbars",
+                        "--virtual-time-budget=6000", f"https://{dom}{path_}"],
+                        capture_output=True, timeout=60)
+                except subprocess.TimeoutExpired:
+                    print(f"  ⚠ страница {path_} висит — скрин пропущен")
+                    continue
                 if (tmp_dir / f"page_{slug}.png").exists():
                     print(f"  скрин проблемной: {path_}")
         elif stage == "pdf":
