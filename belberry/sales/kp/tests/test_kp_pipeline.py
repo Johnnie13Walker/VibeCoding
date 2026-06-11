@@ -536,3 +536,26 @@ def test_combine_rows_capped_and_cleaned():
     row = '<tr><td>x [{"a":"b_c"}] y</td><td>fix</td></tr>'
     out = combine_problem_rows("\n".join([row] * 9), None)
     assert out.count("<tr>") == 6 and '"a"' not in out
+
+
+def test_render_problem_cards_hybrid():
+    """Гибрид: номер→находка→стрелка→решение + счётчик и плашка-итог."""
+    from kp_pipeline import render_problem_cards
+    rows = ('<tr><td class="metric">Страница /rent собирает 10.1% трафика, но отказы '
+            '40.9% — заметная часть посетителей уходит, не сделав ни одного действия'
+            '</td><td>Переработка страницы: первый экран и призыв к действию</td></tr>\n'
+            '<tr><td class="metric">Нет цен</td><td>Добавить прайс</td></tr>')
+    html = render_problem_cards(rows)
+    assert "увидели: заметная часть посетителей" in html      # хвост ушёл в evidence
+    assert "Нет цен" in html and "Добавить прайс" in html      # короткая строка без среза
+    assert ">2<" in html and "проблемы нашли в аудите" in html  # счётчик со склонением
+    assert 'data-lock="1"' in html                              # плашку не жуёт полировка
+    assert render_problem_cards(None) is None
+    assert render_problem_cards("<p>не строки</p>") is None
+
+
+def test_render_problem_cards_plural():
+    from kp_pipeline import _plural_problems
+    assert _plural_problems(1) == "проблему нашли в аудите"
+    assert _plural_problems(3) == "проблемы нашли в аудите"
+    assert _plural_problems(5) == "проблем нашли в аудите"
