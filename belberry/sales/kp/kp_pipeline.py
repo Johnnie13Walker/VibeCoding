@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -96,12 +97,14 @@ def render_traffic_drop(data: dict) -> str | None:
             f'<div class="pb-txt"><b>Трафик из поиска просел.</b> {txt}. '
             f'Кривая идёт вниз — без работ просадка продолжится. '
             f'<span style="opacity:.7">[данные API-аудита]</span></div>')
-STAGES = ["bitrix", "audit", "metrika", "prodoctorov", "assemble", "scaffold", "smeta"]
+STAGES = ["bitrix", "audit", "metrika", "prodoctorov", "insights",
+          "assemble", "scaffold", "smeta"]
 
 # Маркеры в kp.html эталона для автовставки (если их нет — оставляем файлы рядом)
 MARK_BENCH = "<!--AUTO:SEO_BENCHMARK-->"
 MARK_PROBLEMS = "<!--AUTO:PROBLEM_SOLUTION-->"
 MARK_TRAFFIC = "<!--AUTO:TRAFFIC_DROP-->"
+MARK_PAINS = "<!--AUTO:PAINS-->"
 
 DOMAIN_RE = re.compile(r"\b((?:[a-zа-я0-9-]+\.)+(?:ru|com|net|org|рф|su|online|site|clinic|moscow|спб))\b",
                        re.IGNORECASE)
@@ -324,6 +327,18 @@ def run_pipeline(a: argparse.Namespace) -> int:
                 continue
         elif stage == "prodoctorov":
             _run("prodoctorov_audit.py", a.prodoctorov, tmp_dir)
+        elif stage == "insights":
+            # смысловой слой: бриф + транскрипт + сайт → боли и решения (LLM)
+            if not os.environ.get("ANTHROPIC_API_KEY"):
+                print("  ⚠ нет ANTHROPIC_API_KEY — смысловой слой пропущен")
+                mark(stage, "skipped")
+                continue
+            try:
+                _run("kp_insights.py", [str(tmp_dir)], tmp_dir)
+            except RuntimeError as e:
+                print(f"  ⚠ смысловой слой не собрался ({e}) — продолжаем без него")
+                mark(stage, "skipped")
+                continue
         elif stage == "assemble":
             data = assemble_kp_data(_load(tmp_dir / "bitrix.json"), _load(tmp_dir / "audit.json"),
                                     _load(tmp_dir / "metrika.json"), _load(tmp_dir / "prodoctorov.json"),
@@ -347,8 +362,18 @@ def run_pipeline(a: argparse.Namespace) -> int:
                 from metrika_audit import render_problems_html
                 metrika_rows = render_problems_html(metrika["problems"])
                 print(f"  проблем из Метрики: {len(metrika['problems'])}")
-            all_problems = combine_problem_rows(
-                probs.read_text(encoding="utf-8") if probs.exists() else None, metrika_rows)
+            # смысловой слой: проблемы сайта (LLM по тексту страниц) + боли клиента
+            insights = _load(tmp_dir / "insights.json") or {}
+            site_rows = pains_html = None
+            if insights:
+                from kp_insights import render_pains_html, render_site_rows
+                site_rows = render_site_rows(insights)
+                pains_html = render_pains_html(insights)
+                print(f"  смысловой слой: болей {len(insights.get('pains') or [])}, "
+                      f"проблем сайта {len(insights.get('site_issues') or [])}")
+            all_problems = combine_problem_rows(combine_problem_rows(
+                probs.read_text(encoding="utf-8") if probs.exists() else None,
+                metrika_rows), site_rows)
             html, missing = inject_auto_blocks(
                 html, bench.read_text(encoding="utf-8") if bench.exists() else None,
                 all_problems)
@@ -374,6 +399,8 @@ def run_pipeline(a: argparse.Namespace) -> int:
             drop_html = render_traffic_drop(data)
             if drop_html and MARK_TRAFFIC in html:
                 html = html.replace(MARK_TRAFFIC, drop_html)
+            if pains_html and MARK_PAINS in html:
+                html = html.replace(MARK_PAINS, pains_html)
             dst.write_text(html, encoding="utf-8")
             if missing:
                 print(f"  ⚠ маркеры {missing} в эталоне не найдены — вставь фрагменты вручную "
