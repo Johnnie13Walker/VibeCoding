@@ -85,8 +85,18 @@ function JobDetails({ job }: { job: KpJob }) {
         >
           <FileText size={15} /> Черновик деки
         </a>
+        <a
+          href={`/api/kp/${job.id}/smeta`}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 7, borderRadius: 10,
+            padding: '9px 16px', fontSize: 13.5, fontWeight: 700, textDecoration: 'none',
+            background: '#2c7a4a', color: '#fff',
+          }}
+        >
+          <FileText size={15} /> Смета (xlsx)
+        </a>
         <span style={{ fontSize: 11.5, color: '#b5651d', fontWeight: 600 }}>
-          цены в черновике шаблонные — заменить из сметы сметчика перед отправкой
+          смета — тарифы матрицы, состав подтвердить со сметчиком; цены в деке заменить из сметы
         </span>
       </div>
       <p style={{ fontSize: 11.5, color: 'var(--bb-faint)' }}>
