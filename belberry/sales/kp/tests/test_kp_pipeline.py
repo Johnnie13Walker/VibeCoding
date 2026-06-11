@@ -522,3 +522,17 @@ def test_drop_empty_marker_slides():
             '<section class="slide"><div><!--AUTO:FUNNEL_SVG--></div></section>')
     out, n = drop_empty_marker_slides(html)
     assert n == 2 and "живой" in out and "AUTO:" not in out
+
+
+def test_sanitize_and_first_clause():
+    from kp_pipeline import first_clause, sanitize_text
+    junk = 'Мусор формы ([{"lid":"1727","ls":"10"}]) мешает тексту'
+    assert '"lid"' not in sanitize_text(junk)
+    assert first_clause("Основной продукт - радиогид, но в целом ") == "Основной продукт - радиогид"
+
+
+def test_combine_rows_capped_and_cleaned():
+    from kp_pipeline import combine_problem_rows
+    row = '<tr><td>x [{"a":"b_c"}] y</td><td>fix</td></tr>'
+    out = combine_problem_rows("\n".join([row] * 9), None)
+    assert out.count("<tr>") == 6 and '"a"' not in out
