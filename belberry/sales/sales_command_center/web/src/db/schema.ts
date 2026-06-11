@@ -306,3 +306,23 @@ export const meetingTasks = pgTable(
   },
   (table) => [unique('meeting_tasks_meeting_id_step_key_unique').on(table.meetingId, table.stepKey)],
 );
+
+export const kpJobs = pgTable(
+  'kp_jobs',
+  {
+    id: serial('id').primaryKey(),
+    dealId: integer('deal_id').notNull(),
+    brand: text('brand').notNull().default('belberry'),
+    status: text('status').notNull().default('pending'),
+    stage: text('stage'),
+    error: text('error'),
+    kpData: jsonb('kp_data'),
+    requestedBy: integer('requested_by'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+  },
+  (table) => [
+    index('kp_jobs_status_idx').on(table.status),
+    index('kp_jobs_deal_idx').on(table.dealId),
+  ],
+);
