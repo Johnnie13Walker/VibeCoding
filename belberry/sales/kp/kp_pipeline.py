@@ -50,6 +50,18 @@ def preset_for_brief(brief_services: list | None, default: str = "seo") -> str:
     return default
 
 
+def brief_pick(facts: dict, *prefixes: str):
+    """Значение бриф-факта по ПРЕФИКСУ подписи — подписи полей гуляют между
+    брифами («Приоритетные товары/услуги…» vs «Приоритетные услуги или направления»)."""
+    for key, val in facts.items():
+        if not key.startswith("brief:"):
+            continue
+        label = key[len("brief:"):]
+        if any(label.startswith(p) for p in prefixes) and val:
+            return val
+    return None
+
+
 def deck_substitutions(data: dict, today: str) -> dict[str, str]:
     """Карта замен плейсхолдеров деки реальными фактами (только то, что знаем)."""
     facts = {f["key"]: f["value"] for f in data.get("facts", [])}
@@ -60,14 +72,26 @@ def deck_substitutions(data: dict, today: str) -> dict[str, str]:
         subs["{{домен}}"] = domain
         subs["{{КЛИЕНТ}}"] = str(facts.get("deal_title") or domain)
     subs["{{ДАТА}}"] = today
-    region = facts.get("brief:Регион продвижения")
+    region = brief_pick(facts, "Регион")
     if region:
         subs["{{ГОРОД}}"] = str(region)
         subs["{{ГЕО}}"] = str(region)
-    services = facts.get("brief:Приоритетные товары/услуги, которые нужно продвигать")
+    services = brief_pick(facts, "Приоритетные")
     if services:
         subs["{{ПРИОРИТЕТНЫЕ_УСЛУГИ}}"] = str(services)
     return subs
+
+
+PLACEHOLDER_RE = re.compile(r"\s*[:·—-]?\s*\{\{[А-ЯЁA-Z0-9_]+\}\}\.?")
+
+
+def scrub_placeholders(html: str) -> tuple[str, int]:
+    """Зачистка уцелевших {{ПЛЕЙСХОЛДЕРОВ}} — клиент не должен видеть их никогда.
+
+    Убираем вместе с висящим разделителем («…из поиска: {{X}}.» → «…из поиска»).
+    """
+    left = len(PLACEHOLDER_RE.findall(html))
+    return PLACEHOLDER_RE.sub("", html), left
 
 
 def niche_text_from_bitrix(bx: dict) -> str:
@@ -190,9 +214,12 @@ def assemble_kp_data(bitrix: dict | None, audit: dict | None,
         fact("deal_title", bitrix.get("title"), "bitrix.json:deal")
         fact("company_revenue", bitrix.get("company_revenue"), "bitrix.json:deal")
         brief = bitrix.get("brief") or {}
-        for k in ("Приоритетные товары/услуги, которые нужно продвигать",
-                  "Регион продвижения", "Опишите вашу целевую аудиторию", "УТП и офферы"):
-            fact(f"brief:{k}", brief.get(k), "bitrix.json:бриф СП1056")
+        # подписи полей гуляют между брифами — берём по префиксу
+        for k, v in brief.items():
+            if any(k.startswith(p) for p in
+                   ("Приоритетные", "Регион", "Опишите вашу целевую",
+                    "УТП", "Сильные стороны")):
+                fact(f"brief:{k}", v, "bitrix.json:бриф СП1056")
     if audit:
         cl = audit.get("client") or {}
         if isinstance(cl, dict):
@@ -401,6 +428,11 @@ def run_pipeline(a: argparse.Namespace) -> int:
                 html = html.replace(MARK_TRAFFIC, drop_html)
             if pains_html and MARK_PAINS in html:
                 html = html.replace(MARK_PAINS, pains_html)
+            # клиент никогда не должен увидеть {{ПЛЕЙСХОЛДЕР}}
+            html, left = scrub_placeholders(html)
+            if left:
+                print(f"  ⚠ вычищено незаполненных плейсхолдеров: {left} "
+                      f"(данных в брифе не нашлось)")
             dst.write_text(html, encoding="utf-8")
             if missing:
                 print(f"  ⚠ маркеры {missing} в эталоне не найдены — вставь фрагменты вручную "

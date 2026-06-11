@@ -263,3 +263,37 @@ def test_combine_problem_rows():
     assert combine_problem_rows("<tr>a</tr>", "<tr>b</tr>") == "<tr>a</tr>\n<tr>b</tr>"
     assert combine_problem_rows(None, "<tr>b</tr>") == "<tr>b</tr>"
     assert combine_problem_rows("", None) is None
+
+
+# ── подписи брифа гуляют + зачистка плейсхолдеров (баг crystal-sound 11.06) ──
+
+from kp_pipeline import brief_pick, scrub_placeholders  # noqa: E402
+
+
+def test_brief_pick_by_prefix():
+    """crystal-sound: поле называлось «Приоритетные услуги или направления»."""
+    facts = {"brief:Приоритетные услуги или направления": "радиогиды",
+             "brief:Регион продвижения": "СПб"}
+    assert brief_pick(facts, "Приоритетные") == "радиогиды"
+    assert brief_pick(facts, "Регион") == "СПб"
+    assert brief_pick(facts, "Несуществующий") is None
+
+
+def test_deck_substitutions_handles_label_variants():
+    data = {"domain": "x.ru", "facts": [
+        {"key": "brief:Приоритетные услуги или направления", "value": "радиогиды",
+         "source": "s", "status": "факт"}]}
+    assert deck_substitutions(data, "11.06.2026")["{{ПРИОРИТЕТНЫЕ_УСЛУГИ}}"] == "радиогиды"
+
+
+def test_scrub_placeholders_cleans_with_separator():
+    html = "<p>заявок из поиска: {{ПРИОРИТЕТНЫЕ_УСЛУГИ}}.</p><b>{{ГЕО}}</b>"
+    out, left = scrub_placeholders(html)
+    assert left == 2
+    assert "{{" not in out
+    assert "заявок из поиска</p>" in out
+
+
+def test_scrub_noop_when_clean():
+    out, left = scrub_placeholders("<p>чисто</p>")
+    assert left == 0 and out == "<p>чисто</p>"
