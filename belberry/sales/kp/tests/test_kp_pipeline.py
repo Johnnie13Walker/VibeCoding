@@ -490,3 +490,15 @@ def test_filter_prcy_rows_metrika_and_brand():
     out2 = filter_prcy_rows(rows, has_metrika=False, brand="belberry")
     assert "отказов" in out2 and "онлайн-запис" in out2
     assert filter_prcy_rows(None, True, "acoola") is None
+
+
+def test_iks_bars_svg():
+    from kp_pipeline import render_iks_bars
+    audit = {"client": {"domain": "crystal-sound.com", "sqi": 270},
+             "competitors": [{"domain": "cromi.ru", "sqi": 170},
+                             {"domain": "radio-guide.ru", "sqi": 130},
+                             {"domain": "retekess.com.ru", "sqi": None}]}
+    svg = render_iks_bars(audit)
+    assert svg.startswith("<svg") and "crystal-sound.com · вы" in svg
+    assert "270" in svg and "170" in svg and "retekess" not in svg  # без данных — нет бара
+    assert render_iks_bars({"client": {"sqi": 100}, "competitors": []}) is None
