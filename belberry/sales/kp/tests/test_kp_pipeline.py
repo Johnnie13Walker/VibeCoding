@@ -232,6 +232,44 @@ def test_deck_substitutions_only_known_facts():
     assert "{{ПРИОРИТЕТНЫЕ_УСЛУГИ}}" not in subs  # неизвестное не подставляем
 
 
+def test_traffic_banner_metrika_first():
+    """ПРАВИЛО 11.06: есть Метрика — баннер ТОЛЬКО из неё, PR-CY игнорируется."""
+    data = {"facts": [{"key": "traffic_drop", "source": "s", "status": "факт",
+                       "value": "пик 66500 (05.2024) → сейчас 16500 = -75%"}]}
+    falling = {"trend": {"organic": {"current": 900, "peak": 1721,
+                                     "peak_month": "2026-04", "current_month": "2026-06",
+                                     "change_pct": -47.7, "direction": "падение"}}}
+    html = render_traffic_drop(data, falling)
+    assert "Яндекс.Метрика" in html and "66500" not in html and "-47.7%" in html
+
+    stable = {"trend": {"organic": {"current": 1589, "direction": "стабильно"}},
+              "source_conversion": [
+                  {"source": "Переходы по рекламе", "visits": 8598, "conversion": 0.65},
+                  {"source": "Переходы из поисковых систем", "visits": 4745, "conversion": 1.41}]}
+    html = render_traffic_drop(data, stable)
+    assert "66500" not in html and "конвертит лучше" in html.lower() or "Поиск конвертит" in html
+    assert "Яндекс.Метрика" in html
+
+    # Метрика есть, но ни падения, ни конверсий — баннера нет вовсе (не врём)
+    assert render_traffic_drop(data, {"trend": {"organic": {"current": 10,
+        "direction": "стабильно"}}}) is None
+
+
+def test_assemble_no_prcy_traffic_when_metrika():
+    """PR-CY-оценки трафика не попадают в факты при живой Метрике."""
+    audit = {"client": {"sqi": 270, "visits_monthly": 16500, "organic_pct": 48,
+                        "bounce_rate": 89,
+                        "visits_history": {"202405": 66500, "202504": 20000}}}
+    mt = {"visits": 21200, "trend": {"organic": {"current": 1589, "peak": 1721,
+          "peak_month": "2026-04", "current_month": "2026-05",
+          "change_pct": -7.7, "direction": "стабильно"}}}
+    data = assemble_kp_data({"deal_id": 1, "brief": {}}, audit, mt, None)
+    keys = {f["key"] for f in data["facts"]}
+    assert "traffic_drop" not in keys and "visits_monthly" not in keys
+    assert "bounce_rate" not in keys  # PR-CY 89% против факта Метрики
+    assert "metrika:organic_trend" in keys and "sqi" in keys
+
+
 def test_render_traffic_drop_builds_banner():
     data = {"facts": [{"key": "traffic_drop", "source": "s", "status": "факт",
                        "value": "пик 66500 (05.2024) → сейчас 16500 = -75%"}]}
