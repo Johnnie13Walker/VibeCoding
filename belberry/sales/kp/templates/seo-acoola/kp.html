@@ -677,6 +677,11 @@
       <!--AUTO:GEO_SVG-->
       <div style="font-size:10.5px;color:#717885;margin-top:10px;">Региональные посадочные и гео-запросы усиливают каждый из этих рынков.</div>
     </div>
+    <div style="grid-column:1 / -1;background:#fff;border:1px solid #EDF1F7;border-radius:12px;padding:18px 20px;">
+      <div style="font-size:11px;font-weight:800;letter-spacing:.06em;color:#717885;margin-bottom:12px;">ВОРОНКА ПОИСКА → ЗАЯВКИ</div>
+      <!--AUTO:FUNNEL_SVG-->
+      <div style="font-size:10.5px;color:#717885;margin-top:10px;">Визиты из поиска × ваша фактическая конверсия по Метрике = заявки в месяц.</div>
+    </div>
   </div>
   <div class="slide-footer" style="display:flex;align-items:center;gap:10px;">digital-агентство</div>
 </section>
@@ -912,7 +917,7 @@
   </div>
 
   <div class="two-col-block" style="margin-bottom:12px;">
-    <div class="card">
+    <div data-optional="reviews" class="card">
       <div class="bar"></div>
       <h3 style="margin-bottom:10px;">Отзывы и рейтинги площадок <span class="pill">репутация</span></h3>
       <table class="belb">
@@ -1136,75 +1141,62 @@
   <div class="slide-subheader">5 шагов до старта · внедрение SEO-правок в подарок при старте до {{ДЕДЛАЙН_ПОДАРКА}}</div>
   <div class="slide-rule"></div>
 
-  <div class="two-col-block" style="margin-bottom: 12px;">
-    <div class="card">
-      <div class="bar"></div>
-      <h3 style="margin-bottom: 16px;">Шаги до запуска</h3>
-      <div class="roadmap-list">
-        <div class="roadmap-step">
-          <div class="roadmap-num">1</div>
-          <div class="body">
-            <div class="title-line">До {{ДЕДЛАЙН_РЕШЕНИЯ}} · решение</div>
-            <div class="desc-line">Согласуете состав работ и подтверждаете выход на договор.</div>
-          </div>
+  <div class="card" style="margin-bottom:14px;">
+    <div class="bar"></div>
+    <h3 style="margin-bottom:18px;">Шаги до запуска</h3>
+    <div style="position:relative;">
+      <div style="position:absolute;left:10%;right:10%;top:15px;height:2px;background:#DEE5EF;"></div>
+      <div style="position:relative;display:grid;grid-template-columns:repeat(5,1fr);gap:12px;">
+        <div style="text-align:center;">
+          <div style="width:32px;height:32px;border-radius:50%;background:#3086FB;color:#fff;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;">1</div>
+          <div style="font-size:12.5px;font-weight:700;color:#313131;line-height:1.3;margin-bottom:4px;">До {{ДЕДЛАЙН_РЕШЕНИЯ}} · решение</div>
+          <div style="font-size:11px;color:#717885;line-height:1.4;">Согласуете состав работ и выход на договор</div>
         </div>
-        <div class="roadmap-divider"></div>
-        <div class="roadmap-step">
-          <div class="roadmap-num">2</div>
-          <div class="body">
-            <div class="title-line">До {{ДЕДЛАЙН_ПОДАРКА}} · договор и оплата</div>
-            <div class="desc-line">При старте до {{ДЕДЛАЙН_ПОДАРКА}} — внедрение всех SEO-правок на сайт в подарок. Договор готовим за 24 часа.</div>
-          </div>
+        <div style="text-align:center;">
+          <div style="width:32px;height:32px;border-radius:50%;background:#3086FB;color:#fff;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;">2</div>
+          <div style="font-size:12.5px;font-weight:700;color:#313131;line-height:1.3;margin-bottom:4px;">До {{ДЕДЛАЙН_ПОДАРКА}} · договор и оплата</div>
+          <div style="font-size:11px;color:#717885;line-height:1.4;">Договор за 24 часа · SEO-правки в подарок</div>
         </div>
-        <div class="roadmap-divider"></div>
-        <div class="roadmap-step">
-          <div class="roadmap-num">3</div>
-          <div class="body">
-            <div class="title-line">48 часов · знакомство и доступы</div>
-            <div class="desc-line">Гостевой доступ к Метрике, доступы к сайту и вебмастерам, знакомство с командой (30 мин онлайн).</div>
-          </div>
+        <div style="text-align:center;">
+          <div style="width:32px;height:32px;border-radius:50%;background:#3086FB;color:#fff;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;">3</div>
+          <div style="font-size:12.5px;font-weight:700;color:#313131;line-height:1.3;margin-bottom:4px;">48 часов · знакомство и доступы</div>
+          <div style="font-size:11px;color:#717885;line-height:1.4;">Метрика, сайт, вебмастера · 30 мин онлайн</div>
         </div>
-        <div class="roadmap-divider"></div>
-        <div class="roadmap-step">
-          <div class="roadmap-num">4</div>
-          <div class="body">
-            <div class="title-line">1-й месяц · аудит + быстрые победы</div>
-            <div class="desc-line">Углублённый аудит, технические правки, настройка целей в Метрике, старт работы по приоритетным направлениям.</div>
-          </div>
+        <div style="text-align:center;">
+          <div style="width:32px;height:32px;border-radius:50%;background:#3086FB;color:#fff;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;">4</div>
+          <div style="font-size:12.5px;font-weight:700;color:#313131;line-height:1.3;margin-bottom:4px;">1-й месяц · аудит + быстрые победы</div>
+          <div style="font-size:11px;color:#717885;line-height:1.4;">Техправки, цели в Метрике, старт приоритетов</div>
         </div>
-        <div class="roadmap-divider"></div>
-        <div class="roadmap-step">
-          <div class="roadmap-num">5</div>
-          <div class="body">
-            <div class="title-line">Через 30 дней · первый отчёт</div>
-            <div class="desc-line">Отчёт «факт vs прогноз» на языке обращений и записей, а не «позиций».</div>
-          </div>
+        <div style="text-align:center;">
+          <div style="width:32px;height:32px;border-radius:50%;background:#3086FB;color:#fff;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;">5</div>
+          <div style="font-size:12.5px;font-weight:700;color:#313131;line-height:1.3;margin-bottom:4px;">Через 30 дней · первый отчёт</div>
+          <div style="font-size:11px;color:#717885;line-height:1.4;">Факт против прогноза — в обращениях и записях</div>
         </div>
       </div>
     </div>
+  </div>
 
-    <div style="display: flex; flex-direction: column; gap: 16px;">
-      <div class="card">
-        <div class="bar"></div>
-        <h3 style="font-size:16px;margin-bottom:12px;">Что от вас</h3>
-        <div style="font-size:13px;line-height:1.7;color:#4A5058;">
-          <div><span class="checkmark">✓</span> Гостевой доступ к Яндекс.Метрике</div>
-          <div><span class="checkmark">✓</span> Доступы к сайту и вебмастерам</div>
-          <div><span class="checkmark">✓</span> Приоритетные направления ({{ПРИОРИТЕТНЫЕ_УСЛУГИ}})</div>
-          <div><span class="checkmark">✓</span> Контакт вашего технаря / разработчика сайта</div>
-          <div><span class="checkmark">✓</span> 30 минут на старте на знакомство</div>
-        </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:12px;">
+    <div class="card">
+      <div class="bar"></div>
+      <h3 style="font-size:16px;margin-bottom:12px;">Что от вас</h3>
+      <div style="font-size:13px;line-height:1.7;color:#4A5058;">
+        <div><span class="checkmark">✓</span> Гостевой доступ к Яндекс.Метрике</div>
+        <div><span class="checkmark">✓</span> Доступы к сайту и вебмастерам</div>
+        <div><span class="checkmark">✓</span> Приоритетные направления ({{ПРИОРИТЕТНЫЕ_УСЛУГИ}})</div>
+        <div><span class="checkmark">✓</span> Контакт вашего технаря / разработчика сайта</div>
+        <div><span class="checkmark">✓</span> 30 минут на старте на знакомство</div>
       </div>
-      <div class="card">
-        <div class="bar"></div>
-        <h3 style="font-size:16px;margin-bottom:12px;">Что от нас</h3>
-        <div style="font-size:13px;line-height:1.7;color:#4A5058;">
-          <div><span class="checkmark">✓</span> Ведущий SEO-специалист + профильный копирайтер</div>
-          <div><span class="checkmark">✓</span> Линкбилдер и контент-менеджер</div>
-          <div><span class="checkmark">✓</span> Настройка аналитики и целей в Метрике</div>
-          <div><span class="checkmark">✓</span> Аккаунт-менеджер на связи 5/7</div>
-          <div><span class="checkmark">✓</span> Ежемесячный отчёт в обращениях и деньгах</div>
-        </div>
+    </div>
+    <div class="card">
+      <div class="bar"></div>
+      <h3 style="font-size:16px;margin-bottom:12px;">Что от нас</h3>
+      <div style="font-size:13px;line-height:1.7;color:#4A5058;">
+        <div><span class="checkmark">✓</span> Ведущий SEO-специалист + профильный копирайтер</div>
+        <div><span class="checkmark">✓</span> Линкбилдер и контент-менеджер</div>
+        <div><span class="checkmark">✓</span> Настройка аналитики и целей в Метрике</div>
+        <div><span class="checkmark">✓</span> Аккаунт-менеджер на связи 5/7</div>
+        <div><span class="checkmark">✓</span> Ежемесячный отчёт в обращениях и деньгах</div>
       </div>
     </div>
   </div>
