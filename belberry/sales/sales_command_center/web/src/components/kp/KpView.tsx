@@ -86,6 +86,18 @@ function JobDetails({ job }: { job: KpJob }) {
           <FileText size={15} /> Черновик деки
         </a>
         <a
+          href={`/api/kp/${job.id}/pdf`}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 7, borderRadius: 10,
+            padding: '9px 16px', fontSize: 13.5, fontWeight: 700, textDecoration: 'none',
+            background: '#3086FB', color: '#fff',
+          }}
+        >
+          <FileText size={15} /> PDF
+        </a>
+        <a
           href={`/api/kp/${job.id}/smeta`}
           style={{
             display: 'inline-flex', alignItems: 'center', gap: 7, borderRadius: 10,

@@ -447,7 +447,7 @@ def render_traffic_drop(data: dict, metrika: dict | None = None) -> str | None:
 # smeta ДО scaffold: ценовые плейсхолдеры деки заполняются из сметы (тарифы матрицы)
 # polish — финальный LLM-редактор текстов (механические гарды в kp_polish)
 STAGES = ["bitrix", "audit", "metrika", "webmaster", "prodoctorov", "insights",
-          "assemble", "smeta", "scaffold", "polish"]
+          "screenshot", "assemble", "smeta", "scaffold", "polish", "pdf"]
 
 # Маркеры в kp.html эталона для автовставки (если их нет — оставляем файлы рядом)
 MARK_BENCH = "<!--AUTO:SEO_BENCHMARK-->"
@@ -458,6 +458,33 @@ MARK_BLOCKERS = "<!--AUTO:BLOCKERS-->"
 MARK_FORECAST = "<!--AUTO:FORECAST-->"
 MARK_TREND = "<!--AUTO:TREND_SVG-->"
 MARK_IKS = "<!--AUTO:IKS_BARS-->"
+MARK_SHOT = "<!--AUTO:SITE_SHOT-->"
+
+CHROME_CANDIDATES = [
+    os.environ.get("CHROME_BIN"),
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "/usr/bin/google-chrome", "/usr/bin/chromium", "/usr/bin/chromium-browser",
+]
+
+
+def find_chrome():
+    for c in CHROME_CANDIDATES:
+        if c and Path(c).exists():
+            return c
+    return None
+
+
+def embed_screenshot_html(png_b64: str, domain: str) -> str:
+    """Скрин сайта в браузер-рамке (титул): «мы смотрели именно ваш сайт»."""
+    return (
+        '<div style="background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.3);'
+        'border-radius:14px;padding:10px 10px 8px;box-shadow:0 18px 50px rgba(0,0,0,.25);">'
+        '<div style="display:flex;gap:5px;align-items:center;margin:0 2px 8px;">'
+        '<span style="width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.5);"></span>'
+        '<span style="width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.35);"></span>'
+        '<span style="width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.25);"></span>'
+        f'<span style="font-size:10px;color:rgba(255,255,255,.75);margin-left:8px;">{domain}</span></div>'
+        f'<img src="data:image/png;base64,{png_b64}" style="width:100%;border-radius:7px;display:block;"/></div>')
 
 DOMAIN_RE = re.compile(r"\b((?:[a-zа-я0-9-]+\.)+(?:ru|com|net|org|рф|su|online|site|clinic|moscow|спб))\b",
                        re.IGNORECASE)
@@ -703,6 +730,36 @@ def run_pipeline(a: argparse.Namespace) -> int:
                 continue
         elif stage == "prodoctorov":
             _run("prodoctorov_audit.py", a.prodoctorov, tmp_dir)
+        elif stage == "screenshot":
+            chrome = find_chrome()
+            bx = _load(tmp_dir / "bitrix.json") or {}
+            dom = domain_from_bitrix(bx)
+            if not chrome or not dom:
+                print("  ⚠ нет Chrome/домена — скрин пропущен")
+                mark(stage, "skipped")
+                continue
+            r = subprocess.run([chrome, "--headless", "--disable-gpu",
+                "--screenshot=" + str(tmp_dir / "site.png"),
+                "--window-size=1280,860", "--hide-scrollbars",
+                "--virtual-time-budget=6000", f"https://{dom}/"],
+                capture_output=True, timeout=90)
+            if not (tmp_dir / "site.png").exists():
+                print("  ⚠ скрин не снялся — пропуск")
+                mark(stage, "skipped")
+                continue
+            print(f"  скрин сайта: {((tmp_dir / 'site.png').stat().st_size // 1024)} КБ")
+        elif stage == "pdf":
+            chrome = find_chrome()
+            if not chrome or not (tmp_dir / "kp.html").exists():
+                print("  ⚠ нет Chrome/деки — PDF пропущен")
+                mark(stage, "skipped")
+                continue
+            subprocess.run([chrome, "--headless", "--disable-gpu",
+                "--no-pdf-header-footer", "--print-to-pdf=" + str(tmp_dir / "deck.pdf"),
+                "--virtual-time-budget=4000",
+                "file://" + str(tmp_dir / "kp.html")], capture_output=True, timeout=180)
+            if (tmp_dir / "deck.pdf").exists():
+                print(f"  deck.pdf: {((tmp_dir / 'deck.pdf').stat().st_size // 1024)} КБ")
         elif stage == "insights":
             # смысловой слой: бриф + транскрипт + сайт → боли и решения (LLM)
             if not (os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("OPENAI_API_KEY")):
@@ -808,6 +865,15 @@ def run_pipeline(a: argparse.Namespace) -> int:
             trend_svg = render_trend_svg(metrika)
             if MARK_TREND in html:
                 html = html.replace(MARK_TREND, trend_svg or "")
+            shot = tmp_dir / "site.png"
+            if MARK_SHOT in html:
+                if shot.exists():
+                    import base64
+                    b64 = base64.b64encode(shot.read_bytes()).decode()
+                    html = html.replace(MARK_SHOT,
+                        embed_screenshot_html(b64, data.get("domain") or ""))
+                else:
+                    html = html.replace(MARK_SHOT, "")
             iks_svg = render_iks_bars(_load(tmp_dir / "audit.json"))
             if MARK_IKS in html:
                 html = html.replace(MARK_IKS, iks_svg or
