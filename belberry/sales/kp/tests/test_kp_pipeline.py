@@ -559,3 +559,14 @@ def test_render_problem_cards_plural():
     assert _plural_problems(1) == "проблему нашли в аудите"
     assert _plural_problems(3) == "проблемы нашли в аудите"
     assert _plural_problems(5) == "проблем нашли в аудите"
+
+
+def test_smeta_substitutions_prepay_ladder():
+    """Лестница предоплаты: 3/6/9/12 мес → −5/10/15/20% от цены с НДС."""
+    from kp_pipeline import smeta_substitutions
+    subs = smeta_substitutions({"items": [{"name": "SEO", "monthly": 100_000}],
+                                "deadline": "30.06.2026"})
+    assert "{{ЦЕНА_ПРЕДОПЛ_3}}" in subs and "{{ЦЕНА_ПРЕДОПЛ_12}}" in subs
+    with_vat = subs["{{ЦЕНА_С_НДС}}"]
+    # 20% скидка от цены с НДС: 105 000 → 84 000
+    assert subs["{{ЦЕНА_ПРЕДОПЛ_12}}"] == "84 000 ₽", (with_vat, subs["{{ЦЕНА_ПРЕДОПЛ_12}}"])
