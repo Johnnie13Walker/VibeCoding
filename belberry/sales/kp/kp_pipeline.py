@@ -1029,10 +1029,11 @@ def run_pipeline(a: argparse.Namespace) -> int:
             print(f"  факты: {len(data['facts'])}, гипотезы: {len(data['hypotheses'])}, "
                   f"ручных шагов: {len(data['manual_checklist'])}")
         elif stage == "scaffold":
+            # всегда с чистого эталона: в старом kp.html маркеры уже заменены,
+            # и повторный scaffold молча оставил бы прошлую вёрстку
             dst = tmp_dir / "kp.html"
-            if not dst.exists():
-                shutil.copy(pick_template(a.brand) / "kp.html", dst)
-                print(f"  эталон скопирован: {dst.relative_to(KP_DIR)}")
+            shutil.copy(pick_template(a.brand) / "kp.html", dst)
+            print(f"  эталон скопирован: {dst.relative_to(KP_DIR)}")
             html = dst.read_text(encoding="utf-8")
             bench = (tmp_dir / "seo_benchmark.html")
             probs = (tmp_dir / "problem_solution.html")
@@ -1049,7 +1050,9 @@ def run_pipeline(a: argparse.Namespace) -> int:
             if insights:
                 from kp_insights import render_pains_html, render_site_rows
                 site_rows = render_site_rows(insights)
-                pains_html = render_pains_html(insights)
+                contact = next((v for k, v in ((_load(tmp_dir / "bitrix.json") or {})
+                    .get("brief") or {}).items() if k.startswith("ФИО")), None)
+                pains_html = render_pains_html(insights, contact)
                 print(f"  смысловой слой: болей {len(insights.get('pains') or [])}, "
                       f"проблем сайта {len(insights.get('site_issues') or [])}")
             wm = _load(tmp_dir / "webmaster.json") or {}

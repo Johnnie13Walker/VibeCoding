@@ -167,27 +167,58 @@ def parse_insights(text: str) -> dict:
 
 # ── рендер в деку ────────────────────────────────────────────────────────────
 
-def render_pains_html(insights: dict) -> str | None:
-    """Содержимое data-слайда «Боли и задачи — вашими словами» (маркер AUTO:PAINS)."""
+def render_pains_html(insights: dict, contact_name: str | None = None) -> str | None:
+    """Слайд «Боли — вашими словами» как чат со встречи (маркер AUTO:PAINS).
+
+    Слева — дословные цитаты пузырями переписки (аватар-инициал клиента),
+    справа — нумерованные выводы и главный аргумент бренд-плашкой.
+    """
     pains = insights.get("pains") or []
     if not pains:
         return None
     esc = html_mod.escape
-    cards = []
-    for p in pains:
-        src = "со встречи" if p.get("source") == "встреча" else "из брифа"
-        cards.append(
-            f'<div style="background:#fff;border:1px solid #eceaf3;border-radius:12px;'
-            f'padding:14px 16px;">'
-            f'<div style="font-size:13.5px;font-weight:700;margin-bottom:6px;">{esc(p.get("pain", ""))}</div>'
-            f'<div style="font-size:12px;color:#555;font-style:italic;border-left:3px solid '
-            f'#9aa6ff;padding-left:9px;">«{esc(p.get("quote", ""))}»'
-            f'<span style="color:#9a9aa0;font-style:normal;"> — {src}</span></div></div>')
+    name = (contact_name or "").strip()
+    initial = name[:1].upper() if name else "К"
+    bubbles, conclusions = [], []
+    for i, p in enumerate(pains[:4]):
+        src = "встреча" if p.get("source") == "встреча" else "бриф"
+        who = f"{esc(name)} · {src}" if name else src
+        bubbles.append(
+            f'<div style="display:flex;gap:10px;align-items:flex-end;">'
+            f'<span style="width:26px;height:26px;border-radius:50%;background:#3086FB;'
+            f'color:#fff;display:inline-flex;align-items:center;justify-content:center;'
+            f'font-size:12px;font-weight:800;flex:none;">{initial}</span>'
+            f'<div style="background:#fff;border:1px solid #EDF1F7;'
+            f'border-radius:16px 16px 16px 4px;padding:13px 17px;max-width:440px;'
+            f'box-shadow:0 1px 2px rgba(20,40,80,.04);">'
+            f'<div style="font-size:14px;line-height:1.45;color:#313131;">'
+            f'«{esc(p.get("quote", ""))}»</div>'
+            f'<div style="font-size:10px;color:#9aa3b2;font-weight:600;margin-top:6px;'
+            f'text-align:right;">{who}</div></div></div>')
+        conclusions.append(
+            f'<div style="display:flex;gap:12px;align-items:flex-start;padding:12px 0;'
+            f'border-bottom:1px solid #EDF1F7;">'
+            f'<span style="width:24px;height:24px;border-radius:8px;background:#eaf2fe;'
+            f'color:#3086FB;font-size:12px;font-weight:800;display:inline-flex;'
+            f'align-items:center;justify-content:center;flex:none;">{i + 1}</span>'
+            f'<div style="font-size:13.5px;line-height:1.45;color:#313131;'
+            f'font-weight:600;">{esc(p.get("pain", ""))}</div></div>')
     arg = insights.get("key_argument") or ""
-    arg_html = (f'<div style="margin-top:14px;font-size:13px;"><b>Главный аргумент:</b> '
-                f'{esc(arg)}</div>' if arg else "")
-    return ('<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">'
-            + "".join(cards) + "</div>" + arg_html)
+    arg_html = ""
+    if arg:
+        arg_html = (
+            f'<div style="margin-top:14px;background:linear-gradient(135deg,#3086FB,#1F6FDE);'
+            f'border-radius:14px;padding:17px 24px;color:#fff;">'
+            f'<div style="font-size:10.5px;font-weight:800;letter-spacing:.1em;'
+            f'opacity:.75;margin-bottom:6px;">ГЛАВНЫЙ АРГУМЕНТ</div>'
+            f'<div style="font-size:14.5px;line-height:1.5;font-weight:600;">{esc(arg)}</div></div>')
+    return ('<div style="display:grid;grid-template-columns:1.15fr 1fr;gap:26px;height:548px;">'
+            '<div style="display:flex;flex-direction:column;gap:13px;justify-content:center;">'
+            + "".join(bubbles) + "</div>"
+            '<div style="display:flex;flex-direction:column;justify-content:center;">'
+            '<div style="background:#fff;border:1px solid #EDF1F7;border-radius:14px;'
+            'padding:7px 22px 5px;">' + "".join(conclusions) + "</div>"
+            + arg_html + "</div></div>")
 
 
 def render_site_rows(insights: dict) -> str | None:
