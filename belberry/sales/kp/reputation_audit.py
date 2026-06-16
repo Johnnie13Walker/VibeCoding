@@ -202,6 +202,60 @@ def render_platforms_html(data: dict, accent: str = "#3086FB",
     return "".join(rows)
 
 
+STRATEGY_BY_TYPE = {
+    "гео-сервисы": "наращивание рейтинга",
+    "медагрегаторы": "наращивание позитива",
+    "отзовики": "нивелирование негатива",
+    "соцсети": "работа от лица бренда",
+    "СМИ": "мониторинг упоминаний",
+}
+
+
+def render_strategy_rows(data: dict, accent: str = "#3086FB",
+                         limit: int = 9) -> str | None:
+    """Строки таблицы «рейтинг и стратегия» (маркер AUTO:REP_STRATEGY).
+
+    Колонка площадок — авто из выдачи; оценка/отзывы/тональность — «—»
+    (снимаются вручную при аудите); стратегия — по типу площадки.
+    """
+    platforms = (data or {}).get("platforms") or []
+    if not platforms:
+        return None
+    import html as _h
+    pd = (data or {}).get("prodoctorov") or {}
+    rows = []
+    for p in platforms[:limit]:
+        # для ПроДокторов подставляем снятую оценку, остальное — ручное
+        is_pd = p.get("domain") == "prodoctorov.ru"
+        rating = (_h.escape(str(pd.get("rating"))) if is_pd and pd.get("rating")
+                  else "—")
+        reviews = (str(pd.get("reviews")) if is_pd and pd.get("reviews") else "—")
+        strat = STRATEGY_BY_TYPE.get(p.get("type", ""), "наращивание позитива")
+        rows.append(
+            f'<tr><td>{_h.escape(p.get("name", ""))}</td>'
+            f'<td class="right num">{rating}</td>'
+            f'<td class="right num">{reviews}</td>'
+            f'<td>—</td>'
+            f'<td style="color:{accent};font-weight:600;">{strat}</td></tr>')
+    return "".join(rows)
+
+
+def reputation_summary(data: dict) -> str:
+    """Короткий вывод о репутационной выдаче (для {{ОРМ_ВЫВОД}}). Нет данных → ''."""
+    platforms = (data or {}).get("platforms") or []
+    if not platforms:
+        return ""
+    n = len(platforms)
+    counts = data.get("type_counts") or {}
+    review_sites = counts.get("отзовики", 0) + counts.get("медагрегаторы", 0)
+    if review_sites:
+        return (f"В выдаче по «{data.get('brand', 'бренд')} отзывы» — {n} площадок, "
+                f"из них {review_sites} отзовиков и агрегаторов: первое впечатление "
+                f"пациента формируют сторонние ресурсы, а не ваш сайт. Берём их под контроль.")
+    return (f"В выдаче по «{data.get('brand', 'бренд')} отзывы» — {n} площадок; "
+            f"закрепляем присутствие бренда и управляем оценками на приоритетных.")
+
+
 def main() -> int:
     if len(sys.argv) < 2:
         print('usage: reputation_audit.py "<бренд>" [город]')
