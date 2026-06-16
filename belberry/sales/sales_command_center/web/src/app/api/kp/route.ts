@@ -30,6 +30,11 @@ export async function POST(req: Request) {
   if (!Number.isInteger(dealId) || dealId <= 0) {
     return Response.json({ error: 'Укажи корректный ID сделки' }, { status: 400 });
   }
-  const id = await createKpJob(dealId, String(body?.brand ?? 'belberry'), session.bitrixId ?? null);
+  const id = await createKpJob(
+    dealId,
+    String(body?.brand ?? 'belberry'),
+    String(body?.service ?? 'seo'),
+    session.bitrixId ?? null,
+  );
   return Response.json({ id }, { status: 201 });
 }

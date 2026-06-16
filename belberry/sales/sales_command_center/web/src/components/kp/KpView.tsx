@@ -122,6 +122,7 @@ export function KpView({ initialJobs }: { initialJobs: KpJob[] }) {
   const [jobs, setJobs] = useState<KpJob[]>(initialJobs);
   const [dealId, setDealId] = useState('');
   const [brand, setBrand] = useState<'belberry' | 'acoola'>('belberry');
+  const [service, setService] = useState<'seo' | 'orm'>('seo');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [open, setOpen] = useState<number | null>(null);
@@ -155,7 +156,7 @@ export function KpView({ initialJobs }: { initialJobs: KpJob[] }) {
       const r = await fetch('/api/kp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dealId: id, brand }),
+        body: JSON.stringify({ dealId: id, brand, service }),
       });
       if (!r.ok) {
         setErr((await r.json().catch(() => null))?.error ?? `Ошибка ${r.status}`);
@@ -212,6 +213,23 @@ export function KpView({ initialJobs }: { initialJobs: KpJob[] }) {
               </button>
             ))}
           </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {(['seo', 'orm'] as const).map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setService(s)}
+                style={{
+                  borderRadius: 999, padding: '7px 14px', fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
+                  border: `1px solid ${service === s ? 'transparent' : 'var(--bb-line)'}`,
+                  background: service === s ? '#2c7a4a' : '#fff',
+                  color: service === s ? '#fff' : 'var(--bb-muted)',
+                }}
+              >
+                {s === 'seo' ? 'SEO' : 'Репутация (ORM)'}
+              </button>
+            ))}
+          </div>
           <button
             type="submit"
             disabled={busy}
@@ -260,6 +278,13 @@ export function KpView({ initialJobs }: { initialJobs: KpJob[] }) {
                     color: j.brand === 'acoola' ? '#3086FB' : 'var(--bb-violet)',
                   }}>
                     {j.brand === 'acoola' ? 'Acoola' : 'Belberry'}
+                  </span>
+                  <span style={{
+                    fontSize: 11, fontWeight: 700, borderRadius: 999, padding: '3px 9px',
+                    background: j.service === 'orm' ? '#e7f1ea' : '#eef0f4',
+                    color: j.service === 'orm' ? '#2c7a4a' : 'var(--bb-muted)',
+                  }}>
+                    {j.service === 'orm' ? 'ORM' : 'SEO'}
                   </span>
                   <span style={{ marginLeft: 'auto', fontSize: 12.5, fontWeight: 600, color: STATUS_COLOR[j.status] ?? 'var(--bb-muted)' }}>
                     {STATUS_LABEL[j.status] ?? j.status}

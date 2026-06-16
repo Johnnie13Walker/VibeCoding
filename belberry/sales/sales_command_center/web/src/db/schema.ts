@@ -313,6 +313,7 @@ export const kpJobs = pgTable(
     id: serial('id').primaryKey(),
     dealId: integer('deal_id').notNull(),
     brand: text('brand').notNull().default('belberry'),
+    service: text('service').notNull().default('seo'),
     status: text('status').notNull().default('pending'),
     stage: text('stage'),
     error: text('error'),
