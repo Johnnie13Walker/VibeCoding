@@ -599,3 +599,12 @@ def test_set_palette_switches_brand():
     kp.set_palette("xxx")
     assert kp.ACCENT == "#3086FB"
     kp.set_palette("acoola")  # вернуть для остальных тестов
+
+
+def test_pick_template_service_fallback():
+    """pick_template: <service>-<brand> если есть, иначе seo-<brand>."""
+    from kp_pipeline import pick_template
+    assert pick_template("acoola", "orm").name == "orm-acoola"   # есть orm-шаблон
+    assert pick_template("acoola", "seo").name == "seo-acoola"
+    # неизвестная услуга → фолбэк на seo-<brand>
+    assert pick_template("acoola", "xyz").name == "seo-acoola"

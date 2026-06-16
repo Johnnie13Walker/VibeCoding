@@ -6,7 +6,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from reputation_audit import (  # noqa: E402
-    aggregate, classify, render_platforms_html, render_resource_types_svg)
+    aggregate, classify, render_platforms_html, render_resource_types_svg,
+    render_strategy_rows, reputation_summary)
 
 
 def test_classify_known_types():
@@ -65,3 +66,23 @@ def test_render_platforms_html():
     html = render_platforms_html(data, accent="#6B5AF9")
     assert "ПроДокторов" in html and "медагрегаторы" in html and "#6B5AF9" in html
     assert render_platforms_html({"platforms": []}) is None
+
+
+def test_render_strategy_rows():
+    data = {"platforms": [
+        {"name": "ПроДокторов", "type": "медагрегаторы", "domain": "prodoctorov.ru"},
+        {"name": "Otzovik", "type": "отзовики", "domain": "otzovik.com"}],
+        "prodoctorov": {"rating": "4.5", "reviews": 17}}
+    html = render_strategy_rows(data, accent="#6B5AF9")
+    assert "ПроДокторов" in html and "4.5" in html and "17" in html  # авто из ПроДокторов
+    assert "нивелирование негатива" in html                          # стратегия отзовика
+    assert "наращивание позитива" in html                            # стратегия агрегатора
+    assert render_strategy_rows({"platforms": []}) is None
+
+
+def test_reputation_summary():
+    data = {"brand": "Клиника N", "platforms": [{"name": "x"}] * 5,
+            "type_counts": {"отзовики": 2, "медагрегаторы": 1}}
+    s = reputation_summary(data)
+    assert "5 площадок" in s and "сторонние ресурсы" in s
+    assert reputation_summary({"platforms": []}) == ""

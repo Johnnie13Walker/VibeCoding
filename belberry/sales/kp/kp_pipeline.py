@@ -34,11 +34,12 @@ BRIEF_SVC_TO_PRESET = {
 }
 
 
-def pick_template(brand: str = "belberry") -> Path:
-    """Золотой шаблон деки по бренду; запасной вариант — клиентский эталон."""
-    tpl = KP_DIR / "templates" / f"seo-{brand}"
-    if (tpl / "kp.html").exists():
-        return tpl
+def pick_template(brand: str = "belberry", service: str = "seo") -> Path:
+    """Шаблон деки по услуге+бренду; фолбэк seo-<brand>, затем клиентский эталон."""
+    for name in (f"{service}-{brand}", f"seo-{brand}"):
+        tpl = KP_DIR / "templates" / name
+        if (tpl / "kp.html").exists():
+            return tpl
     return KP_DIR / "clients" / "med-shushary"
 
 
@@ -811,8 +812,8 @@ def render_traffic_drop(data: dict, metrika: dict | None = None) -> str | None:
             f'ваша Метрика]</span></div>')
 # smeta ДО scaffold: ценовые плейсхолдеры деки заполняются из сметы (тарифы матрицы)
 # polish — финальный LLM-редактор текстов (механические гарды в kp_polish)
-STAGES = ["bitrix", "audit", "metrika", "webmaster", "prodoctorov", "insights",
-          "screenshot", "assemble", "smeta", "scaffold", "polish", "pdf"]
+STAGES = ["bitrix", "audit", "metrika", "webmaster", "prodoctorov", "reputation",
+          "insights", "screenshot", "assemble", "smeta", "scaffold", "polish", "pdf"]
 
 # Маркеры в kp.html эталона для автовставки (если их нет — оставляем файлы рядом)
 MARK_BENCH = "<!--AUTO:SEO_BENCHMARK-->"
@@ -828,6 +829,9 @@ MARK_PSHOTS = "<!--AUTO:PROBLEM_SHOTS-->"
 MARK_SOURCES = "<!--AUTO:SOURCES_SVG-->"
 MARK_GEO = "<!--AUTO:GEO_SVG-->"
 MARK_FUNNEL = "<!--AUTO:FUNNEL_SVG-->"
+MARK_REP_TYPES = "<!--AUTO:REP_TYPES-->"
+MARK_REP_PLATFORMS = "<!--AUTO:REP_PLATFORMS-->"
+MARK_REP_STRATEGY = "<!--AUTO:REP_STRATEGY-->"
 
 CHROME_CANDIDATES = [
     os.environ.get("CHROME_BIN"),
@@ -1099,6 +1103,31 @@ def run_pipeline(a: argparse.Namespace) -> int:
                 continue
         elif stage == "prodoctorov":
             _run("prodoctorov_audit.py", a.prodoctorov, tmp_dir)
+        elif stage == "reputation":
+            # репутационная выдача нужна только ORM-деке
+            if a.service != "orm":
+                mark(stage, "skipped")
+                continue
+            import reputation_audit
+            bx = _load(tmp_dir / "bitrix.json") or {}
+            facts = {f["key"]: f["value"] for f in
+                     (_load(tmp_dir / "kp_data.json") or {}).get("facts", [])}
+            brief = bx.get("brief") or {}
+            name = (brief_pick(brief, "Бренд", "Название") or
+                    bx.get("company") or domain_from_bitrix(bx) or tmp_dir.name)
+            seg = str(name).split(",")[0]                  # «Бренд - CrystalSound»
+            if re.search(r"\s[—-]\s", seg):
+                seg = re.split(r"\s[—-]\s", seg)[-1]      # → «CrystalSound»
+            name = seg.strip() or tmp_dir.name
+            city = brief_pick(brief, "Регион", "Город") or ""
+            dom = domain_from_bitrix(bx) or ""
+            print(f"  репутация: «{name}»{' · ' + str(city) if city else ''}")
+            rep = reputation_audit.collect(str(name), str(city), dom)
+            (tmp_dir / "reputation.json").write_text(
+                json.dumps(rep, ensure_ascii=False, indent=2), encoding="utf-8")
+            print(f"  площадок: {len(rep['platforms'])}, типы: {rep['type_counts']}"
+                  + (f", ПроДокторов {rep['prodoctorov'].get('rating')}"
+                     if rep.get("prodoctorov") else ""))
         elif stage == "screenshot":
             chrome = find_chrome()
             bx = _load(tmp_dir / "bitrix.json") or {}
@@ -1178,7 +1207,7 @@ def run_pipeline(a: argparse.Namespace) -> int:
             # всегда с чистого эталона: в старом kp.html маркеры уже заменены,
             # и повторный scaffold молча оставил бы прошлую вёрстку
             dst = tmp_dir / "kp.html"
-            shutil.copy(pick_template(a.brand) / "kp.html", dst)
+            shutil.copy(pick_template(a.brand, a.service) / "kp.html", dst)
             print(f"  эталон скопирован: {dst.relative_to(KP_DIR)}")
             html = dst.read_text(encoding="utf-8")
             bench = (tmp_dir / "seo_benchmark.html")
@@ -1281,6 +1310,24 @@ def run_pipeline(a: argparse.Namespace) -> int:
             if MARK_BUDGET in html:
                 budget_rows = render_budget_rows(_load(tmp_dir / "smeta.json"))
                 html = html.replace(MARK_BUDGET, budget_rows or "")
+            # ORM: репутационная выдача (виды ресурсов + площадки) из reputation.json
+            rep = _load(tmp_dir / "reputation.json") or {}
+            if rep:
+                import reputation_audit
+                if MARK_REP_STRATEGY in html:
+                    html = html.replace(MARK_REP_STRATEGY,
+                        reputation_audit.render_strategy_rows(rep, ACCENT) or "")
+                if "{{ОРМ_ВЫВОД}}" in html:
+                    html = html.replace("{{ОРМ_ВЫВОД}}",
+                        reputation_audit.reputation_summary(rep))
+            if MARK_REP_TYPES in html:
+                import reputation_audit
+                html = html.replace(MARK_REP_TYPES,
+                    reputation_audit.render_resource_types_svg(rep, ACCENT) or "")
+            if MARK_REP_PLATFORMS in html:
+                import reputation_audit
+                html = html.replace(MARK_REP_PLATFORMS,
+                    reputation_audit.render_platforms_html(rep, ACCENT) or "")
             if MARK_FUNNEL in html:
                 html = html.replace(MARK_FUNNEL, render_funnel_svg(metrika) or
                     '<div style="font-size:12px;color:#717885;">нужен доступ к Метрике</div>')
@@ -1334,7 +1381,9 @@ def run_pipeline(a: argparse.Namespace) -> int:
                 print("  smeta.json уже есть — пересобираю xlsx без перезаписи спеки")
             else:
                 bx = _load(tmp_dir / "bitrix.json") or {}
-                preset_key = preset_for_brief(bx.get("brief_services"))
+                # услуга задана явно (--service) → её пресет; иначе из брифа
+                preset_key = (a.service if a.service in kp_smeta.PRESETS
+                              else preset_for_brief(bx.get("brief_services")))
                 spec = {"client": domain_from_bitrix(bx) or tmp_dir.name,
                         "brand": "Acoola Team" if a.brand == "acoola" else "Belberry",
                         "deadline": "", "flags": {"logo_discount": False, "fast_pay": True},
@@ -1359,6 +1408,8 @@ def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("deal_id", type=int)
     p.add_argument("--client")
+    p.add_argument("--service", default="seo",
+                   help="услуга деки: seo|orm (выбор шаблона <service>-<brand> и пресета сметы)")
     p.add_argument("--brand", choices=["belberry", "acoola"], default="belberry",
                    help="шаблон деки: Belberry (медицина) или Acoola Team (остальные ниши)")
     p.add_argument("--competitors", nargs="*", default=[])
