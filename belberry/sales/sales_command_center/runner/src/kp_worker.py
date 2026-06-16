@@ -33,7 +33,7 @@ WHERE id = (
   ORDER BY created_at LIMIT 1
   FOR UPDATE SKIP LOCKED
 )
-RETURNING id, deal_id, brand
+RETURNING id, deal_id, brand, service
 """
 
 
@@ -45,12 +45,13 @@ def finish_sql(ok: bool) -> str:
             "updated_at = now() WHERE id = %s")
 
 
-def run_collect(deal_id: int, brand: str, workdir: Path) -> dict:
+def run_collect(deal_id: int, brand: str, service: str, workdir: Path) -> dict:
     """Стадии сбора через CLI движка; возвращает kp_data. Бросает RuntimeError."""
     if not (KP_ENGINE_DIR / "kp_pipeline.py").exists():
         raise RuntimeError(f"движок КП не найден: {KP_ENGINE_DIR} (задай KP_ENGINE_DIR)")
     cmd = [sys.executable, str(KP_ENGINE_DIR / "kp_pipeline.py"), str(deal_id),
-           "--client", workdir.name, "--brand", brand, "--skip-prodoctorov"]
+           "--client", workdir.name, "--brand", brand,
+           "--service", service or "seo", "--skip-prodoctorov"]
     # папку клиента пайплайн делает в KP_ENGINE_DIR/clients/<имя> — направим во временную
     r = subprocess.run(cmd, cwd=KP_ENGINE_DIR, capture_output=True, text=True, timeout=1500)  # polish-стадия (LLM по слайдам) добавляет до ~5 мин
     if r.returncode != 0:
@@ -70,11 +71,11 @@ def process_one(conn) -> bool:
         conn.commit()
     if not row:
         return False
-    job_id, deal_id, brand = row
-    print(f"▶ kp_job #{job_id}: сделка {deal_id}, бренд {brand}")
+    job_id, deal_id, brand, service = row
+    print(f"▶ kp_job #{job_id}: сделка {deal_id}, бренд {brand}, услуга {service}")
     workname = f"_job_{job_id}_{deal_id}"
     try:
-        data = run_collect(deal_id, brand, Path(workname))
+        data = run_collect(deal_id, brand, service, Path(workname))
         with conn.cursor() as cur:
             cur.execute(finish_sql(True), ("assemble", json.dumps(data, ensure_ascii=False), job_id))
             conn.commit()

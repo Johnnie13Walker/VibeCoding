@@ -16,6 +16,7 @@ export type KpJob = {
   id: number;
   dealId: number;
   brand: string;
+  service: string;
   status: string;
   stage: string | null;
   error: string | null;
@@ -34,6 +35,7 @@ export async function listKpJobs(limit = 50): Promise<KpJob[]> {
     id: r.id,
     dealId: r.dealId,
     brand: r.brand,
+    service: r.service ?? 'seo',
     status: r.status,
     stage: r.stage,
     error: r.error,
@@ -43,11 +45,17 @@ export async function listKpJobs(limit = 50): Promise<KpJob[]> {
   }));
 }
 
-export async function createKpJob(dealId: number, brand: string, requestedBy: number | null) {
+export async function createKpJob(
+  dealId: number,
+  brand: string,
+  service: string,
+  requestedBy: number | null,
+) {
   const safeBrand = brand === 'acoola' ? 'acoola' : 'belberry';
+  const safeService = service === 'orm' ? 'orm' : 'seo';
   const [row] = await db
     .insert(kpJobs)
-    .values({ dealId, brand: safeBrand, requestedBy })
+    .values({ dealId, brand: safeBrand, service: safeService, requestedBy })
     .returning({ id: kpJobs.id });
   return row.id;
 }
@@ -62,7 +70,8 @@ export async function getKpJob(id: number): Promise<KpJob | null> {
   if (!rows[0]) return null;
   const r = rows[0];
   return {
-    id: r.id, dealId: r.dealId, brand: r.brand, status: r.status, stage: r.stage,
+    id: r.id, dealId: r.dealId, brand: r.brand, service: r.service ?? 'seo',
+    status: r.status, stage: r.stage,
     error: r.error, kpData: (r.kpData as KpData | null) ?? null,
     createdAt: r.createdAt, updatedAt: r.updatedAt,
   };
