@@ -52,6 +52,25 @@ def preset_for_brief(brief_services: list | None, default: str = "seo") -> str:
 
 
 
+# ── бренд-палитра рендеров (графики/карточки/боли) ───────────────────────────
+# Дефолт — Acoola (синий); set_palette переключает на Belberry (фиолетовый).
+# Тесты дёргают рендеры напрямую и видят дефолт — поведение Acoola не меняется.
+PALETTES = {
+    "acoola":   {"accent": "#3086FB", "deep": "#1F6FDE", "soft": "#C9D7EC"},
+    "belberry": {"accent": "#6B5AF9", "deep": "#4A3FD0", "soft": "#D9D3EE"},
+}
+ACCENT, ACCENT_DEEP, ACCENT_SOFT = (PALETTES["acoola"]["accent"],
+                                    PALETTES["acoola"]["deep"],
+                                    PALETTES["acoola"]["soft"])
+
+
+def set_palette(brand: str) -> None:
+    """Выбрать акцент-цвета рендеров по бренду (вызывается в начале прогона)."""
+    global ACCENT, ACCENT_DEEP, ACCENT_SOFT
+    p = PALETTES.get(brand, PALETTES["acoola"])
+    ACCENT, ACCENT_DEEP, ACCENT_SOFT = p["accent"], p["deep"], p["soft"]
+
+
 CODE_JUNK_RE = re.compile(r"[\[{(]+[^\]})]*[\"'_$][^\]})]*[\]})]+")
 
 
@@ -181,9 +200,9 @@ def render_trend_svg(metrika: dict | None, width: int = 520, height: int = 110) 
     lx, ly = pts[-1]
     return (f'<svg width="{w}" height="{h + 26}" viewBox="0 0 {w} {h + 26}" '
             f'xmlns="http://www.w3.org/2000/svg">'
-            f'<polyline points="{poly}" fill="none" stroke="#3086FB" stroke-width="3" '
+            f'<polyline points="{poly}" fill="none" stroke="{ACCENT}" stroke-width="3" '
             f'stroke-linecap="round" stroke-linejoin="round"/>'
-            + "".join(f'<circle cx="{x:.0f}" cy="{y:.0f}" r="3.5" fill="#3086FB"/>'
+            + "".join(f'<circle cx="{x:.0f}" cy="{y:.0f}" r="3.5" fill="{ACCENT}"/>'
                       for x, y in pts)
             + f'<text x="{pad}" y="{h + 18}" font-size="11" fill="#6b6f88">'
               f'{first["month"]}: {first["visits"]}</text>'
@@ -212,7 +231,7 @@ def render_iks_bars(audit: dict | None, width: int = 560) -> str | None:
     for i, (name, val, me) in enumerate(rows):
         y = i * (bar_h + gap)
         w = (width - label_w - 60) * val / vmax
-        color = "#3086FB" if me else "#C9D7EC"
+        color = ACCENT if me else ACCENT_SOFT
         weight = "800" if me else "500"
         label = f"{name} · вы" if me else name
         parts.append(
@@ -279,7 +298,7 @@ def render_sources_svg(metrika: dict | None, width: int = 520) -> str | None:
         y = i * (bar_h + gap)
         w = (width - label_w - 120) * visits / vmax
         is_search = "поиск" in name.lower()
-        color = "#3086FB" if is_search else "#C9D7EC"
+        color = ACCENT if is_search else ACCENT_SOFT
         conv_txt = f" · {conv}% в заявку" if conv else ""
         parts.append(
             f'<text x="0" y="{y + bar_h - 5}" font-size="11" '
@@ -332,7 +351,7 @@ def _funnel_build(f: dict, width: int, height: int) -> str:
     fmt = lambda n: f"{n:,}".replace(",", " ")  # noqa: E731
     return (f'<svg width="{width}" height="{height}" viewBox="0 0 {width} {height}" '
             f'xmlns="http://www.w3.org/2000/svg" font-family="Manrope,sans-serif">'
-            f'<polygon points="0,8 {left_w},22 {left_w},{height-22} 0,{height-8}" fill="#3086FB" opacity="0.92"/>'
+            f'<polygon points="0,8 {left_w},22 {left_w},{height-22} 0,{height-8}" fill="{ACCENT}" opacity="0.92"/>'
             f'<text x="20" y="{mid-6}" font-size="13" fill="#fff">Визиты из поиска / мес</text>'
             f'<text x="20" y="{mid+22}" font-size="24" fill="#fff" font-weight="800">~{fmt(f["visits_now"])}</text>'
             f'<polygon points="{left_w+8},26 {left_w+248},{mid-14} {left_w+248},{mid+14} {left_w+8},{height-26}" fill="#C9D7EC"/>'
@@ -554,7 +573,7 @@ def render_problem_cards(rows_html: str | None) -> str | None:
             f'<div><div style="font-size:12.5px;line-height:1.4;color:#313131;'
             f'font-weight:700;">{esc(sanitize_text(prob, 160))}</div>{ev_html}</div>'
             f'<svg width="24" height="14" viewBox="0 0 26 14" fill="none">'
-            f'<path d="M1 7h22m0 0-5-5m5 5-5 5" stroke="#3086FB" stroke-width="2.2" '
+            f'<path d="M1 7h22m0 0-5-5m5 5-5 5" stroke="{ACCENT}" stroke-width="2.2" '
             f'stroke-linecap="round"/></svg>'
             f'<div style="display:flex;gap:8px;align-items:flex-start;">'
             f'<svg width="15" height="15" viewBox="0 0 16 16" style="flex:none;margin-top:1px;">'
@@ -567,7 +586,7 @@ def render_problem_cards(rows_html: str | None) -> str | None:
     return ('<div style="display:flex;flex-direction:column;gap:7px;">'
             + "".join(cards) + "</div>"
             '<div style="display:grid;grid-template-columns:200px 1fr;gap:14px;margin-top:10px;">'
-            '<div style="background:linear-gradient(135deg,#3086FB,#1F6FDE);'
+            f'<div style="background:linear-gradient(135deg,{ACCENT},{ACCENT_DEEP});'
             'border-radius:13px;padding:11px 20px;color:#fff;">'
             f'<div style="font-size:28px;font-weight:900;line-height:1;">{n}</div>'
             f'<div style="font-size:10.5px;font-weight:700;opacity:.8;margin-top:3px;">'
@@ -597,17 +616,17 @@ def render_budget_rows(spec: dict | None) -> str | None:
             continue
         name = sanitize_text(str(it["name"]), 90)
         lead, _, rest = name.partition(" ")
-        lead_html = (f'<b style="color:#3086FB;">{_h.escape(lead)}</b> '
+        lead_html = (f'<b style="color:{ACCENT};">{_h.escape(lead)}</b> '
                      f'{_h.escape(rest)}' if rest else _h.escape(name))
         if it.get("included"):
-            price = ('<span style="font-size:13.5px;font-weight:800;color:#3086FB;">включено'
+            price = (f'<span style="font-size:13.5px;font-weight:800;color:{ACCENT};">включено'
                      '</span> <span style="font-size:11px;color:#717885;">в бюджет</span>')
         elif it.get("monthly"):
-            price = (f'<span style="font-size:15px;font-weight:800;color:#3086FB;">'
+            price = (f'<span style="font-size:15px;font-weight:800;color:{ACCENT};">'
                      f'{round(it["monthly"]):,} ₽'.replace(",", " ") +
                      '</span> <span style="font-size:11px;color:#717885;">/месяц</span>')
         elif it.get("once"):
-            price = (f'<span style="font-size:15px;font-weight:800;color:#3086FB;">'
+            price = (f'<span style="font-size:15px;font-weight:800;color:{ACCENT};">'
                      f'{round(it["once"]):,} ₽'.replace(",", " ") +
                      '</span> <span style="font-size:11px;color:#717885;">разово</span>')
         else:
@@ -1155,6 +1174,7 @@ def run_pipeline(a: argparse.Namespace) -> int:
             print(f"  факты: {len(data['facts'])}, гипотезы: {len(data['hypotheses'])}, "
                   f"ручных шагов: {len(data['manual_checklist'])}")
         elif stage == "scaffold":
+            set_palette(a.brand)  # акцент-цвета рендеров под бренд
             # всегда с чистого эталона: в старом kp.html маркеры уже заменены,
             # и повторный scaffold молча оставил бы прошлую вёрстку
             dst = tmp_dir / "kp.html"
@@ -1178,7 +1198,7 @@ def run_pipeline(a: argparse.Namespace) -> int:
                 site_rows = render_site_rows(insights)
                 contact = next((v for k, v in ((_load(tmp_dir / "bitrix.json") or {})
                     .get("brief") or {}).items() if k.startswith("ФИО")), None)
-                pains_html = render_pains_html(insights, contact)
+                pains_html = render_pains_html(insights, contact, ACCENT, ACCENT_DEEP)
                 print(f"  смысловой слой: болей {len(insights.get('pains') or [])}, "
                       f"проблем сайта {len(insights.get('site_issues') or [])}")
             wm = _load(tmp_dir / "webmaster.json") or {}

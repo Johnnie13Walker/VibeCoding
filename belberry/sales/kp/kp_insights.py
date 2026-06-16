@@ -167,11 +167,14 @@ def parse_insights(text: str) -> dict:
 
 # ── рендер в деку ────────────────────────────────────────────────────────────
 
-def render_pains_html(insights: dict, contact_name: str | None = None) -> str | None:
+def render_pains_html(insights: dict, contact_name: str | None = None,
+                      accent: str = "#3086FB", accent_deep: str = "#1F6FDE",
+                      accent_tint: str = "#eaf2fe") -> str | None:
     """Слайд «Боли — вашими словами» как чат со встречи (маркер AUTO:PAINS).
 
     Слева — дословные цитаты пузырями переписки (аватар-инициал клиента),
     справа — нумерованные выводы и главный аргумент бренд-плашкой.
+    accent/accent_deep — бренд-цвета (дефолт Acoola; Belberry передаёт фиолетовый).
     """
     pains = insights.get("pains") or []
     if not pains:
@@ -185,7 +188,7 @@ def render_pains_html(insights: dict, contact_name: str | None = None) -> str | 
         who = f"{esc(name)} · {src}" if name else src
         bubbles.append(
             f'<div style="display:flex;gap:10px;align-items:flex-end;">'
-            f'<span style="width:26px;height:26px;border-radius:50%;background:#3086FB;'
+            f'<span style="width:26px;height:26px;border-radius:50%;background:{accent};'
             f'color:#fff;display:inline-flex;align-items:center;justify-content:center;'
             f'font-size:12px;font-weight:800;flex:none;">{initial}</span>'
             f'<div style="background:#fff;border:1px solid #EDF1F7;'
@@ -198,8 +201,8 @@ def render_pains_html(insights: dict, contact_name: str | None = None) -> str | 
         conclusions.append(
             f'<div style="display:flex;gap:12px;align-items:flex-start;padding:12px 0;'
             f'border-bottom:1px solid #EDF1F7;">'
-            f'<span style="width:24px;height:24px;border-radius:8px;background:#eaf2fe;'
-            f'color:#3086FB;font-size:12px;font-weight:800;display:inline-flex;'
+            f'<span style="width:24px;height:24px;border-radius:8px;background:{accent_tint};'
+            f'color:{accent};font-size:12px;font-weight:800;display:inline-flex;'
             f'align-items:center;justify-content:center;flex:none;">{i + 1}</span>'
             f'<div style="font-size:13.5px;line-height:1.45;color:#313131;'
             f'font-weight:600;">{esc(p.get("pain", ""))}</div></div>')
@@ -207,7 +210,7 @@ def render_pains_html(insights: dict, contact_name: str | None = None) -> str | 
     arg_html = ""
     if arg:
         arg_html = (
-            f'<div style="margin-top:14px;background:linear-gradient(135deg,#3086FB,#1F6FDE);'
+            f'<div style="margin-top:14px;background:linear-gradient(135deg,{accent},{accent_deep});'
             f'border-radius:14px;padding:17px 24px;color:#fff;">'
             f'<div style="font-size:10.5px;font-weight:800;letter-spacing:.1em;'
             f'opacity:.75;margin-bottom:6px;">ГЛАВНЫЙ АРГУМЕНТ</div>'

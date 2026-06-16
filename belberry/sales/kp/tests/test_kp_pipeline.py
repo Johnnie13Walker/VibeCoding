@@ -586,3 +586,16 @@ def test_render_budget_rows_from_smeta():
     assert html.index("80 000") < html.index("включено")  # платные сверху
     assert render_budget_rows(None) is None
     assert render_budget_rows({"items": []}) is None
+
+
+def test_set_palette_switches_brand():
+    """set_palette переключает акцент рендеров; дефолт — Acoola (синий)."""
+    import kp_pipeline as kp
+    kp.set_palette("acoola")
+    assert kp.ACCENT == "#3086FB"
+    kp.set_palette("belberry")
+    assert kp.ACCENT == "#6B5AF9" and kp.ACCENT_DEEP == "#4A3FD0"
+    # неизвестный бренд → дефолт Acoola
+    kp.set_palette("xxx")
+    assert kp.ACCENT == "#3086FB"
+    kp.set_palette("acoola")  # вернуть для остальных тестов
