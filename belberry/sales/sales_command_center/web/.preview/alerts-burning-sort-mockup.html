@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Мокап — «Горит»: сортировка (3 варианта)</title>
+<style>
+  :root{
+    --bb-violet:#5b50d6; --bb-violet-soft:#f0eefb; --bb-canvas:#faf8f5;
+    --bb-ink:#1d1d1f; --bb-muted:#6e6e73; --bb-faint:#9a9aa0; --bb-line:#ece8e3;
+    --bb-red:#d4202e; --bb-shadow:0 1px 3px rgba(20,18,50,.06),0 8px 24px -12px rgba(20,18,50,.12);
+    --bb-shadow-lift:0 1px 3px rgba(20,18,50,.06),0 16px 34px -16px rgba(43,42,94,.4);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif;background:var(--bb-canvas);color:var(--bb-ink);-webkit-font-smoothing:antialiased}
+  .bb-page{max-width:1080px;margin:0 auto;padding:34px 34px 70px}
+  .note{font-size:13px;color:var(--bb-muted);background:#fff;border:1px solid var(--bb-line);border-radius:12px;padding:12px 16px;margin-bottom:8px}
+  .note b{color:var(--bb-ink)}
+  .vlabel{font-size:13px;font-weight:700;color:var(--bb-violet);margin:26px 0 8px}
+  .vlabel span{color:var(--bb-muted);font-weight:500}
+  .bb-card{background:#fff;border:1px solid var(--bb-line);border-radius:18px;padding:20px;box-shadow:var(--bb-shadow)}
+  .bb-sect-head{display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+  .bb-sect-head h2{font-size:17px;font-weight:700;letter-spacing:-.02em}
+  .bb-sect-head small{color:var(--bb-faint);font-size:12.5px;font-weight:500;margin-left:auto}
+  .bb-sect-ic{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;background:#fdeced;color:#d4202e;flex:0 0 30px}
+  .ctrls{display:flex;gap:8px;flex:0 0 auto;align-items:center}
+  .mgr-btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--bb-line);background:#fff;border-radius:11px;padding:8px 12px;font:inherit;font-size:13px;font-weight:600;color:var(--bb-ink);cursor:pointer}
+  .mgr-btn svg{width:15px;height:15px;color:var(--bb-violet)}
+
+  .bb-alert-row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--bb-line)}
+  .bb-alert-row:last-child{border-bottom:0}
+  .bb-sev{width:4px;align-self:stretch;border-radius:3px;flex:0 0 4px}
+  .bb-sev.critical{background:var(--bb-red)} .bb-sev.warning{background:#e0a44a}
+  .bb-alert-title{display:inline-flex;align-items:center;gap:5px;font-size:14px;font-weight:600;color:var(--bb-ink);text-decoration:none}
+  .ext{opacity:.5}
+  .bb-alert-meta{font-size:12px;color:var(--bb-faint);margin-top:2px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .bb-reason{font-size:11px;font-weight:700;border-radius:999px;padding:2px 8px;white-space:nowrap;background:#fdf2e7;color:#b5651d}
+  .bb-reason.critical{background:#fdeced;color:var(--bb-red)}
+  .comm{flex:0 0 auto;width:200px;text-align:center;line-height:1.35}
+  .comm .lbl{color:var(--bb-faint);font-size:10px;text-transform:uppercase;letter-spacing:.04em}
+  .comm .val{color:var(--bb-muted);font-size:12px;font-weight:600;font-variant-numeric:tabular-nums}
+  .comm .ago{color:var(--bb-faint);font-size:11px}
+  .comm .none{color:#b5651d;font-size:12px;font-weight:600}
+  .right{text-align:right;flex:0 0 auto;min-width:130px}
+  .amount{font-weight:700;font-size:14px;font-variant-numeric:tabular-nums}
+  .nomove{font-size:12px;font-weight:600}
+
+  /* В1 — сегмент-переключатель */
+  .seg{display:inline-flex;border:1px solid var(--bb-line);border-radius:11px;overflow:hidden;background:#fff}
+  .seg button{border:0;background:#fff;font:inherit;font-size:12.5px;font-weight:600;color:var(--bb-muted);padding:8px 12px;cursor:pointer;display:inline-flex;align-items:center;gap:5px}
+  .seg button+button{border-left:1px solid var(--bb-line)}
+  .seg button.on{background:var(--bb-violet-soft);color:var(--bb-violet)}
+  .seg svg{width:13px;height:13px}
+
+  /* В2 — выпадающий список */
+  .pk{position:relative}
+  .pk-pop{position:absolute;top:calc(100% + 6px);right:0;z-index:20;width:250px;background:#fff;border:1px solid var(--bb-line);border-radius:14px;box-shadow:var(--bb-shadow-lift);padding:8px;display:none}
+  .pk.open .pk-pop{display:block}
+  .pk-opt{display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;border-radius:10px;border:0;background:transparent;font:inherit;font-size:13.5px;color:var(--bb-ink);cursor:pointer;text-align:left}
+  .pk-opt.on{background:var(--bb-violet-soft);color:var(--bb-violet);font-weight:600}
+  .pk-rad{width:16px;height:16px;flex:0 0 16px;border-radius:999px;border:1.5px solid var(--bb-line);display:grid;place-items:center}
+  .pk-opt.on .pk-rad{border-color:var(--bb-violet)}
+  .pk-opt.on .pk-rad::after{content:'';width:8px;height:8px;border-radius:999px;background:var(--bb-violet)}
+
+  /* В3 — текстовые ссылки со стрелкой */
+  .sortlinks{display:inline-flex;align-items:center;gap:14px;font-size:12.5px;color:var(--bb-faint)}
+  .sortlinks .lbl{font-weight:500}
+  .sortlinks button{border:0;background:none;font:inherit;font-size:12.5px;font-weight:600;color:var(--bb-muted);cursor:pointer;display:inline-flex;align-items:center;gap:3px;padding:0}
+  .sortlinks button.on{color:var(--bb-violet)}
+  .sortlinks svg{width:13px;height:13px;opacity:0;transition:opacity .1s}
+  .sortlinks button.on svg{opacity:1}
+</style>
+</head>
+<body>
+<div class="bb-page">
+  <div class="note"><b>Мокап</b> — переключатель сортировки в секции «Горит». Сортировка по убыванию (худшие сверху): <b>без движения</b> = больше дней простоя сверху; <b>последний контакт</b> = дольше без контакта сверху (без контакта вовсе — в самом верху). Контролы рабочие — кликай.</div>
+
+  <div class="vlabel">Вариант 1 — сегмент-переключатель <span>(две кнопки-таблетки, активная подсвечена; всегда на виду, 1 клик)</span></div>
+  <div class="bb-card" id="v1"></div>
+
+  <div class="vlabel">Вариант 2 — выпадающий список <span>(в стиле фильтра менеджеров: «Сортировка: …▾»)</span></div>
+  <div class="bb-card" id="v2"></div>
+
+  <div class="vlabel">Вариант 3 — текстовые ссылки со стрелкой <span>(минимализм, «Сортировка: ↓ без движения · ↓ контакт»)</span></div>
+  <div class="bb-card" id="v3"></div>
+</div>
+
+<script>
+const EXT='<svg class="ext" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>';
+const FLAME='<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>';
+const USERS='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>';
+const CHEV='<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#9a9aa0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+const ARRDOWN='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>';
+const HOURGLASS='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 22h14M5 2h14M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"/></svg>';
+const CLOCK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
+const SNAP='2026-06-17';
+
+const ROWS=[
+  {dom:'sporttravma.org', meta:'Подготовка КП · Деговцова Елизавета', reason:'критический возраст', sev:'critical', amount:'259 тыс ₽', nomove:42, comm:'2026-05-06'},
+  {dom:'zn48.ru', meta:'Подготовка КП · Деговцова Елизавета', reason:'критический возраст', sev:'critical', amount:'81 тыс ₽', nomove:31, comm:'2026-05-17'},
+  {dom:'galaktika.clinic', meta:'Подготовка КП · Семенихин Егор', reason:'застряла 22 дн.', sev:'critical', amount:'828 тыс ₽', nomove:22, comm:'2026-05-26'},
+  {dom:'renewal.ru', meta:'Догрев и переговоры · Деговцова Елизавета', reason:'застряла 27 дн.', sev:'warning', amount:'125 тыс ₽', nomove:27, comm:'2026-05-21'},
+  {dom:'geots.ru', meta:'Подготовка договора · Деговцова Елизавета', reason:'застряла 25 дн.', sev:'warning', amount:'163 тыс ₽', nomove:25, comm:'2026-05-23'},
+  {dom:'smclinic.ru', meta:'Подготовка договора · Деговцова Елизавета', reason:'застряла 22 дн.', sev:'warning', amount:'85 тыс ₽', nomove:22, comm:null},
+  {dom:'panaceadoc.ru', meta:'Догрев и переговоры · Гордиенко Евгения', reason:'нет бюджета', sev:'warning', amount:'0 ₽', nomove:22, comm:'2026-05-30'},
+];
+const fmt=d=>{const[y,m,dd]=d.split('-');return `${dd}.${m}.${y}`};
+const ago=d=>d?Math.floor((new Date(SNAP)-new Date(d))/86400000):Infinity;
+
+function sortRows(by){
+  const r=[...ROWS];
+  if(by==='nomove') r.sort((a,b)=>b.nomove-a.nomove);
+  else r.sort((a,b)=>ago(b.comm)-ago(a.comm)); // без контакта (Infinity) сверху
+  return r;
+}
+function commCell(c){
+  if(!c) return `<div class="comm"><div class="lbl">последний контакт</div><div class="none">контакта не было</div></div>`;
+  return `<div class="comm"><div class="lbl">последний контакт</div><div class="val">${fmt(c)}</div><div class="ago">${ago(c)} дн. назад</div></div>`;
+}
+function rowsHtml(by){
+  return '<ul style="list-style:none">'+sortRows(by).map(r=>`<li class="bb-alert-row">
+    <span class="bb-sev ${r.sev}"></span>
+    <div style="min-width:0;flex:1"><a class="bb-alert-title" href="#">${r.dom} ${EXT}</a>
+      <p class="bb-alert-meta">${r.meta}<span class="bb-reason ${r.sev==='critical'?'critical':''}">${r.reason}</span></p></div>
+    ${commCell(r.comm)}
+    <div class="right"><p class="amount">${r.amount}</p>
+      <p class="nomove" style="color:${r.sev==='critical'?'#d4202e':'#b5651d'}">${r.nomove} дн. без движения</p></div>
+  </li>`).join('')+'</ul>';
+}
+const mgrBtn=`<button class="mgr-btn">${USERS} Все менеджеры (3) ${CHEV}</button>`;
+const headWrap=(ctrl)=>`<div class="bb-sect-head"><span class="bb-sect-ic">${FLAME}</span><h2>Горит</h2><small>застрявшие сделки · топ-12</small><div class="ctrls">${ctrl}${mgrBtn}</div></div>`;
+
+// ---- Вариант 1: сегмент ----
+let by1='nomove';
+function r1(){
+  const ctrl=`<div class="seg">
+    <button data-by="nomove" class="${by1==='nomove'?'on':''}">${HOURGLASS} Без движения</button>
+    <button data-by="contact" class="${by1==='contact'?'on':''}">${CLOCK} Последний контакт</button></div>`;
+  document.getElementById('v1').innerHTML=headWrap(ctrl)+rowsHtml(by1);
+  document.querySelectorAll('#v1 .seg button').forEach(b=>b.onclick=()=>{by1=b.dataset.by;r1()});
+}
+r1();
+
+// ---- Вариант 2: выпадающий ----
+let by2='nomove', open2=false;
+const LBL2={nomove:'по простою', contact:'по контакту'};
+function r2(){
+  const ctrl=`<div class="pk ${open2?'open':''}" id="pk2">
+    <button class="mgr-btn" id="pk2btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--bb-violet)"><line x1="4" y1="6" x2="20" y2="6"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="10" y1="18" x2="14" y2="18"/></svg> Сортировка: ${LBL2[by2]} ${CHEV}</button>
+    <div class="pk-pop">
+      <button class="pk-opt ${by2==='nomove'?'on':''}" data-by="nomove"><span class="pk-rad"></span>Дольше без движения</button>
+      <button class="pk-opt ${by2==='contact'?'on':''}" data-by="contact"><span class="pk-rad"></span>Дольше без контакта</button>
+    </div></div>`;
+  document.getElementById('v2').innerHTML=headWrap(ctrl)+rowsHtml(by2);
+  document.getElementById('pk2btn').onclick=(e)=>{e.stopPropagation();open2=!open2;r2()};
+  document.querySelectorAll('#v2 .pk-opt').forEach(b=>b.onclick=()=>{by2=b.dataset.by;open2=false;r2()});
+}
+r2();
+document.addEventListener('mousedown',e=>{if(open2&&!e.target.closest('#pk2')){open2=false;r2()}});
+
+// ---- Вариант 3: текстовые ссылки ----
+let by3='nomove';
+function r3(){
+  const ctrl=`<div class="sortlinks"><span class="lbl">Сортировка:</span>
+    <button data-by="nomove" class="${by3==='nomove'?'on':''}">${ARRDOWN} без движения</button>
+    <button data-by="contact" class="${by3==='contact'?'on':''}">${ARRDOWN} контакт</button></div>`;
+  document.getElementById('v3').innerHTML=headWrap(ctrl)+rowsHtml(by3);
+  document.querySelectorAll('#v3 .sortlinks button').forEach(b=>b.onclick=()=>{by3=b.dataset.by;r3()});
+}
+r3();
+</script>
+</body>
+</html>

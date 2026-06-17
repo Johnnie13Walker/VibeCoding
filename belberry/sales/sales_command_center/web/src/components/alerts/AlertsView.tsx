@@ -3,9 +3,10 @@
 import { useMemo, useState } from 'react';
 import { Flame, Clock, BellRing, ExternalLink, VolumeX } from 'lucide-react';
 import type { AlertManager, AlertsData } from '@/lib/alerts';
-import { BURNING_TOP, SILENT_TOP, TASKS_TOP, TASK_KINDS, filterSection, filterTasks, sectionManagers, type TaskKind } from '@/lib/alerts-filter';
+import { BURNING_TOP, SILENT_TOP, TASKS_TOP, TASK_KINDS, burnComparator, filterSection, filterTasks, sectionManagers, type BurnSort, type TaskKind } from '@/lib/alerts-filter';
 import { ManagerPicker } from '@/components/telemarketing/ManagerPicker';
 import { TaskTypePicker } from '@/components/alerts/TaskTypePicker';
+import { BurningSortPicker } from '@/components/alerts/BurningSortPicker';
 
 const PORTAL = 'https://belberrycrm.bitrix24.ru';
 const dealUrl = (id: number) => `${PORTAL}/crm/deal/details/${id}/`;
@@ -68,8 +69,12 @@ export function AlertsView({ data }: { data: AlertsData }) {
   const [selS, setSelS] = useState<Set<number>>(() => new Set(silentManagers.map((m) => m.managerId)));
   const [selT, setSelT] = useState<Set<number>>(() => new Set(taskManagers.map((m) => m.managerId)));
   const [selKind, setSelKind] = useState<Set<TaskKind>>(() => new Set(TASK_KINDS));
+  const [burnSort, setBurnSort] = useState<BurnSort>('nomove');
 
-  const burning = useMemo(() => filterSection(data.burning, selB, burningManagers.length, BURNING_TOP), [data.burning, selB, burningManagers.length]);
+  const burning = useMemo(
+    () => filterSection(data.burning, selB, burningManagers.length, BURNING_TOP, burnComparator(burnSort, data.snapshotDate)),
+    [data.burning, selB, burningManagers.length, burnSort, data.snapshotDate],
+  );
   const silent = useMemo(() => filterSection(data.silent, selS, silentManagers.length, SILENT_TOP), [data.silent, selS, silentManagers.length]);
   const tasks = useMemo(() => filterTasks(data.tasks, selT, taskManagers.length, selKind, TASKS_TOP), [data.tasks, selT, taskManagers.length, selKind]);
 
@@ -97,7 +102,10 @@ export function AlertsView({ data }: { data: AlertsData }) {
           <span className="bb-sect-ic" style={{ background: '#fdeced', color: '#d4202e' }}><Flame size={17} /></span>
           <h2>Горит</h2>
           <small>застрявшие сделки · топ-{burning.length}</small>
-          <SectionPicker managers={burningManagers} selected={selB} onChange={setSelB} />
+          <div style={{ display: 'flex', gap: 8 }}>
+            <BurningSortPicker value={burnSort} onChange={setBurnSort} />
+            <SectionPicker managers={burningManagers} selected={selB} onChange={setSelB} />
+          </div>
         </div>
         {burning.length === 0 ? (
           <p style={{ color: 'var(--bb-muted)' }}>Горящих сделок нет.</p>

@@ -30,11 +30,36 @@ export function filterSection<T extends HasManager>(
   selected: Set<number>,
   managerCount: number,
   topN: number,
+  compareFn?: (a: T, b: T) => number,
 ): T[] {
   const allSelected = managerCount > 0 && selected.size === managerCount;
-  return items
-    .filter((it) => allSelected || (it.managerId != null && selected.has(it.managerId)))
-    .slice(0, topN);
+  const filtered = items.filter((it) => allSelected || (it.managerId != null && selected.has(it.managerId)));
+  if (compareFn) filtered.sort(compareFn); // сортировка ДО среза топ-N
+  return filtered.slice(0, topN);
+}
+
+/** Сортировки секции «Горит». */
+export type BurnSort = 'nomove' | 'contact';
+
+/** «Возраст без контакта» для сортировки: дней с последней коммуникации; без
+ * контакта вовсе → +∞ (наверх). snapshotDate — дата, относительно которой считаем. */
+export function silenceRank(lastCommAt: string | null, snapshotDate: string | null): number {
+  if (!lastCommAt || !snapshotDate) return Number.POSITIVE_INFINITY;
+  const from = new Date(`${lastCommAt}T00:00:00Z`).getTime();
+  const to = new Date(`${snapshotDate}T00:00:00Z`).getTime();
+  if (Number.isNaN(from) || Number.isNaN(to)) return Number.POSITIVE_INFINITY;
+  return to - from;
+}
+
+/** Компаратор «Горит» по выбранной сортировке (по убыванию). */
+export function burnComparator(
+  sort: BurnSort,
+  snapshotDate: string | null,
+): (a: { stuckDays: number; amount: number; lastCommAt: string | null }, b: { stuckDays: number; amount: number; lastCommAt: string | null }) => number {
+  if (sort === 'contact') {
+    return (a, b) => silenceRank(b.lastCommAt, snapshotDate) - silenceRank(a.lastCommAt, snapshotDate) || b.stuckDays - a.stuckDays;
+  }
+  return (a, b) => b.stuckDays - a.stuckDays || b.amount - a.amount;
 }
 
 /** Тип задачи для фильтра: просрочена / на контроле / ждёт выполнения. */
