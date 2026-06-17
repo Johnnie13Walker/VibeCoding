@@ -87,11 +87,16 @@ def sanitize_text(value: str, limit: int = 160) -> str:
 def first_clause(value: str, limit: int = 60) -> str:
     """Первая законченная мысль бриф-значения («Основной продукт - радиогид»)."""
     t = sanitize_text(value, 200)
-    for sep in (", но", ",", ";", "."):
-        if sep in t and len(t.split(sep)[0]) >= 8:
-            t = t.split(sep)[0]
-            break
-    return t[:limit].rstrip(" -–,.")
+    # Берём САМУЮ РАННЮЮ границу мысли, а не первую по списку: иначе далёкая
+    # запятая (после нескольких предложений) уводит срез за точку и режет
+    # слово при обрезке по limit (баг biospaclinic 17.06: «…продавать. Это Bo»).
+    cuts = [t.split(sep)[0] for sep in (", но", ",", ";", ".")
+            if sep in t and len(t.split(sep)[0]) >= 8]
+    if cuts:
+        t = min(cuts, key=len)
+    if len(t) > limit:  # не обрывать слово — режем по последнему пробелу
+        t = t[:limit].rsplit(" ", 1)[0]
+    return t.rstrip(" -–,.")
 
 
 # Клиент в брифе часто пишет не ответ, а обещание прислать данные позже.

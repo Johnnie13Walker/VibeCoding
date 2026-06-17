@@ -554,6 +554,10 @@ def test_sanitize_and_first_clause():
     junk = 'Мусор формы ([{"lid":"1727","ls":"10"}]) мешает тексту'
     assert '"lid"' not in sanitize_text(junk)
     assert first_clause("Основной продукт - радиогид, но в целом ") == "Основной продукт - радиогид"
+    # biospaclinic: далёкая запятая не должна уводить срез за первую точку и рвать слово
+    multi = ("Аппаратную косметологию хотелось бы больше продавать. Это BodyLab. "
+             "Это BBL всякого рода чистки, RF-лифтинги")
+    assert first_clause(multi) == "Аппаратную косметологию хотелось бы больше продавать"
 
 
 def test_combine_rows_capped_and_cleaned():
