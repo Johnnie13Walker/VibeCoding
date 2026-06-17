@@ -305,7 +305,7 @@ def test_combine_problem_rows():
 
 # ── подписи брифа гуляют + зачистка плейсхолдеров (баг crystal-sound 11.06) ──
 
-from kp_pipeline import brief_pick, scrub_placeholders  # noqa: E402
+from kp_pipeline import brief_pick, is_nonanswer, scrub_placeholders  # noqa: E402
 
 
 def test_brief_pick_by_prefix():
@@ -315,6 +315,31 @@ def test_brief_pick_by_prefix():
     assert brief_pick(facts, "Приоритетные") == "радиогиды"
     assert brief_pick(facts, "Регион") == "СПб"
     assert brief_pick(facts, "Несуществующий") is None
+
+
+def test_is_nonanswer_detects_client_stub_replies():
+    """biospaclinic 17.06: клиент пишет «Пришлют информацию» вместо ответа."""
+    for stub in ("Пришлют информацию", "пришлю позже", "Уточню", "Не спросил у клиента",
+                 "нет данных", "—", "-", "TBD", "", "  ", None):
+        assert is_nonanswer(stub) is True, stub
+    for real in ("Москва", "Санкт-Петербург", "радиогиды", "Аппаратная косметология"):
+        assert is_nonanswer(real) is False, real
+
+
+def test_brief_pick_skips_nonanswer():
+    """Регион-отписку нельзя подставлять в КП и считать от неё гео-факты."""
+    facts = {"brief:Регион продвижения": "Пришлют информацию",
+             "brief:Приоритетные услуги": "Аппаратная косметология"}
+    assert brief_pick(facts, "Регион") is None
+    assert brief_pick(facts, "Приоритетные") == "Аппаратная косметология"
+
+
+def test_scrub_removes_labelled_segment():
+    """« · гео {{ГЕО}}» сносим целиком — без висячей метки «· гео» (баг 17.06)."""
+    out, _ = scrub_placeholders(
+        '<div>40 ч · приоритет — массаж · гео {{ГЕО}}</div>')
+    assert "гео" not in out
+    assert out == "<div>40 ч · приоритет — массаж</div>"
 
 
 def test_deck_substitutions_handles_label_variants():
@@ -529,6 +554,10 @@ def test_sanitize_and_first_clause():
     junk = 'Мусор формы ([{"lid":"1727","ls":"10"}]) мешает тексту'
     assert '"lid"' not in sanitize_text(junk)
     assert first_clause("Основной продукт - радиогид, но в целом ") == "Основной продукт - радиогид"
+    # biospaclinic: далёкая запятая не должна уводить срез за первую точку и рвать слово
+    multi = ("Аппаратную косметологию хотелось бы больше продавать. Это BodyLab. "
+             "Это BBL всякого рода чистки, RF-лифтинги")
+    assert first_clause(multi) == "Аппаратную косметологию хотелось бы больше продавать"
 
 
 def test_combine_rows_capped_and_cleaned():

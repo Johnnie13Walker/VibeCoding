@@ -87,11 +87,32 @@ def sanitize_text(value: str, limit: int = 160) -> str:
 def first_clause(value: str, limit: int = 60) -> str:
     """Первая законченная мысль бриф-значения («Основной продукт - радиогид»)."""
     t = sanitize_text(value, 200)
-    for sep in (", но", ",", ";", "."):
-        if sep in t and len(t.split(sep)[0]) >= 8:
-            t = t.split(sep)[0]
-            break
-    return t[:limit].rstrip(" -–,.")
+    # Берём САМУЮ РАННЮЮ границу мысли, а не первую по списку: иначе далёкая
+    # запятая (после нескольких предложений) уводит срез за точку и режет
+    # слово при обрезке по limit (баг biospaclinic 17.06: «…продавать. Это Bo»).
+    cuts = [t.split(sep)[0] for sep in (", но", ",", ";", ".")
+            if sep in t and len(t.split(sep)[0]) >= 8]
+    if cuts:
+        t = min(cuts, key=len)
+    if len(t) > limit:  # не обрывать слово — режем по последнему пробелу
+        t = t[:limit].rsplit(" ", 1)[0]
+    return t.rstrip(" -–,.")
+
+
+# Клиент в брифе часто пишет не ответ, а обещание прислать данные позже.
+# Такие строки нельзя подставлять в КП и тем более считать от них факты
+# (иначе «целевой регион = Пришлют информацию» → ложный гео-вывод).
+NONANSWER_RE = re.compile(
+    r"^(пришл[юёе]\w*|уточн\w*|не\s+(спрос\w*|знаю|готов\w*|определил\w*)|"
+    r"позже|потом|будет\s+позже|нет\s+данных|tbd|n/?a)\b", re.I)
+
+
+def is_nonanswer(value) -> bool:
+    """True, если бриф-значение — клиентская отписка, а не реальный ответ."""
+    t = str(value or "").strip()
+    if not t or set(t) <= set("—–-?.… "):  # пусто или только тире/знаки
+        return True
+    return bool(NONANSWER_RE.match(t))
 
 
 def brief_pick(facts: dict, *prefixes: str):
@@ -101,7 +122,7 @@ def brief_pick(facts: dict, *prefixes: str):
         if not key.startswith("brief:"):
             continue
         label = key[len("brief:"):]
-        if any(label.startswith(p) for p in prefixes) and val:
+        if any(label.startswith(p) for p in prefixes) and val and not is_nonanswer(val):
             return val
     return None
 
@@ -469,7 +490,12 @@ def deck_substitutions(data: dict, today: str) -> dict[str, str]:
     return subs
 
 
-PLACEHOLDER_RE = re.compile(r"\s*[:·—-]?\s*\{\{[А-ЯЁA-Z0-9_]+\}\}\.?")
+# Первый вариант съедает «· <словесная метка> {{X}}» целиком (« · гео {{ГЕО}}»),
+# чтобы после зачистки не оставалось висячих меток без значения; второй — одиночный
+# плейсхолдер с примыкающим разделителем.
+PLACEHOLDER_RE = re.compile(
+    r"\s*·\s*[^·{}<>]*?\{\{[А-ЯЁA-Z0-9_]+\}\}\.?"
+    r"|\s*[:·—-]?\s*\{\{[А-ЯЁA-Z0-9_]+\}\}\.?")
 
 
 def scrub_placeholders(html: str) -> tuple[str, int]:
@@ -1085,7 +1111,7 @@ def run_pipeline(a: argparse.Namespace) -> int:
             bx = _load(tmp_dir / "bitrix.json") or {}
             args = [domain_from_bitrix(bx), str(a.days)]
             region = (bx.get("brief") or {}).get("Регион продвижения")
-            if region:
+            if region and not is_nonanswer(region):
                 args.append(region)  # гео-проблемы считаются от целевого региона брифа
             try:
                 _run("metrika_audit.py", args, tmp_dir)

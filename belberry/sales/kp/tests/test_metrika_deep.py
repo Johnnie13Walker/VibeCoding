@@ -195,6 +195,12 @@ def test_geo_skipped_without_target_region():
     assert problem_from_geo(GEO, None) is None
 
 
+def test_geo_skipped_when_target_matches_no_visits():
+    """biospaclinic 17.06: битый/плейсхолдерный таргет даёт share=100% → не вывод
+    для клиента (реальный целевой регион всегда даёт часть своего трафика)."""
+    assert problem_from_geo(GEO, "Пришлют информацию") is None
+
+
 # ── render_problems_html ─────────────────────────────────────────────────────
 
 def test_render_problems_html_format():
