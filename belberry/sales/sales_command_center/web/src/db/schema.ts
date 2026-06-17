@@ -20,6 +20,7 @@ export const users = pgTable('users', {
   role: text('role').notNull().default('manager'),
   dept: text('dept'),
   isActive: boolean('is_active').notNull().default(true),
+  hiredAt: date('hired_at'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
 });
