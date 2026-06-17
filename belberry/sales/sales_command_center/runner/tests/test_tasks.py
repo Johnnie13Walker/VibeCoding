@@ -27,6 +27,9 @@ def test_parse_deadline_explicit_dates():
     assert T.parse_deadline("к 24 числа", base) == (date(2026, 6, 24), True)
     assert T.parse_deadline("к 24-му", base) == (date(2026, 6, 24), True)
     assert T.parse_deadline("20-го", base) == (date(2026, 6, 20), True)
+    assert T.parse_deadline("16-е", base) == (date(2026, 6, 16), True)
+    assert T.parse_deadline("18-е", base) == (date(2026, 6, 18), True)
+    assert T.parse_deadline("сегодня", base) == (date(2026, 6, 11), True)
 
 
 def test_parse_deadline_explicit_date_rolls_forward():

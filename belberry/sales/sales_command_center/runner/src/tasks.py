@@ -98,8 +98,8 @@ def _parse_explicit_date(t: str, base: date) -> date | None:
                         return None
                 break
 
-    # День месяца без названия: «24 числа», «к 15-му», «20-го».
-    m = re.search(r"\b(\d{1,2})\s*-?\s*(?:го|му)\b|\b(\d{1,2})\s+числ\w*", t)
+    # День месяца без названия: «24 числа», «к 15-му», «20-го», «16-е».
+    m = re.search(r"\b(\d{1,2})\s*-?\s*(?:го|му|ое|е)\b|\b(\d{1,2})\s+числ\w*", t)
     if m:
         day = int(m.group(1) or m.group(2))
         if 1 <= day <= 31:
@@ -129,6 +129,8 @@ def parse_deadline(text: str | None, base: date) -> tuple[date, bool]:
         return base + timedelta(days=2), True
     if "завтра" in t:
         return base + timedelta(days=1), True
+    if "сегодня" in t:
+        return base, True
 
     # «через N дней» / «через N-M дней» (берём верхнюю границу)
     m = re.search(r"через\s+(\d+)\s*[-–—]\s*(\d+)\s*(дн|день|дня|дней)", t)
