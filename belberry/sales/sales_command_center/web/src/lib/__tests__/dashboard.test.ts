@@ -10,6 +10,7 @@ import {
   buildMeetingQuality,
   buildManagerConversions,
   buildManagerPipeline,
+  rosterZeroMembers,
   buildTmActivity,
   buildMessaging,
   buildVelocity,
@@ -369,5 +370,24 @@ describe('buildPlanFact', () => {
     });
     expect(pf.managers).toHaveLength(0);
     expect(pf.briefsTeamPlan).toBe(0);
+  });
+});
+
+describe('rosterZeroMembers', () => {
+  const dir = [
+    { id: 1, name: 'Семенихин', dept: 'Менеджер по продажам', isActive: true },
+    { id: 2, name: 'Новичок Демидов', dept: 'Менеджер по продажам', isActive: true },
+    { id: 3, name: 'SEO-спец', dept: 'SEO-специалист', isActive: true },
+    { id: 4, name: 'Уволенный ТМ', dept: 'Телемаркетолог', isActive: false },
+  ];
+  it('добавляет активных ОП/ТМ без активности, исключает уже активных, чужие должности и уволенных', () => {
+    const r = rosterZeroMembers(dir, new Set([1])); // у #1 активность уже есть
+    expect(r.map((m) => m.managerId)).toEqual([2]); // только новичок-продажник без активности
+    expect(r[0].dials).toBe(0);
+    expect(r[0].role).toBe('Менеджер по продажам');
+    expect(r[0].name).toBe('Новичок Демидов');
+  });
+  it('пустой ростер, если все уже активны', () => {
+    expect(rosterZeroMembers(dir, new Set([1, 2]))).toEqual([]);
   });
 });

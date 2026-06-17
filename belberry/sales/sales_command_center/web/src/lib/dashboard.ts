@@ -182,6 +182,29 @@ export function isTelemarketing(dept: string | null | undefined): boolean {
   return (dept || '').toLowerCase().includes('телемаркет');
 }
 
+/**
+ * Посев ростера: активные сотрудники ОП/ТМ из справочника, у кого ещё НЕТ активности
+ * в периоде, добавляются в команду с нулями — чтобы новичок появлялся на дашборде
+ * сразу с момента, как его завели в Bitrix с нужной должностью, а не только после
+ * первого звонка/встречи. activeIds — id, у кого активность уже есть (их не дублируем).
+ */
+export function rosterZeroMembers(
+  dirUsers: { id: number; name: string; dept: string | null; isActive: boolean }[],
+  activeIds: Set<number>,
+): TeamMember[] {
+  return dirUsers
+    .filter((u) => u.isActive && isSalesDept(u.dept) && !activeIds.has(u.id))
+    .map((u) => ({
+      managerId: u.id,
+      name: u.name,
+      role: u.dept ?? '',
+      meetingsSet: 0, meetingsHeld: 0, dials: 0, calls60: 0, calls120: 0,
+      kpSent: 0, briefs: 0, dealsCreated: 0, dealsCold: 0, dealsIncoming: 0,
+      dealsWon: 0, dealsWonAmount: 0, messenger: 0, emails: 0, talkHours: 0,
+      trend: [], meetings: [],
+    }));
+}
+
 interface FunnelRow {
   stage: string;
   opportunity: number;
@@ -993,7 +1016,7 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
     }
   }
 
-  const teamAll: TeamMember[] = actRows
+  const activityMembers: TeamMember[] = actRows
     .map((r) => ({
       managerId: r.managerId,
       name: userMap.get(r.managerId)?.name ?? `id ${r.managerId}`,
@@ -1015,8 +1038,14 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
       talkHours: Math.round(Number(r.talkSeconds) / 360) / 10,
       trend: trendByMgr.get(r.managerId) ?? [],
       meetings: meetingsByMgr.get(r.managerId) ?? [],
-    }))
-    .sort((a, b) => b.meetingsHeld - a.meetingsHeld || b.dials - a.dials);
+    }));
+
+  // Посев ростера: активные ОП/ТМ из справочника без активности в периоде —
+  // с нулями, чтобы новички были видны сразу (а не только после первого действия).
+  const roster = rosterZeroMembers(userRows, new Set(actRows.map((r) => r.managerId)));
+  const teamAll: TeamMember[] = [...activityMembers, ...roster].sort(
+    (a, b) => b.meetingsHeld - a.meetingsHeld || b.dials - a.dials,
+  );
 
   // Только отдел продаж + телемаркетинг (по должности из dept). Если справочник
   // ещё не наполнен (dept пуст у всех) — показываем всех, чтобы не опустеть.
