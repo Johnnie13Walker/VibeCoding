@@ -1359,8 +1359,10 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
   // План/факт по МОП: все менеджеры по продажам из команды (вкл. новичков-нулёвок) +
   // любой, у кого есть персональный план. План оплат = явный план из plans, иначе по
   // стажу (новичкам: 1-й мес 0 / 2-й 300к / 3-й+ 500к). Факт оплат/брифов — из team.
+  // План/факт — только ДЕЙСТВУЮЩИЕ МОП (уволенным план/брифы не ставим, даже если была
+  // активность в начале месяца). Историю периода уволенные видят в других блоках.
   const pfManagers = team
-    .filter((m) => isSalesManager(m.role) || indivRevenuePlan.has(m.managerId))
+    .filter((m) => (userMap.get(m.managerId)?.active ?? true) && (isSalesManager(m.role) || indivRevenuePlan.has(m.managerId)))
     .map((m) => ({
       managerId: m.managerId,
       name: m.name,
