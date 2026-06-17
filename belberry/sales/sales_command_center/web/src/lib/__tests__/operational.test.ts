@@ -85,13 +85,30 @@ describe('buildOperationalMatrix', () => {
     expect(m.deptAvgByDay).toEqual([null, null]);
   });
 
-  it('скрывает только непроработавших; уволенных показывает (история общая)', () => {
-    const worker = member(1, 'Рабочий', false, [{ date: '2026-05-26', meetings: 3, emails: 4 }]); // 6.7
-    const idle = member(2, 'Простой', false, [{ date: '2026-05-26', emails: 1 }]); // 5 мин → 0.2 < порога
-    const fired = member(3, 'Уволенный', false, [{ date: '2026-05-26', meetings: 5 }], false); // 10, isActive=false — но работал
-    const m = buildOperationalMatrix(days, [worker, idle, fired]);
+  it('действующих показывает (вкл. новичка с малой активностью), уволенных-непроработавших скрывает', () => {
+    const worker = member(1, 'Рабочий', false, [{ date: '2026-05-26', meetings: 3, emails: 4 }]); // 6.7, active
+    const newbie = member(2, 'Новичок', false, [{ date: '2026-05-26', dials: 13 }]); // ~0.1, active → показываем
+    const firedWorked = member(3, 'Уволенный-работал', false, [{ date: '2026-05-26', meetings: 5 }], false); // 10, но работал
+    const firedIdle = member(4, 'Уволенный-простой', false, [{ date: '2026-05-26', emails: 1 }], false); // 0.2, уволен+простой → скрыт
+    const names = buildOperationalMatrix(days, [worker, newbie, firedWorked, firedIdle]).rows.map((r) => r.name);
 
-    expect(m.rows.map((r) => r.name)).toEqual(['Уволенный', 'Рабочий']); // по avg ↓; простой скрыт порогом
-    expect(m.countOp).toBe(2);
+    expect(names).toContain('Новичок'); // действующий новичок виден даже с малой активностью
+    expect(names).toContain('Уволенный-работал');
+    expect(names).not.toContain('Уволенный-простой'); // уволенный без заметной работы скрыт
+  });
+
+  it('отпуск помечается leave и НЕ учитывается в среднем балле', () => {
+    const m = buildOperationalMatrix(['2026-05-26', '2026-05-27'], [
+      {
+        managerId: 1, name: 'Отпускник', role: 'Менеджер по продажам', isTm: false, isActive: true,
+        byDate: new Map([['2026-05-26', { date: '2026-05-26', dials: 0, calls60: 0, messenger: 0, emails: 0, meetings: 3 }]]),
+        leaveDays: new Set(['2026-05-27']),
+      },
+    ]);
+    const row = m.rows[0];
+    expect(row.leave[1]).toBe(true); // 2-й день — отпуск
+    expect(row.scores[1]).toBeNull(); // вне балла
+    expect(row.avg).toBe(row.scores[0]); // среднее только по рабочему дню (3 встречи → 6.0)
+    expect(m.deptAvgByDay[1]).toBeNull(); // в дне отпуска отдел тоже без балла
   });
 });

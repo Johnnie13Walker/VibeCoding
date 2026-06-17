@@ -27,7 +27,14 @@ function Mini({ label, value, sub }: { label: string; value: string; sub?: strin
 const NAME_W = 210;
 const COL_W = 58;
 
-function Cell({ v }: { v: number | null }) {
+function Cell({ v, leave }: { v: number | null; leave?: boolean }) {
+  if (leave) {
+    return (
+      <div title="Отпуск / отсутствие — вне среднего балла" style={{ height: 34, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#eef0fd', color: 'var(--bb-violet)', fontWeight: 700, fontSize: 11, letterSpacing: '.02em' }}>
+        отп
+      </div>
+    );
+  }
   if (v == null) {
     return (
       <div style={{ height: 34, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#cbd2dc', fontWeight: 600 }}>
@@ -54,7 +61,7 @@ function Row({ r, ncols }: { r: OperationalRow; ncols: number }) {
         <span style={{ fontSize: 11, color: 'var(--bb-faint)', textTransform: 'uppercase', letterSpacing: '.04em' }}>{r.role || '—'}</span>
       </div>
       {r.scores.map((v, i) => (
-        <Cell key={i} v={v} />
+        <Cell key={i} v={v} leave={r.leave[i]} />
       ))}
       <div className="tabular" style={{ height: 34, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 14, background: '#0f172a', color: '#fff' }}>
         {r.avg != null ? r.avg.toFixed(1) : '—'}
@@ -137,6 +144,7 @@ export function OperationalMatrixView({ data }: { data: OperationalMatrix }) {
           ['#8fcf6b', '6.5–8'],
           ['#43b06a', '≥8 высокая'],
           ['#eef0f4', 'нет данных'],
+          ['#eef0fd', 'отпуск'],
         ].map(([c, t]) => (
           <span key={t} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
             <i style={{ width: 13, height: 13, borderRadius: 4, background: c, display: 'inline-block' }} />

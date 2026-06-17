@@ -2,7 +2,7 @@ import 'server-only';
 
 import { and, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 import { db } from '@/db';
-import { dealRejections, dealsSnapshot, managerActivity, meetings, payments, plans, reports, users } from '@/db/schema';
+import { dealRejections, dealsSnapshot, managerAbsences, managerActivity, meetings, payments, plans, reports, users } from '@/db/schema';
 import { MEETING_HELD_STAGE } from './telemarketing';
 import { buildOperationalMatrix, type OperationalMatrix, type OperDayInput, type OperMemberInput } from './operational';
 import { getSalesRejections } from './sales-rejections';
@@ -1518,6 +1518,20 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
     });
     operActByMgr.set(r.managerId, byDate);
   }
+  // Дни отсутствия (отпуск/больничный) за окно — «Отпуск», вне среднего балла.
+  const absenceRows = operDays.length
+    ? await db
+        .select({ managerId: managerAbsences.managerId, date: managerAbsences.absenceDate })
+        .from(managerAbsences)
+        .where(and(gte(managerAbsences.absenceDate, start), lte(managerAbsences.absenceDate, operEnd)))
+    : [];
+  const leaveByMgr = new Map<number, Set<string>>();
+  for (const r of absenceRows) {
+    const set = leaveByMgr.get(r.managerId) ?? new Set<string>();
+    set.add(String(r.date));
+    leaveByMgr.set(r.managerId, set);
+  }
+
   const operMembers: OperMemberInput[] = team.map((tm) => {
     const byDate = new Map<string, OperDayInput>();
     const act = operActByMgr.get(tm.managerId);
@@ -1542,6 +1556,7 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
       isTm: isTelemarketing(tm.role),
       isActive: userMap.get(tm.managerId)?.active ?? true,
       byDate,
+      leaveDays: leaveByMgr.get(tm.managerId),
     };
   });
   const operational = buildOperationalMatrix(operDays, operMembers);

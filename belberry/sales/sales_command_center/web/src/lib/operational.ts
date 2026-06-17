@@ -51,6 +51,7 @@ export interface OperationalRow {
   isTm: boolean; // телемаркетинг → отдельная секция
   scores: (number | null)[]; // балл по дням (null = нет данных за день)
   minutes: (number | null)[]; // живые минуты по дням — для загрузки
+  leave: boolean[]; // день отсутствия (отпуск/больничный) — «Отпуск», вне среднего
   avg: number | null; // средний балл сотрудника за окно
 }
 
@@ -79,8 +80,9 @@ export interface OperMemberInput {
   name: string;
   role: string;
   isTm: boolean;
-  isActive?: boolean; // действующий (is_active) — не используется (история общая)
+  isActive?: boolean; // действующий (is_active) — показываем даже с малой активностью
   byDate: Map<string, OperDayInput>; // активность сотрудника по дням окна
+  leaveDays?: Set<string>; // ISO-дни отсутствия (отпуск/больничный) — вне среднего
 }
 
 // Сотрудник попадает в блок, если реально работал в периоде — хотя бы один день
@@ -95,7 +97,17 @@ export function buildOperationalMatrix(days: string[], members: OperMemberInput[
   const mk = (m: OperMemberInput): OperationalRow => {
     const scores: (number | null)[] = [];
     const minutes: (number | null)[] = [];
+    const leave: boolean[] = [];
     for (const d of days) {
+      // День отпуска/больничного: «Отпуск», вне среднего (не как простой-0 и не как
+      // нет-данных). Активность в этот день (если вдруг есть) игнорируем для балла.
+      if (m.leaveDays?.has(d)) {
+        scores.push(null);
+        minutes.push(null);
+        leave.push(true);
+        continue;
+      }
+      leave.push(false);
       const a = m.byDate.get(d);
       if (!a) {
         scores.push(null);
@@ -107,14 +119,28 @@ export function buildOperationalMatrix(days: string[], members: OperMemberInput[
     }
     const present = scores.filter((s): s is number => s != null);
     const avg = present.length ? Math.round((present.reduce((x, y) => x + y, 0) / present.length) * 10) / 10 : null;
-    return { managerId: m.managerId, name: m.name, role: m.role, isTm: m.isTm, scores, minutes, avg };
+    return { managerId: m.managerId, name: m.name, role: m.role, isTm: m.isTm, scores, minutes, leave, avg };
   };
 
   const byAvg = (a: OperationalRow, b: OperationalRow) => (b.avg ?? -1) - (a.avg ?? -1) || a.name.localeCompare(b.name, 'ru');
-  // Реально работал в периоде (≥1 день с заметной загрузкой). Без фильтра is_active.
-  const worked = (row: OperationalRow) => row.scores.some((s) => s != null && s >= WORKED_MIN_SCORE);
-  const op = members.filter((m) => !m.isTm).map(mk).filter(worked).sort(byAvg);
-  const tm = members.filter((m) => m.isTm).map(mk).filter(worked).sort(byAvg);
+  // Показываем, если: (а) реально работал (≥1 день с заметной загрузкой) ИЛИ
+  // (б) действующий сотрудник с любыми данными за период (вкл. новичка с малой
+  // активностью или человека целиком в отпуске). Историю по уволенным — только если
+  // работал (фильтр заметной загрузки), чтобы нули прошлых месяцев не плодили строки.
+  const shown = (m: OperMemberInput, row: OperationalRow): boolean => {
+    if (row.scores.some((s) => s != null && s >= WORKED_MIN_SCORE)) return true;
+    const hasData = row.scores.some((s) => s != null) || row.leave.some(Boolean);
+    return Boolean(m.isActive) && hasData;
+  };
+  const build = (isTm: boolean) =>
+    members
+      .filter((m) => m.isTm === isTm)
+      .map((m) => ({ m, row: mk(m) }))
+      .filter(({ m, row }) => shown(m, row))
+      .map(({ row }) => row)
+      .sort(byAvg);
+  const op = build(false);
+  const tm = build(true);
   const rows = [...op, ...tm];
 
   const deptAvgByDay = days.map((_, i) => {
