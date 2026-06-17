@@ -11,6 +11,7 @@ export interface BurningDeal {
   stageLabel: string;
   amount: number;
   stuckDays: number;
+  lastCommAt: string | null;
   managerId: number | null;
   manager: string;
   severity: 'critical' | 'warning';
@@ -194,6 +195,7 @@ export async function getAlerts(): Promise<AlertsData> {
         stageLabel: STAGE_META[r.stage]?.label ?? r.stage,
         amount,
         stuckDays,
+        lastCommAt: r.lastCommAt ?? null,
         managerId: r.managerId ?? null,
         manager: nameOf(r.managerId),
         severity: dealSeverity(amount, stuckDays),

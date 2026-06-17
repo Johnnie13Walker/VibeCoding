@@ -3,7 +3,7 @@ import type { AlertManager, BurningDeal, TaskItem } from '@/lib/alerts';
 import { filterSection, filterTasks, sectionManagers, taskKind } from '@/lib/alerts-filter';
 
 const burning = (dealId: number, managerId: number | null, severity: BurningDeal['severity'] = 'warning'): BurningDeal => ({
-  dealId, title: `deal ${dealId}`, stageLabel: 'КП', amount: 100_000, stuckDays: 10,
+  dealId, title: `deal ${dealId}`, stageLabel: 'КП', amount: 100_000, stuckDays: 10, lastCommAt: null,
   managerId, manager: managerId ? `m${managerId}` : '—', severity, reason: 'застряла 10 дн.',
 });
 const task = (taskId: number, managerId: number | null, overdue = false): TaskItem => ({

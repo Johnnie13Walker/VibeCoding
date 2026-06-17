@@ -25,6 +25,23 @@ function fmtDate(iso: string | null): string {
   } catch { return iso; }
 }
 
+/** Полная дата ДД.ММ.ГГГГ — для колонки «последний контакт» в «Горит». */
+function fmtDateFull(iso: string | null): string {
+  if (!iso) return '—';
+  try {
+    return new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Europe/Moscow' }).format(new Date(`${iso}T00:00:00+03:00`));
+  } catch { return iso; }
+}
+
+/** Кал. дней между датой контакта и датой снимка (для «N дн. назад»). */
+function daysAgo(from: string, to: string | null): number | null {
+  if (!to) return null;
+  const f = new Date(`${from}T00:00:00Z`).getTime();
+  const t = new Date(`${to}T00:00:00Z`).getTime();
+  if (Number.isNaN(f) || Number.isNaN(t)) return null;
+  return Math.max(0, Math.floor((t - f) / 86_400_000));
+}
+
 function rub(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)} млн ₽`;
   if (n >= 1_000) return `${Math.round(n / 1_000)} тыс ₽`;
@@ -97,6 +114,19 @@ export function AlertsView({ data }: { data: AlertsData }) {
                     {d.stageLabel} · {d.manager}
                     <span className={`bb-reason ${d.severity}`}>{d.reason}</span>
                   </p>
+                </div>
+                <div className="bb-comm">
+                  <div className="bb-comm-lbl">последний контакт</div>
+                  {d.lastCommAt ? (
+                    <>
+                      <div className="bb-comm-val">{fmtDateFull(d.lastCommAt)}</div>
+                      {daysAgo(d.lastCommAt, data.snapshotDate) != null ? (
+                        <div className="bb-comm-ago">{daysAgo(d.lastCommAt, data.snapshotDate)} дн. назад</div>
+                      ) : null}
+                    </>
+                  ) : (
+                    <div className="bb-comm-none">контакта не было</div>
+                  )}
                 </div>
                 <div style={{ textAlign: 'right', flex: '0 0 auto' }}>
                   <p className="tabular" style={{ fontWeight: 700, fontSize: 14 }}>{rub(d.amount)}</p>
