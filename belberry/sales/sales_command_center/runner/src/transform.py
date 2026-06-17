@@ -276,10 +276,27 @@ def build_db_rows(raw: dict[str, Any], target_date: date, now: datetime) -> dict
 
     calls = aggregate_calls(raw.get("calls", []))
     emails_sent = aggregate_emails(raw.get("activities", []))
+
+    # Брифы/КП засчитываем ОТВЕТСТВЕННОМУ ПО СДЕЛКЕ (а не исполнителю элемента брифа/КП):
+    # элемент SP может висеть на другом человеке/быть переназначен, а кредит за бриф/КП
+    # принадлежит владельцу сделки. Резолвим parentId2 → deal.ASSIGNED_BY_ID из открытых
+    # сделок; если сделка не найдена (закрыта/вне выборки) — фолбэк на assignedById.
+    deal_owner: dict[int, int | None] = {}
+    for d in [*raw.get("deals_open", []), *raw.get("deals_created", [])]:
+        did = _to_int(d.get("ID"))
+        if did is not None:
+            deal_owner[did] = _to_int(d.get("ASSIGNED_BY_ID"))
+
+    def _deal_resp(item: dict[str, Any]) -> int | None:
+        deal = _to_int(item.get("parentId2"))
+        return deal_owner.get(deal) or _to_int(item.get("assignedById"))
+
     manager_ids = set(calls)
     manager_ids.update(emails_sent)
-    for key in ["meet_day", "meet_created_day", "briefs", "kp"]:
-        manager_ids.update(_to_int(item.get("assignedById")) for item in raw.get(key, []))
+    for item in [*raw.get("meet_day", []), *raw.get("meet_created_day", [])]:
+        manager_ids.add(_to_int(item.get("assignedById")))
+    for item in [*raw.get("briefs", []), *raw.get("kp", [])]:
+        manager_ids.add(_deal_resp(item))
     # Создатели встреч (ТМ) тоже должны получить строку активности.
     manager_ids.update(_to_int(item.get("createdBy")) for item in raw.get("meet_created_day", []))
     manager_ids.update(_to_int(item.get("createdBy")) for item in raw.get("meet_day", []))
@@ -291,8 +308,8 @@ def build_db_rows(raw: dict[str, Any], target_date: date, now: datetime) -> dict
     # ТМ по назначению встреч уходит в зачёт ОП.
     meetings_set = Counter(_to_int(item.get("createdBy")) for item in raw.get("meet_created_day", []))
     meetings_held = Counter(_to_int(item.get("assignedById")) for item in raw.get("meet_day", []))
-    briefs_created = Counter(_to_int(item.get("assignedById")) for item in raw.get("briefs", []))
-    kp_sent = Counter(_to_int(item.get("assignedById")) for item in raw.get("kp", []))
+    briefs_created = Counter(_deal_resp(item) for item in raw.get("briefs", []))
+    kp_sent = Counter(_deal_resp(item) for item in raw.get("kp", []))
 
     # «Сделки» = ВОШЕДШИЕ в воронку Продажи (запись C10:NEW в истории стадий за день).
     # История стадий неизменна и дата-точна (в отличие от текущего CATEGORY_ID сделки).
@@ -371,7 +388,7 @@ def build_db_rows(raw: dict[str, Any], target_date: date, now: datetime) -> dict
                     "title": item.get("title"),
                     "item_type": item_type,
                     "stage": item.get("stageId"),
-                    "manager_id": _to_int(item.get("assignedById")),
+                    "manager_id": _deal_resp(item),  # ответственный по сделке, не исполнитель элемента
                     "amount": _to_float(
                         item.get("opportunity") or item.get("ufCrm20_1754044185200")
                     ),
