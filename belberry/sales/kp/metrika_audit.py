@@ -282,6 +282,10 @@ def problem_from_geo(regions: list[dict], target_region: str | None) -> dict | N
     share = round(nontarget / total * 100)
     if share <= GEO_NONTARGET_MAX:
         return None
+    # Реальный целевой регион всегда даёт часть собственного трафика; ~100% «мимо»
+    # означает не гео-проблему, а битый/плейсхолдерный таргет — не выводим клиенту.
+    if share >= 99:
+        return None
     return {
         "fact": f"{share}% визитов приходят не из целевого региона ({target_region})",
         "evidence": {"nontarget_share": share, "target_region": target_region,
