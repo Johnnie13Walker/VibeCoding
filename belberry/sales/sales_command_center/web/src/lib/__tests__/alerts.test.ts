@@ -6,6 +6,7 @@ import {
   silenceDays,
   silenceReason,
   silenceSeverity,
+  taskOverdue,
 } from '@/lib/alerts';
 
 describe('dealReason', () => {
@@ -81,5 +82,23 @@ describe('isOverdue', () => {
   });
   it('пустой дедлайн → нет', () => {
     expect(isOverdue(null, now)).toBe(false);
+  });
+});
+
+describe('taskOverdue', () => {
+  const now = new Date('2026-06-03T12:00:00+03:00');
+  const past = '2026-06-01T15:00:00+03:00';
+  it('активная задача (ждёт/в работе) с прошедшим дедлайном → просрочена', () => {
+    expect(taskOverdue(2, past, now)).toBe(true);
+    expect(taskOverdue(3, past, now)).toBe(true);
+  });
+  it('на контроле (4) с прошедшим дедлайном → НЕ просрочена', () => {
+    expect(taskOverdue(4, past, now)).toBe(false);
+  });
+  it('отложена (6) с прошедшим дедлайном → НЕ просрочена', () => {
+    expect(taskOverdue(6, past, now)).toBe(false);
+  });
+  it('неизвестный статус считаем активным', () => {
+    expect(taskOverdue(null, past, now)).toBe(true);
   });
 });

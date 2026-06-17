@@ -170,6 +170,8 @@ export function AlertsView({ data }: { data: AlertsData }) {
                 <div style={{ textAlign: 'right', flex: '0 0 auto' }}>
                   {t.overdue ? (
                     <span className="bb-reason critical">просрочена</span>
+                  ) : t.status === 4 ? (
+                    <span className="bb-reason" style={{ background: '#e6f4ea', color: '#1a7f37' }}>на контроле</span>
                   ) : (
                     <span className="bb-reason" style={{ background: 'var(--bb-violet-soft)', color: 'var(--bb-violet)' }}>{t.statusLabel}</span>
                   )}

@@ -508,14 +508,15 @@ CLOSED_STATUSES = {5, 7}
 
 
 def sync_task_statuses(conn, bx, limit: int = 300) -> int:
-    """Синкает статус/дедлайн открытых задач из Bitrix в meeting_tasks.
+    """Синкает статус/дедлайн/ответственного открытых задач из Bitrix в meeting_tasks.
+    Дедлайн и ответственного в Bitrix могли поменять вручную — отражаем у себя.
     closed=true при завершении/отклонении (или если задача удалена в Bitrix)."""
     with conn.cursor() as cur:
         cur.execute("SELECT task_id FROM meeting_tasks WHERE closed=false ORDER BY id LIMIT %s", (limit,))
         ids = [row[0] for row in cur.fetchall()]
     if not ids:
         return 0
-    r = bx.call("tasks.task.list", {"filter": {"ID": ids}, "select": ["ID", "STATUS", "DEADLINE"]})
+    r = bx.call("tasks.task.list", {"filter": {"ID": ids}, "select": ["ID", "STATUS", "DEADLINE", "RESPONSIBLE_ID"]})
     items = (r or {}).get("result", {}).get("tasks", []) or []
     found: dict[int, dict] = {}
     for t in items:
@@ -535,9 +536,14 @@ def sync_task_statuses(conn, bx, limit: int = 300) -> int:
             except (TypeError, ValueError):
                 status = 0
             deadline = t.get("deadline") or t.get("DEADLINE") or None
+            try:
+                resp = int(t.get("responsibleId") or t.get("RESPONSIBLE_ID") or 0) or None
+            except (TypeError, ValueError):
+                resp = None
             cur.execute(
-                "UPDATE meeting_tasks SET status=%s, deadline=COALESCE(%s, deadline), closed=%s, updated_at=now() WHERE task_id=%s",
-                (status, deadline, status in CLOSED_STATUSES, tid),
+                "UPDATE meeting_tasks SET status=%s, deadline=COALESCE(%s, deadline), "
+                "responsible_id=COALESCE(%s, responsible_id), closed=%s, updated_at=now() WHERE task_id=%s",
+                (status, deadline, resp, status in CLOSED_STATUSES, tid),
             )
             updated += 1
     conn.commit()
