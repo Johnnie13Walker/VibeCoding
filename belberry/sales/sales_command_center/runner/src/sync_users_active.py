@@ -23,10 +23,11 @@ def _is_active(value) -> bool:
     return str(value).strip().lower() in ("true", "1", "y", "yes")
 
 
-def fetch_active(bx=None, max_pages: int = 80) -> dict[int, bool]:
-    """Полный справочник Bitrix: {bitrix_id: ACTIVE}."""
+def fetch_active(bx=None, max_pages: int = 80) -> dict[int, dict]:
+    """Полный справочник Bitrix: {bitrix_id: {"active": bool, "hired": "YYYY-MM-DD"|None}}.
+    hired — дата регистрации в Bitrix (DATE_REGISTER) как прокси даты найма."""
     call = bx.call if bx is not None else bx_client.call
-    out: dict[int, bool] = {}
+    out: dict[int, dict] = {}
     start = 0
     for _ in range(max_pages):
         resp = call("user.get", {"start": start, "ADMIN_MODE": "Y"})
@@ -36,9 +37,11 @@ def fetch_active(bx=None, max_pages: int = 80) -> dict[int, bool]:
             if uid is None:
                 continue
             try:
-                out[int(uid)] = _is_active(u.get("ACTIVE"))
+                key = int(uid)
             except (TypeError, ValueError):
                 continue
+            reg = u.get("DATE_REGISTER") or ""
+            out[key] = {"active": _is_active(u.get("ACTIVE")), "hired": reg[:10] or None}
         nxt = resp.get("next")
         if not result or nxt is None:
             break
@@ -47,15 +50,19 @@ def fetch_active(bx=None, max_pages: int = 80) -> dict[int, bool]:
 
 
 def sync(conn=None, bx=None, dry_run: bool = False) -> dict[str, int]:
-    active = fetch_active(bx)
+    info = fetch_active(bx)
     updated = 0
-    if not dry_run and conn is not None and active:
+    if not dry_run and conn is not None and info:
         with conn.cursor() as cur:
-            for uid, is_active in active.items():
-                cur.execute("UPDATE users SET is_active = %s WHERE bitrix_id = %s", (is_active, uid))
+            for uid, rec in info.items():
+                # hired_at — только если ещё пусто (не перетираем ручную правку даты найма).
+                cur.execute(
+                    "UPDATE users SET is_active = %s, hired_at = COALESCE(hired_at, %s) WHERE bitrix_id = %s",
+                    (rec["active"], rec["hired"], uid),
+                )
                 updated += cur.rowcount
         conn.commit()
-    return {"fetched": len(active), "updated": updated}
+    return {"fetched": len(info), "updated": updated}
 
 
 def main(argv: list[str] | None = None) -> None:

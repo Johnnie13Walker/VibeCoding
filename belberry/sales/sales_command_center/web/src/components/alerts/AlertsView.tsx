@@ -3,8 +3,10 @@
 import { useMemo, useState } from 'react';
 import { Flame, Clock, BellRing, ExternalLink, VolumeX } from 'lucide-react';
 import type { AlertManager, AlertsData } from '@/lib/alerts';
-import { BURNING_TOP, SILENT_TOP, TASKS_TOP, filterSection, sectionManagers } from '@/lib/alerts-filter';
+import { BURNING_TOP, SILENT_TOP, TASKS_TOP, TASK_KINDS, burnComparator, filterSection, filterTasks, sectionManagers, type BurnSort, type TaskKind } from '@/lib/alerts-filter';
 import { ManagerPicker } from '@/components/telemarketing/ManagerPicker';
+import { TaskTypePicker } from '@/components/alerts/TaskTypePicker';
+import { BurningSortPicker } from '@/components/alerts/BurningSortPicker';
 
 const PORTAL = 'https://belberrycrm.bitrix24.ru';
 const dealUrl = (id: number) => `${PORTAL}/crm/deal/details/${id}/`;
@@ -22,6 +24,23 @@ function fmtDate(iso: string | null): string {
   try {
     return new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: '2-digit', timeZone: 'Europe/Moscow' }).format(new Date(`${iso}T00:00:00+03:00`));
   } catch { return iso; }
+}
+
+/** Полная дата ДД.ММ.ГГГГ — для колонки «последний контакт» в «Горит». */
+function fmtDateFull(iso: string | null): string {
+  if (!iso) return '—';
+  try {
+    return new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Europe/Moscow' }).format(new Date(`${iso}T00:00:00+03:00`));
+  } catch { return iso; }
+}
+
+/** Кал. дней между датой контакта и датой снимка (для «N дн. назад»). */
+function daysAgo(from: string, to: string | null): number | null {
+  if (!to) return null;
+  const f = new Date(`${from}T00:00:00Z`).getTime();
+  const t = new Date(`${to}T00:00:00Z`).getTime();
+  if (Number.isNaN(f) || Number.isNaN(t)) return null;
+  return Math.max(0, Math.floor((t - f) / 86_400_000));
 }
 
 function rub(n: number): string {
@@ -49,10 +68,15 @@ export function AlertsView({ data }: { data: AlertsData }) {
   const [selB, setSelB] = useState<Set<number>>(() => new Set(burningManagers.map((m) => m.managerId)));
   const [selS, setSelS] = useState<Set<number>>(() => new Set(silentManagers.map((m) => m.managerId)));
   const [selT, setSelT] = useState<Set<number>>(() => new Set(taskManagers.map((m) => m.managerId)));
+  const [selKind, setSelKind] = useState<Set<TaskKind>>(() => new Set(TASK_KINDS));
+  const [burnSort, setBurnSort] = useState<BurnSort>('nomove');
 
-  const burning = useMemo(() => filterSection(data.burning, selB, burningManagers.length, BURNING_TOP), [data.burning, selB, burningManagers.length]);
+  const burning = useMemo(
+    () => filterSection(data.burning, selB, burningManagers.length, BURNING_TOP, burnComparator(burnSort, data.snapshotDate)),
+    [data.burning, selB, burningManagers.length, burnSort, data.snapshotDate],
+  );
   const silent = useMemo(() => filterSection(data.silent, selS, silentManagers.length, SILENT_TOP), [data.silent, selS, silentManagers.length]);
-  const tasks = useMemo(() => filterSection(data.tasks, selT, taskManagers.length, TASKS_TOP), [data.tasks, selT, taskManagers.length]);
+  const tasks = useMemo(() => filterTasks(data.tasks, selT, taskManagers.length, selKind, TASKS_TOP), [data.tasks, selT, taskManagers.length, selKind]);
 
   const criticalCount = burning.filter((b) => b.severity === 'critical').length;
   const overdueCount = tasks.filter((t) => t.overdue).length;
@@ -78,7 +102,10 @@ export function AlertsView({ data }: { data: AlertsData }) {
           <span className="bb-sect-ic" style={{ background: '#fdeced', color: '#d4202e' }}><Flame size={17} /></span>
           <h2>Горит</h2>
           <small>застрявшие сделки · топ-{burning.length}</small>
-          <SectionPicker managers={burningManagers} selected={selB} onChange={setSelB} />
+          <div style={{ display: 'flex', gap: 8 }}>
+            <BurningSortPicker value={burnSort} onChange={setBurnSort} />
+            <SectionPicker managers={burningManagers} selected={selB} onChange={setSelB} />
+          </div>
         </div>
         {burning.length === 0 ? (
           <p style={{ color: 'var(--bb-muted)' }}>Горящих сделок нет.</p>
@@ -95,6 +122,19 @@ export function AlertsView({ data }: { data: AlertsData }) {
                     {d.stageLabel} · {d.manager}
                     <span className={`bb-reason ${d.severity}`}>{d.reason}</span>
                   </p>
+                </div>
+                <div className="bb-comm">
+                  <div className="bb-comm-lbl">последний контакт</div>
+                  {d.lastCommAt ? (
+                    <>
+                      <div className="bb-comm-val">{fmtDateFull(d.lastCommAt)}</div>
+                      {daysAgo(d.lastCommAt, data.snapshotDate) != null ? (
+                        <div className="bb-comm-ago">{daysAgo(d.lastCommAt, data.snapshotDate)} дн. назад</div>
+                      ) : null}
+                    </>
+                  ) : (
+                    <div className="bb-comm-none">контакта не было</div>
+                  )}
                 </div>
                 <div style={{ textAlign: 'right', flex: '0 0 auto' }}>
                   <p className="tabular" style={{ fontWeight: 700, fontSize: 14 }}>{rub(d.amount)}</p>
@@ -150,7 +190,10 @@ export function AlertsView({ data }: { data: AlertsData }) {
           <span className="bb-sect-ic" style={{ background: '#fdf2e7', color: '#b5651d' }}><Clock size={17} /></span>
           <h2>Задачи на контроле</h2>
           <small>из разбора встреч · {tasks.length}</small>
-          <SectionPicker managers={taskManagers} selected={selT} onChange={setSelT} />
+          <div style={{ display: 'flex', gap: 8 }}>
+            <TaskTypePicker selected={selKind} onChange={setSelKind} />
+            <SectionPicker managers={taskManagers} selected={selT} onChange={setSelT} />
+          </div>
         </div>
         {tasks.length === 0 ? (
           <p style={{ color: 'var(--bb-muted)' }}>Открытых задач из разборов нет.</p>
@@ -170,6 +213,8 @@ export function AlertsView({ data }: { data: AlertsData }) {
                 <div style={{ textAlign: 'right', flex: '0 0 auto' }}>
                   {t.overdue ? (
                     <span className="bb-reason critical">просрочена</span>
+                  ) : t.status === 4 ? (
+                    <span className="bb-reason" style={{ background: '#e6f4ea', color: '#1a7f37' }}>на контроле</span>
                   ) : (
                     <span className="bb-reason" style={{ background: 'var(--bb-violet-soft)', color: 'var(--bb-violet)' }}>{t.statusLabel}</span>
                   )}

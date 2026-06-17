@@ -2,7 +2,7 @@ import 'server-only';
 
 import { and, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 import { db } from '@/db';
-import { dealRejections, dealsSnapshot, managerActivity, meetings, payments, plans, reports, users } from '@/db/schema';
+import { dealRejections, dealsSnapshot, managerAbsences, managerActivity, meetings, payments, plans, reports, users } from '@/db/schema';
 import { MEETING_HELD_STAGE } from './telemarketing';
 import { buildOperationalMatrix, type OperationalMatrix, type OperDayInput, type OperMemberInput } from './operational';
 import { getSalesRejections } from './sales-rejections';
@@ -180,6 +180,53 @@ export function isSalesDept(dept: string | null | undefined): boolean {
 /** Сотрудник телемаркетинга по должности. */
 export function isTelemarketing(dept: string | null | undefined): boolean {
   return (dept || '').toLowerCase().includes('телемаркет');
+}
+
+/** Менеджер по продажам (МОП) — несёт план оплат. Исключает РОП и телемаркетинг. */
+export function isSalesManager(dept: string | null | undefined): boolean {
+  return (dept || '').toLowerCase().includes('менеджер по прода');
+}
+
+/**
+ * План оплат по стажу (политика для новичков): 1-й месяц работы — 0, 2-й — 300 000,
+ * 3-й и далее — 500 000. Стаж в КАЛЕНДАРНЫХ месяцах: месяц найма = 1-й месяц.
+ * hiredAt — 'YYYY-MM-DD' или null (нет даты → считаем опытным, 500к). period — 'YYYY-MM'.
+ */
+export function rampRevenuePlan(hiredAt: string | null, period: string): number {
+  if (!hiredAt) return 500_000;
+  const [hy, hm] = hiredAt.slice(0, 7).split('-').map(Number);
+  const [py, pm] = period.split('-').map(Number);
+  if (!hy || !hm || !py || !pm) return 500_000;
+  const monthsWorked = (py * 12 + pm) - (hy * 12 + hm) + 1;
+  if (monthsWorked <= 1) return 0;
+  if (monthsWorked === 2) return 300_000;
+  return 500_000;
+}
+
+/** Норматив брифов на МОП — всегда 20 (если в plans не задано иное). */
+export const DEFAULT_BRIEFS_PLAN = 20;
+
+/**
+ * Посев ростера: активные сотрудники ОП/ТМ из справочника, у кого ещё НЕТ активности
+ * в периоде, добавляются в команду с нулями — чтобы новичок появлялся на дашборде
+ * сразу с момента, как его завели в Bitrix с нужной должностью, а не только после
+ * первого звонка/встречи. activeIds — id, у кого активность уже есть (их не дублируем).
+ */
+export function rosterZeroMembers(
+  dirUsers: { id: number; name: string; dept: string | null; isActive: boolean }[],
+  activeIds: Set<number>,
+): TeamMember[] {
+  return dirUsers
+    .filter((u) => u.isActive && isSalesDept(u.dept) && !activeIds.has(u.id))
+    .map((u) => ({
+      managerId: u.id,
+      name: u.name,
+      role: u.dept ?? '',
+      meetingsSet: 0, meetingsHeld: 0, dials: 0, calls60: 0, calls120: 0,
+      kpSent: 0, briefs: 0, dealsCreated: 0, dealsCold: 0, dealsIncoming: 0,
+      dealsWon: 0, dealsWonAmount: 0, messenger: 0, emails: 0, talkHours: 0,
+      trend: [], meetings: [],
+    }));
 }
 
 interface FunnelRow {
@@ -868,9 +915,10 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
 
   // Имена/роли сотрудников.
   const userRows = await db
-    .select({ id: users.bitrixId, name: users.name, dept: users.dept, isActive: users.isActive })
+    .select({ id: users.bitrixId, name: users.name, dept: users.dept, isActive: users.isActive, hiredAt: users.hiredAt })
     .from(users);
   const userMap = new Map(userRows.map((u) => [u.id, { name: u.name, dept: u.dept ?? '', active: u.isActive }]));
+  const hiredByMgr = new Map(userRows.map((u) => [u.id, u.hiredAt ?? null]));
 
   // Воронка — открытые сделки кат.10 на последнем снимке.
   const snapRows = await db
@@ -993,7 +1041,7 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
     }
   }
 
-  const teamAll: TeamMember[] = actRows
+  const activityMembers: TeamMember[] = actRows
     .map((r) => ({
       managerId: r.managerId,
       name: userMap.get(r.managerId)?.name ?? `id ${r.managerId}`,
@@ -1015,8 +1063,14 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
       talkHours: Math.round(Number(r.talkSeconds) / 360) / 10,
       trend: trendByMgr.get(r.managerId) ?? [],
       meetings: meetingsByMgr.get(r.managerId) ?? [],
-    }))
-    .sort((a, b) => b.meetingsHeld - a.meetingsHeld || b.dials - a.dials);
+    }));
+
+  // Посев ростера: активные ОП/ТМ из справочника без активности в периоде —
+  // с нулями, чтобы новички были видны сразу (а не только после первого действия).
+  const roster = rosterZeroMembers(userRows, new Set(actRows.map((r) => r.managerId)));
+  const teamAll: TeamMember[] = [...activityMembers, ...roster].sort(
+    (a, b) => b.meetingsHeld - a.meetingsHeld || b.dials - a.dials,
+  );
 
   // Только отдел продаж + телемаркетинг (по должности из dept). Если справочник
   // ещё не наполнен (dept пуст у всех) — показываем всех, чтобы не опустеть.
@@ -1302,25 +1356,26 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
   const daysInMonth = new Date(Date.UTC(fy, fm, 0)).getUTCDate();
   const forecast = buildForecast(funnel, salesFunnel.wonAmount, planRevenue, fd, daysInMonth);
 
-  // Индивидуальные МОП (у кого персональный план оплат): факт оплат/брифов — из team.
-  const teamById = new Map(team.map((m) => [m.managerId, m]));
-  const pfManagers = [...indivRevenuePlan.entries()]
-    .map(([id, revenuePlan]) => {
-      const tm = teamById.get(id);
-      return {
-        managerId: id,
-        name: tm?.name ?? `id ${id}`,
-        revenueFact: tm ? tm.dealsWonAmount : 0,
-        revenuePlan,
-        briefsFact: tm ? tm.briefs : 0,
-      };
-    })
+  // План/факт по МОП: все менеджеры по продажам из команды (вкл. новичков-нулёвок) +
+  // любой, у кого есть персональный план. План оплат = явный план из plans, иначе по
+  // стажу (новичкам: 1-й мес 0 / 2-й 300к / 3-й+ 500к). Факт оплат/брифов — из team.
+  // План/факт — только ДЕЙСТВУЮЩИЕ МОП (уволенным план/брифы не ставим, даже если была
+  // активность в начале месяца). Историю периода уволенные видят в других блоках.
+  const pfManagers = team
+    .filter((m) => (userMap.get(m.managerId)?.active ?? true) && (isSalesManager(m.role) || indivRevenuePlan.has(m.managerId)))
+    .map((m) => ({
+      managerId: m.managerId,
+      name: m.name,
+      revenueFact: m.dealsWonAmount,
+      revenuePlan: indivRevenuePlan.get(m.managerId) ?? rampRevenuePlan(hiredByMgr.get(m.managerId) ?? null, period),
+      briefsFact: m.briefs,
+    }))
     .sort((a, b) => b.revenuePlan - a.revenuePlan || a.name.localeCompare(b.name, 'ru'));
 
   const planFact = buildPlanFact({
     revenueTeamFact: salesFunnel.wonAmount,
     revenueTeamPlan: planRevenue,
-    briefsPlanPerMop: planMap['briefs'] ?? 0,
+    briefsPlanPerMop: planMap['briefs'] || DEFAULT_BRIEFS_PLAN,
     managers: pfManagers,
   });
 
@@ -1463,6 +1518,20 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
     });
     operActByMgr.set(r.managerId, byDate);
   }
+  // Дни отсутствия (отпуск/больничный) за окно — «Отпуск», вне среднего балла.
+  const absenceRows = operDays.length
+    ? await db
+        .select({ managerId: managerAbsences.managerId, date: managerAbsences.absenceDate })
+        .from(managerAbsences)
+        .where(and(gte(managerAbsences.absenceDate, start), lte(managerAbsences.absenceDate, operEnd)))
+    : [];
+  const leaveByMgr = new Map<number, Set<string>>();
+  for (const r of absenceRows) {
+    const set = leaveByMgr.get(r.managerId) ?? new Set<string>();
+    set.add(String(r.date));
+    leaveByMgr.set(r.managerId, set);
+  }
+
   const operMembers: OperMemberInput[] = team.map((tm) => {
     const byDate = new Map<string, OperDayInput>();
     const act = operActByMgr.get(tm.managerId);
@@ -1487,6 +1556,7 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
       isTm: isTelemarketing(tm.role),
       isActive: userMap.get(tm.managerId)?.active ?? true,
       byDate,
+      leaveDays: leaveByMgr.get(tm.managerId),
     };
   });
   const operational = buildOperationalMatrix(operDays, operMembers);

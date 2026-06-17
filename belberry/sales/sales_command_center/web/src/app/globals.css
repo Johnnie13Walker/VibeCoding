@@ -378,6 +378,14 @@ input {
 .bb-reason.critical { background: #fdeced; color: var(--bb-red); }
 .bb-reason.warning { background: #fdf2e7; color: #b5651d; }
 
+/* Колонка «последний контакт» в секции «Горит» (по центру строки). */
+.bb-comm { flex: 0 0 auto; width: 200px; text-align: center; line-height: 1.35; }
+.bb-comm-lbl { color: var(--bb-faint); font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; }
+.bb-comm-val { color: var(--bb-muted); font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.bb-comm-ago { color: var(--bb-faint); font-size: 11px; }
+.bb-comm-none { color: #b5651d; font-size: 12px; font-weight: 600; }
+@media (max-width: 640px) { .bb-comm { display: none; } }
+
 /* ===== Встроенный отчёт дня (тулбар + рамка) ===== */
 .bb-rtoolbar {
   display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px;

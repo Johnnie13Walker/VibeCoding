@@ -46,6 +46,78 @@ def _add_business_days(start: date, days: int) -> date:
     return d
 
 
+# Месяцы по основе слова (родительный/именительный): «июня»/«июнь» → 6.
+_MONTHS = {
+    "январ": 1, "феврал": 2, "март": 3, "апрел": 4, "мая": 5, "май": 5,
+    "июн": 6, "июл": 7, "август": 8, "сентябр": 9, "октябр": 10,
+    "ноябр": 11, "декабр": 12,
+}
+
+
+def _roll_year_forward(d: date, base: date) -> date:
+    """Дата без года уже прошла относительно встречи → следующий год.
+    Дедлайн в прошлом для только что поставленной задачи бессмыслен."""
+    if d >= base:
+        return d
+    try:
+        return d.replace(year=d.year + 1)
+    except ValueError:  # 29 февраля
+        return d + timedelta(days=365)
+
+
+def _parse_explicit_date(t: str, base: date) -> date | None:
+    """Явная календарная дата из текста: «24.06.2026», «24.06», «24 июня»,
+    «24 числа», «к 15-му», «20-го». Без года/месяца — берём ближайшую будущую."""
+    # ДД.ММ(.ГГГГ)
+    m = re.search(r"\b(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4}))?\b", t)
+    if m:
+        day, month, year = int(m.group(1)), int(m.group(2)), m.group(3)
+        if 1 <= day <= 31 and 1 <= month <= 12:
+            if year:
+                y = int(year)
+                y = 2000 + y if y < 100 else y
+                try:
+                    return date(y, month, day)
+                except ValueError:
+                    return None
+            try:
+                return _roll_year_forward(date(base.year, month, day), base)
+            except ValueError:
+                return None
+
+    # ДД <месяц словом>: «24 июня», «5 мая»
+    m = re.search(r"\b(\d{1,2})\s+([а-яё]+)", t)
+    if m:
+        day, word = int(m.group(1)), m.group(2)
+        for stem, month in _MONTHS.items():
+            if word.startswith(stem):
+                if 1 <= day <= 31:
+                    try:
+                        return _roll_year_forward(date(base.year, month, day), base)
+                    except ValueError:
+                        return None
+                break
+
+    # День месяца без названия: «24 числа», «к 15-му», «20-го», «16-е».
+    m = re.search(r"\b(\d{1,2})\s*-?\s*(?:го|му|ое|е)\b|\b(\d{1,2})\s+числ\w*", t)
+    if m:
+        day = int(m.group(1) or m.group(2))
+        if 1 <= day <= 31:
+            try:
+                cand = date(base.year, base.month, day)
+            except ValueError:
+                return None
+            if cand < base:  # день уже прошёл в этом месяце → следующий месяц
+                ny = base.year + (1 if base.month == 12 else 0)
+                nm = 1 if base.month == 12 else base.month + 1
+                try:
+                    cand = date(ny, nm, day)
+                except ValueError:
+                    return None
+            return cand
+    return None
+
+
 def parse_deadline(text: str | None, base: date) -> tuple[date, bool]:
     """Свободный текст дедлайна → (дата, распознан ли). base — дата встречи.
     Если не распознан — base + FALLBACK_BUSINESS_DAYS рабочих дней, recognized=False."""
@@ -57,6 +129,8 @@ def parse_deadline(text: str | None, base: date) -> tuple[date, bool]:
         return base + timedelta(days=2), True
     if "завтра" in t:
         return base + timedelta(days=1), True
+    if "сегодня" in t:
+        return base, True
 
     # «через N дней» / «через N-M дней» (берём верхнюю границу)
     m = re.search(r"через\s+(\d+)\s*[-–—]\s*(\d+)\s*(дн|день|дня|дней)", t)
@@ -65,6 +139,12 @@ def parse_deadline(text: str | None, base: date) -> tuple[date, bool]:
     m = re.search(r"через\s+(\d+)\s*(дн|день|дня|дней)", t)
     if m:
         return base + timedelta(days=int(m.group(1))), True
+
+    # Явная календарная дата («24.06», «24 июня», «24 числа», «к 15-му») —
+    # приоритетнее дней недели и «недель». Закрывает кейс «созвон 24 числа».
+    explicit = _parse_explicit_date(t, base)
+    if explicit is not None:
+        return explicit, True
 
     # дни недели — РАНЬШЕ общей проверки «недел», иначе «на следующей неделе» ловится как +7.
     # Берём ближайший упомянутый день недели; «на следующей неделе» сдвигает на неделю вперёд.
@@ -338,6 +418,26 @@ def _load_day_meetings(conn, target: date, meeting_id: int | None = None):
         return cur.fetchall()
 
 
+def _deal_is_lost(stage_id: str | None) -> bool:
+    """Сделка в стадии-провале (слита) — по ней автозадачи не ставим.
+    C10:LOSE (Продажи), C50:APOLOGY (Телемаркетинг), LOSE/FAIL в прочих воронках."""
+    s = (stage_id or "").upper()
+    return s.endswith("LOSE") or s.endswith("APOLOGY") or s.endswith("FAIL")
+
+
+def fetch_deal_meta(bx, deal_id: int) -> dict[str, Any] | None:
+    """Живые TITLE/STAGE_ID сделки из Bitrix. deals_snapshot не содержит закрытые/
+    выпавшие сделки → берём напрямую. None — сделка недоступна/удалена или сбой."""
+    try:
+        r = bx.call("crm.deal.get", {"id": deal_id})
+    except Exception:  # noqa: BLE001
+        return None
+    d = (r or {}).get("result") or {}
+    if not d:
+        return None
+    return {"title": d.get("TITLE"), "stage_id": d.get("STAGE_ID")}
+
+
 def _plan_for_meeting(analysis, deal_title, stage, client):
     """Планировщик-проход. None при ошибке (→ фолбэк на старую логику next_steps);
     список (возможно пустой) — если планировщик отработал."""
@@ -369,6 +469,19 @@ def create_tasks_for_day(conn, bx, target: date, *, creator_id: int = DEFAULT_CR
             results.append({"meeting_id": meeting_id_, "deal_id": deal_id, "status": "skip_meeting_done"})
             continue
         analysis = analysis_json if isinstance(analysis_json, dict) else _json.loads(analysis_json or "{}")
+
+        # Живой статус сделки из Bitrix (до планировщика — экономим LLM-токены):
+        # по уже слитым сделкам задачи не ставим; имя берём актуальное (снимок мог
+        # не содержать закрытую/выпавшую сделку → иначе в заголовке «Сделка #N»).
+        if bx is not None:
+            meta = fetch_deal_meta(bx, deal_id)
+            if meta is not None:
+                if _deal_is_lost(meta.get("stage_id")):
+                    results.append({"meeting_id": meeting_id_, "deal_id": deal_id,
+                                    "status": "skip_deal_lost", "stage": meta.get("stage_id")})
+                    continue
+                if meta.get("title"):
+                    deal_title = meta["title"]
 
         plan = _plan_for_meeting(analysis, deal_title, stage, client) if client is not None else None
         planner_used = plan is not None
@@ -428,14 +541,15 @@ CLOSED_STATUSES = {5, 7}
 
 
 def sync_task_statuses(conn, bx, limit: int = 300) -> int:
-    """Синкает статус/дедлайн открытых задач из Bitrix в meeting_tasks.
+    """Синкает статус/дедлайн/ответственного открытых задач из Bitrix в meeting_tasks.
+    Дедлайн и ответственного в Bitrix могли поменять вручную — отражаем у себя.
     closed=true при завершении/отклонении (или если задача удалена в Bitrix)."""
     with conn.cursor() as cur:
         cur.execute("SELECT task_id FROM meeting_tasks WHERE closed=false ORDER BY id LIMIT %s", (limit,))
         ids = [row[0] for row in cur.fetchall()]
     if not ids:
         return 0
-    r = bx.call("tasks.task.list", {"filter": {"ID": ids}, "select": ["ID", "STATUS", "DEADLINE"]})
+    r = bx.call("tasks.task.list", {"filter": {"ID": ids}, "select": ["ID", "STATUS", "DEADLINE", "RESPONSIBLE_ID"]})
     items = (r or {}).get("result", {}).get("tasks", []) or []
     found: dict[int, dict] = {}
     for t in items:
@@ -455,9 +569,14 @@ def sync_task_statuses(conn, bx, limit: int = 300) -> int:
             except (TypeError, ValueError):
                 status = 0
             deadline = t.get("deadline") or t.get("DEADLINE") or None
+            try:
+                resp = int(t.get("responsibleId") or t.get("RESPONSIBLE_ID") or 0) or None
+            except (TypeError, ValueError):
+                resp = None
             cur.execute(
-                "UPDATE meeting_tasks SET status=%s, deadline=COALESCE(%s, deadline), closed=%s, updated_at=now() WHERE task_id=%s",
-                (status, deadline, status in CLOSED_STATUSES, tid),
+                "UPDATE meeting_tasks SET status=%s, deadline=COALESCE(%s, deadline), "
+                "responsible_id=COALESCE(%s, responsible_id), closed=%s, updated_at=now() WHERE task_id=%s",
+                (status, deadline, resp, status in CLOSED_STATUSES, tid),
             )
             updated += 1
     conn.commit()

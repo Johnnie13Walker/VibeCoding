@@ -11,6 +11,7 @@ export interface BurningDeal {
   stageLabel: string;
   amount: number;
   stuckDays: number;
+  lastCommAt: string | null;
   managerId: number | null;
   manager: string;
   severity: 'critical' | 'warning';
@@ -108,14 +109,29 @@ export function dealSeverity(amount: number, stuckDays: number): 'critical' | 'w
 const STATUS_LABEL: Record<number, string> = {
   2: 'ждёт выполнения',
   3: 'в работе',
-  4: 'ждёт контроля',
+  4: 'на контроле',
   6: 'отложена',
 };
+
+// Статусы, для которых просроченный дедлайн — реальная проблема (задача ещё в работе).
+// 4 (на контроле) — менеджер сделал, ждём приёмки постановщиком; 6 (отложена) —
+// приостановлена. Их НЕ красим как просрочку. null/неизвестный считаем активным.
+const OVERDUE_ACTIVE_STATUSES = new Set([2, 3]);
 
 export function isOverdue(deadline: Date | string | null | undefined, now: Date): boolean {
   if (!deadline) return false;
   const d = deadline instanceof Date ? deadline : new Date(deadline);
   return !Number.isNaN(d.getTime()) && d.getTime() < now.getTime();
+}
+
+/** Просрочка с учётом статуса: задача «на контроле»/«отложена» не считается просроченной. */
+export function taskOverdue(
+  status: number | null | undefined,
+  deadline: Date | string | null | undefined,
+  now: Date,
+): boolean {
+  if (status != null && !OVERDUE_ACTIVE_STATUSES.has(status)) return false;
+  return isOverdue(deadline, now);
 }
 
 export async function getAlerts(): Promise<AlertsData> {
@@ -179,6 +195,7 @@ export async function getAlerts(): Promise<AlertsData> {
         stageLabel: STAGE_META[r.stage]?.label ?? r.stage,
         amount,
         stuckDays,
+        lastCommAt: r.lastCommAt ?? null,
         managerId: r.managerId ?? null,
         manager: nameOf(r.managerId),
         severity: dealSeverity(amount, stuckDays),
@@ -218,7 +235,7 @@ export async function getAlerts(): Promise<AlertsData> {
       deadline: deadline ? deadline.toISOString() : null,
       status: t.status,
       statusLabel: (t.status != null && STATUS_LABEL[t.status]) || 'в работе',
-      overdue: isOverdue(deadline, now),
+      overdue: taskOverdue(t.status, deadline, now),
     };
   });
 

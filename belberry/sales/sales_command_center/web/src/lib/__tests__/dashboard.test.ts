@@ -10,6 +10,9 @@ import {
   buildMeetingQuality,
   buildManagerConversions,
   buildManagerPipeline,
+  rosterZeroMembers,
+  rampRevenuePlan,
+  isSalesManager,
   buildTmActivity,
   buildMessaging,
   buildVelocity,
@@ -369,5 +372,50 @@ describe('buildPlanFact', () => {
     });
     expect(pf.managers).toHaveLength(0);
     expect(pf.briefsTeamPlan).toBe(0);
+  });
+});
+
+describe('rosterZeroMembers', () => {
+  const dir = [
+    { id: 1, name: 'Семенихин', dept: 'Менеджер по продажам', isActive: true },
+    { id: 2, name: 'Новичок Демидов', dept: 'Менеджер по продажам', isActive: true },
+    { id: 3, name: 'SEO-спец', dept: 'SEO-специалист', isActive: true },
+    { id: 4, name: 'Уволенный ТМ', dept: 'Телемаркетолог', isActive: false },
+  ];
+  it('добавляет активных ОП/ТМ без активности, исключает уже активных, чужие должности и уволенных', () => {
+    const r = rosterZeroMembers(dir, new Set([1])); // у #1 активность уже есть
+    expect(r.map((m) => m.managerId)).toEqual([2]); // только новичок-продажник без активности
+    expect(r[0].dials).toBe(0);
+    expect(r[0].role).toBe('Менеджер по продажам');
+    expect(r[0].name).toBe('Новичок Демидов');
+  });
+  it('пустой ростер, если все уже активны', () => {
+    expect(rosterZeroMembers(dir, new Set([1, 2]))).toEqual([]);
+  });
+});
+
+describe('rampRevenuePlan — план оплат по стажу', () => {
+  it('1-й месяц работы (месяц найма) → 0', () => {
+    expect(rampRevenuePlan('2026-06-11', '2026-06')).toBe(0);
+  });
+  it('2-й месяц → 300 000', () => {
+    expect(rampRevenuePlan('2026-06-11', '2026-07')).toBe(300_000);
+  });
+  it('3-й месяц и далее → 500 000', () => {
+    expect(rampRevenuePlan('2026-06-11', '2026-08')).toBe(500_000);
+    expect(rampRevenuePlan('2026-06-11', '2026-12')).toBe(500_000);
+  });
+  it('без даты найма → опытный (500к)', () => {
+    expect(rampRevenuePlan(null, '2026-06')).toBe(500_000);
+  });
+});
+
+describe('isSalesManager', () => {
+  it('менеджер по продажам — да; РОП и ТМ — нет', () => {
+    expect(isSalesManager('Менеджер по продажам')).toBe(true);
+    expect(isSalesManager('Руководитель отдела продаж')).toBe(false);
+    expect(isSalesManager('Телемаркетолог')).toBe(false);
+    expect(isSalesManager('РОП')).toBe(false);
+    expect(isSalesManager(null)).toBe(false);
   });
 });

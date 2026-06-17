@@ -6,6 +6,7 @@ import {
   jsonb,
   numeric,
   pgTable,
+  primaryKey,
   serial,
   smallint,
   text,
@@ -20,6 +21,7 @@ export const users = pgTable('users', {
   role: text('role').notNull().default('manager'),
   dept: text('dept'),
   isActive: boolean('is_active').notNull().default(true),
+  hiredAt: date('hired_at'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
 });
@@ -240,6 +242,16 @@ export const payments = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
   },
   (table) => [index('payments_year_month_dept_idx').on(table.payYear, table.payMonth, table.dept)],
+);
+
+export const managerAbsences = pgTable(
+  'manager_absences',
+  {
+    managerId: integer('manager_id').notNull(),
+    absenceDate: date('absence_date').notNull(),
+    kind: text('kind'),
+  },
+  (table) => [primaryKey({ columns: [table.managerId, table.absenceDate] })],
 );
 
 export const dealTitles = pgTable('deal_titles', {

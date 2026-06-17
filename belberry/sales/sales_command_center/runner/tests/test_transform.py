@@ -223,3 +223,32 @@ def test_build_db_rows_counts_cat10_entries_vhod_holod():
     assert m["deals_created_count"] == 3   # всего в Продажи = вход + холод
     assert m["deals_won_count"] == 2
     assert m["deals_won_amount"] == 200000.5
+
+
+def test_briefs_kp_attributed_to_deal_owner():
+    # Бриф/КП на сделке 100 (владелец 777), элемент назначен на 999 → кредит владельцу.
+    raw = {
+        "deals_open": [{"ID": 100, "ASSIGNED_BY_ID": 777, "STAGE_ID": "C10:EXECUTING", "MOVED_TIME": "2026-06-01T10:00:00+03:00", "OPPORTUNITY": 0, "CATEGORY_ID": 10}],
+        "deals_created": [],
+        "briefs": [{"id": 1, "parentId2": 100, "assignedById": 999, "title": "b", "stageId": "X"}],
+        "kp": [{"id": 2, "parentId2": 100, "assignedById": 999, "title": "k", "stageId": "X"}],
+    }
+    rows = build_db_rows(raw, date(2026, 6, 4), NOW)
+    ma = {r["manager_id"]: r for r in rows["manager_activity"]}
+    assert ma[777]["briefs_created"] == 1
+    assert ma[777]["kp_sent"] == 1
+    assert 999 not in ma  # исполнитель элемента кредит НЕ получает
+    kb = {r["item_id"]: r for r in rows["kp_briefs"]}
+    assert kb[1]["manager_id"] == 777 and kb[2]["manager_id"] == 777
+
+
+def test_briefs_fallback_to_assignee_when_deal_unknown():
+    # Сделки нет в выборке (закрыта) → фолбэк на исполнителя элемента.
+    raw = {
+        "deals_open": [], "deals_created": [],
+        "briefs": [{"id": 5, "parentId2": 555, "assignedById": 888, "title": "b", "stageId": "X"}],
+        "kp": [],
+    }
+    rows = build_db_rows(raw, date(2026, 6, 4), NOW)
+    ma = {r["manager_id"]: r for r in rows["manager_activity"]}
+    assert ma[888]["briefs_created"] == 1
