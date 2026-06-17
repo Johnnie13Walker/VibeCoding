@@ -74,8 +74,10 @@ function computeWindow(snapshotDate: string, range: TmPeriod): Window {
     return { start: startD.toISOString().slice(0, 10), end: snapshotDate, label: `7 дней · ${ddmm(startD)}–${ddmm(endD)}` };
   }
   const start = `${snapshotDate.slice(0, 7)}-01`;
-  const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
-  const end = `${snapshotDate.slice(0, 7)}-${String(last).padStart(2, '0')}`;
+  // MTD: окно текущего месяца обрезаем по дню снимка — темп «X/день» и «раб. дн.»
+  // считаются по ПРОШЕДШИМ рабочим дням 1..N, а не по полному месяцу (иначе
+  // делитель завышён и темп занижен кратно в начале месяца).
+  const end = snapshotDate;
   return { start, end, label: `${MONTHS_RU[m - 1]} ${y}` };
 }
 
