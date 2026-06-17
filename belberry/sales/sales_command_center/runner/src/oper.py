@@ -5,10 +5,10 @@
 часов «в руках»). Так ОП и ТМ сравниваются честно — встреча весит как встреча,
 а пустой набор как пустой набор, без перекоса в сторону объёма обзвона.
 
-operational_minutes = short_dials×0.25 (cap 90)   # набор/короткий обрыв = 15 сек
+operational_minutes = short_dials×2 (cap 90)      # набор/короткий обрыв = 2 мин
                     + calls_60s×5                  # разговор 60с+ = 5 мин
                     + messenger_dialogs×10         # чат Wazzup = 10 мин
-                    + emails×5                     # письмо = 5 мин
+                    + emails×10                    # письмо = 10 мин
                     + meetings×60                  # встреча = 60 мин
 operational_score   = min(10, operational_minutes / 300 × 10)
 
@@ -22,11 +22,11 @@ operational_score   = min(10, operational_minutes / 300 × 10)
 на сам балл больше не влияет.
 """
 
-DIAL_MINUTES = 0.25
+DIAL_MINUTES = 2
 DIAL_MINUTES_CAP = 90.0
 CALL_60S_MINUTES = 5
 CHAT_DIALOG_MINUTES = 10
-EMAIL_MINUTES = 5
+EMAIL_MINUTES = 10
 MEETING_MINUTES = 60
 DAY_TARGET_MINUTES = 300.0
 TOP_OPERATIONAL_ENGAGEMENT_MIN = 9.0

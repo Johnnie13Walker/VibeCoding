@@ -239,8 +239,8 @@ def test_build_payload_shapes_day():
     assert payload["action_items"][0]["urgency"] == "сегодня"
     assert payload["rejections"][0]["reason_label"] == "Отказ (воронка Продажи)"  # не код F
     assert payload["stats"]["calls_total"] == 89
-    # «Опер»: short 69×0.25=17.25 + 60с+ 20×5=100 + meet 1×60=60 = 177.25 → 5.9
-    assert payload["telephony"][0]["operational_score"] == 5.9
+    # «Опер»: short 69×2=138→cap90 + 60с+ 20×5=100 + meet 1×60=60 = 250 → 8.3
+    assert payload["telephony"][0]["operational_score"] == 8.3
     assert payload["telephony"][0]["calls_60s_plus"] == 20
     assert payload["health_score"]["score"] > 0
     assert payload["health_score"]["level"] in {"green", "amber", "red"}

@@ -9,19 +9,19 @@ import {
 
 describe('operationalMinutes / operationalScore (зеркало oper.py)', () => {
   it('суммирует живые минуты по весам действий', () => {
-    // short=80→min(20,90)=20; call=100; chat=50; email=50; meet=120 = 340
-    expect(operationalMinutes({ dials: 100, calls60: 20, messenger: 5, meetings: 2, emails: 10 })).toBe(340);
+    // short=80→min(160,90)=90; call=100; chat=50; email=100; meet=120 = 460
+    expect(operationalMinutes({ dials: 100, calls60: 20, messenger: 5, meetings: 2, emails: 10 })).toBe(460);
   });
 
   it('режет «механический» обзвон потолком 90 минут', () => {
-    // short=1000→min(250,90)=90
+    // short=1000→min(2000,90)=90
     expect(operationalMinutes({ dials: 1000, calls60: 0 })).toBe(90);
   });
 
   it('балл — нормировка к 300 мин, потолок 10, округление 0.1', () => {
-    expect(operationalScore({ dials: 100, calls60: 20, messenger: 5, meetings: 2, emails: 10 })).toBe(10); // 340→cap
-    expect(operationalScore({ dials: 50, calls60: 5 })).toBe(1.2); // 36.25/300*10=1.208→1.2
-    expect(operationalScore({ dials: 0, calls60: 0, messenger: 3, meetings: 1, emails: 2 })).toBe(3.3); // 100→3.3
+    expect(operationalScore({ dials: 100, calls60: 20, messenger: 5, meetings: 2, emails: 10 })).toBe(10); // 460→cap
+    expect(operationalScore({ dials: 50, calls60: 5 })).toBe(3.8); // short45×2=90(cap)+25=115 → 3.83→3.8
+    expect(operationalScore({ dials: 0, calls60: 0, messenger: 3, meetings: 1, emails: 2 })).toBe(3.7); // 30+60+20=110→3.7
     expect(operationalScore({ dials: 0, calls60: 0 })).toBe(0);
   });
 });
@@ -52,11 +52,11 @@ describe('buildOperationalMatrix', () => {
 
   it('строит матрицу, секции ОП/ТМ, средние по строке/дню/отделу', () => {
     const op = member(1, 'Иванов', false, [
-      { date: '2026-05-26', meetings: 3, emails: 4 }, // 180+20=200 → 6.7
+      { date: '2026-05-26', meetings: 3, emails: 4 }, // 180+40=220 → 7.3
       { date: '2026-05-27', meetings: 5 }, // 300 → 10
     ]);
     const tm = member(2, 'Петров', true, [
-      { date: '2026-05-26', dials: 120, calls60: 30 }, // short90→min(22.5,90)=22.5; 150 =172.5→5.75→5.8 (round)
+      { date: '2026-05-26', dials: 120, calls60: 30 }, // short90→min(180,90)=90; +150 =240 → 8.0
       // 27-го нет данных → null
     ]);
     const m = buildOperationalMatrix(days, [tm, op]);
@@ -66,8 +66,8 @@ describe('buildOperationalMatrix', () => {
     expect(m.countTm).toBe(1);
 
     const ivanov = m.rows[0];
-    expect(ivanov.scores).toEqual([6.7, 10]);
-    expect(ivanov.avg).toBe(8.4); // (6.7+10)/2=8.35→8.4
+    expect(ivanov.scores).toEqual([7.3, 10]);
+    expect(ivanov.avg).toBe(8.7); // (7.3+10)/2=8.65→8.7
 
     const petrov = m.rows[1];
     expect(petrov.scores[1]).toBeNull(); // нет данных за 2-й день
