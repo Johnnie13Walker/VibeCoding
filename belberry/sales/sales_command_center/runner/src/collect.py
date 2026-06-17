@@ -263,11 +263,13 @@ def collect_users_and_photos(
     return names, photos, roles
 
 
-def _collect_wazzup(deal_ids: set[Any], bx=None, cap: int = 5000) -> dict[str, list[dict[str, Any]]]:
-    # crm.timeline.comment.list фильтрует только по одной сущности → один вызов на сделку.
+def _collect_wazzup(deal_ids: set[Any], bx=None, cap: int = 5000, batch_size: int = 50) -> dict[str, list[dict[str, Any]]]:
+    # Сбор Wazzup-переписки по сделкам через BATCH (до 50 сделок за вызов) — иначе при
+    # ~1900 открытых сделках по одному вызову на сделку шаг занимает ~16 мин и не
+    # укладывается в 20-мин refresh.
     # order ID DESC: ОБЯЗАТЕЛЬНО новейшие первыми. crm.timeline.comment.list отдаёт
     # страницами по 50; при ASC первая страница — самые СТАРЫЕ комментарии (могут быть
-    # 2023 года), и свежая переписка теряется → last_comm_at застревает в прошлом.
+    # 2023 года), свежая переписка теряется → last_comm_at застревает в прошлом.
     # Нам нужен максимум даты и сообщения текущего дня — они в начале DESC-выдачи.
     client = _client(bx)
     ids = sorted({str(i) for i in deal_ids if i not in (None, "", "0", 0)})
@@ -275,17 +277,22 @@ def _collect_wazzup(deal_ids: set[Any], bx=None, cap: int = 5000) -> dict[str, l
         print(f"[wazzup] WARN: сделок {len(ids)} > cap {cap}; Wazzup собираем только по первым {cap}", flush=True)
         ids = ids[:cap]
     output: dict[str, list[dict[str, Any]]] = {}
-    for deal_id in ids:
-        response = client.call(
-            "crm.timeline.comment.list",
-            {
-                "filter": {"ENTITY_ID": deal_id, "ENTITY_TYPE": "deal", "AUTHOR_ID": 2358},
-                "order": {"ID": "DESC"},
-            },
-        )
-        result = response.get("result") or []
-        if result:
-            output[deal_id] = result
+    for start in range(0, len(ids), batch_size):
+        chunk = ids[start : start + batch_size]
+        cmd = {
+            f"c{j}": (
+                "crm.timeline.comment.list?"
+                f"filter[ENTITY_ID]={deal_id}&filter[ENTITY_TYPE]=deal"
+                "&filter[AUTHOR_ID]=2358&order[ID]=DESC"
+            )
+            for j, deal_id in enumerate(chunk)
+        }
+        response = client.call("batch", {"halt": 0, "cmd": cmd})
+        results = ((response or {}).get("result") or {}).get("result") or {}
+        for j, deal_id in enumerate(chunk):
+            rows = results.get(f"c{j}") or []
+            if rows:
+                output[deal_id] = rows
     return output
 
 
