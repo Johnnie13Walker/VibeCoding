@@ -418,6 +418,26 @@ def _load_day_meetings(conn, target: date, meeting_id: int | None = None):
         return cur.fetchall()
 
 
+def _deal_is_lost(stage_id: str | None) -> bool:
+    """Сделка в стадии-провале (слита) — по ней автозадачи не ставим.
+    C10:LOSE (Продажи), C50:APOLOGY (Телемаркетинг), LOSE/FAIL в прочих воронках."""
+    s = (stage_id or "").upper()
+    return s.endswith("LOSE") or s.endswith("APOLOGY") or s.endswith("FAIL")
+
+
+def fetch_deal_meta(bx, deal_id: int) -> dict[str, Any] | None:
+    """Живые TITLE/STAGE_ID сделки из Bitrix. deals_snapshot не содержит закрытые/
+    выпавшие сделки → берём напрямую. None — сделка недоступна/удалена или сбой."""
+    try:
+        r = bx.call("crm.deal.get", {"id": deal_id})
+    except Exception:  # noqa: BLE001
+        return None
+    d = (r or {}).get("result") or {}
+    if not d:
+        return None
+    return {"title": d.get("TITLE"), "stage_id": d.get("STAGE_ID")}
+
+
 def _plan_for_meeting(analysis, deal_title, stage, client):
     """Планировщик-проход. None при ошибке (→ фолбэк на старую логику next_steps);
     список (возможно пустой) — если планировщик отработал."""
@@ -449,6 +469,19 @@ def create_tasks_for_day(conn, bx, target: date, *, creator_id: int = DEFAULT_CR
             results.append({"meeting_id": meeting_id_, "deal_id": deal_id, "status": "skip_meeting_done"})
             continue
         analysis = analysis_json if isinstance(analysis_json, dict) else _json.loads(analysis_json or "{}")
+
+        # Живой статус сделки из Bitrix (до планировщика — экономим LLM-токены):
+        # по уже слитым сделкам задачи не ставим; имя берём актуальное (снимок мог
+        # не содержать закрытую/выпавшую сделку → иначе в заголовке «Сделка #N»).
+        if bx is not None:
+            meta = fetch_deal_meta(bx, deal_id)
+            if meta is not None:
+                if _deal_is_lost(meta.get("stage_id")):
+                    results.append({"meeting_id": meeting_id_, "deal_id": deal_id,
+                                    "status": "skip_deal_lost", "stage": meta.get("stage_id")})
+                    continue
+                if meta.get("title"):
+                    deal_title = meta["title"]
 
         plan = _plan_for_meeting(analysis, deal_title, stage, client) if client is not None else None
         planner_used = plan is not None

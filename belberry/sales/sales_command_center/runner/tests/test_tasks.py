@@ -193,6 +193,50 @@ class _FakeConn:
     def cursor(self): return _FakeCur(self._rows)
 
 
+class _FakeBx:
+    """Заглушка Bitrix: crm.deal.get отдаёт заданную сделку, tasks.task.add — id."""
+    def __init__(self, deal): self._deal = deal; self.added = []
+    def call(self, method, params):
+        if method == "crm.deal.get":
+            return {"result": self._deal or {}}
+        if method == "tasks.task.add":
+            self.added.append(params)
+            return {"result": {"task": {"id": 900000 + len(self.added)}}}
+        return {"result": {}}
+
+
+def test_deal_is_lost():
+    assert T._deal_is_lost("C10:LOSE") is True
+    assert T._deal_is_lost("C50:APOLOGY") is True
+    assert T._deal_is_lost("C10:PREPAYMENT") is False
+    assert T._deal_is_lost(None) is False
+
+
+def test_create_tasks_skips_lost_deal(monkeypatch):
+    from src import task_planner
+    # снимок без title/stage (сделка слита и выпала) — статус берём живым из Bitrix
+    rows = [(2228, 18474, 2188, {"meeting_type": "briefing", "verdict": "v"}, None, None)]
+    monkeypatch.setattr(task_planner, "plan_tasks", lambda *a, **k: [
+        {"title": "Отправить КП", "type": "send", "owner": "manager", "deadline": None, "significance": "high", "rationale": "r", "control": False},
+    ])
+    bx = _FakeBx({"TITLE": "pokandyuk.ru", "STAGE_ID": "C10:LOSE"})
+    res = T.create_tasks_for_day(_FakeConn(rows), bx, date(2026, 6, 9), dry_run=True, client=object())
+    assert any(r["status"] == "skip_deal_lost" for r in res)
+    assert not any(r.get("status") == "planned" for r in res)
+
+
+def test_create_tasks_uses_live_deal_title(monkeypatch):
+    from src import task_planner
+    rows = [(2228, 18474, 2188, {"meeting_type": "briefing", "verdict": "v"}, None, None)]  # title в снимке пуст
+    monkeypatch.setattr(task_planner, "plan_tasks", lambda *a, **k: [
+        {"title": "Отправить КП", "type": "send", "owner": "manager", "deadline": None, "significance": "high", "rationale": "r", "control": False},
+    ])
+    bx = _FakeBx({"TITLE": "pokandyuk.ru", "STAGE_ID": "C10:PREPAYMENT"})
+    res = T.create_tasks_for_day(_FakeConn(rows), bx, date(2026, 6, 9), dry_run=True, client=object())
+    planned = [r for r in res if r["status"] == "planned"]
+    assert planned and planned[0]["fields"]["TITLE"].startswith("pokandyuk.ru: Отправить КП")
+
+
 def test_create_tasks_planner_path(monkeypatch):
     from src import task_planner
     rows = [(2228, 25118, 2188, {"meeting_type": "defense", "verdict": "v"}, "pedklin.ru", "C10:PREPAYMENT")]
