@@ -2,9 +2,11 @@ import 'server-only';
 
 import { and, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 import { db } from '@/db';
-import { dealsSnapshot, managerActivity, meetings, payments, plans, reports, users } from '@/db/schema';
+import { dealRejections, dealsSnapshot, managerActivity, meetings, payments, plans, reports, users } from '@/db/schema';
 import { MEETING_HELD_STAGE } from './telemarketing';
 import { buildOperationalMatrix, type OperationalMatrix, type OperDayInput, type OperMemberInput } from './operational';
+import { getSalesRejections } from './sales-rejections';
+import { emptyBundle, SALES_LOSE_STAGE, SPAM_REASON_10, type SalesRejectionsBundle } from './sales-rejections-shared';
 
 // «Проведено» — событийный слой meetings (status=SUCCESS), а НЕ хранимый агрегат
 // manager_activity.meetings_held: до фикса «фильтра отменённых» в collect.py агрегат
@@ -97,6 +99,12 @@ export interface DashboardData {
   dialsTotal: number;
   kpTotal: number;
   dealsCreatedTotal: number;
+  /** Сумма оплат за текущий месяц (Приходы 2026, КД без НДС). */
+  paymentsTotal: number;
+  /** Количество отказов воронки Продажи (C10:LOSE, без СПАМ) за период. */
+  rejectionsCount: number;
+  /** Количество брифов за период (manager_activity.briefs_created). */
+  briefsTotal: number;
   salesFunnel: SalesFunnel;
   forecast: Forecast;
   meetingQuality: MeetingQuality;
@@ -109,7 +117,11 @@ export interface DashboardData {
   monthly: MonthRow[];
   day2day: Day2Day;
   planFact: PlanFact;
-  deltas: { meetings: KpiDelta; dials: KpiDelta; kp: KpiDelta; deals: KpiDelta };
+  salesRejections: SalesRejectionsBundle;
+  deltas: {
+    meetings: KpiDelta; dials: KpiDelta; kp: KpiDelta; deals: KpiDelta;
+    payments: KpiDelta; rejections: KpiDelta; briefs: KpiDelta;
+  };
   trend: TrendPoint[];
   health: number;
   generatedAt: string | null;
@@ -267,6 +279,7 @@ const STAGE_PROB: Record<string, number> = {
 
 export interface ForecastStage {
   label: string;
+  order: number;
   amount: number;
   prob: number;
   weighted: number;
@@ -294,9 +307,10 @@ export function buildForecast(
   const byStage = funnel
     .map((s) => {
       const prob = STAGE_PROB[s.stage] ?? 0;
-      return { label: s.label, amount: s.amount, prob, weighted: Math.round(s.amount * prob) };
+      return { label: s.label, order: s.order, amount: s.amount, prob, weighted: Math.round(s.amount * prob) };
     })
-    .sort((a, b) => b.weighted - a.weighted);
+    // Порядок воронки: по стадиям (ранние сверху → договор снизу).
+    .sort((a, b) => a.order - b.order);
   const weighted = byStage.reduce((acc, x) => acc + x.weighted, 0);
   const forecastClose = paid + weighted;
   const pct = planRevenue > 0 ? Math.round((forecastClose / planRevenue) * 100) : null;
@@ -666,56 +680,50 @@ export function buildDay2Day(rows: Day2DayRow[]): Day2Day {
   return { rows, total };
 }
 
-export interface PlanFactRow {
-  key: string;
-  label: string;
-  fact: number;
-  plan: number;
-  pct: number | null;
-  money: boolean;
-  /** Подпись норматива, напр. «20/ТМ × 3». */
-  basis: string;
+export interface PlanFactManager {
+  managerId: number;
+  name: string;
+  revenueFact: number;
+  revenuePlan: number;
+  briefsFact: number;
+  briefsPlan: number;
 }
 
 export interface PlanFact {
-  rows: PlanFactRow[];
+  /** Оплаты: командный план на отдел + факт команды. */
+  revenueTeamFact: number;
+  revenueTeamPlan: number;
+  /** Индивидуальные планы оплат + брифы по МОП. */
+  managers: PlanFactManager[];
+  briefsTeamFact: number;
+  briefsTeamPlan: number;
 }
 
 export interface PlanFactInput {
-  revenueFact: number;
-  revenuePlan: number;
-  meetingsSetFact: number;
-  meetingsPlanPerTm: number;
-  tmCount: number;
-  briefsFact: number;
+  revenueTeamFact: number;
+  revenueTeamPlan: number;
+  /** Норматив брифов на одного МОП. */
   briefsPlanPerMop: number;
-  mopCount: number;
+  /** Менеджеры с индивидуальным планом оплат (Деговцова, Семенихин). */
+  managers: { managerId: number; name: string; revenueFact: number; revenuePlan: number; briefsFact: number }[];
 }
 
-/** План/факт по ключевым метрикам отдела. Чистая функция. */
+/** План/факт месяца: командные оплаты + индивидуальные планы (оплаты/брифы). Чистая. */
 export function buildPlanFact(i: PlanFactInput): PlanFact {
-  const row = (key: string, label: string, fact: number, plan: number, money: boolean, basis: string): PlanFactRow => ({
-    key,
-    label,
-    fact,
-    plan,
-    pct: plan > 0 ? Math.round((fact / plan) * 100) : null,
-    money,
-    basis,
-  });
+  const managers: PlanFactManager[] = i.managers.map((m) => ({
+    managerId: m.managerId,
+    name: m.name,
+    revenueFact: m.revenueFact,
+    revenuePlan: m.revenuePlan,
+    briefsFact: m.briefsFact,
+    briefsPlan: i.briefsPlanPerMop,
+  }));
   return {
-    rows: [
-      row('revenue', 'Оплаты, ₽', i.revenueFact, i.revenuePlan, true, 'на отдел'),
-      row(
-        'meetings',
-        'Встречи назначено (ТМ)',
-        i.meetingsSetFact,
-        i.meetingsPlanPerTm * i.tmCount,
-        false,
-        `${i.meetingsPlanPerTm}/ТМ × ${i.tmCount}`,
-      ),
-      row('briefs', 'Брифы', i.briefsFact, i.briefsPlanPerMop * i.mopCount, false, `${i.briefsPlanPerMop}/МОП × ${i.mopCount}`),
-    ],
+    revenueTeamFact: i.revenueTeamFact,
+    revenueTeamPlan: i.revenueTeamPlan,
+    managers,
+    briefsTeamFact: managers.reduce((a, m) => a + m.briefsFact, 0),
+    briefsTeamPlan: i.briefsPlanPerMop * managers.length,
   };
 }
 
@@ -774,7 +782,7 @@ function ddmm(d: Date): string {
 }
 
 /** Окно периода + предыдущее окно для Δ. Месяц — календарный; неделя — 7 дней до снимка. */
-function computeWindow(snapshotDate: string, range: Period): Window {
+export function computeWindow(snapshotDate: string, range: Period): Window {
   if (range === 'week') {
     const [y, m, d] = snapshotDate.split('-').map(Number);
     const endD = new Date(Date.UTC(y, m - 1, d));
@@ -796,8 +804,13 @@ function computeWindow(snapshotDate: string, range: Period): Window {
   const mb = monthBounds(snapshotDate);
   const [py, pm] = mb.start.split('-').map(Number);
   const prevStart = `${pm === 1 ? py - 1 : py}-${String(pm === 1 ? 12 : pm - 1).padStart(2, '0')}-01`;
-  const prevEndDay = new Date(Date.UTC(py, pm - 1, 0)).getUTCDate();
-  const prevEnd = `${prevStart.slice(0, 7)}-${String(prevEndDay).padStart(2, '0')}`;
+  // Δ — к аналогичному периоду прошлого месяца ПО КАЛЕНДАРНЫМ ДНЯМ: текущий месяц
+  // неполный (1..N до снимка), поэтому прошлый тоже обрезаем по дню снимка N, а не
+  // берём полный месяц (иначе MTD всегда «проваливается» −70% просто из-за неполноты).
+  const snapDay = Number(snapshotDate.slice(8, 10));
+  const prevMonthLastDay = new Date(Date.UTC(py, pm - 1, 0)).getUTCDate();
+  const prevDay = Math.min(snapDay, prevMonthLastDay);
+  const prevEnd = `${prevStart.slice(0, 7)}-${String(prevDay).padStart(2, '0')}`;
   return { ...mb, prevStart, prevEnd };
 }
 
@@ -823,6 +836,9 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
       dialsTotal: 0,
       kpTotal: 0,
       dealsCreatedTotal: 0,
+      paymentsTotal: 0,
+      rejectionsCount: 0,
+      briefsTotal: 0,
       salesFunnel: buildSalesFunnel({
         dealsTotal: 0, dealsCold: 0, dealsIncoming: 0, firstMeetings: 0,
         presentations: 0, kpSent: 0, wonCount: 0, wonAmount: 0,
@@ -838,10 +854,10 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
       monthly: [],
       day2day: buildDay2Day([]),
       planFact: buildPlanFact({
-        revenueFact: 0, revenuePlan: 0, meetingsSetFact: 0, meetingsPlanPerTm: 0,
-        tmCount: 0, briefsFact: 0, briefsPlanPerMop: 0, mopCount: 0,
+        revenueTeamFact: 0, revenueTeamPlan: 0, briefsPlanPerMop: 0, managers: [],
       }),
-      deltas: { meetings: zeroDelta, dials: zeroDelta, kp: zeroDelta, deals: zeroDelta },
+      salesRejections: emptyBundle('—'),
+      deltas: { meetings: zeroDelta, dials: zeroDelta, kp: zeroDelta, deals: zeroDelta, payments: zeroDelta, rejections: zeroDelta, briefs: zeroDelta },
       trend: [],
       health: 0,
       generatedAt: null,
@@ -1268,47 +1284,112 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
     });
   const meetingQuality = buildMeetingQuality(mqInputs);
 
-  // Планы месяца (общие, manager_id IS NULL): revenue (на отдел), meetings (на ТМ),
-  // briefs (на МОП). Прогноз/pacing — к плану выручки; план/факт — ко всем трём.
-  const monthPlanRows = await db
-    .select({ metric: plans.metric, target: plans.target })
+  // Планы месяца: общие (manager_id IS NULL) — revenue (командный на отдел),
+  // briefs (норматив на МОП); индивидуальные (manager_id NOT NULL) — revenue по МОП.
+  const period = snapshotDate.slice(0, 7);
+  const allPlanRows = await db
+    .select({ managerId: plans.managerId, metric: plans.metric, target: plans.target })
     .from(plans)
-    .where(and(eq(plans.period, snapshotDate.slice(0, 7)), sql`${plans.managerId} is null`));
+    .where(eq(plans.period, period));
   const planMap: Record<string, number> = {};
-  for (const r of monthPlanRows) planMap[r.metric] = Number(r.target);
+  const indivRevenuePlan = new Map<number, number>();
+  for (const r of allPlanRows) {
+    if (r.managerId == null) planMap[r.metric] = Number(r.target);
+    else if (r.metric === 'revenue') indivRevenuePlan.set(r.managerId, Number(r.target));
+  }
   const planRevenue = planMap['revenue'] ?? 0;
   const [fy, fm, fd] = snapshotDate.split('-').map(Number);
   const daysInMonth = new Date(Date.UTC(fy, fm, 0)).getUTCDate();
   const forecast = buildForecast(funnel, salesFunnel.wonAmount, planRevenue, fd, daysInMonth);
 
+  // Индивидуальные МОП (у кого персональный план оплат): факт оплат/брифов — из team.
+  const teamById = new Map(team.map((m) => [m.managerId, m]));
+  const pfManagers = [...indivRevenuePlan.entries()]
+    .map(([id, revenuePlan]) => {
+      const tm = teamById.get(id);
+      return {
+        managerId: id,
+        name: tm?.name ?? `id ${id}`,
+        revenueFact: tm ? tm.dealsWonAmount : 0,
+        revenuePlan,
+        briefsFact: tm ? tm.briefs : 0,
+      };
+    })
+    .sort((a, b) => b.revenuePlan - a.revenuePlan || a.name.localeCompare(b.name, 'ru'));
+
   const planFact = buildPlanFact({
-    revenueFact: salesFunnel.wonAmount,
-    revenuePlan: planRevenue,
-    meetingsSetFact: tmActivity.meetingsSet,
-    meetingsPlanPerTm: planMap['meetings'] ?? 0,
-    tmCount: tmActivity.zvonari,
-    briefsFact: team.reduce((a, m) => a + m.briefs, 0),
+    revenueTeamFact: salesFunnel.wonAmount,
+    revenueTeamPlan: planRevenue,
     briefsPlanPerMop: planMap['briefs'] ?? 0,
-    mopCount: team.filter((m) => isSalesDept(m.role) && !isTelemarketing(m.role)).length,
+    managers: pfManagers,
   });
 
-  // Δ к предыдущему окну (месяц→прошлый месяц, неделя→прошлая неделя).
+  // Δ к предыдущему окну (месяц→прошлый месяц, неделя→прошлая неделя). Окна уже
+  // выровнены «по календарным дням 1..N» в computeWindow.
+  const briefsTotal = team.reduce((s, x) => s + x.briefs, 0);
   const prevRows = await db
     .select({
       dials: sql<number>`coalesce(sum(${managerActivity.dialsTotal}),0)`,
       kp: sql<number>`coalesce(sum(${managerActivity.kpSent}),0)`,
       deals: sql<number>`coalesce(sum(${managerActivity.dealsCreatedCount}),0)`,
+      briefs: sql<number>`coalesce(sum(${managerActivity.briefsCreated}),0)`,
     })
     .from(managerActivity)
     .where(and(gte(managerActivity.reportDate, prevStart), lte(managerActivity.reportDate, prevEnd)));
-  const prev = prevRows[0] ?? { dials: 0, kp: 0, deals: 0 };
+  const prev = prevRows[0] ?? { dials: 0, kp: 0, deals: 0, briefs: 0 };
   // «Проведено» прошлого окна — из событийного слоя (всё окно, без sales-фильтра, как раньше).
   const prevHeld = (await fetchHeldRows(prevStart, prevEnd)).reduce((s, r) => s + r.n, 0);
+
+  // Отказы воронки Продажи (C10:LOSE, без СПАМ) — счётчик за текущее окно vs прошлое,
+  // по дате отказа в МСК (deal_rejections, событийный слой).
+  const rejAtMsk = sql`(${dealRejections.rejectedAt} AT TIME ZONE 'Europe/Moscow')::date`;
+  const notSpam = sql`${dealRejections.reasonId} IS DISTINCT FROM ${SPAM_REASON_10}`;
+  const countRejections = async (s: string, e: string): Promise<number> => {
+    const r = await db
+      .select({ n: sql<number>`count(*)` })
+      .from(dealRejections)
+      .where(and(eq(dealRejections.stageId, SALES_LOSE_STAGE), notSpam, gte(rejAtMsk, s), lte(rejAtMsk, e)));
+    return Number(r[0]?.n ?? 0);
+  };
+  const [rejectionsCount, rejectionsPrev] = await Promise.all([
+    countRejections(start, end),
+    countRejections(prevStart, prevEnd),
+  ]);
+
+  // Оплаты (Приходы 2026, КД без НДС, отдел Продажи). Сравнение «по календарным дням»:
+  // текущее окно [start,end] (для месяца = 1..N до снимка) vs прошлое [prevStart,prevEnd]
+  // (прошлый месяц 1..N). «Эффективная дата» оплаты = pay_date, если он валидный
+  // дд.мм.гггг; иначе 1-е число месяца из pay_year/pay_month (часть строк заполнена
+  // только одной из колонок — ловим обе). Вложенный CASE, чтобы to_date не падал на
+  // кривых строках. Так суммы видны независимо от того, какая колонка заполнена.
+  const payFullDate = sql`${payments.payDate} ~ '^[0-9]{1,2}[.][0-9]{1,2}[.][0-9]{4}$'`;
+  const payEffDate = sql`coalesce(
+    case when ${payFullDate} then to_date(${payments.payDate}, 'DD.MM.YYYY') end,
+    case when ${payments.payYear} is not null and ${payments.payMonth} is not null
+         then make_date(${payments.payYear}, ${payments.payMonth}, 1) end
+  )`;
+  const sumPayBetween = async (s: string, e: string): Promise<number> => {
+    const r = await db
+      .select({
+        amt: sql<number>`coalesce(sum(case when ${payEffDate} between ${s}::date and ${e}::date then ${payments.kdNoVat} else 0 end),0)`,
+      })
+      .from(payments)
+      .where(eq(payments.dept, 'Продажи'));
+    return Number(r[0]?.amt ?? 0);
+  };
+  const [paymentsTotal, paymentsPrev] = await Promise.all([
+    sumPayBetween(start, end),
+    sumPayBetween(prevStart, prevEnd),
+  ]);
+
   const deltas = {
     meetings: delta(meetingsHeldTotal, prevHeld),
     dials: delta(dialsTotal, Number(prev.dials)),
     kp: delta(kpTotal, Number(prev.kp)),
     deals: delta(dealsCreatedTotal, Number(prev.deals)),
+    payments: delta(paymentsTotal, paymentsPrev),
+    rejections: delta(rejectionsCount, rejectionsPrev),
+    briefs: delta(briefsTotal, Number(prev.briefs)),
   };
 
   // Тренд по дням месяца — для спарклайнов. Скелет дней и звонки — из активности,
@@ -1410,6 +1491,9 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
   });
   const operational = buildOperationalMatrix(operDays, operMembers);
 
+  // Отказы воронки Продажи — с начала года до опорного дня (независимо от пикера).
+  const salesRejections = await getSalesRejections(snapshotDate);
+
   return {
     monthLabel: label,
     snapshotDate,
@@ -1423,6 +1507,9 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
     dialsTotal,
     kpTotal,
     dealsCreatedTotal,
+    paymentsTotal,
+    rejectionsCount,
+    briefsTotal,
     salesFunnel,
     forecast,
     meetingQuality,
@@ -1435,6 +1522,7 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
     monthly,
     day2day,
     planFact,
+    salesRejections,
     deltas,
     trend,
     health,

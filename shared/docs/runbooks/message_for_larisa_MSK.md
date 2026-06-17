@@ -1,7 +1,7 @@
 # Сообщение для Ларисы (MSK)
 
 Выполни задачу полностью в каталоге:
-`/Users/pro2kuror/Desktop/OpenClo/projects/engineer`
+`/Users/pro2kuror/Desktop/VibeCoding/cloudbot`
 
 ## Цель
 Довести интеграции до статуса `ОК`:
@@ -14,7 +14,7 @@
 ## Действия
 1. Запусти:
 ```bash
-cd "/Users/pro2kuror/Desktop/OpenClo/projects/engineer"
+cd "/Users/pro2kuror/Desktop/VibeCoding/cloudbot"
 chmod +x ./scripts/larisa_finalize.sh
 ./scripts/larisa_finalize.sh
 ```

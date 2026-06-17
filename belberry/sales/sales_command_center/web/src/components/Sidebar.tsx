@@ -3,14 +3,16 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, CalendarDays, Radio, BellRing, LogOut, Search, ClipboardCheck, PhoneCall } from 'lucide-react';
+import { canSeeKp } from '@/lib/kp-access';
+import { LayoutDashboard, CalendarDays, Radio, BellRing, LogOut, Search, ClipboardCheck, PhoneCall, FileText } from 'lucide-react';
 
 const NAV = [
-  { href: '/dashboard', label: 'Dashboard', Icon: LayoutDashboard, tag: undefined },
+  { href: '/dashboard', label: 'Дашборд ОП', Icon: LayoutDashboard, tag: undefined },
+  { href: '/telemarketing', label: 'Дашборд ТМ', Icon: PhoneCall, tag: undefined },
   { href: '/today', label: 'Сегодня', Icon: Radio, tag: 'live' },
   { href: '/daily', label: 'Дневной отчёт', Icon: CalendarDays, tag: undefined },
   { href: '/meetings', label: 'Анализ встреч', Icon: ClipboardCheck, tag: undefined },
-  { href: '/telemarketing', label: 'Дашборд ТМ', Icon: PhoneCall, tag: undefined },
+  { href: '/kp', label: 'Сборка КП', Icon: FileText, tag: undefined },
   { href: '/alerts', label: 'Алерты', Icon: BellRing, tag: undefined },
 ];
 
@@ -28,6 +30,8 @@ function initials(value: string): string {
 }
 
 export function Sidebar({ user }: { user?: { email?: string; role?: string } }) {
+  // пилот «Сборка КП»: пункт меню видят только пользователи из kp-access
+  const nav = NAV.filter((item) => item.href !== '/kp' || canSeeKp(user?.email));
   const pathname = usePathname();
   const email = user?.email ?? '';
   const role = user?.role ? (ROLE_LABEL[user.role] ?? user.role) : '';
@@ -66,7 +70,7 @@ export function Sidebar({ user }: { user?: { email?: string; role?: string } }) 
           <kbd>⌘K</kbd>
         </button>
         <div className="bb-nav-label">Обзор</div>
-        {NAV.map(({ href, label, Icon, tag }) => {
+        {nav.map(({ href, label, Icon, tag }) => {
           const active = pathname === href || pathname.startsWith(`${href}/`);
           return (
             <Link

@@ -1,0 +1,45 @@
+id: larisa_assistant
+name: "Лариса Ивановна"
+role: "личный executive assistant"
+status: legacy_bridge
+delegates_to_agent: larisa-ivanovna
+source_of_truth: agents/larisa-ivanovna
+timezone: "Europe/Moscow"
+owner_scope:
+  - calendar
+  - todo
+  - weather
+  - news
+  - search
+  - organize_day
+entrypoints:
+  - day_briefing
+  - add_calendar_event
+  - search_request
+  - organize_day
+entrypoint_map:
+  day_briefing: get_day_brief
+  add_calendar_event: create_event
+  search_request: search
+  organize_day: plan_day
+blocked_domains:
+  - sales
+  - crm
+  - finance
+  - devops
+dependencies:
+  - providers/calendar
+  - providers/todo
+  - providers/weather
+  - providers/news
+  - providers/search
+output_style:
+  language: ru
+  format: telegram
+  max_action_items: 3
+telegram:
+  route_key: larisa-ivanovna
+  reuse_existing_route: true
+migration:
+  disable_direct_execution: true
+  disable_direct_telegram_dispatch: true

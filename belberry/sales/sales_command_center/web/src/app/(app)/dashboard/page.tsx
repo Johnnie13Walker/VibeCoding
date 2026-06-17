@@ -1,19 +1,17 @@
 import Link from 'next/link';
-import { Filter, FileText, TrendingUp, Target, Activity, ArrowLeftRight, Users, Phone, Mail, Clock, BarChart3, CalendarDays, Goal } from 'lucide-react';
+import { Filter, FileText, TrendingUp, Target, Activity, ArrowLeftRight, Users, Clock, BarChart3, CalendarDays, XCircle } from 'lucide-react';
 import { FunnelBars } from '@/components/dashboard/FunnelBars';
 import { SalesFunnel } from '@/components/dashboard/SalesFunnel';
-import { ForecastView } from '@/components/dashboard/Forecast';
 import { OperationalMatrixView } from '@/components/dashboard/OperationalMatrix';
 import { ManagerConversions } from '@/components/dashboard/ManagerConversions';
 import { ManagerPipelineView } from '@/components/dashboard/ManagerPipeline';
-import { TmActivityView } from '@/components/dashboard/TmActivity';
-import { MessagingView } from '@/components/dashboard/Messaging';
 import { VelocityView } from '@/components/dashboard/Velocity';
 import { MonthlyDynamics } from '@/components/dashboard/MonthlyDynamics';
 import { Day2DayView } from '@/components/dashboard/Day2Day';
 import { PlanFactView } from '@/components/dashboard/PlanFact';
 import { KpiCard } from '@/components/dashboard/KpiCard';
 import { Gauge } from '@/components/dashboard/Gauge';
+import { SalesRejectionsView } from '@/components/dashboard/SalesRejections';
 import { getDashboardData } from '@/lib/dashboard';
 
 export const dynamic = 'force-dynamic';
@@ -62,8 +60,8 @@ export default async function DashboardPage({
       <div className="bb-hero bb-aurora">
         <div className="bb-hero-row">
           <div style={{ flex: 1 }}>
-            <div className="bb-hero-eyebrow">Отдел продаж · {data.monthLabel}</div>
-            <h1 className="bb-hero-title">Командный центр</h1>
+            <div className="bb-hero-eyebrow">Командный центр · Отдел продаж · {data.monthLabel}</div>
+            <h1 className="bb-hero-title">Дашборд ОП</h1>
             <div className="bb-hero-sub">
               Снимок воронки {data.snapshotDate ?? '—'} · {data.funnelCount} открытых сделок на {rub(data.funnelAmount)}
               {data.generatedAt ? ` · отчёт сформирован ${fmtMsk(data.generatedAt)} МСК` : ''}
@@ -85,15 +83,19 @@ export default async function DashboardPage({
       {/* KPI */}
       <div className="bb-grid bb-grid-4" style={{ marginBottom: 22 }}>
         <KpiCard label="Сумма воронки" value={data.funnelAmount} money icon="wallet" />
-        <KpiCard label={`Встречи ${per}`} value={data.meetingsHeldTotal} icon="handshake" delta={data.deltas.meetings} trend={meetingsTrend} />
-        <KpiCard label={`Наборы ${per}`} value={data.dialsTotal} icon="phone" delta={data.deltas.dials} trend={dialsTrend} />
+        <KpiCard label={`Оплаты ${per}`} value={data.paymentsTotal} money icon="coins" delta={data.deltas.payments} />
         <KpiCard label={`Сделки ${per}`} value={data.dealsCreatedTotal} icon="zap" delta={data.deltas.deals} />
+        <KpiCard label={`Отказы ${per}`} value={data.rejectionsCount} icon="ban" delta={data.deltas.rejections} invert />
+        <KpiCard label={`Встречи ${per}`} value={data.meetingsHeldTotal} icon="handshake" delta={data.deltas.meetings} trend={meetingsTrend} />
+        <KpiCard label={`Брифы ${per}`} value={data.briefsTotal} icon="clipboard" delta={data.deltas.briefs} />
+        <KpiCard label={`КП ${per}`} value={data.kpTotal} icon="file" delta={data.deltas.kp} />
+        <KpiCard label={`Наборы ${per}`} value={data.dialsTotal} icon="phone" delta={data.deltas.dials} trend={dialsTrend} />
       </div>
 
-      {/* Прогноз закрытия месяца + pacing (КД-хедлайн) */}
+      {/* План / факт месяца: прогноз + оплаты + брифы + воронка (единый блок) */}
       <div className="bb-card" style={{ marginBottom: 16 }}>
-        <SectionHead icon={<Target size={17} />} title="Прогноз закрытия месяца" hint="взвешенная воронка + темп" />
-        <ForecastView data={data.forecast} />
+        <SectionHead icon={<Target size={17} />} title="План / факт месяца" hint={data.monthLabel} />
+        <PlanFactView forecast={data.forecast} data={data.planFact} />
       </div>
 
       {/* Воронка продаж — снимок открытых сделок по стадиям */}
@@ -120,23 +122,18 @@ export default async function DashboardPage({
         <ManagerConversions data={data.managerConversions} />
       </div>
 
+      {/* Отказы — динамика с начала года (воронка Продажи, C10:LOSE) + мультиселект МП */}
+      <div className="bb-card" style={{ marginBottom: 16 }}>
+        <SectionHead icon={<XCircle size={17} />} title="Отказы — динамика с начала года" hint={`воронка Продажи · ${data.salesRejections.yearLabel}`} />
+        <SalesRejectionsView data={data.salesRejections} />
+      </div>
+
       {/* Воронка по менеджерам · текущее состояние + Δ за месяц */}
       <div className="bb-card" style={{ marginBottom: 16 }}>
         <SectionHead icon={<Users size={17} />} title="Воронка по менеджерам" hint="снимок + изменение за месяц" />
         <ManagerPipelineView data={data.managerPipeline} />
       </div>
 
-      {/* Активность ТМ · звонки */}
-      <div className="bb-card" style={{ marginBottom: 16 }}>
-        <SectionHead icon={<Phone size={17} />} title="Активность ТМ · звонки" hint={per} />
-        <TmActivityView data={data.tmActivity} />
-      </div>
-
-      {/* Мессенджеры и почта */}
-      <div className="bb-card" style={{ marginBottom: 16 }}>
-        <SectionHead icon={<Mail size={17} />} title="Мессенджеры и почта" hint={per} />
-        <MessagingView data={data.messaging} />
-      </div>
 
       {/* Скорость воронки + деньги по возрасту */}
       <div className="bb-card" style={{ marginBottom: 16 }}>
@@ -154,12 +151,6 @@ export default async function DashboardPage({
       <div className="bb-card" style={{ marginBottom: 16 }}>
         <SectionHead icon={<CalendarDays size={17} />} title="Day2Day" hint={`${data.monthLabel} · по дням`} />
         <Day2DayView data={data.day2day} />
-      </div>
-
-      {/* План / факт */}
-      <div className="bb-card" style={{ marginBottom: 16 }}>
-        <SectionHead icon={<Goal size={17} />} title="План / факт" hint={data.monthLabel} />
-        <PlanFactView data={data.planFact} />
       </div>
 
       {/* Дальше: win rate + источники (нужна мелкая правка раннера). */}

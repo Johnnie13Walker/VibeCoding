@@ -1,6 +1,7 @@
 import { PhoneCall, PhoneForwarded, Timer, Handshake, FileText, Zap, Activity, CalendarClock, ExternalLink, Mail, MessageCircle } from 'lucide-react';
-import { getLive, getDayBreakdown, type LiveData } from '@/lib/live';
+import { getLive, getDayBreakdown, type LiveData, type LiveMeeting } from '@/lib/live';
 import { DaySelect } from '@/components/DaySelect';
+import { FeedView } from '@/components/today/FeedView';
 
 // Данные Командного центра ведутся с запуска (1 июня 2026) — раньше выбирать нечего.
 const DATA_START = '2026-06-01';
@@ -27,10 +28,91 @@ function timeOnly(at: string): string {
   } catch { return ''; }
 }
 
-const FEED_ICON: Record<string, React.ReactNode> = {
-  meeting: <Handshake size={16} />, brief: <FileText size={16} />, kp: <FileText size={16} />, deal: <Zap size={16} />,
+const spUrlKp = (id: number) => spUrl(1106, id);
+
+// Порог годовой выручки для телемаркетинга: ниже — кандидат на автоотвал (подсветка).
+const REVENUE_LOW_THRESHOLD = 30_000_000;
+
+const MEETING_TYPE: Record<string, { label: string; color: string; bg: string }> = {
+  briefing: { label: 'Брифинг', color: '#4a3fd0', bg: '#eef0ff' },
+  defense: { label: 'Защита КП', color: '#c0297e', bg: '#fdeef6' },
 };
-const FEED_LABEL: Record<string, string> = { meeting: 'встреча', brief: 'бриф', kp: 'КП', deal: 'сделка' };
+const STATUS_PILL: Record<string, { label: string; bg: string; color: string }> = {
+  held: { label: 'проведена', bg: '#e7f4ec', color: 'var(--bb-green)' },
+  scheduled: { label: 'назначена', bg: 'var(--bb-violet-soft)', color: 'var(--bb-violet)' },
+  cancelled: { label: 'отменена', bg: '#fdeced', color: 'var(--bb-red)' },
+};
+const WEEKDAYS = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
+
+// Срезаем хвост «(Брифинг)»/«(Бриффинг)»/«(Защита КП)» из названия встречи —
+// тип уже показан плашкой, дублировать в заголовке (да ещё с опечаткой) не нужно.
+function cleanMeetingTitle(t: string): string {
+  return t.replace(/\s*\([^)]*(?:бриф|защит)[^)]*\)\s*$/i, '').trim() || t;
+}
+
+function fmtRevenue(rub: number): string {
+  if (rub >= 1_000_000_000) return `${(rub / 1_000_000_000).toFixed(rub % 1_000_000_000 ? 1 : 0)} млрд ₽`;
+  if (rub >= 1_000_000) return `${Math.round(rub / 1_000_000)} млн ₽`;
+  if (rub >= 1_000) return `${Math.round(rub / 1_000)} тыс ₽`;
+  return `${rub} ₽`;
+}
+
+/** День недели и его номер (0=вс) по дате встречи в МСК. */
+function weekdayMsk(at: string): { wd: string; weekend: boolean } | null {
+  try {
+    const msk = new Date(new Date(at).toLocaleString('en-US', { timeZone: 'Europe/Moscow' }));
+    const n = msk.getDay(); // 0=вс … 6=сб
+    return { wd: WEEKDAYS[n], weekend: n === 0 || n === 6 };
+  } catch { return null; }
+}
+
+/**
+ * Строка встречи. showDate=true → колонка дата+день недели (для назначенных на
+ * другую дату); иначе только время. Выручку показываем только для ТМ-брифингов.
+ */
+const PILL: React.CSSProperties = { display: 'inline-block', fontSize: 11, fontWeight: 600, borderRadius: 999, padding: '3px 9px', whiteSpace: 'nowrap', lineHeight: 1.5 };
+const REV_CHIP: React.CSSProperties = { ...PILL, fontWeight: 700, background: '#fff', border: '1px solid var(--bb-line)', color: 'var(--bb-ink)' };
+const REV_CHIP_LOW: React.CSSProperties = { ...PILL, fontWeight: 700, background: '#fdeced', color: 'var(--bb-red)' };
+const TIMECOL: React.CSSProperties = { fontWeight: 600, fontSize: 13, color: 'var(--bb-violet)', flex: '0 0 auto' };
+
+function MeetingRow({ m, showDate }: { m: LiveMeeting; showDate: boolean }) {
+  const st = STATUS_PILL[m.status] ?? STATUS_PILL.scheduled;
+  const ty = m.type ? MEETING_TYPE[m.type] : null;
+  const showRevenue = m.type === 'briefing' && m.creatorIsTm && m.companyRevenue != null;
+  const low = showRevenue && (m.companyRevenue as number) < REVENUE_LOW_THRESHOLD;
+  const wk = showDate ? weekdayMsk(m.at) : null;
+  return (
+    <li className="bb-alert-row" style={{ gap: 14, alignItems: 'flex-start' }}>
+      {showDate ? (
+        <span style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.35, minWidth: 52, flex: '0 0 auto' }}>
+          <b className="tabular" style={TIMECOL}>{fmtDate2(m.at)}</b>
+          {wk ? <span style={{ fontSize: 11, fontWeight: 600, color: wk.weekend ? 'var(--bb-red)' : 'var(--bb-faint)' }}>{wk.wd}</span> : null}
+        </span>
+      ) : (
+        <span className="tabular" style={{ ...TIMECOL, minWidth: 46 }}>{timeOnly(m.at) || '—'}</span>
+      )}
+      <div style={{ minWidth: 0, flex: 1 }}>
+        {m.id ? <a className="bb-alert-title" href={spUrl(1048, m.id)} target="_blank" rel="noopener noreferrer">{cleanMeetingTitle(m.title)} <ExternalLink size={12} /></a> : <span style={{ fontWeight: 600, fontSize: 14 }}>{cleanMeetingTitle(m.title)}</span>}
+        <p className="bb-alert-meta">
+          {ty ? <span style={{ ...PILL, background: ty.bg, color: ty.color }}>{ty.label}</span> : null}
+          <span>· {m.manager}</span>
+          {showRevenue ? <span style={low ? REV_CHIP_LOW : REV_CHIP}>выручка {fmtRevenue(m.companyRevenue as number)}</span> : null}
+        </p>
+      </div>
+      {showDate ? (
+        <span className="tabular" style={{ ...TIMECOL, paddingTop: 1, whiteSpace: 'nowrap' }}>{timeOnly(m.at)}</span>
+      ) : (
+        <span style={{ ...PILL, background: st.bg, color: st.color, flex: '0 0 auto' }}>{st.label}</span>
+      )}
+    </li>
+  );
+}
+
+function fmtDate2(at: string): string {
+  try {
+    return new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: '2-digit', timeZone: 'Europe/Moscow' }).format(new Date(at));
+  } catch { return ''; }
+}
 
 function Tile({ icon, label, value, sub }: { icon: React.ReactNode; label: string; value: React.ReactNode; sub?: string }) {
   return (
@@ -60,11 +142,21 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
 
   const t = data?.totals;
   const connect = t && t.dials ? Math.round((t.answered / t.dials) * 100) : 0;
-  const MSTATUS: Record<string, { label: string; bg: string; color: string }> = {
-    held: { label: 'проведена', bg: '#e7f4ec', color: 'var(--bb-green)' },
-    scheduled: { label: 'назначена', bg: 'var(--bb-violet-soft)', color: 'var(--bb-violet)' },
-    cancelled: { label: 'отменена', bg: '#fdeced', color: 'var(--bb-red)' },
+
+  // Разбиение встреч: «проводятся в этот день» vs «назначены сегодня на другую дату».
+  const refDay = isArchive ? (selected as string) : todayMsk;
+  const meetingDay = (at: string): string => {
+    if (!at) return '';
+    try { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Moscow' }).format(new Date(at)); } catch { return ''; }
   };
+  const allMeetings = data?.meetings ?? [];
+  const meetingsSetOther = allMeetings.filter((m) => m.setToday && meetingDay(m.at) !== refDay);
+  const meetingsHappening = allMeetings.filter((m) => !(m.setToday && meetingDay(m.at) !== refDay));
+  const hasSetOther = meetingsSetOther.length > 0;
+
+  // «КП получено»: только закрытые по процессу — Готово (success) и Не актуально
+  // (rejected, с плашкой «Отклонено»). КП в работе не показываем.
+  const kpClosed = (data?.kp ?? []).filter((k) => k.status === 'success' || k.status === 'rejected');
 
   return (
     <div className="bb-page bb-fade">
@@ -138,27 +230,31 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
             )}
           </div>
 
-          <div className="bb-grid k2" style={{ gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          {/* Ряд 1: встречи сегодня / назначены на другую дату */}
+          <div className="bb-grid k2" style={{ gridTemplateColumns: hasSetOther ? '1fr 1fr' : '1fr', gap: 16 }}>
             <div className="bb-card">
-              <div className="bb-sect-head"><span className="bb-sect-ic"><CalendarClock size={17} /></span><h2>Встречи</h2><small>{t.meetingsHeld} провед. · {t.meetingsScheduled} назнач.{isArchive ? '' : ' сегодня'} · {t.meetingsCancelled} отмен.</small></div>
-              {data!.meetings.length === 0 ? (
+              <div className="bb-sect-head"><span className="bb-sect-ic"><CalendarClock size={17} /></span><h2>Встречи{isArchive ? '' : ' сегодня'}</h2><small>{t.meetingsHeld} провед. · {t.meetingsScheduled} назнач. · {t.meetingsCancelled} отмен.</small></div>
+              {meetingsHappening.length === 0 ? (
                 <p style={{ color: 'var(--bb-muted)' }}>Встреч нет.</p>
               ) : (
                 <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column' }}>
-                  {data!.meetings.map((m, i) => (
-                    <li key={i} className="bb-alert-row" style={{ gap: 10 }}>
-                      <span className="tabular" style={{ fontWeight: 700, fontSize: 13, color: 'var(--bb-violet)', flex: '0 0 auto' }}>{fmtMsk(m.at)}</span>
-                      <div style={{ minWidth: 0, flex: 1 }}>
-                        {m.dealId ? <a className="bb-alert-title" href={dealUrl(m.dealId)} target="_blank" rel="noopener noreferrer">{m.title} <ExternalLink size={12} /></a> : <span style={{ fontWeight: 600, fontSize: 14 }}>{m.title}</span>}
-                        <p className="bb-alert-meta">{m.manager}</p>
-                      </div>
-                      <span className="bb-reason" style={{ background: MSTATUS[m.status].bg, color: MSTATUS[m.status].color }}>{MSTATUS[m.status].label}</span>
-                    </li>
-                  ))}
+                  {meetingsHappening.map((m, i) => <MeetingRow key={`h${i}`} m={m} showDate={false} />)}
                 </ul>
               )}
             </div>
 
+            {hasSetOther ? (
+              <div className="bb-card">
+                <div className="bb-sect-head"><span className="bb-sect-ic"><CalendarClock size={17} /></span><h2>Встречи назначены</h2><small>сегодня назначили на другую дату · {meetingsSetOther.length}</small></div>
+                <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column' }}>
+                  {meetingsSetOther.map((m, i) => <MeetingRow key={`o${i}`} m={m} showDate={true} />)}
+                </ul>
+              </div>
+            ) : null}
+          </div>
+
+          {/* Ряд 2: брифы / КП */}
+          <div className="bb-grid k2" style={{ gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 16 }}>
             <div className="bb-card">
               <div className="bb-sect-head"><span className="bb-sect-ic"><FileText size={17} /></span><h2>Брифы</h2><small>{data!.briefs.length}</small></div>
               {data!.briefs.length === 0 ? (
@@ -180,26 +276,35 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
                 </ul>
               )}
             </div>
-          </div>
 
-          <div className="bb-card" style={{ marginTop: 16 }}>
-              <div className="bb-sect-head"><span className="bb-sect-ic"><Activity size={17} /></span><h2>Лента</h2><small>события дня</small></div>
-              {data!.feed.length === 0 ? (
-                <p style={{ color: 'var(--bb-muted)' }}>{isArchive ? 'Событий за день не сохранено.' : 'Событий пока нет.'}</p>
+            <div className="bb-card">
+              <div className="bb-sect-head"><span className="bb-sect-ic"><FileText size={17} /></span><h2>КП получено</h2><small>{kpClosed.length}</small></div>
+              {kpClosed.length === 0 ? (
+                <p style={{ color: 'var(--bb-muted)' }}>КП нет.</p>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-                  {data!.feed.map((e, i) => (
-                    <div key={i} style={{ display: 'flex', gap: 9, alignItems: 'center', fontSize: 13, padding: '8px 10px', border: '1px solid var(--bb-line)', borderRadius: 10 }}>
-                      <span style={{ color: 'var(--bb-violet)', display: 'inline-flex' }}>{FEED_ICON[e.kind]}</span>
-                      <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        <b style={{ fontWeight: 600 }}>{e.title}</b> <span style={{ color: 'var(--bb-faint)' }}>· {e.manager} · {FEED_LABEL[e.kind]}</span>
+                <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column' }}>
+                  {kpClosed.map((k, i) => (
+                    <li key={i} className="bb-alert-row" style={{ gap: 10 }}>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        {k.id ? <a className="bb-alert-title" href={spUrlKp(k.id)} target="_blank" rel="noopener noreferrer">{k.title} <ExternalLink size={12} /></a> : <span style={{ fontWeight: 600, fontSize: 14 }}>{k.title}</span>}
+                        <p className="bb-alert-meta">
+                          {k.manager}
+                          {k.dealId ? <> · <a href={dealUrl(k.dealId)} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--bb-violet)' }}>сделка</a></> : null}
+                        </p>
+                      </div>
+                      <span style={{ display: 'inline-flex', gap: 6, flex: '0 0 auto', alignItems: 'center' }}>
+                        {k.status === 'rejected' ? <span className="bb-reason" style={{ background: '#fdeced', color: 'var(--bb-red)' }}>Отклонено</span> : null}
+                        {k.service ? <span className="bb-reason" style={{ background: 'var(--bb-violet-soft)', color: 'var(--bb-violet)' }}>{k.service}</span> : null}
                       </span>
-                      <span style={{ marginLeft: 'auto', color: 'var(--bb-faint)', fontSize: 12, whiteSpace: 'nowrap' }}>{timeOnly(e.at)}</span>
-                    </div>
+                    </li>
                   ))}
-                </div>
+                </ul>
               )}
             </div>
+          </div>
+
+          {/* Лента событий дня (кликабельна + фильтр) */}
+          <FeedView items={data!.feed} isArchive={isArchive} />
         </>
       )}
     </div>

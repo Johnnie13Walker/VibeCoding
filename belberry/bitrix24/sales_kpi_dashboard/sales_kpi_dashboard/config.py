@@ -49,7 +49,12 @@ PRODUCTS: dict[str, int] = {
 OTHER_PRODUCT = "Прочее"
 
 TM_POSITION_REGEX = re.compile(r"телемарк", re.IGNORECASE)
-MOP_POSITION_REGEX = re.compile(r"менеджер по продаж", re.IGNORECASE)
+# Захватывает «Менеджер по продажам» и «Руководитель отдела продаж» (РОП-продавец).
+# НЕ захватывает «Аккаунт-менеджер», «Руководитель отдела аккаунтинга»,
+# «Административный менеджер», «Контент-менеджер».
+MOP_POSITION_REGEX = re.compile(
+    r"менеджер по продаж|руководитель отдела продаж", re.IGNORECASE
+)
 
 RECENT_WEEKS = 8
 

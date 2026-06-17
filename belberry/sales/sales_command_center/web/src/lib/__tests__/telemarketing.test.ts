@@ -6,7 +6,12 @@ import {
   buildTmManagerTable,
   buildTmMicroFunnel,
   buildTmFunnel50,
+  buildTmFunnel50Flat,
+  aggregateTmFunnel,
+  aggregateTmDialsHeatmap,
   buildTmMonthly,
+  aggregateTmMonthlyRows,
+  aggregateTmMonthlyPeriod,
   buildTmMeetingsResult,
   buildTmPlanFact,
   buildTmOutreach,
@@ -99,19 +104,47 @@ describe('buildTmMicroFunnel', () => {
   });
 });
 
-describe('buildTmFunnel50', () => {
+describe('buildTmFunnel50Flat', () => {
   it('считает по стадиям в порядке воронки и игнорирует чужие коды', () => {
     const cells = [
       { stage: 'C50:NEW' }, { stage: 'C50:NEW' }, { stage: 'C50:WON' },
       { stage: 'C50:APOLOGY' }, { stage: 'C10:NEW' /* чужая */ },
     ];
-    const f = buildTmFunnel50(cells);
+    const f = buildTmFunnel50Flat(cells);
     expect(f[0].label).toBe('База');
     const byLabel = Object.fromEntries(f.map((s) => [s.label, s.count]));
     expect(byLabel['К обзвону']).toBe(2);
     expect(byLabel['Успех']).toBe(1);
     expect(byLabel['Отвал']).toBe(1);
     expect(f.reduce((a, s) => a + s.count, 0)).toBe(4); // C10:NEW не учтён
+  });
+});
+
+describe('buildTmFunnel50 + aggregateTmFunnel (по владельцам)', () => {
+  const cells = [
+    { managerId: 2832, stage: 'C50:NEW' }, { managerId: 2832, stage: 'C50:NEW' },
+    { managerId: 2832, stage: 'C50:UC_WZ4KQE' },
+    { managerId: 2806, stage: 'C50:NEW' }, { managerId: 2806, stage: 'C10:NEW' /* чужая */ },
+    { managerId: null, stage: 'C50:NEW' /* без владельца — пропуск */ },
+  ];
+  const names = new Map([[2832, 'Вострецов Аркадий'], [2806, 'Деговцова Елизавета']]);
+  const active = new Map([[2806, false]]); // Деговцова помечена уволенной для теста
+
+  it('строит гранулярку по владельцам + список выбора с тегом активности', () => {
+    const b = buildTmFunnel50(cells, names, active);
+    expect(b.perManager).toHaveLength(2);
+    expect(b.selectableManagers.find((m) => m.managerId === 2806)!.isActive).toBe(false);
+    expect(b.selectableManagers.find((m) => m.managerId === 2832)!.isActive).toBe(true); // дефолт
+    const vostr = b.perManager.find((m) => m.managerId === 2832)!;
+    expect(vostr.counts['C50:NEW']).toBe(2);
+  });
+
+  it('aggregateTmFunnel суммирует по выбранным владельцам', () => {
+    const b = buildTmFunnel50(cells, names, active);
+    const all = aggregateTmFunnel(b.perManager, new Set([2832, 2806]), b.stages);
+    expect(Object.fromEntries(all.map((s) => [s.label, s.count]))['К обзвону']).toBe(3); // 2+1
+    const only = aggregateTmFunnel(b.perManager, new Set([2806]), b.stages);
+    expect(Object.fromEntries(only.map((s) => [s.label, s.count]))['К обзвону']).toBe(1);
   });
 });
 
@@ -123,6 +156,101 @@ describe('buildTmMonthly', () => {
     expect(rows[0].talkMin).toBe(904);
     expect(rows[0].conv).toBeCloseTo(3.8, 1);
     expect(rows[0].answerPct).toBeCloseTo(69.5, 0);
+  });
+});
+
+describe('aggregateTmMonthlyRows + aggregateTmMonthlyPeriod (мультиселект)', () => {
+  const months = [
+    { ym: '2026-04', label: 'апр 26' },
+    { ym: '2026-05', label: 'май 26' },
+    { ym: '2026-06', label: 'июн 26' },
+  ];
+  const mk = (managerId: number, name: string, isActive: boolean, vals: number[][]) => ({
+    managerId,
+    name,
+    isActive,
+    rows: months.map((mo, i) => ({
+      ym: mo.ym,
+      label: mo.label,
+      dials: vals[i][0],
+      answered: 0,
+      calls60: vals[i][1],
+      talkSeconds: 0,
+      meetingsSet: vals[i][2],
+      meetingsHeldByCreator: vals[i][3],
+      rejected: 0,
+      postponed: 0,
+    })),
+    cur: { dials: 56, calls60: 30, meetingsSet: 4, held: 3 },
+    prev: { dials: 80, calls60: 40, meetingsSet: 6, held: 5 },
+  });
+  // [dials, calls60, meetingsSet, held] помесячно
+  const isa = mk(2772, 'Исаева Дарья', true, [[100, 30, 3, 2], [1336, 370, 14, 12], [200, 69, 4, 3]]);
+  const vos = mk(2832, 'Вострецов Аркадий', true, [[90, 20, 2, 1], [1220, 219, 14, 11], [180, 56, 3, 2]]);
+  vos.cur = { dials: 44, calls60: 26, meetingsSet: 3, held: 2 };
+  vos.prev = { dials: 70, calls60: 30, meetingsSet: 5, held: 4 };
+
+  it('суммирует помесячные строки по выбранным звонарям', () => {
+    const both = aggregateTmMonthlyRows([isa, vos], new Set([2772, 2832]), months);
+    expect(both).toHaveLength(3);
+    const june = both[2];
+    expect(june.dials).toBe(380); // 200 + 180
+    expect(june.calls60).toBe(125); // 69 + 56
+    expect(june.meetingsSet).toBe(7); // 4 + 3
+    expect(june.meetingsHeldByCreator).toBe(5); // 3 + 2
+  });
+
+  it('по одному звонарю даёт только его строки', () => {
+    const only = aggregateTmMonthlyRows([isa, vos], new Set([2772]), months);
+    expect(only[1].dials).toBe(1336);
+    expect(only[1].calls60).toBe(370);
+  });
+
+  it('пустой выбор → нули по всем месяцам', () => {
+    const none = aggregateTmMonthlyRows([isa, vos], new Set(), months);
+    expect(none.every((r) => r.dials === 0 && r.meetingsSet === 0)).toBe(true);
+  });
+
+  it('aggregateTmMonthlyPeriod суммирует cur/prev «на ту же дату»', () => {
+    const p = aggregateTmMonthlyPeriod([isa, vos], new Set([2772, 2832]));
+    expect(p.cur).toEqual({ dials: 100, calls60: 56, meetingsSet: 7, held: 5 }); // 56+44, 30+26, 4+3, 3+2
+    expect(p.prev).toEqual({ dials: 150, calls60: 70, meetingsSet: 11, held: 9 }); // 80+70, 40+30, 6+5, 5+4
+    const onlyIsa = aggregateTmMonthlyPeriod([isa, vos], new Set([2772]));
+    expect(onlyIsa.cur.dials).toBe(56);
+    expect(onlyIsa.prev.dials).toBe(80);
+  });
+});
+
+describe('aggregateTmDialsHeatmap (карта набора, мультиселект)', () => {
+  const perManager = [
+    { managerId: 2772, name: 'Исаева Дарья', isActive: true, cells: [
+      { dow: 1, hour: 9, dials: 30 }, { dow: 1, hour: 14, dials: 50 }, { dow: 2, hour: 9, dials: 20 },
+    ] },
+    { managerId: 2832, name: 'Вострецов Аркадий', isActive: true, cells: [
+      { dow: 1, hour: 9, dials: 10 }, { dow: 1, hour: 14, dials: 40 },
+    ] },
+  ];
+  const hours = [9, 14];
+
+  it('суммирует наборы по выбранным звонарям', () => {
+    const g = aggregateTmDialsHeatmap(perManager, new Set([2772, 2832]), hours);
+    const mon = g.rows.find((r) => r.dow === 1)!;
+    expect(mon.cells.find((c) => c.hour === 9)!.dials).toBe(40); // 30 + 10
+    expect(mon.cells.find((c) => c.hour === 14)!.dials).toBe(90); // 50 + 40
+    expect(g.maxDials).toBe(90);
+    expect(g.totalDials).toBe(150); // 30+50+20+10+40
+  });
+
+  it('по одному звонарю — только его наборы', () => {
+    const g = aggregateTmDialsHeatmap(perManager, new Set([2832]), hours);
+    expect(g.totalDials).toBe(50);
+    expect(g.rows.find((r) => r.dow === 2)!.cells.every((c) => c.dials === 0)).toBe(true);
+  });
+
+  it('пустой выбор → нули', () => {
+    const g = aggregateTmDialsHeatmap(perManager, new Set(), hours);
+    expect(g.totalDials).toBe(0);
+    expect(g.maxDials).toBe(1); // защита от деления на ноль
   });
 });
 
@@ -138,26 +266,30 @@ describe('buildTmMeetingsResult', () => {
 
 describe('buildTmPlanFact', () => {
   const input = {
-    zvonari: 2, workingDays: 19, meetingsSet: 28, dials: 2556, calls120: 0,
-    meetingsPlanPerTm: 20, dialsPerDayPlan: 100, calls120PerDayPlan: 25, convPlanPct: 4,
+    dials60PerTm: 400,
+    briefingsPerTm: 20,
+    members: [
+      { managerId: 2832, name: 'Вострецов Аркадий', calls60: 56, briefingsHeld: 6 },
+      { managerId: 2772, name: 'Исаева Дарья', calls60: 69, briefingsHeld: 5 },
+    ],
   };
-  it('строит 4 строки план/факт на 1 звонаря', () => {
-    const rows = buildTmPlanFact(input);
-    expect(rows).toHaveLength(4);
-    const meet = rows.find((r) => r.label === 'Встречи назначено')!;
-    expect(meet.fact).toBe(14); // 28/2
-    expect(meet.plan).toBe(20);
-    expect(meet.pct).toBe(70);
-    const dpd = rows.find((r) => r.label === 'Наборов в день')!;
-    expect(dpd.fact).toBe(Math.round(2556 / 2 / 19)); // 67
-    const conv = rows.find((r) => r.label === 'Конверсия наборы→встречу')!;
-    expect(conv.isPercent).toBe(true);
-    expect(conv.fact).toBeCloseTo(1.1, 1); // 28/2556
+  it('дозвоны и брифования: по звонарям + командно', () => {
+    const pf = buildTmPlanFact(input);
+    // дозвоны: команда 125 / план 800 (400×2); сортировка по факту (Исаева 69 первой)
+    expect(pf.dials60.teamFact).toBe(125);
+    expect(pf.dials60.teamPlan).toBe(800);
+    expect(pf.dials60.perTm).toBe(400);
+    expect(pf.dials60.managers[0].name).toBe('Исаева Дарья');
+    // брифования: команда 11 / план 40
+    expect(pf.briefings.teamFact).toBe(11);
+    expect(pf.briefings.teamPlan).toBe(40);
+    expect(pf.briefings.managers[0].fact).toBe(6); // Вострецов первым (6>5)
   });
-  it('опускает строки без плана', () => {
-    expect(
-      buildTmPlanFact({ ...input, meetingsPlanPerTm: 0, dialsPerDayPlan: 0, calls120PerDayPlan: 0, convPlanPct: 0 }),
-    ).toHaveLength(0);
+  it('без звонарей — нулевые итоги, пустые списки', () => {
+    const pf = buildTmPlanFact({ dials60PerTm: 400, briefingsPerTm: 20, members: [] });
+    expect(pf.dials60.teamFact).toBe(0);
+    expect(pf.dials60.teamPlan).toBe(0);
+    expect(pf.dials60.managers).toHaveLength(0);
   });
 });
 
@@ -229,6 +361,17 @@ describe('buildTmHeatmap', () => {
     expect(h.maxPct).toBe(60); // Пт 9:00
     const wed = h.rows.find((r) => r.dow === 3)!; // нет данных
     expect(wed.cells.every((c) => c.pct === null)).toBe(true);
+  });
+
+  it('среднее взвешено по объёму и игнорирует ячейки с малой выборкой (<15)', () => {
+    const h = buildTmHeatmap([
+      { dow: 1, hour: 9, dials: 100, calls60: 20 }, // 20% · большая выборка
+      { dow: 2, hour: 9, dials: 100, calls60: 30 }, // 30% · большая выборка
+      { dow: 3, hour: 9, dials: 2, calls60: 2 }, // 100% · ШУМ (2 набора) — не в среднем
+    ]);
+    expect(h.minSample).toBe(15);
+    // среднее = (20+30)/(100+100) = 25%, шумовая ячейка 100% не тянет якорь.
+    expect(h.mean).toBe(25);
   });
 });
 

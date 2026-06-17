@@ -25,7 +25,7 @@ cp infra/openclaw-security-profile.env.example /opt/openclaw/.env.security_profi
 
 ## Через оркестратор
 ```bash
-cd "/Users/pro2kuror/Desktop/OpenClo/projects/engineer"
+cd "/Users/pro2kuror/Desktop/VibeCoding/cloudbot"
 DRY_RUN=1 make openclaw.security-profile
 # после проверки:
 DRY_RUN=0 make openclaw.security-profile

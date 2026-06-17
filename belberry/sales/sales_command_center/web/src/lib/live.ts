@@ -1,9 +1,10 @@
 import 'server-only';
 
-import { eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { db } from '@/db';
-import { liveChats, liveSnapshot, users, managerActivity, meetings, kpBriefs, dealsSnapshot, reports } from '@/db/schema';
+import { liveChats, liveSnapshot, users, managerActivity, meetings, kpBriefs, dealsSnapshot, reports, dealRejections } from '@/db/schema';
 import { isSalesDept, isTelemarketing } from './dashboard';
+import { SALES_LOSE_STAGE, SPAM_REASON_10, reasonLabel10 } from './sales-rejections-shared';
 
 export interface LiveManager {
   managerId: number;
@@ -22,10 +23,56 @@ export interface LiveManager {
 }
 
 export interface LiveFeedItem {
-  kind: 'meeting' | 'brief' | 'kp' | 'deal';
+  kind: 'meeting' | 'brief' | 'kp' | 'deal' | 'reject';
+  id: number | null;
   manager: string;
   title: string;
   at: string;
+}
+
+/**
+ * Лента отказов за календарный день (МСК) из событийного слоя deal_rejections
+ * (наполняется sync_rejections.py). «Отказ» = ТОЛЬКО воронка Продажи C10:LOSE
+ * (без СПАМа); ТМ-отвалы сюда не входят. Имя владельца — из денормализованного
+ * owner_name (вкл. уволенных), иначе из справочника. Возвращает [] при любой
+ * ошибке/отсутствии таблицы.
+ */
+async function rejectionFeed(date: string, nameOf: (id: number | null) => string): Promise<LiveFeedItem[]> {
+  const rejAtMsk = sql`(${dealRejections.rejectedAt} AT TIME ZONE 'Europe/Moscow')::date`;
+  let rows: Array<{
+    dealId: number; reasonId: number | null;
+    assignedBy: number | null; ownerName: string | null; title: string | null; rejectedAt: Date | null;
+  }>;
+  try {
+    rows = await db
+      .select({
+        dealId: dealRejections.dealId,
+        reasonId: dealRejections.reasonId,
+        assignedBy: dealRejections.assignedBy,
+        ownerName: dealRejections.ownerName,
+        title: dealRejections.title,
+        rejectedAt: dealRejections.rejectedAt,
+      })
+      .from(dealRejections)
+      .where(
+        and(
+          eq(rejAtMsk, date),
+          eq(dealRejections.stageId, SALES_LOSE_STAGE),
+          sql`${dealRejections.reasonId} IS DISTINCT FROM ${SPAM_REASON_10}`,
+        ),
+      );
+  } catch {
+    return [];
+  }
+  return rows
+    .filter((r) => r.rejectedAt)
+    .map((r) => ({
+      kind: 'reject' as const,
+      id: r.dealId,
+      manager: r.ownerName || nameOf(r.assignedBy),
+      title: `${r.title || 'Сделка'} (${reasonLabel10(r.reasonId)})`,
+      at: r.rejectedAt ? new Date(r.rejectedAt).toISOString() : '',
+    }));
 }
 
 export interface LiveMeeting {
@@ -36,6 +83,12 @@ export interface LiveMeeting {
   status: 'held' | 'scheduled' | 'cancelled';
   dealId: number | null;
   setToday: boolean;
+  /** Тип встречи: брифинг / защита КП. */
+  type: 'briefing' | 'defense' | 'other' | null;
+  /** Встречу назначил телемаркетолог (по отделу создателя). */
+  creatorIsTm: boolean;
+  /** Годовая выручка компании по сделке (руб.). Показываем для ТМ-брифингов. */
+  companyRevenue: number | null;
 }
 
 export interface LiveBrief {
@@ -44,6 +97,16 @@ export interface LiveBrief {
   manager: string;
   dealId: number | null;
   service: string;
+  /** Статус КП (для блока «КП»): success=Готово, rejected=Не актуально, progress=в работе. У брифов не используется. */
+  status?: 'success' | 'rejected' | 'progress' | null;
+}
+
+/** Статус КП (1106) по коду стадии: SUCCESS→success, FAIL→rejected, иначе progress. */
+function kpStatusFromStage(stage: string | null): 'success' | 'rejected' | 'progress' {
+  const code = String(stage ?? '').split(':').pop()?.toUpperCase();
+  if (code === 'SUCCESS') return 'success';
+  if (code === 'FAIL') return 'rejected';
+  return 'progress';
 }
 
 export interface LiveData {
@@ -55,6 +118,7 @@ export interface LiveData {
   managers: LiveManager[];
   meetings: LiveMeeting[];
   briefs: LiveBrief[];
+  kp: LiveBrief[];
   feed: LiveFeedItem[];
 }
 
@@ -64,14 +128,14 @@ interface RawManager {
   m_held?: number; m_scheduled?: number; m_cancelled?: number; m_set?: number;
   briefs?: number; kp?: number; deals?: number; emails?: number;
 }
-interface RawMeeting { id: number | null; title: string; manager_id: number | null; at: string; status: LiveMeeting['status']; deal_id: number | null; set_today?: boolean }
-interface RawBrief { id: number | null; title: string; manager_id: number | null; deal_id: number | null; service: string }
-interface RawFeed { kind: LiveFeedItem['kind']; manager_id: number | null; title: string; at: string }
+interface RawMeeting { id: number | null; title: string; manager_id: number | null; at: string; status: LiveMeeting['status']; deal_id: number | null; set_today?: boolean; type?: LiveMeeting['type']; created_by?: number | null; company_revenue?: number | null }
+interface RawBrief { id: number | null; title: string; manager_id: number | null; deal_id: number | null; service: string; status?: LiveBrief['status'] }
+interface RawFeed { kind: LiveFeedItem['kind']; id?: number | null; manager_id: number | null; title: string; at: string }
 
 const EMPTY: LiveData = {
   updatedAt: null, chatsUpdatedAt: null, chatsTracked: false, reportDate: null,
   totals: { dials: 0, answered: 0, calls60: 0, chats: 0, meetings: 0, meetingsHeld: 0, meetingsScheduled: 0, meetingsSetTm: 0, meetingsCancelled: 0, briefs: 0, kp: 0, deals: 0, dealsSpam: 0, emails: 0 },
-  managers: [], meetings: [], briefs: [], feed: [],
+  managers: [], meetings: [], briefs: [], kp: [], feed: [],
 };
 
 export async function getLive(): Promise<LiveData> {
@@ -88,7 +152,7 @@ export async function getLive(): Promise<LiveData> {
   if (!rows[0]?.payload) return EMPTY;
 
   const payload = rows[0].payload as {
-    managers?: RawManager[]; meetings_list?: RawMeeting[]; briefs_list?: RawBrief[]; feed?: RawFeed[];
+    managers?: RawManager[]; meetings_list?: RawMeeting[]; briefs_list?: RawBrief[]; kp_list?: RawBrief[]; feed?: RawFeed[];
     totals?: { deals_spam?: number };
   };
   const userRows = await db.select({ id: users.bitrixId, name: users.name, dept: users.dept }).from(users);
@@ -134,17 +198,35 @@ export async function getLive(): Promise<LiveData> {
     briefs: m.briefs, kp: m.kp, emails: m.emails,
   }));
 
+  const isTm = (id: number | null) => (id != null && isTelemarketing(dir.get(id)?.dept ?? ''));
+
   const meetings: LiveMeeting[] = (payload.meetings_list ?? [])
     .filter((m) => keep(m.manager_id))
-    .map((m) => ({ id: m.id, title: m.title, manager: nameOf(m.manager_id), at: m.at, status: m.status ?? 'scheduled', dealId: m.deal_id, setToday: m.set_today ?? false }));
+    .map((m) => ({
+      id: m.id, title: m.title, manager: nameOf(m.manager_id), at: m.at,
+      status: m.status ?? 'scheduled', dealId: m.deal_id, setToday: m.set_today ?? false,
+      type: m.type ?? null, creatorIsTm: isTm(m.created_by ?? null), companyRevenue: m.company_revenue ?? null,
+    }));
 
   const briefs: LiveBrief[] = (payload.briefs_list ?? [])
     .filter((b) => keep(b.manager_id))
     .map((b) => ({ id: b.id, title: b.title, manager: nameOf(b.manager_id), dealId: b.deal_id, service: b.service }));
 
-  const feed: LiveFeedItem[] = (payload.feed ?? [])
+  const kp: LiveBrief[] = (payload.kp_list ?? [])
+    .filter((k) => keep(k.manager_id))
+    .map((k) => ({ id: k.id, title: k.title, manager: nameOf(k.manager_id), dealId: k.deal_id, service: k.service, status: k.status ?? null }));
+
+  const baseFeed: LiveFeedItem[] = (payload.feed ?? [])
     .filter((e) => keep(e.manager_id))
-    .map((e) => ({ kind: e.kind, manager: nameOf(e.manager_id), title: e.title, at: e.at }));
+    .map((e) => ({ kind: e.kind, id: e.id ?? null, manager: nameOf(e.manager_id), title: e.title, at: e.at }));
+
+  // Отказы дня — отдельный событийный слой (deal_rejections), вплетаем в ленту.
+  const repDate = rows[0].reportDate ? String(rows[0].reportDate) : null;
+  const rejFeed = repDate ? await rejectionFeed(repDate, nameOf) : [];
+  // По реальному моменту времени: baseFeed.at в формате Bitrix (+03:00),
+  // rejFeed.at — ISO/UTC; лексикографически их мешать нельзя.
+  const ts = (s: string) => { const t = Date.parse(s); return Number.isNaN(t) ? 0 : t; };
+  const feed: LiveFeedItem[] = [...baseFeed, ...rejFeed].sort((a, b) => ts(b.at) - ts(a.at)).slice(0, 30);
 
   const totals = {
     dials: shown.reduce((s, m) => s + m.dials, 0),
@@ -168,7 +250,7 @@ export async function getLive(): Promise<LiveData> {
     chatsUpdatedAt,
     chatsTracked: true,
     reportDate: rows[0].reportDate ? String(rows[0].reportDate) : null,
-    totals, managers, meetings, briefs, feed,
+    totals, managers, meetings, briefs, kp, feed,
   };
 }
 
@@ -252,19 +334,25 @@ export async function getDayBreakdown(date: string): Promise<LiveData | null> {
     mCancelled: m.mCancelled, briefs: m.briefs, kp: m.kp, emails: m.emails,
   }));
 
+  const isTm = (id: number | null) => (id != null && isTelemarketing(dir.get(id)?.dept ?? ''));
+
   const meetingsList: LiveMeeting[] = mtRows
     .filter((r) => keep(r.managerId))
     .map((r) => {
-      const label = MEETING_TYPE_LABEL[String(r.meetingType ?? '')] ?? 'Встреча';
       const dt = r.dealId != null ? dealTitle.get(r.dealId) : null;
+      const type = (r.meetingType as LiveMeeting['type']) ?? null;
+      const label = MEETING_TYPE_LABEL[String(r.meetingType ?? '')] ?? 'Встреча';
       return {
         id: r.meetingId,
-        title: dt ? `${dt} · ${label}` : label,
+        title: dt || label,
         manager: nameOf(r.managerId),
         at: r.scheduledAt ? new Date(r.scheduledAt).toISOString() : '',
         status: meetingStatusFrom(r.status),
         dealId: r.dealId,
         setToday: false,
+        type,
+        creatorIsTm: isTm(r.createdBy ?? null),
+        companyRevenue: null, // в истории выручку не храним — показываем только в live
       };
     });
 
@@ -278,12 +366,28 @@ export async function getDayBreakdown(date: string): Promise<LiveData | null> {
       service: '',
     }));
 
+  const kpList: LiveBrief[] = kbRows
+    .filter((r) => r.itemType === 'kp' && keep(r.managerId))
+    .map((r) => ({
+      id: r.itemId,
+      title: r.title ?? 'КП',
+      manager: nameOf(r.managerId),
+      dealId: r.dealId,
+      service: '', // услугу КП в истории пока не храним (live — есть)
+      status: kpStatusFromStage(r.stage),
+    }));
+
   // Лента дня — из summary_json (сохраняется дневным прогоном с этого релиза).
   const summaryFeed =
-    (repRows[0]?.summary as { feed?: Array<{ kind: LiveFeedItem['kind']; manager_id: number | null; title: string; at: string }> } | null)?.feed ?? [];
-  const feed: LiveFeedItem[] = summaryFeed
+    (repRows[0]?.summary as { feed?: Array<{ kind: LiveFeedItem['kind']; id?: number | null; manager_id: number | null; title: string; at: string }> } | null)?.feed ?? [];
+  const baseFeed: LiveFeedItem[] = summaryFeed
     .filter((e) => keep(e.manager_id))
-    .map((e) => ({ kind: e.kind, manager: nameOf(e.manager_id), title: e.title, at: e.at }));
+    .map((e) => ({ kind: e.kind, id: e.id ?? null, manager: nameOf(e.manager_id), title: e.title, at: e.at }));
+  const rejFeed = await rejectionFeed(date, nameOf);
+  // По реальному моменту времени: baseFeed.at в формате Bitrix (+03:00),
+  // rejFeed.at — ISO/UTC; лексикографически их мешать нельзя.
+  const ts = (s: string) => { const t = Date.parse(s); return Number.isNaN(t) ? 0 : t; };
+  const feed: LiveFeedItem[] = [...baseFeed, ...rejFeed].sort((a, b) => ts(b.at) - ts(a.at)).slice(0, 30);
 
   const totals = {
     dials: shown.reduce((s, m) => s + m.dials, 0),
@@ -311,6 +415,7 @@ export async function getDayBreakdown(date: string): Promise<LiveData | null> {
     managers,
     meetings: meetingsList,
     briefs: briefsList,
+    kp: kpList,
     feed,
   };
 }

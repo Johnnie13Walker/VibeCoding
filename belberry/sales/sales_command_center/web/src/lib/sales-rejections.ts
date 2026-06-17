@@ -1,0 +1,159 @@
+import 'server-only';
+
+import { and, eq, gte, lte, sql } from 'drizzle-orm';
+import { db } from '@/db';
+import { dealRejections, managerActivity } from '@/db/schema';
+import {
+  REASON_NULL_KEY,
+  SALES_LOSE_STAGE,
+  SPAM_REASON_10,
+  MONTHS_RU_SHORT,
+  isSalesManager,
+  managersFromPerManager,
+  type SalesRejectionPerManager,
+  type SalesRejectionsBundle,
+} from './sales-rejections-shared';
+
+export {
+  SALES_LOSE_STAGE,
+  SPAM_REASON_10,
+  REASON_10,
+  reasonLabel10,
+} from './sales-rejections-shared';
+
+/** Отказы воронки Продажи с начала года до опорного дня — гранулярка по
+ * действующим продажникам (для мультиселекта карточки 1) + таблица карточки 2.
+ * Источник — deal_rejections (sync_rejections.py); оплаты — manager_activity
+ * (deals_won_count, тот же владелец). СПАМ исключаем (считаем отдельно). */
+export async function getSalesRejections(snapshotDate: string): Promise<SalesRejectionsBundle> {
+  const year = Number(snapshotDate.slice(0, 4));
+  const yearLabel = String(year);
+  const yearStart = `${year}-01-01`;
+  const rejAtMsk = sql`(${dealRejections.rejectedAt} AT TIME ZONE 'Europe/Moscow')::date`;
+  const inYear = and(
+    eq(dealRejections.stageId, SALES_LOSE_STAGE),
+    gte(rejAtMsk, yearStart),
+    lte(rejAtMsk, snapshotDate),
+  );
+
+  // Владелец — из денормализованных полей deal_rejections (имя/должность/статус;
+  // включает УВОЛЕННЫХ, которых нет в auth-таблице users). «Уволен» = owner_active
+  // (Bitrix ACTIVE на момент синка) — это РЕАЛЬНЫЙ статус: уволены и Дудин/Халин,
+  // и Гудинова/Смирнов; в команде только Деговцова/Семенихин/Гордиенко. Таблица
+  // users тут НЕ источник — она отстаёт (провижининг логина не обновляет статус).
+  const ownerRows = await db
+    .select({
+      managerId: dealRejections.assignedBy,
+      name: dealRejections.ownerName,
+      dept: dealRejections.ownerDept,
+      active: dealRejections.ownerActive,
+    })
+    .from(dealRejections)
+    .where(inYear)
+    .groupBy(dealRejections.assignedBy, dealRejections.ownerName, dealRejections.ownerDept, dealRejections.ownerActive);
+  const nameById = new Map<number, string>();
+  const activeById = new Map<number, boolean>();
+  // Продажники (отдел Продажи/РОП, без ТМ) — действующие И уволенные.
+  const eligible = new Set<number>();
+  for (const o of ownerRows) {
+    if (o.managerId == null) continue;
+    if (o.name) nameById.set(o.managerId, o.name);
+    activeById.set(o.managerId, o.active ?? true);
+    if (isSalesManager(o.dept)) eligible.add(o.managerId);
+  }
+
+  // Менеджер × причина: количество + сумма потерь.
+  const mgrReasonRows = await db
+    .select({
+      managerId: dealRejections.assignedBy,
+      reasonId: dealRejections.reasonId,
+      n: sql<number>`count(*)`,
+      amount: sql<number>`coalesce(sum(${dealRejections.opportunity}),0)`,
+    })
+    .from(dealRejections)
+    .where(inYear)
+    .groupBy(dealRejections.assignedBy, dealRejections.reasonId);
+
+  // Менеджер × месяц (ex-spam).
+  const ymExpr = sql<string>`to_char((${dealRejections.rejectedAt} AT TIME ZONE 'Europe/Moscow'), 'YYYY-MM')`;
+  const mgrMonthRows = await db
+    .select({ managerId: dealRejections.assignedBy, ym: ymExpr, n: sql<number>`count(*)` })
+    .from(dealRejections)
+    .where(and(inYear, sql`${dealRejections.reasonId} IS DISTINCT FROM ${SPAM_REASON_10}`))
+    .groupBy(dealRejections.assignedBy, ymExpr);
+
+  // Оплаты (won) по владельцу — знаменатель «доли отказов».
+  const wonRows = await db
+    .select({
+      managerId: managerActivity.managerId,
+      won: sql<number>`coalesce(sum(${managerActivity.dealsWonCount}),0)`,
+    })
+    .from(managerActivity)
+    .where(and(gte(managerActivity.reportDate, yearStart), lte(managerActivity.reportDate, snapshotDate)))
+    .groupBy(managerActivity.managerId);
+  const wonByMgr = new Map<number, number>();
+  for (const r of wonRows) wonByMgr.set(r.managerId, Number(r.won));
+
+  // Сборка гранулярки только по действующим продажникам.
+  const pm = new Map<number, SalesRejectionPerManager>();
+  const ensure = (id: number): SalesRejectionPerManager => {
+    let e = pm.get(id);
+    if (!e) {
+      e = {
+        managerId: id,
+        name: nameById.get(id) ?? `id ${id}`,
+        isActive: activeById.get(id) ?? true,
+        rejections: 0,
+        lostAmount: 0,
+        spam: 0,
+        won: wonByMgr.get(id) ?? 0,
+        monthCounts: {},
+        reasonCounts: {},
+      };
+      pm.set(id, e);
+    }
+    return e;
+  };
+
+  for (const r of mgrReasonRows) {
+    if (r.managerId == null || !eligible.has(r.managerId)) continue;
+    const e = ensure(r.managerId);
+    const count = Number(r.n);
+    if (r.reasonId === SPAM_REASON_10) {
+      e.spam += count;
+      continue;
+    }
+    e.rejections += count;
+    e.lostAmount += Number(r.amount);
+    const key = r.reasonId == null ? REASON_NULL_KEY : String(r.reasonId);
+    e.reasonCounts[key] = (e.reasonCounts[key] ?? 0) + count;
+  }
+  for (const r of mgrMonthRows) {
+    if (r.managerId == null || !eligible.has(r.managerId)) continue;
+    const e = ensure(r.managerId);
+    e.monthCounts[r.ym] = (e.monthCounts[r.ym] ?? 0) + Number(r.n);
+  }
+
+  // Только те, у кого есть отказы (для осмысленного списка выбора).
+  const perManager = [...pm.values()]
+    .filter((m) => m.rejections > 0)
+    .sort((a, b) => b.rejections - a.rejections);
+
+  const lastMonth = Number(snapshotDate.slice(5, 7));
+  const monthsSkeleton: { ym: string; label: string }[] = [];
+  for (let m = 1; m <= lastMonth; m++) {
+    monthsSkeleton.push({ ym: `${year}-${String(m).padStart(2, '0')}`, label: MONTHS_RU_SHORT[m - 1] });
+  }
+
+  const selectableManagers = [...perManager]
+    .map((m) => ({ managerId: m.managerId, name: m.name, isActive: m.isActive }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'ru'));
+
+  return {
+    yearLabel,
+    monthsSkeleton,
+    perManager,
+    selectableManagers,
+    managers: managersFromPerManager(perManager),
+  };
+}

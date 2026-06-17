@@ -134,5 +134,37 @@ keys/
 *.pem
 *.crt
 
-# Archive
+# Archive (runtime артефакты), но shared/archive/ — наш канонический архив bundle'ов
 archive/
+!shared/archive/
+!shared/archive/**
+
+# AI agent workspaces (Serena AI, Netlify CLI cache)
+.serena/
+.netlify/
+
+# External vendored repositories (own git history)
+external/financial-services/
+
+# Runtime backups (JSON snapshots, dumps) — НЕ в git
+belberry/bitrix24/backups/
+**/backups/
+
+# Runtime state (OAuth tokens, watchdog state, sync caches)
+shared/config/bitrix24-state/
+shared/state/
+**/*-state/
+
+# Runtime artefacts (logs/cache/tmp)
+logs/
+**/logs/
+tmp/
+**/tmp/
+cache/
+**/cache/
+
+# iCloud Drive sync conflicts
+* 2.md
+* 2.html
+* 2.txt
+* 2.json

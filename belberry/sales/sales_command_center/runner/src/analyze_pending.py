@@ -7,10 +7,12 @@
 """
 
 import json
+import os
 import sys
 from datetime import date, datetime, timedelta
 
 from . import analyze_llm, bx_client
+from . import tasks as bx_tasks
 from .db import connect, upsert
 from .enrich import enrich_meetings
 from .reanalyze import collect_meetings_raw
@@ -86,10 +88,30 @@ def main(argv: list[str] | None = None) -> None:
     conn = connect()
     since = datetime.now(MSK).date() - timedelta(days=days)
     total = 0
+    create_tasks = os.environ.get("SCC_CREATE_TASKS") == "1"
+    today = datetime.now(MSK).date()
     try:
         pending = _pending(conn, since)
         for rd, ids in sorted(pending.items()):
             total += analyze_day_pending(date.fromisoformat(rd), ids, conn=conn)
+        # Задачи ставим СРАЗУ после разбора встречи (а не утренним batch'ем
+        # следующего дня): на каждый день окна создаём задачи по уже разобранным
+        # встречам. Идемпотентно по meeting_tasks — ловит встречи, разобранные
+        # этим прогоном И ранее без задач; дублей с дневным прогоном нет.
+        if create_tasks:
+            # Умный проход постановки: планировщик (≤2 рычажных задачи) + дедуп.
+            # client включает планировщик; без него — старая логика next_steps.
+            task_client = analyze_llm.get_client()
+            day = since
+            while day <= today:
+                try:
+                    res = bx_tasks.create_tasks_for_day(conn, bx_client, day, client=task_client)
+                    created = sum(1 for r in res if r.get("status") == "created")
+                    if created:
+                        print(f"[tasks] {day.isoformat()}: создано {created}", flush=True)
+                except Exception as exc:  # noqa: BLE001
+                    print(f"[tasks] {day.isoformat()} создание не удалось: {str(exc)[:200]}", flush=True)
+                day = date.fromordinal(day.toordinal() + 1)
     finally:
         conn.close()
     print(f"[ANALYZE_PENDING] since {since}: разобрано={total}", flush=True)

@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Sales-отчёт Льва Петровича — v1 vs v3 (визуальный redesign)</title>
+<style>
+  :root {
+    --tg-bg: #0e1621;
+    --tg-bg-pattern: #17212b;
+    --tg-bubble-bg: #182533;
+    --tg-bubble-text: #ffffff;
+    --tg-secondary: #8b9aaa;
+    --tg-link: #62a8d6;
+    --tg-time: #6a7c8e;
+    --tg-header: #17212b;
+    --tg-quote: #5288c1;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: #07090d;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: #e5ecf4;
+    line-height: 1.4;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page {
+    padding: 24px;
+    display: flex; flex-direction: column; align-items: center; gap: 20px;
+  }
+  .intro {
+    max-width: 1080px;
+    color: #b6c2d2;
+    font-size: 14px;
+    line-height: 1.55;
+  }
+  .intro h1 { color: #fff; font-size: 22px; margin: 0 0 8px; }
+  .intro b { color: #fff; }
+  .intro code {
+    background: #1a2533; padding: 1px 6px; border-radius: 4px;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+    font-size: 13px;
+  }
+  .compare {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    width: 100%;
+    max-width: 1180px;
+  }
+  .col h2 {
+    font-size: 14px; font-weight: 600;
+    color: #a3b3c7; letter-spacing: 0.5px; text-transform: uppercase;
+    margin: 0 0 10px;
+    padding: 0 4px;
+  }
+  .col h2 .tag {
+    display: inline-block;
+    padding: 2px 8px; border-radius: 10px;
+    font-size: 11px; letter-spacing: 0;
+    margin-left: 6px; text-transform: none;
+  }
+  .tag-now { background: #3d2226; color: #ed8478; }
+  .tag-new { background: #1d3a26; color: #6dd692; }
+  .phone {
+    background: var(--tg-bg);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 12px 36px rgba(0,0,0,0.55);
+    display: flex; flex-direction: column;
+    min-height: 760px;
+  }
+  .header {
+    background: var(--tg-header);
+    padding: 10px 14px;
+    display: flex; align-items: center; gap: 10px;
+    border-bottom: 1px solid #0a1218;
+  }
+  .avatar {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: linear-gradient(135deg, #4a7ab3, #2b5278);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 600; font-size: 13px; color: #fff;
+  }
+  .title { font-size: 14px; font-weight: 600; }
+  .subtitle { font-size: 11px; color: var(--tg-secondary); }
+  .chat {
+    flex: 1;
+    background:
+      radial-gradient(circle at 25% 20%, #1b2a3d 0%, transparent 35%),
+      radial-gradient(circle at 75% 60%, #18283b 0%, transparent 40%),
+      var(--tg-bg-pattern);
+    padding: 14px 10px 24px;
+  }
+  .day-divider { text-align: center; margin: 12px 0; }
+  .day-divider span {
+    background: rgba(36, 60, 88, 0.7);
+    color: #cfd9e6;
+    padding: 3px 11px;
+    border-radius: 11px;
+    font-size: 11.5px; font-weight: 500;
+  }
+  .bubble {
+    background: var(--tg-bubble-bg);
+    color: var(--tg-bubble-text);
+    border-radius: 12px 12px 12px 4px;
+    padding: 10px 12px 18px;
+    margin: 6px 0;
+    max-width: 95%;
+    position: relative;
+    font-size: 13.5px;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+  }
+  .bubble.followup { border-radius: 4px 12px 12px 4px; }
+  .bubble b { color: #ffffff; font-weight: 600; }
+  .bubble i { font-style: italic; color: #cfd9e6; }
+  .bubble u { text-decoration: underline; }
+  .bubble a { color: var(--tg-link); text-decoration: none; }
+  .bubble pre {
+    background: rgba(0,0,0,0.18);
+    color: #d6e0ec;
+    padding: 7px 9px;
+    border-radius: 6px;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+    font-size: 11.5px;
+    line-height: 1.4;
+    overflow-x: auto;
+    margin: 6px 0;
+    white-space: pre;
+  }
+  .bubble code {
+    background: rgba(0,0,0,0.20);
+    padding: 0 4px; border-radius: 4px;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+    font-size: 12.5px;
+  }
+  /* Telegram blockquote */
+  .bubble blockquote {
+    border-left: 3px solid var(--tg-quote);
+    background: rgba(82, 136, 193, 0.08);
+    padding: 6px 10px 6px 10px;
+    margin: 6px 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 13.5px;
+  }
+  .bubble blockquote[data-expandable] { position: relative; }
+  .bubble blockquote[data-expandable].collapsed { max-height: 60px; overflow: hidden; cursor: pointer; }
+  .bubble blockquote[data-expandable].collapsed::after {
+    content: "▼ показать полностью";
+    position: absolute; left: 0; right: 0; bottom: 0;
+    background: linear-gradient(to bottom, transparent, var(--tg-bubble-bg) 70%);
+    color: var(--tg-link);
+    padding: 22px 10px 4px;
+    font-size: 11px;
+    text-align: center;
+  }
+  .bubble .time {
+    position: absolute; right: 10px; bottom: 4px;
+    color: var(--tg-time); font-size: 10.5px;
+  }
+  .notes {
+    margin-top: 12px;
+    padding: 14px 16px;
+    background: #11181f;
+    border: 1px solid #1d2733;
+    border-radius: 10px;
+    color: #b6c2d2;
+    font-size: 12.5px;
+    line-height: 1.55;
+  }
+  .notes h3 { margin: 0 0 8px; font-size: 13px; color: #e6efff; }
+  .notes ul { margin: 0; padding-left: 18px; }
+  .notes li { margin: 4px 0; }
+  .notes .pill {
+    display: inline-block; padding: 1px 6px; border-radius: 6px;
+    font-size: 11px; margin-right: 4px;
+  }
+  .pill-new { background: #1d3a26; color: #6dd692; }
+  .pill-changed { background: #3a311d; color: #e6c065; }
+  .pill-removed { background: #3a1d1d; color: #e08383; }
+  @media (max-width: 980px) {
+    .compare { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <div class="intro">
+    <h1>Sales-отчёт Льва Петровича — v1 (текущий) vs v3 (визуальный redesign)</h1>
+    <p><b>Задача:</b> сохранить весь объём информации v1, но улучшить визуальную иерархию средствами,
+    которые поддерживает Telegram (HTML parse_mode).
+    Доступная палитра: <code>b</code>, <code>i</code>, <code>u</code>, <code>s</code>, <code>a</code>,
+    <code>code</code>, <code>pre</code>, <code>blockquote</code> и <code>blockquote expandable</code>
+    (с Bot API 7.0, апрель 2024 — <b>складные цитаты раскрываются по тапу</b>).
+    Шрифты/цвета/размеры менять нельзя. Играем эмодзи-якорями, моно-блоками с разделителями,
+    плотным компактным форматом чисел и группировкой через blockquote.</p>
+  </div>
+
+  <div class="compare">
+
+    <!-- ====================== LEFT: V1 ====================== -->
+    <div class="col">
+      <h2>v1 — сейчас <span class="tag tag-now">проде</span></h2>
+      <div class="phone">
+        <div class="header">
+          <div class="avatar">ЛП</div>
+          <div>
+            <div class="title">Лев Петрович</div>
+            <div class="subtitle">3 сообщения</div>
+          </div>
+        </div>
+        <div class="chat">
+          <div class="day-divider"><span>12 мая, 09:30</span></div>
+
+          <div class="bubble"><b>📊 Сводка по продажам</b>
+<b>Лев Петрович</b>
+
+Срез: 12.05 09:30 МСК
+
+<b>Итоги за прошлый рабочий день, 11.05</b>
+• Новые сделки: 0 (0 к прошлому дню)
+• Встречи: 0 (-4 к прошлому дню)
+• Брифы: 0 (-4 к прошлому дню)
+• Отложенные сделки: 0 / <b>0 ₽</b> (-1 к прошлому дню)
+• Отказы: 1 / <b>0 ₽</b> (0 к прошлому дню)
+
+<b>Воронка</b>
+• Активные сделки: 66 / <b>7 704 041 ₽</b> (-2 к прошлому дню)
+• С движением: 57 (+1 к прошлому дню)
+• Без движения: 9 (-3 к прошлому дню)
+• В отложке: 31 (+2 к прошлому дню)
+• Этап договора: 2 / <b>263 434 ₽</b> (+1 к прошлому дню)
+
+<b>На стадии договора</b>
+• <a href="#">mitekpumps.ru</a> - <b>Семенихин Егор</b> - <b>263 434 ₽</b>
+ORM - <b>109 934 ₽</b>, SEO - <b>153 500 ₽</b>
+• <a href="#">echo-service.ru</a> - <b>Деговцова Елизавета</b> - <b>0 ₽</b>
+
+<b>📞 Коммуникации за предыдущий рабочий день</b>
+Статус: 🔥 НОРМ | ⚠️ РИСК | ❌ СТОП
+<pre>Статус Менеджер            Роль  Наб Дзв Конв Чаты Встр Опер
+СТОП   Исаева Дарья        TM     3   1  33%   0   -  0.5
+СТОП   Деговцова Елизавета SM     1   0   0%   0   0  0.1
+СТОП   Вострецов Аркадий   TM     0   0   0%   0   -  0.0
+СТОП   Семенихин Егор      SM     0   0   0%   0   0  0.0
+СТОП   Смирнов Илья        SM     0   0   0%   0   0  0.0</pre>
+
+Итого по отделу:
+<pre>Наб  4 | Дзв  1 | Конв 25% | Чаты 0 | Встр 0 | Опер 0.1</pre>
+
+Чистой клиентской активности по команде ниже целевого уровня
+
+<b>🆕 Новые сделки</b>
+Новых сделок нет.
+
+<b>🤝 Встречи</b>
+Проведённых встреч нет.
+
+<b>📝 Брифы</b>
+Принятых брифов нет.
+
+<b>⏸ Отложенные сделки</b>
+Отложенных сделок нет.
+
+<b>📉 Отказы</b>
+• <a href="#">jivo.ru (скорее всего спам)</a> — <b>Деговцова Елизавета</b>
+сумма: <b>0 ₽</b>; причина: СПАМ<span class="time">09:30</span></div>
+
+          <div class="bubble followup"><b>⚠️ Риски по сделкам</b>
+<b>Лев Петрович</b>
+
+<b>Сводка</b>
+• Уникальные риск-сделки: 17 / <b>1 670 632 ₽</b> (+4)
+• Без движения > 14 дн.: 9 / <b>1 500 632 ₽</b> (-2)
+• Без следующего шага: 3 / <b>0 ₽</b> (+1)
+• Без коммуникации > 14 дн.: 11 / <b>1 670 632 ₽</b> (-1)
+• Сделки с просрочками: 3 / <b>0 ₽</b> (+3)
+
+<b>Без движения > 14 дн.</b>
+Всего: 9 / <b>1 500 632 ₽</b>
+• <a href="#">f-p-m.ru</a> — Деговцова — 75k · Подготовка КП · 41 дн.
+• <a href="#">trusha-k.ru</a> — Деговцова — 384k · Догрев · 34 дн.
+• <a href="#">pro.market</a> — Деговцова — 382k · Догрев · 33 дн.
+• <a href="#">velesclub.ru</a> — Деговцова — 295k · Догрев · 29 дн.
+<i>…ещё 5 сделок</i>
+
+<b>Без следующего шага</b>
+• <a href="#">+7 861 228-11-90</a> — Деговцова
+• <a href="#">dinastia-s.ru</a> — Семенихин
+• <a href="#">Турецкая компания</a> — Деговцова
+
+<b>Без коммуникации > 14 дн.</b>
+• <a href="#">f-p-m.ru</a> — Деговцова — 75k · 41 дн.
+• <a href="#">trusha-k.ru</a> — Деговцова — 384k · 34 дн.
+<i>…ещё 9 сделок</i>
+
+<b>Сделки с просрочками</b>
+• <a href="#">+7 978 341-62-89</a> — Семенихин
+• <a href="#">Belberry/Максим</a> — Смирнов
+• <a href="#">Руфина</a> — Смирнов<span class="time">09:30</span></div>
+
+          <div class="bubble followup"><b>🎯 Фокус РОПа</b>
+
+<b>☎️ Где РОПу самому связаться:</b>
+• <a href="#">trusha-k.ru</a> — <b>384 467 ₽</b> — 34 дн. без контакта, сумма значимая.
+• <a href="#">pro.market</a> — <b>381 600 ₽</b> — 33 дн. без контакта.
+
+<b>🕳 Упущенные возможности:</b>
+• <a href="#">blumaq.com</a> — после брифа 98 дн.
+• <a href="#">sporttravma.org</a> — после брифа 66 дн.
+• <a href="#">mitekpumps.ru</a> — после брифа 49 дн.
+
+<b>Что РОП обязан сделать сегодня:</b>
+• До 13:00 получить от Деговцовой и Смирнова шаги.
+• До конца дня войти в trusha-k.ru, pro.market.
+• Закрыть 3 провала бриф → защита КП.
+
+<b>🔥 Молодцы за вчера</b>
+• Лидеров с 9+/10 нет.<span class="time">09:30</span></div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ====================== RIGHT: V3 VISUAL REDESIGN ====================== -->
+    <div class="col">
+      <h2>v3 — визуально переработано <span class="tag tag-new">тот же объём</span></h2>
+      <div class="phone">
+        <div class="header">
+          <div class="avatar">ЛП</div>
+          <div>
+            <div class="title">Лев Петрович</div>
+            <div class="subtitle">3 сообщения, складные блоки</div>
+          </div>
+        </div>
+        <div class="chat">
+          <div class="day-divider"><span>12 мая, 09:30</span></div>
+
+          <div class="bubble"><b>📊 Сводка продаж · Лев Петрович</b>
+<i>12.05 09:30 МСК · понедельник</i>
+
+<b>📍 В этом отчёте</b>
+<code>📊 Итоги вчера</code> <code>📞 Команда</code> <code>📈 Воронка</code>
+<code>🤝 Встречи/Брифы</code> <code>📉 Отказы</code>
+
+━━━━━━━━━━━━━━━━━━━━
+
+<b>📊 Итоги за вчера, пн 11.05</b>
+<pre>             факт   Δ день
+🆕 Сделки      0    ▬ 0
+🤝 Встречи     0    ▼ −4
+📝 Брифы       0    ▼ −4
+⏸ Отложено   0    ▼ −1
+📉 Отказы      1    ▬ 0</pre>
+
+<b>📈 Воронка</b>
+<pre>                   шт      ₽       Δ
+🟢 Активные        66    7.7M    ▼ −2
+✅ С движением     57            ▲ +1
+🟡 Без движения     9            ▲ −3
+⏸ В отложке      31            ▲ +2
+📄 Этап договора   2    263k    ▲ +1</pre>
+
+<b>📄 На стадии договора · 2 / 263k ₽</b>
+<blockquote>▸ <a href="#">mitekpumps.ru</a> · <b>Семенихин Егор</b>
+   <code>263 434 ₽</code> = ORM 109k · SEO 154k
+▸ <a href="#">echo-service.ru</a> · <b>Деговцова Е.</b>
+   <code>0 ₽</code> · WD + WDT</blockquote>
+
+━━━━━━━━━━━━━━━━━━━━
+
+<b>📞 Команда вчера</b>
+<i>🔥 норм · ⚠️ риск · ❌ стоп</i>
+<pre>──── SM · чаты + встречи ────
+❌ Деговцова Е.    0ч · 0встр · 0.1
+❌ Семенихин Е.    0ч · 0встр · 0.0
+❌ Смирнов И.      0ч · 0встр · 0.0
+──── TM · звонки ────────────
+❌ Исаева Д.       3наб · 1дзв · 33%
+❌ Вострецов А.    0наб · 0дзв · 0%
+─────────────────────────────
+Σ  4 наб · 1 дзв · 25% · 0 чат</pre>
+
+⚠️ Активность ниже целевой по всем
+
+━━━━━━━━━━━━━━━━━━━━
+
+<b>🆕 Новые сделки</b> <i>· нет</i>
+<b>🤝 Встречи</b> <i>· нет</i>
+<b>📝 Брифы</b> <i>· нет</i>
+<b>⏸ Отложенные</b> <i>· нет</i>
+
+<b>📉 Отказы · 1</b>
+▸ <a href="#">jivo.ru (скорее всего спам)</a>
+   <b>Деговцова Е.</b> · <code>0 ₽</code> · СПАМ<span class="time">09:30</span></div>
+
+          <div class="bubble followup"><b>⚠️ Риски по воронке</b>
+
+<pre>                       шт     ₽       Δ
+🔴 Уникальные риски   17   1.67M    ▲ +4
+🟠 Без движ. &gt;14д     9   1.50M    ▼ −2
+🟡 Без след. шага      3       0    ▲ +1
+🟠 Без комм. &gt;14д    11   1.67M    ▼ −1
+🔴 С просрочками       3       0    ▲ +3</pre>
+
+<b>🟠 Без движения &gt;14 дней · 9 / 1.5M ₽</b>
+<blockquote>▸ <a href="#">f-p-m.ru</a> · Деговцова Е.
+   <code>75k</code> · Подготовка КП · <u>41 дн</u>
+▸ <a href="#">trusha-k.ru</a> · Деговцова Е.
+   <code>384k</code> · Догрев · <u>34 дн</u>
+▸ <a href="#">pro.market</a> · Деговцова Е.
+   <code>382k</code> · Догрев · <u>33 дн</u>
+▸ <a href="#">velesclub.ru</a> · Деговцова Е.
+   <code>295k</code> · Догрев · <u>29 дн</u></blockquote>
+<blockquote data-expandable class="collapsed">▸ <a href="#">masterbeton-mb.ru</a> · Смирнов И. · 0 · 19 дн
+▸ <a href="#">knauf.ru</a> · Деговцова Е. · 75k · 15 дн
+▸ <a href="#">neo-classica.ru</a> · Смирнов И. · 0 · 15 дн
+▸ <a href="#">sinai-clinic.ru</a> · Смирнов И. · 0 · 15 дн
+▸ <a href="#">grismarket.ru</a> · Деговцова Е. · 290k · 14 дн</blockquote>
+
+<b>🟡 Без следующего шага · 3</b>
+<blockquote>▸ <a href="#">+7 861 228-11-90</a> · Деговцова Е.
+▸ <a href="#">dinastia-s.ru</a> · Семенихин Е.
+▸ <a href="#">Турецкая компания</a> · Деговцова Е.</blockquote>
+
+<b>🟠 Без коммуникации &gt;14 дней · 11 / 1.67M ₽</b>
+<blockquote>▸ <a href="#">f-p-m.ru</a> · Деговцова Е. · 75k · 41 дн
+▸ <a href="#">trusha-k.ru</a> · Деговцова Е. · 384k · 34 дн
+▸ <a href="#">pro.market</a> · Деговцова Е. · 382k · 33 дн</blockquote>
+<blockquote data-expandable class="collapsed">▸ <a href="#">velesclub.ru</a> · Деговцова Е. · 295k · 29 дн
+▸ <a href="#">masterbeton-mb.ru</a> · Смирнов И. · 0 · 19 дн
+▸ <a href="#">knauf.ru</a> · Деговцова Е. · 75k · 15 дн
+▸ <a href="#">neo-classica.ru</a> · Смирнов И. · 0 · 15 дн
+▸ <a href="#">marlinmotors.ru</a> · Смирнов И. · 0 · 15 дн
+▸ <a href="#">sinai-clinic.ru</a> · Смирнов И. · 0 · 15 дн
+▸ <a href="#">grismarket.ru</a> · Деговцова Е. · 290k · 14 дн
+▸ <a href="#">blagorc.ru</a> · Смирнов И. · 170k · 14 дн</blockquote>
+
+<b>🔴 Просрочки по задачам · 3</b>
+<blockquote>▸ <a href="#">+7 978 341-62-89</a> · Семенихин Е.
+   задача: Квалифицировать лид
+▸ <a href="#">Belberry / Максим</a> · Смирнов И.
+   задача: Первый контакт повторно
+▸ <a href="#">Руфина</a> · Смирнов И.
+   задача: Провести первый контакт</blockquote><span class="time">09:30</span></div>
+
+          <div class="bubble followup"><b>🎯 Фокус РОПа · сегодня</b>
+
+<blockquote><b>☎️ Лично связаться</b>
+▸ <a href="#">trusha-k.ru</a> · <code>384k ₽</code>
+   34 дн молчания, риск потери высокий
+▸ <a href="#">pro.market</a> · <code>382k ₽</code>
+   33 дн молчания, риск потери высокий</blockquote>
+
+<blockquote><b>🕳 Закрыть провал «бриф → КП»</b>
+▸ <a href="#">blumaq.com</a> · 98 дн после брифа
+▸ <a href="#">sporttravma.org</a> · 66 дн после брифа
+▸ <a href="#">mitekpumps.ru</a> · 49 дн после брифа</blockquote>
+
+<b>📋 Контроль</b>
+▸ До <u>13:00</u> — забрать шаги у Деговцовой и Смирнова
+▸ До <u>конца дня</u> — лично войти в trusha-k.ru, pro.market
+▸ До <u>конца дня</u> — закрыть 3 провала бриф → защита КП
+
+<b>🔥 Молодцы за вчера</b>
+<i>— никого с 9+/10 за 11.05</i><span class="time">09:30</span></div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="notes" style="max-width: 1180px; width: 100%;">
+    <h3>Что изменилось визуально — без потери информации</h3>
+    <ul>
+      <li><span class="pill pill-new">NEW</span><b>TOC в шапке</b> — строка <code>📊 Итоги · 📞 Команда · 📈 Воронка · 🤝 Встречи …</code> сразу даёт карту сообщения, ориентир для глаза.</li>
+      <li><span class="pill pill-changed">CHG</span><b>Все цифровые блоки → <code>&lt;pre&gt;</code> с моноширинной таблицей.</b> Вместо «<i>• Активные сделки: 66 / <b>7 704 041 ₽</b> (-2 к прошлому дню)</i>» — выровненные колонки <i>факт / ₽ / Δ</i>. Скан глазом за 1 секунду вместо 5 секунд парсинга bullet'а.</li>
+      <li><span class="pill pill-changed">CHG</span><b>Деньги в компактном формате</b>: <code>7.7M ₽</code> вместо <code>7 704 041 ₽</code>. Длинные числа разрывают сетку.</li>
+      <li><span class="pill pill-new">NEW</span><b>Дельта-стрелки <code>▲ ▼ ▬</code></b> вместо «(-2 к прошлому дню)». Двукратно короче и читается быстрее.</li>
+      <li><span class="pill pill-new">NEW</span><b>Эмодзи-статусы перед каждой строкой риска</b>: 🟠/🟡/🔴 = severity. Цветной маркер слева — стандартный приём дашбордов.</li>
+      <li><span class="pill pill-changed">CHG</span><b>SM и TM в одном <code>&lt;pre&gt;</code>, но с разделителем-рядом</b> <code>──── SM ────</code> / <code>──── TM ────</code>. Сравнения не возникает, нормы у них разные.</li>
+      <li><span class="pill pill-new">NEW</span><b><code>&lt;blockquote&gt;</code> для группировки</b> — список сделок «На стадии договора», риск-сделки, action-list. Telegram рендерит вертикальной полоской слева → визуально отделяется от заголовка как карточка.</li>
+      <li><span class="pill pill-new">NEW</span><b><code>&lt;blockquote expandable&gt;</code> для длинных хвостов</b>. В превью симулируется fade-out + «▼ показать полностью». В Telegram (Bot API 7.0+) — реально складывается, разворачивается тапом. Так в одно сообщение влезает ВСЕ 9 + 11 + 3 сделки, но видны только top-N.</li>
+      <li><span class="pill pill-changed">CHG</span><b>Пустые секции схлопнуты в одну строку</b>: <code>🆕 Новые сделки <i>· нет</i></code> вместо двухстрочной заглушки. 5 заглушек → 5 строк вместо 15.</li>
+      <li><span class="pill pill-changed">CHG</span><b>Action-list в Фокусе обёрнут в <code>&lt;blockquote&gt;</code></b> — звонки и провалы стали визуальными «карточками». Контроль вынесен отдельно, время подчёркнуто (<code>&lt;u&gt;</code>): <u>13:00</u>, <u>конца дня</u>.</li>
+      <li><span class="pill pill-new">NEW</span><b>Горизонтальные разделители</b> <code>━━━━━━</code> между логическими блоками вместо пустых строк. Telegram сохраняет полную ширину Unicode-линии — она работает как hr.</li>
+      <li><span class="pill pill-changed">CHG</span><b><code>&lt;code&gt;</code> для денежных сумм в детальных строках</b>: <code>263k ₽</code> с моноширинным фоном — числа выделяются на фоне текста.</li>
+    </ul>
+    <p style="color:#8a98a8; font-size:12.5px; margin-top:10px;">
+      Все изменения — только в файле <code>sales_formatter.py</code>, никаких архитектурных правок.
+      Содержание 1:1 как в v1, длина каждого пузыря ≤ 4096 символов (Telegram limit), складные блоки расширяют ёмкость до ~10000.
+      Объём работ — ~1 день одной задачей.
+    </p>
+  </div>
+
+</div>
+
+<script>
+// Симуляция expandable blockquote (в Telegram это нативно)
+document.querySelectorAll('blockquote[data-expandable].collapsed').forEach(el => {
+  el.addEventListener('click', () => {
+    el.classList.remove('collapsed');
+  });
+});
+</script>
+
+</body>
+</html>

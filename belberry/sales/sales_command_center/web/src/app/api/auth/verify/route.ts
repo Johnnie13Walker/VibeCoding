@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { db } from '@/db';
 import { users } from '@/db/schema';
 import { findActiveUserByEmail } from '@/lib/bitrix';
-import { consumeCode } from '@/lib/loginCodes';
+import { markCodeUsed, verifyLoginCode } from '@/lib/loginCodes';
 import { checkRateLimit } from '@/lib/rateLimit';
 import { getSession, type UserRole } from '@/lib/session';
 
@@ -37,39 +37,50 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'rate_limited' }, { status: 429 });
   }
 
-  let consumed;
+  let check;
   try {
-    consumed = await consumeCode(email, parsed.data.code);
+    check = await verifyLoginCode(email, parsed.data.code);
   } catch (err) {
     // Раньше исключение здесь (напр. expires_at пришёл строкой → .getTime())
     // отдавалось как общий сбой и в UI выглядело как «код не подошёл».
-    console.error('[auth] consumeCode threw:', (err as Error)?.name, (err as Error)?.message);
+    console.error('[auth] verifyLoginCode threw:', (err as Error)?.name, (err as Error)?.message);
     return NextResponse.json({ error: 'server_error' }, { status: 500 });
   }
 
-  if (!consumed.ok) {
-    console.warn('[auth] verify rejected:', { email, reason: consumed.reason });
+  if (!check.ok) {
+    console.warn('[auth] verify rejected:', { email, reason: check.reason });
     return NextResponse.json({ error: 'invalid_code' }, { status: 401 });
   }
 
-  const activeUser = await findActiveUserByEmail(email);
+  // Активность сотрудника проверяем и сессию сохраняем ДО списания кода. Любой
+  // транзиентный сбой Bitrix/БД здесь возвращает 503 и НЕ сжигает код — человек
+  // повторит ввод того же кода, как только сервис ответит. Списание (markCodeUsed)
+  // — самый последний шаг, после которого вход гарантированно состоялся.
+  try {
+    const activeUser = await findActiveUserByEmail(email);
 
-  if (!activeUser) {
-    console.warn('[auth] verify inactive:', { email });
-    return NextResponse.json({ error: 'inactive' }, { status: 403 });
+    if (!activeUser) {
+      console.warn('[auth] verify inactive:', { email });
+      return NextResponse.json({ error: 'inactive' }, { status: 403 });
+    }
+
+    const localUsers = await db
+      .select({ role: users.role })
+      .from(users)
+      .where(eq(users.bitrixId, activeUser.bitrixId))
+      .limit(1);
+    const session = await getSession();
+
+    session.bitrixId = activeUser.bitrixId;
+    session.email = activeUser.email;
+    session.role = normalizeRole(localUsers[0]?.role);
+    await session.save();
+
+    await markCodeUsed(check.id);
+  } catch (err) {
+    console.error('[auth] post-verify failed:', (err as Error)?.name, (err as Error)?.message);
+    return NextResponse.json({ error: 'temporary_error' }, { status: 503 });
   }
-
-  const localUsers = await db
-    .select({ role: users.role })
-    .from(users)
-    .where(eq(users.bitrixId, activeUser.bitrixId))
-    .limit(1);
-  const session = await getSession();
-
-  session.bitrixId = activeUser.bitrixId;
-  session.email = activeUser.email;
-  session.role = normalizeRole(localUsers[0]?.role);
-  await session.save();
 
   return NextResponse.json({ ok: true });
 }

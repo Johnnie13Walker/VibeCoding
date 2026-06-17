@@ -44,6 +44,8 @@ export interface TmMember {
   meetingsSet: number;
   /** Состоявшиеся встречи, назначенные этим ТМ (held по createdBy). Событийная метрика. */
   meetingsHeldByCreator: number;
+  /** Состоявшиеся БРИФования, назначенные этим ТМ (held + type=briefing по createdBy). */
+  briefingsHeldByCreator: number;
   /** Личные отвалы (C50:APOLOGY, закрыл сам) за период — для «сжигания базы». */
   rejectionsPeriod: number;
   dealsCold: number;
@@ -199,8 +201,70 @@ export interface TmFunnel50Stage {
   count: number;
 }
 
-/** Снимок ТМ-воронки [50] по стадиям. Чистая функция. */
-export function buildTmFunnel50(cells: { stage: string }[]): TmFunnel50Stage[] {
+export interface TmFunnelStageMeta {
+  stage: string;
+  label: string;
+  kind: Cat50Kind;
+  order: number;
+}
+
+/** Воронка [50] по одному владельцу (ТМ или МП) — счётчики по стадиям. */
+export interface TmFunnelManager {
+  managerId: number;
+  name: string;
+  isActive: boolean;
+  counts: Record<string, number>;
+}
+
+/** Бандл ТМ-воронки: стадии + гранулярка по владельцам + список выбора (ТМ и МП). */
+export interface TmFunnel50 {
+  stages: TmFunnelStageMeta[];
+  perManager: TmFunnelManager[];
+  selectableManagers: { managerId: number; name: string; isActive: boolean }[];
+}
+
+/** Снимок ТМ-воронки [50] по владельцам. cells = открытые сделки cat50 (стадия+владелец). */
+export function buildTmFunnel50(
+  cells: { managerId: number | null; stage: string }[],
+  nameById: Map<number, string>,
+  activeById: Map<number, boolean>,
+): TmFunnel50 {
+  const stages: TmFunnelStageMeta[] = Object.entries(STAGE_META_50)
+    .sort((a, b) => a[1].order - b[1].order)
+    .map(([stage, m]) => ({ stage, label: m.label, kind: m.kind, order: m.order }));
+  const byMgr = new Map<number, TmFunnelManager>();
+  for (const c of cells) {
+    if (c.managerId == null || !STAGE_META_50[c.stage]) continue;
+    let e = byMgr.get(c.managerId);
+    if (!e) {
+      e = { managerId: c.managerId, name: nameById.get(c.managerId) ?? `id ${c.managerId}`, isActive: activeById.get(c.managerId) ?? true, counts: {} };
+      byMgr.set(c.managerId, e);
+    }
+    e.counts[c.stage] = (e.counts[c.stage] ?? 0) + 1;
+  }
+  const total = (m: TmFunnelManager) => Object.values(m.counts).reduce((a, b) => a + b, 0);
+  const perManager = [...byMgr.values()].sort((a, b) => total(b) - total(a));
+  const selectableManagers = perManager
+    .map((m) => ({ managerId: m.managerId, name: m.name, isActive: m.isActive }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'ru'));
+  return { stages, perManager, selectableManagers };
+}
+
+/** Свести воронку по выбранным владельцам (для мультиселекта). Чистая. */
+export function aggregateTmFunnel(
+  perManager: TmFunnelManager[],
+  selectedIds: ReadonlySet<number>,
+  stages: TmFunnelStageMeta[],
+): TmFunnel50Stage[] {
+  return stages.map((s) => {
+    let count = 0;
+    for (const m of perManager) if (selectedIds.has(m.managerId)) count += m.counts[s.stage] ?? 0;
+    return { stage: s.stage, label: s.label, kind: s.kind, count };
+  });
+}
+
+/** @deprecated простой снимок без владельцев — оставлен для тестов/совместимости. */
+export function buildTmFunnel50Flat(cells: { stage: string }[]): TmFunnel50Stage[] {
   const counts = new Map<string, number>();
   for (const c of cells) {
     if (!STAGE_META_50[c.stage]) continue;
@@ -267,6 +331,78 @@ export function buildTmMonthly(rows: TmMonthlyInput[]): TmMonthlyRow[] {
   }));
 }
 
+// ── Динамика с мультиселектом звонарей + сравнение «на ту же дату» ─────────────
+
+/** Агрегат за период 1..N месяца (для сравнения текущий vs прошлый). */
+export interface TmMonthlyPeriod {
+  dials: number;
+  calls60: number;
+  meetingsSet: number;
+  held: number;
+}
+
+export interface TmMonthlyManager {
+  managerId: number;
+  name: string;
+  isActive: boolean;
+  rows: TmMonthlyInput[]; // помесячно (последние 8)
+  cur: TmMonthlyPeriod; // текущий месяц 1..N
+  prev: TmMonthlyPeriod; // прошлый месяц 1..N
+}
+
+export interface TmMonthlyBundle {
+  months: { ym: string; label: string }[];
+  perManager: TmMonthlyManager[];
+  selectableManagers: { managerId: number; name: string; isActive: boolean }[];
+  curLabel: string; // «1–7 июн»
+  prevLabel: string; // «1–7 мая»
+}
+
+const ZERO_PERIOD = (): TmMonthlyPeriod => ({ dials: 0, calls60: 0, meetingsSet: 0, held: 0 });
+
+/** Свести помесячные строки по выбранным звонарям. Чистая. */
+export function aggregateTmMonthlyRows(
+  perManager: TmMonthlyManager[],
+  selectedIds: ReadonlySet<number>,
+  months: { ym: string; label: string }[],
+): TmMonthlyInput[] {
+  return months.map((mo, i) => {
+    const acc: TmMonthlyInput = {
+      ym: mo.ym, label: mo.label, dials: 0, answered: 0, calls60: 0, talkSeconds: 0,
+      meetingsSet: 0, meetingsHeldByCreator: 0, rejected: 0, postponed: 0,
+    };
+    for (const m of perManager) {
+      if (!selectedIds.has(m.managerId)) continue;
+      const r = m.rows[i];
+      if (!r) continue;
+      acc.dials += r.dials;
+      acc.answered += r.answered;
+      acc.calls60 += r.calls60;
+      acc.talkSeconds += r.talkSeconds;
+      acc.meetingsSet += r.meetingsSet;
+      acc.meetingsHeldByCreator += r.meetingsHeldByCreator;
+      acc.rejected += r.rejected;
+      acc.postponed += r.postponed;
+    }
+    return acc;
+  });
+}
+
+/** Свести период «на ту же дату» (текущий/прошлый) по выбранным звонарям. Чистая. */
+export function aggregateTmMonthlyPeriod(
+  perManager: TmMonthlyManager[],
+  selectedIds: ReadonlySet<number>,
+): { cur: TmMonthlyPeriod; prev: TmMonthlyPeriod } {
+  const cur = ZERO_PERIOD();
+  const prev = ZERO_PERIOD();
+  for (const m of perManager) {
+    if (!selectedIds.has(m.managerId)) continue;
+    cur.dials += m.cur.dials; cur.calls60 += m.cur.calls60; cur.meetingsSet += m.cur.meetingsSet; cur.held += m.cur.held;
+    prev.dials += m.prev.dials; prev.calls60 += m.prev.calls60; prev.meetingsSet += m.prev.meetingsSet; prev.held += m.prev.held;
+  }
+  return { cur, prev };
+}
+
 // ───────────────────── Встречи → результат ─────────────────────
 
 export interface TmMeetingsResult {
@@ -290,53 +426,51 @@ export function buildTmMeetingsResult(members: TmMember[]): TmMeetingsResult {
 
 // ───────────────────────── План / факт ─────────────────────────
 
-export interface TmPlanFactRow {
-  label: string;
+/** Строка план/факт по звонарю (для одной метрики). */
+export interface TmPlanManager {
+  managerId: number;
+  name: string;
   fact: number;
   plan: number;
-  /** Выполнение, %. */
-  pct: number;
-  /** Подпись-уточнение (источник плана / оговорка). */
-  unit?: string;
-  /** Значения в процентах (для форматирования «X%»). */
-  isPercent?: boolean;
+}
+
+/** План/факт ТМ: дозвоны ≥60с и состоявшиеся брифования — командно + по звонарям. */
+export interface TmPlanFact {
+  dials60: { teamFact: number; teamPlan: number; perTm: number; managers: TmPlanManager[] };
+  briefings: { teamFact: number; teamPlan: number; perTm: number; managers: TmPlanManager[] };
 }
 
 export interface TmPlanFactInput {
-  zvonari: number;
-  workingDays: number;
-  meetingsSet: number;
-  dials: number;
-  calls120: number;
-  /** План встреч на 1 ТМ/мес (из таблицы plans, дефолт 20). */
-  meetingsPlanPerTm: number;
-  /** Ориентиры из декомпозиции ОП (на 1 ТМ): наборов/день, звонков 120с+/день, конверсия наборы→встречу %. */
-  dialsPerDayPlan: number;
-  calls120PerDayPlan: number;
-  convPlanPct: number;
+  /** План дозвонов ≥60с на 1 ТМ/мес (дефолт 400). */
+  dials60PerTm: number;
+  /** План состоявшихся брифований на 1 ТМ/мес (дефолт 20). */
+  briefingsPerTm: number;
+  members: { managerId: number; name: string; calls60: number; briefingsHeld: number }[];
 }
 
-/** План/факт ТМ на 1 звонаря: встречи (из «Плана оплат») + ориентиры обзвона. Чистая функция. */
-export function buildTmPlanFact(i: TmPlanFactInput): TmPlanFactRow[] {
-  const z = Math.max(1, i.zvonari);
-  const wd = Math.max(1, i.workingDays);
-  const rows: TmPlanFactRow[] = [];
-  const row = (label: string, fact: number, plan: number, unit?: string, isPercent?: boolean) => {
-    rows.push({ label, fact, plan, pct: plan > 0 ? Math.round((fact / plan) * 100) : 0, unit, isPercent });
+/** План/факт ТМ: дозвоны ≥60с + состоявшиеся брифования, по звонарям и командно. Чистая. */
+export function buildTmPlanFact(i: TmPlanFactInput): TmPlanFact {
+  const dialsM = i.members
+    .map((m) => ({ managerId: m.managerId, name: m.name, fact: m.calls60, plan: i.dials60PerTm }))
+    .sort((a, b) => b.fact - a.fact);
+  const briefM = i.members
+    .map((m) => ({ managerId: m.managerId, name: m.name, fact: m.briefingsHeld, plan: i.briefingsPerTm }))
+    .sort((a, b) => b.fact - a.fact);
+  const n = i.members.length;
+  return {
+    dials60: {
+      teamFact: dialsM.reduce((a, m) => a + m.fact, 0),
+      teamPlan: i.dials60PerTm * n,
+      perTm: i.dials60PerTm,
+      managers: dialsM,
+    },
+    briefings: {
+      teamFact: briefM.reduce((a, m) => a + m.fact, 0),
+      teamPlan: i.briefingsPerTm * n,
+      perTm: i.briefingsPerTm,
+      managers: briefM,
+    },
   };
-  if (i.meetingsPlanPerTm > 0) {
-    row('Встречи назначено', Math.round(i.meetingsSet / z), i.meetingsPlanPerTm, 'на 1 ТМ · из «Плана оплат»');
-  }
-  if (i.dialsPerDayPlan > 0) {
-    row('Наборов в день', Math.round(i.dials / z / wd), i.dialsPerDayPlan, 'на 1 ТМ · ориентир, уточнить');
-  }
-  if (i.calls120PerDayPlan > 0) {
-    row('Звонки 120с+ в день', Math.round(i.calls120 / z / wd), i.calls120PerDayPlan, 'на 1 ТМ · ориентир, уточнить');
-  }
-  if (i.convPlanPct > 0) {
-    row('Конверсия наборы→встречу', pct1(i.meetingsSet, i.dials) ?? 0, i.convPlanPct, 'ориентир 3,5–4,2%', true);
-  }
-  return rows;
 }
 
 // ───────────────────────── Outreach ─────────────────────────
@@ -541,12 +675,22 @@ export interface TmHeatmap {
   rows: HeatRow[];
   /** Максимальный % по сетке (для нормировки цвета). */
   maxPct: number;
+  /** Среднее по отделу, % (взвешенно по объёму, только ячейки с достаточной
+   * выборкой). Якорь для цвета «отклонение от среднего». */
+  mean: number;
+  /** Минимум наборов в ячейке, чтобы считать её достоверной (иначе «мало данных»). */
+  minSample: number;
 }
 
 const DOW_RU: Record<number, string> = { 1: 'Пн', 2: 'Вт', 3: 'Ср', 4: 'Чт', 5: 'Пт' };
 
+/** Минимум наборов в ячейке час×день для достоверности (иначе одиночные 0%/100%
+ * создают шум). Подобрано под окно ~3 месяца. */
+export const HEATMAP_MIN_SAMPLE = 15;
+
 /** Heatmap «когда берут трубку»: час × день недели (Пн–Пт), % дозвона ≥60с.
- * Чистая функция. */
+ * Цвет в UI — отклонение от среднего (mean), ячейки с выборкой < minSample
+ * показываются как «мало данных». Чистая функция. */
 export function buildTmHeatmap(inputs: HeatInput[]): TmHeatmap {
   const work = inputs.filter((i) => i.dow >= 1 && i.dow <= 5 && i.hour >= 0 && i.hour <= 23);
   const hours = [...new Set(work.map((i) => i.hour))].sort((a, b) => a - b);
@@ -559,6 +703,10 @@ export function buildTmHeatmap(inputs: HeatInput[]): TmHeatmap {
     byKey.set(k, e);
   }
   let maxPct = 0;
+  // Среднее по отделу — взвешенно по объёму, только по достоверным ячейкам
+  // (малая выборка не должна тянуть якорь).
+  let meanDials = 0;
+  let meanC60 = 0;
   const rows: HeatRow[] = [1, 2, 3, 4, 5].map((dow) => ({
     dow,
     label: DOW_RU[dow],
@@ -566,10 +714,82 @@ export function buildTmHeatmap(inputs: HeatInput[]): TmHeatmap {
       const e = byKey.get(`${dow}:${hour}`) ?? { dials: 0, calls60: 0 };
       const pct = e.dials > 0 ? Math.round((e.calls60 / e.dials) * 100) : null;
       if (pct != null && pct > maxPct) maxPct = pct;
+      if (e.dials >= HEATMAP_MIN_SAMPLE) {
+        meanDials += e.dials;
+        meanC60 += e.calls60;
+      }
       return { hour, dials: e.dials, calls60: e.calls60, pct };
     }),
   }));
-  return { hours, rows, maxPct: Math.max(1, maxPct) };
+  const mean = meanDials > 0 ? Math.round((meanC60 / meanDials) * 1000) / 10 : 0;
+  return { hours, rows, maxPct: Math.max(1, maxPct), mean, minSample: HEATMAP_MIN_SAMPLE };
+}
+
+// ───────── Карта активности набора по звонарям (час × день) ─────────
+
+export interface TmDialsCell {
+  dow: number; // 1=Пн..5=Пт
+  hour: number;
+  dials: number;
+}
+
+/** Активность набора одного звонаря: ячейки час×день (только ненулевые). */
+export interface TmDialsManager {
+  managerId: number;
+  name: string;
+  isActive: boolean;
+  cells: TmDialsCell[];
+}
+
+/** Бандл карты набора: общий набор часов + гранулярка по звонарям + список выбора. */
+export interface TmDialsHeatmapBundle {
+  hours: number[];
+  perManager: TmDialsManager[];
+  selectableManagers: { managerId: number; name: string; isActive: boolean }[];
+}
+
+export interface DialsHeatRow {
+  dow: number;
+  label: string;
+  cells: { hour: number; dials: number }[];
+}
+
+export interface TmDialsGrid {
+  hours: number[];
+  rows: DialsHeatRow[];
+  /** Максимум наборов в ячейке — для нормировки цвета. */
+  maxDials: number;
+  /** Всего наборов по выбранным звонарям. */
+  totalDials: number;
+}
+
+/** Свести карту набора по выбранным звонарям (мультиселект). Чистая функция. */
+export function aggregateTmDialsHeatmap(
+  perManager: TmDialsManager[],
+  selectedIds: ReadonlySet<number>,
+  hours: number[],
+): TmDialsGrid {
+  const byKey = new Map<string, number>();
+  let totalDials = 0;
+  for (const m of perManager) {
+    if (!selectedIds.has(m.managerId)) continue;
+    for (const c of m.cells) {
+      const k = `${c.dow}:${c.hour}`;
+      byKey.set(k, (byKey.get(k) ?? 0) + c.dials);
+      totalDials += c.dials;
+    }
+  }
+  let maxDials = 0;
+  const rows: DialsHeatRow[] = [1, 2, 3, 4, 5].map((dow) => ({
+    dow,
+    label: DOW_RU[dow],
+    cells: hours.map((hour) => {
+      const dials = byKey.get(`${dow}:${hour}`) ?? 0;
+      if (dials > maxDials) maxDials = dials;
+      return { hour, dials };
+    }),
+  }));
+  return { hours, rows, maxDials: Math.max(1, maxDials), totalDials };
 }
 
 // ───────────────────────── ТМ-алерты ─────────────────────────
@@ -650,20 +870,26 @@ export interface TmDashboardData {
   snapshotDate: string | null;
   workingDays: number;
   managers: TmManagerOption[];
-  selectedManagerId: number | null;
-  selectedManagerName: string | null;
   kpis: TmKpis;
+  /** KPI отдела за аналогичный период прошлого месяца (1..N по календарю); null —
+   * если сравнение не показываем (неделя / выбран прошлый месяц). */
+  kpisPrev: TmKpis | null;
+  /** Подпись периода сравнения, напр. «1–7 май». */
+  kpisCmpLabel: string;
   table: TmManagerRow[];
-  funnel50: TmFunnel50Stage[];
+  funnel50: TmFunnel50;
   meetingsResult: TmMeetingsResult;
-  monthly: TmMonthlyRow[];
+  /** Помесячная динамика по всем ТМ + период «на ту же дату» (мультиселект на клиенте). */
+  monthlyBundle: TmMonthlyBundle;
   microFunnels: TmMicroFunnel[];
-  planFact: TmPlanFactRow[];
+  planFact: TmPlanFact;
   outreach: TmOutreach;
   /** Причины отвала по звонарям (накопленно, личные закрытия). */
   rejections: TmRejections[];
   /** Heatmap времени дозвона (час × день недели). */
   heatmap: TmHeatmap;
+  /** Карта активности набора по звонарям (час × день, объём) — мультиселект. */
+  dialsHeatmap: TmDialsHeatmapBundle;
   /** Качество встреч, назначенных ТМ (из разбора /meetings). */
   meetingQuality: TmMeetingQuality;
   /** Авто-сигналы по ТМ. */

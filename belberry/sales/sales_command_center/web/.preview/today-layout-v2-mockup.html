@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Мокап v2 · /today · с улучшениями</title>
+<style>
+  :root {
+    --bb-violet: #5b50d6; --bb-violet-soft: #f0eefb; --bb-ink: #1d1d1f;
+    --bb-muted: #6e6e73; --bb-faint: #9a9aa0; --bb-line: #ece8e3;
+    --bb-red: #d4202e; --bb-green: #2c7a4a;
+    --bb-shadow: 0 1px 2px rgba(0,0,0,.04), 0 8px 24px rgba(20,18,60,.05);
+    --bb-canvas: #f6f5f2;
+  }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bb-canvas); color: var(--bb-ink); margin: 0; padding: 28px; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1.page { font-size: 22px; margin: 0 0 6px; }
+  p.lead { color: var(--bb-muted); font-size: 14px; margin: 0 0 8px; }
+  ul.notes { color: var(--bb-faint); font-size: 12.5px; margin: 0 0 22px; padding-left: 18px; }
+  ul.notes li { margin: 2px 0; }
+
+  .bb-card { background: #fff; border: 1px solid var(--bb-line); border-radius: 18px; padding: 20px; box-shadow: var(--bb-shadow); }
+  .bb-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; margin-bottom: 16px; }
+  .bb-sect-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .bb-sect-head h2 { font-size: 17px; font-weight: 700; letter-spacing: -0.02em; margin: 0; }
+  .bb-sect-head small { color: var(--bb-faint); font-size: 12.5px; font-weight: 500; margin-left: auto; }
+  .bb-sect-ic { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; background: var(--bb-violet-soft); color: var(--bb-violet); flex: 0 0 30px; font-size: 16px; }
+  ul.list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; }
+  .row { display: flex; align-items: flex-start; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--bb-line); }
+  .row:last-child { border-bottom: 0; }
+  .time { font-weight: 700; font-size: 13px; color: var(--bb-violet); flex: 0 0 auto; white-space: nowrap; font-variant-numeric: tabular-nums; min-width: 44px; }
+  .time2 { display: flex; flex-direction: column; line-height: 1.3; min-width: 64px; }
+  .time2 .wd { font-size: 11.5px; font-weight: 600; color: var(--bb-faint); }
+  .time2 .wd.weekend { color: var(--bb-red); }
+  .grow { min-width: 0; flex: 1; }
+  .title { display: inline-flex; align-items: center; gap: 5px; font-size: 14px; font-weight: 600; color: var(--bb-ink); text-decoration: none; }
+  .title:hover { color: var(--bb-violet); }
+  .ext { opacity: .45; font-size: 11px; }
+  .meta { font-size: 12px; color: var(--bb-faint); margin: 2px 0 0; }
+  .b-svc { background: var(--bb-violet-soft); color: var(--bb-violet); font-size: 11px; font-weight: 700; border-radius: 999px; padding: 3px 9px; white-space: nowrap; flex: 0 0 auto; }
+  .mtype { font-weight: 600; }
+  .mtype-bf { color: #6257d6; }
+  .mtype-df { color: #c0297e; }
+  .rev2 { color: var(--bb-muted); }
+  .rev-low { color: var(--bb-red); font-weight: 600; }
+  .st { display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto; font-size: 12.5px; color: var(--bb-muted); white-space: nowrap; padding-top: 1px; }
+  .stdot { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto; }
+  .st-held .stdot { background: var(--bb-green); }
+  .st-sched .stdot { background: var(--bb-violet); }
+  .st-cancel .stdot { background: var(--bb-red); }
+  .st-cancel { color: var(--bb-red); }
+
+  .chips { display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 12px; }
+  .chip { font-size: 12.5px; font-weight: 600; border-radius: 999px; padding: 5px 12px; border: 1px solid var(--bb-line); color: var(--bb-muted); background: #fff; cursor: pointer; }
+  .chip.active { background: var(--bb-violet); border-color: var(--bb-violet); color: #fff; }
+
+  .feedrow { display: flex; gap: 9px; align-items: center; font-size: 13px; padding: 8px 10px; border: 1px solid var(--bb-line); border-radius: 10px; text-decoration: none; color: var(--bb-ink); }
+  .feedrow:hover { border-color: var(--bb-violet); background: var(--bb-violet-soft); }
+  .feedrow .ext { margin-left: 4px; }
+  .feedic { color: var(--bb-violet); flex: 0 0 auto; }
+  .feedtxt { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .feedt { margin-left: auto; color: var(--bb-faint); font-size: 12px; white-space: nowrap; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1 class="page">/today · нижняя часть · v2 (с улучшениями)</h1>
+  <p class="lead">Тестовые данные. Ряд 1 — встречи. Ряд 2 — Брифы / КП. Снизу — Лента.</p>
+  <ul class="notes">
+    <li>Назначенные встречи показывают <b>день недели</b>; выходной — красным (ловим «назначили на субботу»).</li>
+    <li>ТМ-брифинг с годовой выручкой <b>&lt;30 млн ₽</b> — выручка <b style="color:var(--bb-red)">красным + ⚠</b> (кандидат на автоотвал по правилу телемаркетинга).</li>
+    <li>Лента — фильтр по типу события (чипы сверху).</li>
+    <li>Если «Встречи назначены» пусто — вторая карточка не показывается, «Встречи сегодня» занимает весь ряд.</li>
+  </ul>
+
+  <!-- РЯД 1: ВСТРЕЧИ -->
+  <div class="bb-grid2">
+    <div class="bb-card">
+      <div class="bb-sect-head"><span class="bb-sect-ic">🗓</span><h2>Встречи сегодня</h2><small>2 провед. · 1 назнач. · 0 отмен.</small></div>
+      <ul class="list">
+        <li class="row"><span class="time">11:00</span><div class="grow"><a class="title" href="#">maxtreat.ru <span class="ext">↗</span></a><p class="meta"><span class="mtype mtype-bf">Брифинг</span> · Семенихин Егор</p></div><span class="st st-held"><i class="stdot"></i>проведена</span></li>
+        <li class="row"><span class="time">13:00</span><div class="grow"><a class="title" href="#">newmed-clinic.ru <span class="ext">↗</span></a><p class="meta"><span class="mtype mtype-bf">Брифинг</span> · Вострецов Денис · <span class="rev2">выручка 120 млн ₽</span></p></div><span class="st st-held"><i class="stdot"></i>проведена</span></li>
+        <li class="row"><span class="time">16:00</span><div class="grow"><a class="title" href="#">dental-lux.ru <span class="ext">↗</span></a><p class="meta"><span class="mtype mtype-df">Защита КП</span> · Деговцова Мария</p></div><span class="st st-sched"><i class="stdot"></i>назначена</span></li>
+      </ul>
+    </div>
+    <div class="bb-card">
+      <div class="bb-sect-head"><span class="bb-sect-ic">📅</span><h2>Встречи назначены</h2><small>сегодня назначили на другую дату · 3</small></div>
+      <ul class="list">
+        <li class="row"><span class="time time2"><b>10.06</b><span class="wd">ср</span></span><div class="grow"><a class="title" href="#">newclient.ru <span class="ext">↗</span></a><p class="meta"><span class="mtype mtype-bf">Брифинг</span> · Вострецов Денис · <span class="rev2">выручка 85 млн ₽</span></p></div><span class="st st-sched"><i class="stdot"></i>11:00</span></li>
+        <li class="row"><span class="time time2"><b>11.06</b><span class="wd">чт</span></span><div class="grow"><a class="title" href="#">mini-clinic.ru <span class="ext">↗</span></a><p class="meta"><span class="mtype mtype-bf">Брифинг</span> · Исаева Дарья · <span class="rev-low">выручка 18 млн ₽ ⚠</span></p></div><span class="st st-sched"><i class="stdot"></i>14:30</span></li>
+        <li class="row"><span class="time time2"><b>14.06</b><span class="wd weekend">сб</span></span><div class="grow"><a class="title" href="#">stomatologia-msk.ru <span class="ext">↗</span></a><p class="meta"><span class="mtype mtype-df">Защита КП</span> · Гордиенко Артём</p></div><span class="st st-sched"><i class="stdot"></i>15:00</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- РЯД 2: БРИФЫ / КП -->
+  <div class="bb-grid2">
+    <div class="bb-card">
+      <div class="bb-sect-head"><span class="bb-sect-ic">📄</span><h2>Брифы</h2><small>2</small></div>
+      <ul class="list">
+        <li class="row"><div class="grow"><a class="title" href="#">maxtreat.ru <span class="ext">↗</span></a><p class="meta">Семенихин Егор · <a href="#" style="color:var(--bb-violet)">сделка</a></p></div><span class="b-svc">SEO</span></li>
+        <li class="row"><div class="grow"><a class="title" href="#">klinika-prime.ru <span class="ext">↗</span></a><p class="meta">Гордиенко Артём · <a href="#" style="color:var(--bb-violet)">сделка</a></p></div><span class="b-svc">Контекст</span></li>
+      </ul>
+    </div>
+    <div class="bb-card">
+      <div class="bb-sect-head"><span class="bb-sect-ic">📑</span><h2>КП получено</h2><small>2</small></div>
+      <ul class="list">
+        <li class="row"><div class="grow"><a class="title" href="#">dental-lux.ru <span class="ext">↗</span></a><p class="meta">Деговцова Мария · <a href="#" style="color:var(--bb-violet)">сделка</a></p></div><span class="b-svc">SEO + Лендинг</span></li>
+        <li class="row"><div class="grow"><a class="title" href="#">amoriya.ru <span class="ext">↗</span></a><p class="meta">Семенихин Егор · <a href="#" style="color:var(--bb-violet)">сделка</a></p></div><span class="b-svc">Разработка сайта</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ЛЕНТА с фильтром -->
+  <div class="bb-card">
+    <div class="bb-sect-head"><span class="bb-sect-ic">⚡</span><h2>Лента</h2><small>события дня</small></div>
+    <div class="chips">
+      <span class="chip active">Все</span>
+      <span class="chip">Встречи</span>
+      <span class="chip">Брифы</span>
+      <span class="chip">КП</span>
+      <span class="chip">Сделки</span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:7px">
+      <a class="feedrow" href="#"><span class="feedic">🤝</span><span class="feedtxt"><b>maxtreat.ru</b> <span style="color:var(--bb-faint)">· Семенихин Егор · встреча</span></span><span class="ext">↗</span><span class="feedt">11:00</span></a>
+      <a class="feedrow" href="#"><span class="feedic">📄</span><span class="feedtxt"><b>klinika-prime.ru</b> <span style="color:var(--bb-faint)">· Гордиенко Артём · бриф</span></span><span class="ext">↗</span><span class="feedt">10:42</span></a>
+      <a class="feedrow" href="#"><span class="feedic">📑</span><span class="feedtxt"><b>dental-lux.ru</b> <span style="color:var(--bb-faint)">· Деговцова Мария · КП</span></span><span class="ext">↗</span><span class="feedt">10:15</span></a>
+      <a class="feedrow" href="#"><span class="feedic">⚡</span><span class="feedtxt"><b>newclient.ru</b> <span style="color:var(--bb-faint)">· Семенихин Егор · сделка</span></span><span class="ext">↗</span><span class="feedt">09:50</span></a>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

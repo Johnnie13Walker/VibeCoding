@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Belberry — Продажи и Телемаркетинг (мокап)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: #F9FBFC; color: #2E353B; }
+  .card { background: white; border: 1px solid #EDF0F2; border-radius: 8px; padding: 20px; box-shadow: 0 1px 2px rgba(0,0,0,0.03); }
+  .card-title { font-size: 13px; color: #696E76; font-weight: 500; margin-bottom: 12px; letter-spacing: 0.02em; }
+  .metric-value { font-size: 36px; font-weight: 700; color: #2E353B; line-height: 1; }
+  .metric-sub { font-size: 12px; color: #696E76; margin-top: 6px; }
+  .metric-up { color: #88BF4D; }
+  .metric-down { color: #EF8C8C; }
+  .tab { padding: 10px 18px; font-size: 14px; font-weight: 500; border-bottom: 2px solid transparent; cursor: pointer; color: #696E76; }
+  .tab.active { color: #509EE3; border-bottom-color: #509EE3; }
+  .sidebar-item { padding: 6px 12px; font-size: 13px; color: #696E76; border-radius: 4px; cursor: pointer; }
+  .sidebar-item:hover { background: #F0F4F7; }
+  .sidebar-item.active { background: #E3F0FB; color: #509EE3; font-weight: 500; }
+  .heatmap-cell { width: 20px; height: 20px; border-radius: 2px; display: inline-block; margin: 1px; }
+</style>
+</head>
+<body class="min-h-screen">
+
+<!-- Top bar -->
+<div class="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between">
+  <div class="flex items-center gap-4">
+    <div class="flex items-center gap-2">
+      <div class="w-7 h-7 bg-blue-500 rounded text-white flex items-center justify-center font-bold text-sm">B</div>
+      <span class="font-semibold text-base">Belberry BI</span>
+    </div>
+    <span class="text-gray-400">/</span>
+    <span class="text-sm text-gray-600">Belberry — Продажи и Телемаркетинг</span>
+  </div>
+  <div class="flex items-center gap-3">
+    <div class="text-xs text-gray-500">Обновлено: 5 мин назад</div>
+    <button class="text-sm text-gray-600 hover:text-gray-900 px-3 py-1 rounded border border-gray-200">Поделиться</button>
+    <div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs">ЕЩ</div>
+  </div>
+</div>
+
+<div class="flex">
+
+  <!-- Sidebar -->
+  <aside class="w-56 bg-white border-r border-gray-200 min-h-screen p-3">
+    <div class="text-xs font-semibold text-gray-400 uppercase mb-2 px-2">Дашборды</div>
+    <div class="sidebar-item active">📊 Продажи и Телемаркетинг</div>
+    <div class="sidebar-item">📈 Маркетинг</div>
+    <div class="sidebar-item">💰 Финансы</div>
+    <div class="text-xs font-semibold text-gray-400 uppercase mb-2 mt-5 px-2">Источники</div>
+    <div class="sidebar-item">🗂 Сделки</div>
+    <div class="sidebar-item">📞 Звонки</div>
+    <div class="sidebar-item">👥 Менеджеры</div>
+    <div class="text-xs font-semibold text-gray-400 uppercase mb-2 mt-5 px-2">Алерты</div>
+    <div class="sidebar-item text-orange-600">⚠ Pipeline -12% за неделю</div>
+  </aside>
+
+  <!-- Main -->
+  <main class="flex-1 p-6">
+
+    <!-- Tabs -->
+    <div class="flex gap-1 border-b border-gray-200 mb-5">
+      <div class="tab active" onclick="switchTab(0)">Продажи</div>
+      <div class="tab" onclick="switchTab(1)">Телемаркетинг</div>
+      <div class="tab" onclick="switchTab(2)">KPI менеджеров</div>
+    </div>
+
+    <!-- Filters -->
+    <div class="flex gap-3 mb-5 items-center">
+      <div class="flex items-center gap-2 bg-white border border-gray-200 rounded px-3 py-1.5 text-sm">
+        <span class="text-gray-500">Период:</span>
+        <span class="font-medium">Последние 30 дней</span>
+        <span class="text-gray-400">▾</span>
+      </div>
+      <div class="flex items-center gap-2 bg-white border border-gray-200 rounded px-3 py-1.5 text-sm">
+        <span class="text-gray-500">Воронка:</span>
+        <span class="font-medium">Все</span>
+        <span class="text-gray-400">▾</span>
+      </div>
+      <div class="flex items-center gap-2 bg-white border border-gray-200 rounded px-3 py-1.5 text-sm">
+        <span class="text-gray-500">Менеджер:</span>
+        <span class="font-medium">Все</span>
+        <span class="text-gray-400">▾</span>
+      </div>
+    </div>
+
+    <!-- ============ PAGE 1: SALES ============ -->
+    <div id="page-0" class="space-y-5">
+
+      <!-- KPI tiles -->
+      <div class="grid grid-cols-4 gap-4">
+        <div class="card">
+          <div class="card-title">ОТКРЫТЫХ СДЕЛОК</div>
+          <div class="metric-value">3 475</div>
+          <div class="metric-sub"><span class="metric-up">↑ 4.2%</span> к прошлому месяцу</div>
+        </div>
+        <div class="card">
+          <div class="card-title">PIPELINE</div>
+          <div class="metric-value">210.9<span class="text-xl text-gray-400 font-normal"> млн ₽</span></div>
+          <div class="metric-sub"><span class="metric-up">↑ 8.7%</span> к прошлому месяцу</div>
+        </div>
+        <div class="card">
+          <div class="card-title">ВЫИГРАНО ЗА ПЕРИОД</div>
+          <div class="metric-value">541<span class="text-xl text-gray-400 font-normal"> шт</span></div>
+          <div class="metric-sub">из 2 625 закрытых = <span class="font-semibold">20.6%</span> win rate</div>
+        </div>
+        <div class="card">
+          <div class="card-title">ВЫРУЧКА (ЗАКРЫТО)</div>
+          <div class="metric-value">72.5<span class="text-xl text-gray-400 font-normal"> млн ₽</span></div>
+          <div class="metric-sub"><span class="metric-down">↓ 2.1%</span> к прошлому месяцу</div>
+        </div>
+      </div>
+
+      <!-- Funnel + Categories -->
+      <div class="grid grid-cols-3 gap-4">
+        <div class="card col-span-2">
+          <div class="card-title">ОТКРЫТЫЕ СДЕЛКИ ПО СТАДИЯМ</div>
+          <canvas id="chartFunnel" height="100"></canvas>
+        </div>
+        <div class="card">
+          <div class="card-title">ПО ВОРОНКАМ</div>
+          <canvas id="chartCategories" height="240"></canvas>
+        </div>
+      </div>
+
+      <!-- Time series + Top managers -->
+      <div class="grid grid-cols-3 gap-4">
+        <div class="card col-span-2">
+          <div class="card-title">СОЗДАНО СДЕЛОК ПО ДНЯМ</div>
+          <canvas id="chartDealsByDay" height="100"></canvas>
+        </div>
+        <div class="card">
+          <div class="card-title">ТОП-8 МЕНЕДЖЕРОВ ПО ВЫРУЧКЕ</div>
+          <div class="space-y-2 mt-3">
+            <div class="flex justify-between text-sm"><span>Балашова Ирина</span><span class="font-semibold">11.1М</span></div>
+            <div class="w-full bg-gray-100 rounded h-1.5"><div class="bg-blue-500 h-1.5 rounded" style="width:100%"></div></div>
+            <div class="flex justify-between text-sm"><span>Халин Иван</span><span class="font-semibold">9.1М</span></div>
+            <div class="w-full bg-gray-100 rounded h-1.5"><div class="bg-blue-500 h-1.5 rounded" style="width:82%"></div></div>
+            <div class="flex justify-between text-sm"><span>Дудин Петр</span><span class="font-semibold">8.3М</span></div>
+            <div class="w-full bg-gray-100 rounded h-1.5"><div class="bg-blue-500 h-1.5 rounded" style="width:75%"></div></div>
+            <div class="flex justify-between text-sm"><span>Гундарев Максим</span><span class="font-semibold">7.9М</span></div>
+            <div class="w-full bg-gray-100 rounded h-1.5"><div class="bg-blue-500 h-1.5 rounded" style="width:71%"></div></div>
+            <div class="flex justify-between text-sm"><span>Погосян Георгий</span><span class="font-semibold">4.7М</span></div>
+            <div class="w-full bg-gray-100 rounded h-1.5"><div class="bg-blue-500 h-1.5 rounded" style="width:42%"></div></div>
+            <div class="flex justify-between text-sm"><span>Щемелёв Евгений</span><span class="font-semibold">4.1М</span></div>
+            <div class="w-full bg-gray-100 rounded h-1.5"><div class="bg-blue-500 h-1.5 rounded" style="width:37%"></div></div>
+            <div class="flex justify-between text-sm"><span>Касаткин Даниил</span><span class="font-semibold">3.9М</span></div>
+            <div class="w-full bg-gray-100 rounded h-1.5"><div class="bg-blue-500 h-1.5 rounded" style="width:35%"></div></div>
+            <div class="flex justify-between text-sm"><span>Смирнова Екатерина</span><span class="font-semibold">3.3М</span></div>
+            <div class="w-full bg-gray-100 rounded h-1.5"><div class="bg-blue-500 h-1.5 rounded" style="width:29%"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Table by category -->
+      <div class="card">
+        <div class="card-title">РАЗРЕЗ ПО ВОРОНКАМ</div>
+        <table class="w-full text-sm mt-2">
+          <thead>
+            <tr class="text-left text-xs text-gray-500 border-b border-gray-100">
+              <th class="py-2">Воронка</th>
+              <th class="text-right">Всего</th>
+              <th class="text-right">Открытых</th>
+              <th class="text-right">Выиграно</th>
+              <th class="text-right">Win rate</th>
+              <th class="text-right">Сумма выиграно</th>
+              <th class="text-right">Средний чек</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="border-b border-gray-50"><td class="py-2">Телемаркетинг</td><td class="text-right">4 497</td><td class="text-right">2 845</td><td class="text-right">312</td><td class="text-right">18.9%</td><td class="text-right">42.3 млн</td><td class="text-right">135 657 ₽</td></tr>
+            <tr class="border-b border-gray-50"><td class="py-2">Продажи</td><td class="text-right">598</td><td class="text-right">180</td><td class="text-right">142</td><td class="text-right">34.0%</td><td class="text-right">18.7 млн</td><td class="text-right">131 690 ₽</td></tr>
+            <tr class="border-b border-gray-50"><td class="py-2">Retention — Отвалы</td><td class="text-right">296</td><td class="text-right">125</td><td class="text-right">32</td><td class="text-right">18.7%</td><td class="text-right">4.8 млн</td><td class="text-right">150 000 ₽</td></tr>
+            <tr class="border-b border-gray-50"><td class="py-2">Аккаунтинг NEW</td><td class="text-right">286</td><td class="text-right">142</td><td class="text-right">38</td><td class="text-right">26.4%</td><td class="text-right">5.2 млн</td><td class="text-right">136 842 ₽</td></tr>
+            <tr class="border-b border-gray-50"><td class="py-2">Аккаунтинг OLD</td><td class="text-right">275</td><td class="text-right">98</td><td class="text-right">12</td><td class="text-right">6.8%</td><td class="text-right">1.1 млн</td><td class="text-right">91 666 ₽</td></tr>
+            <tr><td class="py-2">Проекты</td><td class="text-right">112</td><td class="text-right">68</td><td class="text-right">5</td><td class="text-right">11.4%</td><td class="text-right">0.4 млн</td><td class="text-right">80 000 ₽</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+
+    <!-- ============ PAGE 2: TELEMARKETING ============ -->
+    <div id="page-1" class="space-y-5 hidden">
+
+      <div class="grid grid-cols-4 gap-4">
+        <div class="card">
+          <div class="card-title">ЗВОНКОВ ВСЕГО</div>
+          <div class="metric-value">699</div>
+          <div class="metric-sub">за последние 7 дней</div>
+        </div>
+        <div class="card">
+          <div class="card-title">ДОЗВОНОВ</div>
+          <div class="metric-value">459</div>
+          <div class="metric-sub"><span class="font-semibold">65.7%</span> от попыток</div>
+        </div>
+        <div class="card">
+          <div class="card-title">TALK TIME</div>
+          <div class="metric-value">9.9<span class="text-xl text-gray-400 font-normal"> ч</span></div>
+          <div class="metric-sub">~ 1.3 ч/день в среднем</div>
+        </div>
+        <div class="card">
+          <div class="card-title">АКТИВНЫХ МЕНЕДЖЕРОВ</div>
+          <div class="metric-value">7</div>
+          <div class="metric-sub">из 65 в Bitrix</div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-3 gap-4">
+        <div class="card col-span-2">
+          <div class="card-title">ЗВОНКИ ПО ДНЯМ</div>
+          <canvas id="chartCallsByDay" height="100"></canvas>
+        </div>
+        <div class="card">
+          <div class="card-title">ПО ТИПУ</div>
+          <canvas id="chartCallTypes" height="240"></canvas>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">АКТИВНОСТЬ ПО ДНЯМ НЕДЕЛИ И ЧАСАМ (HEATMAP)</div>
+        <div class="mt-3" id="heatmap"></div>
+        <div class="text-xs text-gray-400 mt-2">Чем темнее ячейка — тем больше звонков. Часы по МСК. Будни 9-17 = пиковая зона.</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">ТОП МЕНЕДЖЕРОВ ПО ЗВОНКАМ</div>
+        <table class="w-full text-sm mt-2">
+          <thead>
+            <tr class="text-left text-xs text-gray-500 border-b border-gray-100">
+              <th class="py-2">Менеджер</th>
+              <th class="text-right">Звонков</th>
+              <th class="text-right">Дозвонов</th>
+              <th class="text-right">Talk time</th>
+              <th class="text-right">Конверсия</th>
+              <th class="text-right">Avg talk</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="border-b border-gray-50"><td class="py-2 font-medium">Исаева Дарья</td><td class="text-right">268</td><td class="text-right">190</td><td class="text-right">3ч 19м</td><td class="text-right"><span class="text-green-600 font-medium">70.9%</span></td><td class="text-right">62 сек</td></tr>
+            <tr class="border-b border-gray-50"><td class="py-2 font-medium">Вострецов Аркадий</td><td class="text-right">216</td><td class="text-right">130</td><td class="text-right">2ч 4м</td><td class="text-right"><span class="text-green-600 font-medium">60.2%</span></td><td class="text-right">57 сек</td></tr>
+            <tr class="border-b border-gray-50"><td class="py-2 font-medium">Деговцова Елизавета</td><td class="text-right">75</td><td class="text-right">52</td><td class="text-right">1ч 44м</td><td class="text-right"><span class="text-green-600 font-medium">69.3%</span></td><td class="text-right">120 сек</td></tr>
+            <tr class="border-b border-gray-50"><td class="py-2 font-medium">Семенихин Егор</td><td class="text-right">63</td><td class="text-right">46</td><td class="text-right">2ч 3м</td><td class="text-right"><span class="text-green-600 font-medium">73.0%</span></td><td class="text-right">160 сек</td></tr>
+            <tr class="border-b border-gray-50"><td class="py-2 font-medium">Смирнов Илья</td><td class="text-right">66</td><td class="text-right">33</td><td class="text-right">38м</td><td class="text-right"><span class="text-orange-600 font-medium">50.0%</span></td><td class="text-right">68 сек</td></tr>
+            <tr><td class="py-2 font-medium">Николаева Ирина</td><td class="text-right">7</td><td class="text-right">4</td><td class="text-right">42 сек</td><td class="text-right"><span class="text-red-500 font-medium">57.1%</span></td><td class="text-right">10 сек</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+
+    <!-- ============ PAGE 3: KPI ============ -->
+    <div id="page-2" class="space-y-5 hidden">
+
+      <div class="grid grid-cols-3 gap-4">
+        <div class="card">
+          <div class="card-title">ЛИДЕР ПО ВЫРУЧКЕ</div>
+          <div class="text-2xl font-bold mt-1">Балашова Ирина</div>
+          <div class="metric-value mt-2">11.1<span class="text-xl text-gray-400 font-normal"> млн ₽</span></div>
+          <div class="metric-sub">37 выигранных сделок, 92 в работе</div>
+        </div>
+        <div class="card">
+          <div class="card-title">ЛИДЕР ПО ЗВОНКАМ</div>
+          <div class="text-2xl font-bold mt-1">Исаева Дарья</div>
+          <div class="metric-value mt-2">268</div>
+          <div class="metric-sub">70.9% дозвонов, 3ч 19м разговоров</div>
+        </div>
+        <div class="card">
+          <div class="card-title">СРЕДНИЙ WIN RATE</div>
+          <div class="metric-value mt-1">20.6%</div>
+          <div class="metric-sub">541 выиграно / 2625 закрыто</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">СВОДНАЯ ТАБЛИЦА KPI</div>
+        <table class="w-full text-sm mt-2">
+          <thead>
+            <tr class="text-left text-xs text-gray-500 border-b border-gray-200 uppercase">
+              <th class="py-2">Менеджер</th>
+              <th class="text-right">Звонков</th>
+              <th class="text-right">Talk h</th>
+              <th class="text-right">Сделок в работе</th>
+              <th class="text-right">Выиграно</th>
+              <th class="text-right">Сумма выигр.</th>
+              <th class="text-right">Win rate</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="border-b border-gray-50"><td class="py-2 font-medium">Балашова Ирина</td><td class="text-right text-gray-400">—</td><td class="text-right text-gray-400">—</td><td class="text-right">92</td><td class="text-right">37</td><td class="text-right font-semibold">11.1 млн</td><td class="text-right"><span class="text-green-600 font-medium">28.7%</span></td></tr>
+            <tr class="border-b border-gray-50"><td class="py-2 font-medium">Халин Иван</td><td class="text-right text-gray-400">—</td><td class="text-right text-gray-400">—</td><td class="text-right">376</td><td class="text-right">77</td><td class="text-right font-semibold">9.1 млн</td><td class="text-right">17.0%</td></tr>
+            <tr class="border-b border-gray-50"><td class="py-2 font-medium">Дудин Петр</td><td class="text-right text-gray-400">—</td><td class="text-right text-gray-400">—</td><td class="text-right">276</td><td class="text-right">45</td><td class="text-right font-semibold">8.3 млн</td><td class="text-right">14.0%</td></tr>
+            <tr class="border-b border-gray-50"><td class="py-2 font-medium">Гундарев Максим</td><td class="text-right text-gray-400">—</td><td class="text-right text-gray-400">—</td><td class="text-right">8</td><td class="text-right">58</td><td class="text-right font-semibold">7.9 млн</td><td class="text-right"><span class="text-green-600 font-medium">87.9%</span></td></tr>
+            <tr class="border-b border-gray-50"><td class="py-2 font-medium">Погосян Георгий</td><td class="text-right text-gray-400">—</td><td class="text-right text-gray-400">—</td><td class="text-right">160</td><td class="text-right">67</td><td class="text-right font-semibold">4.7 млн</td><td class="text-right">22.5%</td></tr>
+            <tr class="border-b border-gray-50"><td class="py-2 font-medium">Исаева Дарья</td><td class="text-right">268</td><td class="text-right">3.3</td><td class="text-right">8</td><td class="text-right">2</td><td class="text-right font-semibold">0.3 млн</td><td class="text-right">9.5%</td></tr>
+            <tr class="border-b border-gray-50"><td class="py-2 font-medium">Вострецов Аркадий</td><td class="text-right">216</td><td class="text-right">2.1</td><td class="text-right">12</td><td class="text-right">3</td><td class="text-right font-semibold">0.4 млн</td><td class="text-right">11.1%</td></tr>
+            <tr class="border-b border-gray-50"><td class="py-2 font-medium">Семенихин Егор</td><td class="text-right">63</td><td class="text-right">2.1</td><td class="text-right">22</td><td class="text-right">8</td><td class="text-right font-semibold">1.2 млн</td><td class="text-right">21.6%</td></tr>
+            <tr class="border-b border-gray-50"><td class="py-2 font-medium">Деговцова Елизавета</td><td class="text-right">75</td><td class="text-right">1.7</td><td class="text-right">5</td><td class="text-right">1</td><td class="text-right font-semibold">0.1 млн</td><td class="text-right">8.3%</td></tr>
+            <tr><td class="py-2 font-medium">Касаткин Даниил</td><td class="text-right text-gray-400">—</td><td class="text-right text-gray-400">—</td><td class="text-right">108</td><td class="text-right">23</td><td class="text-right font-semibold">3.9 млн</td><td class="text-right">17.6%</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+
+    <div class="text-center text-xs text-gray-400 mt-8 pb-4">
+      Belberry BI · Powered by Metabase · Данные обновляются каждые 15 минут из Bitrix24
+    </div>
+
+  </main>
+</div>
+
+<script>
+// Color palette (Metabase-like)
+const colors = {
+  primary: '#509EE3',
+  green:   '#88BF4D',
+  red:     '#EF8C8C',
+  orange:  '#F9CF48',
+  purple:  '#A989C5',
+  gray:    '#74838F',
+  bg:      '#F0F4F7',
+};
+
+function switchTab(idx) {
+  document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', i === idx));
+  document.querySelectorAll('[id^="page-"]').forEach((p, i) => p.classList.toggle('hidden', i !== idx));
+}
+
+// Funnel: top stages of open deals
+new Chart(document.getElementById('chartFunnel'), {
+  type: 'bar',
+  data: {
+    labels: ['База', 'К обзвону', 'Новый отвал — Отвал', 'Взято в работу', 'В работе', 'Новый отвал — Оплачено', 'Отстойник 3-6 мес', '2+ цикл'],
+    datasets: [{
+      data: [2245, 445, 164, 155, 130, 79, 45, 42],
+      backgroundColor: colors.primary,
+      borderRadius: 4,
+    }]
+  },
+  options: {
+    indexAxis: 'y',
+    plugins: { legend: { display: false } },
+    scales: { x: { grid: { display: false } }, y: { grid: { display: false } } }
+  }
+});
+
+// Categories doughnut
+new Chart(document.getElementById('chartCategories'), {
+  type: 'doughnut',
+  data: {
+    labels: ['Телемаркетинг', 'Продажи', 'Retention отвалы', 'Аккаунтинг NEW', 'Аккаунтинг OLD', 'Проекты', 'Retention оплачено'],
+    datasets: [{
+      data: [4497, 598, 296, 286, 275, 112, 36],
+      backgroundColor: [colors.primary, colors.green, colors.red, colors.orange, colors.purple, colors.gray, '#B0BEC5']
+    }]
+  },
+  options: { plugins: { legend: { position: 'bottom', labels: { font: { size: 10 } } } } }
+});
+
+// Deals by day (synthetic ~30 day trend)
+const days30 = Array.from({length: 30}, (_, i) => {
+  const d = new Date();
+  d.setDate(d.getDate() - (29 - i));
+  return d.toISOString().slice(5, 10);
+});
+new Chart(document.getElementById('chartDealsByDay'), {
+  type: 'line',
+  data: {
+    labels: days30,
+    datasets: [
+      { label: 'Создано', data: [180,195,210,188,200,175,160,205,220,198,212,235,228,245,210,195,225,240,255,232,218,205,228,248,265,242,228,210,195,180], borderColor: colors.primary, backgroundColor: 'rgba(80,158,227,0.1)', fill: true, tension: 0.3 },
+      { label: 'Выиграно', data: [18,22,25,20,28,15,12,30,32,28,25,35,38,40,32,28,35,42,45,38,32,28,35,42,48,42,35,28,22,18], borderColor: colors.green, fill: false, tension: 0.3 }
+    ]
+  },
+  options: { plugins: { legend: { position: 'bottom' } }, scales: { y: { beginAtZero: true } } }
+});
+
+// Calls by day
+new Chart(document.getElementById('chartCallsByDay'), {
+  type: 'bar',
+  data: {
+    labels: ['2026-05-07','2026-05-08','2026-05-09','2026-05-10','2026-05-11','2026-05-12','2026-05-13','2026-05-14'],
+    datasets: [
+      { label: 'Дозвоны', data: [95, 110, 0, 1, 3, 118, 119, 19], backgroundColor: colors.green, stack: 's1' },
+      { label: 'Без дозвона', data: [46, 58, 0, 1, 1, 59, 59, 10], backgroundColor: colors.red, stack: 's1' }
+    ]
+  },
+  options: { plugins: { legend: { position: 'bottom' } }, scales: { x: { stacked: true, grid: {display:false} }, y: { stacked: true } } }
+});
+
+// Call types
+new Chart(document.getElementById('chartCallTypes'), {
+  type: 'doughnut',
+  data: {
+    labels: ['Исходящие', 'Входящие'],
+    datasets: [{ data: [666, 33], backgroundColor: [colors.primary, colors.green] }]
+  },
+  options: { plugins: { legend: { position: 'bottom' } } }
+});
+
+// Heatmap
+const heatmap = [
+  [0,3,0,0,1,0,0,0,0,0,0,0,0,0],
+  [0,21,1,14,30,18,16,28,25,15,7,1,0,0],
+  [0,26,6,18,20,23,13,22,26,23,1,0,0,0],
+  [0,26,12,21,12,17,2,20,30,25,4,1,0,0],
+  [0,21,1,32,30,22,8,17,13,21,3,0,0,0],
+  [0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  [0,0,0,1,0,0,0,0,0,0,0,0,1,0]
+];
+const dows = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+const maxV = Math.max(...heatmap.flat());
+let html = '<div style="display:inline-block">';
+html += '<div style="display:flex; margin-left:30px"><div></div>';
+for (let h=8; h<22; h++) html += `<div style="width:22px; text-align:center; font-size:10px; color:#969BA0">${h}</div>`;
+html += '</div>';
+heatmap.forEach((row, i) => {
+  html += `<div style="display:flex; align-items:center"><div style="width:30px; font-size:11px; color:#969BA0">${dows[i]}</div>`;
+  row.forEach(v => {
+    const alpha = v === 0 ? 0.05 : Math.min(0.15 + (v/maxV)*0.85, 1);
+    html += `<div class="heatmap-cell" style="background:rgba(80,158,227,${alpha})" title="${v} звонков"></div>`;
+  });
+  html += '</div>';
+});
+html += '</div>';
+document.getElementById('heatmap').innerHTML = html;
+</script>
+
+</body>
+</html>

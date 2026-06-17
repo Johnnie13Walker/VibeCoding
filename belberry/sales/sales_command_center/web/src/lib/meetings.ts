@@ -98,6 +98,9 @@ export async function getMeetingsForAnalysis(days = 120): Promise<MeetingItem[]>
     if (r.managerId == null) continue;
     const u = userMap.get(r.managerId);
     if (!u || !isOpRop(u.dept)) continue;
+    // Только продажные встречи: брифинг и защита КП. «Другое» / «Передача проекта»
+    // (meeting_type='other') не про продажи — не анализируем и не показываем здесь.
+    if (r.type !== 'briefing' && r.type !== 'defense') continue;
 
     const a = (r.analysis ?? null) as RawAnalysis | null;
     const analyzed = a != null && typeof a.score === 'number';

@@ -16,7 +16,30 @@ import {
   buildMonthlyDynamics,
   buildDay2Day,
   buildPlanFact,
+  computeWindow,
 } from '../dashboard';
+
+describe('computeWindow — сравнение по календарным дням', () => {
+  it('месяц: прошлое окно обрезается по дню снимка (MTD vs прошлый 1..N)', () => {
+    const w = computeWindow('2026-06-07', 'month');
+    expect(w.start).toBe('2026-06-01');
+    expect(w.prevStart).toBe('2026-05-01');
+    expect(w.prevEnd).toBe('2026-05-07'); // не 2026-05-31 — иначе MTD всегда «−70%»
+  });
+  it('месяц: день снимка клампится по длине прошлого месяца', () => {
+    // 31 марта → февраль короче, берём последний день февраля.
+    const w = computeWindow('2026-03-31', 'month');
+    expect(w.prevStart).toBe('2026-02-01');
+    expect(w.prevEnd).toBe('2026-02-28');
+  });
+  it('неделя: прошлое окно — 7 дней перед текущим', () => {
+    const w = computeWindow('2026-06-07', 'week');
+    expect(w.start).toBe('2026-06-01');
+    expect(w.end).toBe('2026-06-07');
+    expect(w.prevStart).toBe('2026-05-25');
+    expect(w.prevEnd).toBe('2026-05-31');
+  });
+});
 
 describe('buildFunnel', () => {
   it('группирует открытые сделки по стадиям, считает количество и суммы', () => {
@@ -133,8 +156,8 @@ describe('buildForecast', () => {
     // pacing: ожид. = 1.5M * 15/30 = 750k; факт 300k → 40%
     expect(f.paceExpected).toBe(750_000);
     expect(f.pacePct).toBe(40);
-    // стадии отсортированы по взвешенному убыванию (Догрев первым)
-    expect(f.byStage[0].label).toBe('Догрев и переговоры');
+    // стадии отсортированы по порядку воронки (ранние сверху → договор снизу)
+    expect(f.byStage.map((s) => s.label)).toEqual(['Подготовка КП', 'Догрев и переговоры', 'Подготовка договора']);
   });
 
   it('без плана выручки не делит на ноль', () => {
@@ -321,33 +344,30 @@ describe('buildDay2Day', () => {
 });
 
 describe('buildPlanFact', () => {
-  it('считает план как норматив×кол-во и процент выполнения', () => {
+  it('командные оплаты + индивидуальные планы оплат/брифов', () => {
     const pf = buildPlanFact({
-      revenueFact: 600000,
-      revenuePlan: 1000000,
-      meetingsSetFact: 30,
-      meetingsPlanPerTm: 20,
-      tmCount: 3,
-      briefsFact: 45,
-      briefsPlanPerMop: 30,
-      mopCount: 3,
+      revenueTeamFact: 600_000,
+      revenueTeamPlan: 1_000_000,
+      briefsPlanPerMop: 20,
+      managers: [
+        { managerId: 2806, name: 'Деговцова Елизавета', revenueFact: 0, revenuePlan: 500_000, briefsFact: 2 },
+        { managerId: 2846, name: 'Семенихин Егор', revenueFact: 300_000, revenuePlan: 500_000, briefsFact: 11 },
+      ],
     });
-    const rev = pf.rows.find((r) => r.key === 'revenue')!;
-    expect(rev.pct).toBe(60); // 600k/1M
-    const meet = pf.rows.find((r) => r.key === 'meetings')!;
-    expect(meet.plan).toBe(60); // 20×3
-    expect(meet.pct).toBe(50); // 30/60
-    expect(meet.basis).toBe('20/ТМ × 3');
-    const briefs = pf.rows.find((r) => r.key === 'briefs')!;
-    expect(briefs.plan).toBe(90); // 30×3
-    expect(briefs.pct).toBe(50); // 45/90
+    expect(pf.revenueTeamFact).toBe(600_000);
+    expect(pf.revenueTeamPlan).toBe(1_000_000);
+    expect(pf.managers).toHaveLength(2);
+    expect(pf.managers[0].briefsPlan).toBe(20); // норматив на каждого
+    // итог брифов: 2 + 11 = 13, план 20×2 = 40
+    expect(pf.briefsTeamFact).toBe(13);
+    expect(pf.briefsTeamPlan).toBe(40);
   });
 
-  it('нулевой план → pct null', () => {
+  it('нет индивидуальных менеджеров → пустой список, итог брифов 0', () => {
     const pf = buildPlanFact({
-      revenueFact: 100, revenuePlan: 0, meetingsSetFact: 0, meetingsPlanPerTm: 0,
-      tmCount: 0, briefsFact: 0, briefsPlanPerMop: 0, mopCount: 0,
+      revenueTeamFact: 100, revenueTeamPlan: 0, briefsPlanPerMop: 0, managers: [],
     });
-    expect(pf.rows[0].pct).toBeNull();
+    expect(pf.managers).toHaveLength(0);
+    expect(pf.briefsTeamPlan).toBe(0);
   });
 });

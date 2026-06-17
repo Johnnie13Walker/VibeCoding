@@ -1,0 +1,13 @@
+# Сырые финансовые файлы: локальный рабочий источник, не для git.
+source/raw/**
+!source/raw/
+!source/raw/.gitkeep
+
+# Локальные выгрузки и промежуточные результаты.
+reports/**
+!reports/
+!reports/.gitkeep
+data/**
+!data/
+!data/.gitkeep
+

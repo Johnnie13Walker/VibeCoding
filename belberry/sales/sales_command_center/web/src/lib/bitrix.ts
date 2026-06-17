@@ -77,46 +77,67 @@ async function loadAuth(): Promise<BitrixAuth> {
   return { endpoint, token };
 }
 
+const BITRIX_TIMEOUT_MS = Number(process.env.BITRIX_HTTP_TIMEOUT_MS ?? 6000);
+const BITRIX_RETRIES = Math.max(1, Number(process.env.BITRIX_HTTP_RETRIES ?? 3));
+
 async function callBitrix<T>(
   method: string,
   params: Record<string, unknown> = {},
 ): Promise<T> {
   const auth = await loadAuth();
   const url = new URL(`${auth.endpoint.replace(/\/$/, '')}/${method}.json`);
-  const body = flattenParams({ ...params, auth: auth.token });
+  const body = flattenParams({ ...params, auth: auth.token }).toString();
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/x-www-form-urlencoded',
-    },
-    body,
-  });
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= BITRIX_RETRIES; attempt += 1) {
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/x-www-form-urlencoded',
+        },
+        body,
+        signal: AbortSignal.timeout(BITRIX_TIMEOUT_MS),
+      });
+    } catch (error) {
+      // Сетевой сбой/таймаут к Bitrix частый: у портала ~13 A-записей, часть
+      // недоступна с зарубежного сервера → fetch виснет на «мёртвом» IP.
+      // Повторяем — новый запрос переподключается и может попасть на живой IP.
+      lastError = error;
+      continue;
+    }
 
-  const payload = (await response.json()) as BitrixResponse<T>;
+    const payload = (await response.json()) as BitrixResponse<T>;
 
-  if (!response.ok || payload.error) {
-    const reason = payload.error_description ?? payload.error ?? response.statusText;
-    throw new Error(maskAuth(`Bitrix ${method} failed: ${reason}`));
+    if (!response.ok || payload.error) {
+      const reason = payload.error_description ?? payload.error ?? response.statusText;
+      throw new Error(maskAuth(`Bitrix ${method} failed: ${reason}`));
+    }
+
+    return payload.result as T;
   }
 
-  return payload.result as T;
+  throw new Error(maskAuth(`Bitrix ${method} unreachable: ${String(lastError)}`));
 }
 
 export async function findActiveUserByEmail(email: string): Promise<BitrixUser | null> {
   // Адрес в Bitrix может лежать в EMAIL ИЛИ в LOGIN (часто входят по
   // корпоративной почте-логину, поле EMAIL пустое). Пробуем оба фильтра;
   // совпадение проверяем строго по обоим полям — иначе сессия привяжется к чужому.
-  const wanted = email.trim().toLowerCase();
+  const cleaned = email.trim();
+  const wanted = cleaned.toLowerCase();
   const matches = (candidate: Record<string, unknown>) =>
     [candidate.EMAIL, candidate.LOGIN].some(
       (value) => String(value ?? '').trim().toLowerCase() === wanted,
     );
 
   let user: Record<string, unknown> | undefined;
+  // В фильтр Bitrix отдаём очищенный адрес: лишний пробел в EMAIL-фильтре
+  // даёт 0 строк (проверено на проде) → ложное «Email не найден».
   for (const filter of [
-    { EMAIL: email, ACTIVE: 'Y' },
-    { LOGIN: email, ACTIVE: 'Y' },
+    { EMAIL: cleaned, ACTIVE: 'Y' },
+    { LOGIN: cleaned, ACTIVE: 'Y' },
   ]) {
     const result = await callBitrix<Array<Record<string, unknown>>>('user.get', { filter });
     user = result.find(matches);

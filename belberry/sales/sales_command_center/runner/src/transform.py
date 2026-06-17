@@ -67,6 +67,29 @@ def max_wazzup_date(comments: list[dict[str, Any]] | None) -> datetime | None:
     return max(dates) if dates else None
 
 
+def last_comm_date(
+    deal_id: Any,
+    wazzup: dict[Any, list[dict[str, Any]]] | None,
+    last_calls: dict[Any, str] | None,
+) -> str | None:
+    """Дата последней КОММУНИКАЦИИ С КЛИЕНТОМ по сделке (ISO YYYY-MM-DD) или None.
+
+    Источник — только переписка с клиентом: звонки (обе стороны) + Wazzup. Внутренние
+    комментарии/задачи не учитываем. Берём максимум из последнего звонка и последнего
+    Wazzup-сообщения. Используется блоком «Тишина» (нет коммуникации >14 дней)."""
+    key = str(deal_id)
+    candidates: list[datetime] = []
+    call_dt = parse_dt((last_calls or {}).get(key) or (last_calls or {}).get(deal_id))
+    if call_dt is not None:
+        candidates.append(call_dt)
+    wz_dt = max_wazzup_date((wazzup or {}).get(key) or (wazzup or {}).get(deal_id))
+    if wz_dt is not None:
+        candidates.append(wz_dt)
+    if not candidates:
+        return None
+    return max(candidates).date().isoformat()
+
+
 def risk_reason(opportunity: float, age: int, threshold: int, last_contact_days: int) -> str:
     # У зависшей сделки age всегда > threshold (иначе она не попала бы в stale),
     # поэтому различаем причины по бюджету и давности касания, а «застрял» —
@@ -224,6 +247,7 @@ def build_db_rows(raw: dict[str, Any], target_date: date, now: datetime) -> dict
                 "manager_id": _to_int(deal.get("ASSIGNED_BY_ID")),
                 "stuck_days": stale_by_deal.get(deal_id, {}).get("age"),
                 "stage_entered": moved_at.date().isoformat() if moved_at else None,
+                "last_comm_at": last_comm_date(deal_id, raw.get("wazzup"), raw.get("last_calls")),
                 "title": deal.get("TITLE"),
                 "company_id": _to_int(deal.get("COMPANY_ID")),
             }

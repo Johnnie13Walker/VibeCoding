@@ -8,7 +8,7 @@ from datetime import date, datetime
 from typing import Any
 
 from .collect import SEL_1048, _fetch_all, _range, collect_voximplant
-from .transform import aggregate_calls, _to_int
+from .transform import aggregate_calls, _to_int, _meeting_type
 
 # Поле брифа (1056) «Список услуг» — enumeration ufCrm20_1753290430.
 BRIEF_SERVICE_FIELD = "ufCrm20_1753290430"
@@ -17,6 +17,34 @@ SERVICE_MAP = {
     2730: "SEO", 2732: "ORM", 2734: "SMM", 2736: "Разработка сайта",
     2738: "Техподдержка", 2740: "Лендинг", 2742: "Фирменный стиль", 9538: "AEO",
 }
+
+# Поле КП (1106) «Список услуг» — enumeration ufCrm44_1774430907621 (свой набор id).
+KP_SERVICE_FIELD = "ufCrm44_1774430907621"
+KP_SERVICE_MAP = {
+    8652: "SEO", 8654: "Дзен", 8656: "Копирайтинг", 8658: "Контекстная реклама",
+    8660: "GEO", 8662: "ORM", 8664: "SMM", 8666: "Разработка сайта",
+    8668: "Техподдержка", 8670: "Лендинг", 8672: "Фирменный стиль", 9540: "AEO",
+}
+
+# Годовая выручка компании пишется обогащением на сделку (3 формы поля). Берём первую
+# непустую: число → деньги (amount|CUR) → строка. Нужна для ТМ-брифингов на /today.
+DEAL_REVENUE_FIELDS = ("UF_CRM_1774971054", "UF_CRM_67B35193BAFB4", "UF_CRM_5E79DD26CB010")
+
+
+def _parse_revenue(deal: dict[str, Any]) -> float | None:
+    for key in DEAL_REVENUE_FIELDS:
+        val = deal.get(key)
+        if val in (None, "", 0, "0"):
+            continue
+        s = str(val).split("|", 1)[0]  # money: "amount|RUB"
+        cleaned = "".join(ch for ch in s if ch.isdigit() or ch == ".")
+        try:
+            num = float(cleaned)
+        except ValueError:
+            continue
+        if num > 0:
+            return num
+    return None
 
 
 # СПАМ-сделка: причина отказа UF_CRM_1771495464 = 8588 (как в дневном отчёте).
@@ -29,6 +57,17 @@ def _deal_is_spam(deal: dict[str, Any]) -> bool:
     if isinstance(value, (list, tuple)):
         return SPAM_REASON_ID in [str(x) for x in value]
     return str(value) == SPAM_REASON_ID
+
+
+def kp_status(stage_id: Any) -> str:
+    """Статус КП (1106) по стадии: SUCCESS=Готово (получено), FAIL=Не актуально
+    (отклонено), иначе в работе."""
+    code = str(stage_id or "").rsplit(":", 1)[-1].upper()
+    if code == "SUCCESS":
+        return "success"
+    if code == "FAIL":
+        return "rejected"
+    return "progress"
 
 
 def meeting_status(stage_id: Any) -> str:
@@ -64,7 +103,7 @@ def collect_live(today: date, bx=None) -> dict[str, Any]:
     kp = _fetch_all(
         bx, "crm.item.list",
         {"entityTypeId": 1106, "filter": {">=updatedTime": d0, "<=updatedTime": d1},
-         "select": ["id", "title", "assignedById", "updatedTime"]},
+         "select": ["id", "title", "assignedById", "parentId2", "stageId", KP_SERVICE_FIELD, "updatedTime"]},
         idfield="id",
     )
     briefs = _fetch_all(
@@ -78,8 +117,25 @@ def collect_live(today: date, bx=None) -> dict[str, Any]:
         {"filter": {">=CREATED": d0, "<=CREATED": d1},
          "select": ["ID", "TYPE_ID", "PROVIDER_ID", "DIRECTION", "RESPONSIBLE_ID", "AUTHOR_ID"]},
     )
+    # Годовая выручка компании по сделкам встреч (нужна для ТМ-брифингов).
+    deal_ids = sorted({
+        did for m in [*meetings, *meetings_set]
+        if (did := _to_int(m.get("parentId2")))
+    })
+    meeting_deal_revenue: dict[int, float] = {}
+    if deal_ids:
+        rev_rows = _fetch_all(
+            bx, "crm.deal.list",
+            {"filter": {"@ID": deal_ids}, "select": ["ID", *DEAL_REVENUE_FIELDS]},
+        )
+        for d in rev_rows:
+            did = _to_int(d.get("ID"))
+            rev = _parse_revenue(d)
+            if did and rev:
+                meeting_deal_revenue[did] = rev
     return {"calls": calls, "meetings": meetings, "meetings_set": meetings_set,
-            "deals_created": deals_created, "kp": kp, "briefs": briefs, "activities": activities}
+            "deals_created": deals_created, "kp": kp, "briefs": briefs, "activities": activities,
+            "meeting_deal_revenue": meeting_deal_revenue}
 
 
 def build_live_payload(today: date, raw: dict[str, Any], now: datetime) -> dict[str, Any]:
@@ -88,6 +144,7 @@ def build_live_payload(today: date, raw: dict[str, Any], now: datetime) -> dict[
     deals = raw.get("deals_created") or []
     kp = raw.get("kp") or []
     briefs = raw.get("briefs") or []
+    revenue_map = raw.get("meeting_deal_revenue") or {}
 
     per: dict[int, dict[str, Any]] = {}
 
@@ -137,10 +194,13 @@ def build_live_payload(today: date, raw: dict[str, Any], now: datetime) -> dict[
             cset = slot(creator)
             if cset:
                 cset["m_set"] += 1
+        deal_id = _to_int(m.get("parentId2"))
         meetings_list.append(
             {"id": mid, "title": m.get("title") or "Встреча", "manager_id": owner,
              "at": str(m.get("ufCrm16_1751009238") or ""), "status": st,
-             "deal_id": _to_int(m.get("parentId2")), "set_today": set_today}
+             "deal_id": deal_id, "set_today": set_today,
+             "type": _meeting_type(m), "created_by": creator,
+             "company_revenue": revenue_map.get(deal_id)}
         )
 
     briefs_list = []
@@ -153,6 +213,16 @@ def build_live_payload(today: date, raw: dict[str, Any], now: datetime) -> dict[
         briefs_list.append(
             {"id": _to_int(b.get("id")), "title": b.get("title") or "Бриф", "manager_id": uid,
              "deal_id": _to_int(b.get("parentId2")), "service": service}
+        )
+
+    kp_list = []
+    for k in kp:
+        uid = _to_int(k.get("assignedById"))
+        service = KP_SERVICE_MAP.get(_to_int(k.get(KP_SERVICE_FIELD)) or 0, "")
+        kp_list.append(
+            {"id": _to_int(k.get("id")), "title": k.get("title") or "КП", "manager_id": uid,
+             "deal_id": _to_int(k.get("parentId2")), "service": service,
+             "status": kp_status(k.get("stageId"))}
         )
 
     # СПАМ-сделки в «создано» не считаем (как в дневном отчёте).
@@ -193,16 +263,16 @@ def build_live_payload(today: date, raw: dict[str, Any], now: datetime) -> dict[
     # Лента активности: встречи + брифы + КП + созданные сделки (события с временем).
     feed: list[dict[str, Any]] = []
     for m in meetings:
-        feed.append({"kind": "meeting", "manager_id": _to_int(m.get("assignedById")),
+        feed.append({"kind": "meeting", "id": _to_int(m.get("id")), "manager_id": _to_int(m.get("assignedById")),
                      "title": m.get("title") or "Встреча", "at": str(m.get("ufCrm16_1751009238") or "")})
     for b in briefs:
-        feed.append({"kind": "brief", "manager_id": _to_int(b.get("assignedById")),
+        feed.append({"kind": "brief", "id": _to_int(b.get("id")), "manager_id": _to_int(b.get("assignedById")),
                      "title": b.get("title") or "Бриф", "at": str(b.get("createdTime") or "")})
     for k in kp:
-        feed.append({"kind": "kp", "manager_id": _to_int(k.get("assignedById")),
+        feed.append({"kind": "kp", "id": _to_int(k.get("id")), "manager_id": _to_int(k.get("assignedById")),
                      "title": k.get("title") or "КП", "at": str(k.get("updatedTime") or "")})
     for d in deals_real:
-        feed.append({"kind": "deal", "manager_id": _to_int(d.get("ASSIGNED_BY_ID")),
+        feed.append({"kind": "deal", "id": _to_int(d.get("ID")), "manager_id": _to_int(d.get("ASSIGNED_BY_ID")),
                      "title": d.get("TITLE") or "Сделка", "at": str(d.get("DATE_CREATE") or "")})
     feed.sort(key=lambda e: e["at"], reverse=True)
 
@@ -214,5 +284,6 @@ def build_live_payload(today: date, raw: dict[str, Any], now: datetime) -> dict[
         "managers": managers,
         "meetings_list": meetings_list,
         "briefs_list": briefs_list,
+        "kp_list": kp_list,
         "feed": feed[:15],
     }

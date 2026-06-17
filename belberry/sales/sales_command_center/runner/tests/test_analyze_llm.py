@@ -362,3 +362,11 @@ def test_openai_adapter_gpt4o_keeps_max_tokens_and_temperature():
     assert sent["temperature"] == 0.3
     assert "max_completion_tokens" not in sent
     assert "reasoning_effort" not in sent
+
+
+def test_score_rubric_defines_9_and_10():
+    from src.analyze_llm import SYSTEM_PROMPT
+    # шкала должна явно определять верхние баллы, иначе модель упирается в 8
+    assert "10 —" in SYSTEM_PROMPT
+    assert "9 —" in SYSTEM_PROMPT
+    assert "обязательство" in SYSTEM_PROMPT

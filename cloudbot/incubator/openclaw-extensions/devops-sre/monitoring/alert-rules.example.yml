@@ -1,0 +1,30 @@
+groups:
+  - name: infra-health
+    rules:
+      - alert: HostHighCPU
+        expr: avg by(instance) (rate(node_cpu_seconds_total{mode!="idle"}[5m])) > 0.85
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage"
+          description: "CPU usage is above 85% for 10 minutes on {{ $labels.instance }}"
+
+      - alert: HostDiskAlmostFull
+        expr: (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) < 0.15
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Disk space low"
+          description: "Root filesystem free space is below 15% on {{ $labels.instance }}"
+
+      - alert: ServiceDown
+        expr: up{job="app"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service down"
+          description: "Target {{ $labels.instance }} is not reachable"
+

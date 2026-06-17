@@ -112,3 +112,45 @@ def test_transcript_cached_idempotent():
     enrich_meetings(raw, cache=cache, opener=opener_for(FIXTURE.read_bytes(), calls))
 
     assert len(calls) == 1
+
+
+# ── PDF-транскрипты (memoai.tech) — извлечение текста ──
+from src import enrich as E  # noqa: E402
+
+
+def test_decode_plain_text_utf8():
+    assert E._decode_transcript("Привет, встреча".encode("utf-8")) == "Привет, встреча"
+
+
+def test_decode_pdf_routes_to_extractor(monkeypatch):
+    monkeypatch.setattr(E, "_extract_pdf_text", lambda body: "ИЗВЛЕЧЁННЫЙ ТЕКСТ")
+    assert E._decode_transcript(b"%PDF-1.4\nrubbish") == "ИЗВЛЕЧЁННЫЙ ТЕКСТ"
+
+
+def test_extract_pdf_text_garbage_returns_empty():
+    # битый PDF → не падаем, отдаём пусто (встреча станет missing, а не «мусорный разбор»)
+    assert E._extract_pdf_text(b"%PDF-1.4 not a real pdf") == ""
+
+
+def test_decode_non_pdf_not_routed(monkeypatch):
+    monkeypatch.setattr(E, "_extract_pdf_text", lambda body: (_ for _ in ()).throw(AssertionError("не должно вызываться")))
+    # обычный текст — извлекатель PDF не трогаем
+    assert E._decode_transcript(b"plain transcript text") == "plain transcript text"
+
+
+import gzip as _gz  # noqa: E402
+
+
+def test_decode_gzip_text():
+    raw = "09.06 брифинг nmlikino.ru".encode("utf-8")
+    assert E._decode_transcript(_gz.compress(raw)) == "09.06 брифинг nmlikino.ru"
+
+
+def test_decode_gzip_of_pdf_routes_to_extractor(monkeypatch):
+    monkeypatch.setattr(E, "_extract_pdf_text", lambda body: "PDF_TEXT")
+    assert E._decode_transcript(_gz.compress(b"%PDF-1.4 rubbish")) == "PDF_TEXT"
+
+
+def test_decode_gzip_garbage_returns_empty():
+    # битый gzip-поток → не падаем, отдаём пусто
+    assert E._decode_transcript(b"\x1f\x8b\x08 broken stream") == ""

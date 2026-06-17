@@ -1,0 +1,22 @@
+{
+  "name": "new-project-2-openclaw-extensions",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "selftest:websearch": "node search/selftest.js",
+    "selftest": "node scripts/selftest.js",
+    "smoke:telegram": "node scripts/smoke-telegram-orchestrator.mjs",
+    "steps:demo": "node scripts/steps-demo.mjs",
+    "contacts:demo": "node scripts/contacts-demo.mjs",
+    "smoke:meet-state": "node scripts/smoke-meet-state.mjs",
+    "orchestrator:run": "node scripts/orchestrator-run.mjs",
+    "whoop:report": "node scripts/orchestrator-run.mjs whoop-daily-report-with-steps",
+    "whoop:test:telegram": "node scripts/orchestrator-run.mjs whoop-telegram-test",
+    "health:daily": "node scripts/orchestrator-run.mjs daily-health-check",
+    "whoop:discover": "node scripts/orchestrator-run.mjs whoop-discovery"
+  }
+}

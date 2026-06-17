@@ -1,0 +1,1379 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>КП Belberry — med-shushary.ru</title>
+<style>
+  @page { size: 1280px 800px; margin: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  html, body { background: #ffffff; }
+  body {
+    font-family: -apple-system, "Helvetica Neue", "Inter", "Segoe UI", Arial, sans-serif;
+    color: #1a1f3a;
+    font-feature-settings: "tnum" 1, "lnum" 1;
+  }
+  .slide {
+    width: 1280px;
+    height: 800px;
+    page-break-after: always;
+    position: relative;
+    padding: 44px 64px 26px 64px;
+    overflow: hidden;
+    background: #faf8f5;
+    display: flex;
+    flex-direction: column;
+  }
+  .slide:last-child { page-break-after: auto; }
+  .slide-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+
+  /* TITLE SLIDE */
+  .slide.title {
+    background: linear-gradient(135deg, #1f1547 0%, #2b1f5e 45%, #3a2a7a 100%);
+    color: #fff;
+    padding: 80px 96px;
+  }
+  .title .eyebrow {
+    font-size: 14px;
+    letter-spacing: 0.32em;
+    color: #cdc5ee;
+    text-transform: uppercase;
+    font-weight: 500;
+    margin-bottom: 96px;
+  }
+  .title h1 {
+    font-size: 64px;
+    line-height: 1.05;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: 28px;
+    max-width: 1000px;
+  }
+  .title .lead {
+    font-size: 22px;
+    color: #d9d3ee;
+    font-weight: 400;
+    max-width: 900px;
+    line-height: 1.45;
+    margin-bottom: 96px;
+  }
+  .title .divider {
+    height: 1px;
+    background: rgba(255,255,255,0.18);
+    margin-bottom: 36px;
+  }
+  .title-meta {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 32px;
+  }
+  .title-meta .cell .label {
+    font-size: 11px;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: #b6abe6;
+    font-weight: 500;
+    margin-bottom: 12px;
+  }
+  .title-meta .cell .value {
+    font-size: 20px;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 4px;
+  }
+  .title-meta .cell .note {
+    font-size: 13px;
+    color: #cdc5ee;
+  }
+
+  /* CONTENT SLIDE — HEADER */
+  .slide-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 8px;
+  }
+  .slide-header h2 {
+    font-size: 34px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: #1a1f3a;
+    line-height: 1.1;
+  }
+  .slide-header .pagenum {
+    font-size: 12px;
+    letter-spacing: 0.18em;
+    color: #5b50d6;
+    font-weight: 700;
+    margin-top: 14px;
+  }
+  .slide-subheader {
+    font-size: 14px;
+    color: #6b6f88;
+    margin-bottom: 16px;
+  }
+  .slide-rule {
+    height: 3px;
+    background: #1a1f3a;
+    margin-bottom: 20px;
+    width: 100%;
+  }
+
+  /* CARDS GRID */
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+
+  .card {
+    background: #ffffff;
+    border-radius: 8px;
+    padding: 18px 20px;
+    position: relative;
+    box-shadow: 0 1px 0 rgba(26,31,58,0.04);
+  }
+  .card .bar {
+    position: absolute; top: 0; left: 0;
+    width: 56px; height: 3px;
+    background: #5b50d6;
+    border-radius: 2px;
+  }
+  .card .tag {
+    display: inline-block;
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    background: #ece9f9;
+    color: #5b50d6;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    margin-bottom: 9px;
+  }
+  .card h3 {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1a1f3a;
+    margin-bottom: 8px;
+    line-height: 1.2;
+  }
+  .card .kpi-label {
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    color: #6b6f88;
+    text-transform: uppercase;
+    font-weight: 500;
+    margin-top: 8px;
+    margin-bottom: 2px;
+  }
+  .card .kpi-value {
+    font-size: 21px;
+    font-weight: 700;
+    color: #1a1f3a;
+    line-height: 1.1;
+  }
+  .card .kpi-value.purple { color: #5b50d6; }
+  .card .desc {
+    font-size: 11.5px;
+    line-height: 1.5;
+    color: #4a4f6a;
+    margin-top: 9px;
+    border-top: 1px dashed #d8d3e6;
+    padding-top: 9px;
+  }
+  .card .desc-tight {
+    font-size: 11.5px;
+    line-height: 1.55;
+    color: #4a4f6a;
+    margin-top: 6px;
+  }
+  .card .price-line {
+    margin-top: 10px;
+    font-size: 14px;
+    color: #4a4f6a;
+  }
+  .card .price-line strong { color: #1a1f3a; }
+  .card .price-line .strike { color: #b8bccd; text-decoration: line-through; margin-right: 8px; }
+
+  /* PROOF / CASE TILES (градиентный вариант) */
+  .proof-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 13px; }
+  .tile {
+    display: flex; flex-direction: column;
+    border-radius: 14px;
+    padding: 16px 18px 15px;
+    position: relative; overflow: hidden;
+    text-decoration: none; color: inherit;
+    background: #ffffff; border: 1px solid #eceaf6;
+    box-shadow: 0 1px 2px rgba(26,31,58,0.04);
+    transition: box-shadow .15s ease, transform .15s ease;
+  }
+  .tile:hover { transform: translateY(-2px); box-shadow: 0 10px 26px rgba(91,80,214,0.16); }
+  .tile.fill {
+    background: linear-gradient(145deg, #5b50d6 0%, #4738bd 100%);
+    border: none; color: #fff;
+    box-shadow: 0 6px 18px rgba(91,80,214,0.22);
+  }
+  .tile .tt { font-size: 9.5px; font-weight: 700; letter-spacing: 0.07em; }
+  .tile.fill .tt { color: #e9e6ff; }
+  .tile:not(.fill) .tt { color: #5b50d6; }
+  .tile .tn { font-size: 15.5px; font-weight: 700; margin-top: 3px; line-height: 1.15; }
+  .tile .tnum { font-size: 36px; font-weight: 800; line-height: 1.0; margin-top: 14px; letter-spacing: -0.02em; }
+  .tile:not(.fill) .tnum { color: #5b50d6; }
+  .tile .tnum .arrow { font-weight: 700; opacity: .5; margin: 0 1px; }
+  .tile .tm { font-size: 10.5px; margin-top: 6px; opacity: .85; }
+  .tile .tcap { font-size: 10px; margin-top: auto; padding-top: 12px; }
+  .tile.fill .tcap { border-top: 1px solid rgba(255,255,255,0.22); opacity: .82; }
+  .tile:not(.fill) .tcap { border-top: 1px solid #eee9f8; color: #7a7e96; }
+
+  /* PROBLEM / SOLUTION GROUPS */
+  .pgroup { background:#fff; border:1px solid #eceaf6; border-radius:12px; padding:14px 16px 13px; display:flex; flex-direction:column; }
+  .pgroup .ph { font-size:10px; font-weight:800; letter-spacing:0.05em; text-transform:uppercase;
+       padding:5px 11px; border-radius:100px; align-self:flex-start; margin-bottom:11px; }
+  .ph.red { background:#fdecea; color:#c8483d; }
+  .ph.amber { background:#fbf1e2; color:#b5751a; }
+  .ph.blue { background:#e9f0fc; color:#2d6cdf; }
+  .pgroup ul { list-style:none; display:flex; flex-direction:column; gap:9px; margin:0; padding:0; }
+  .pgroup li { font-size:11.5px; line-height:1.38; color:#4a4f6a; padding-left:19px; position:relative; }
+  .pgroup li b { color:#1a1f3a; font-weight:700; }
+  .pgroup.bad li::before { content:'✕'; position:absolute; left:0; top:0; color:#dd5b4f; font-weight:800; font-size:11px; }
+  .pgroup.good li::before { content:'✓'; position:absolute; left:0; top:0; color:#12a273; font-weight:800; font-size:11px; }
+  .pgroup .src { font-size:9px; color:#a3a7ba; margin-top:11px; letter-spacing:0.03em; }
+  .pgroup .outcome { margin-top:auto; padding-top:11px; margin-top:13px; border-top:1px dashed #cfe7dc;
+       font-size:11px; line-height:1.38; color:#0a8f5f; font-weight:600; }
+  .pgroup .outcome b { color:#077a51; }
+  .pain-banner { background:linear-gradient(135deg,#e0564f 0%,#c8483d 100%); color:#fff; border-radius:12px;
+       padding:12px 20px; display:flex; align-items:center; gap:20px; margin-bottom:13px; box-shadow:0 4px 14px rgba(200,72,61,0.25); }
+  .pain-banner .pb-num { font-size:40px; font-weight:900; line-height:1; flex:none; letter-spacing:-0.02em; }
+  .pain-banner .pb-txt { font-size:12.5px; line-height:1.42; }
+  .pain-banner .pb-txt b { font-weight:800; }
+  .win-banner { background:linear-gradient(135deg,#12a273 0%,#0a8f5f 100%); color:#fff; border-radius:12px;
+       padding:12px 20px; display:flex; align-items:center; gap:20px; margin-bottom:13px; box-shadow:0 4px 14px rgba(10,143,95,0.25); }
+  .win-banner .wb-ic { font-size:30px; flex:none; }
+  .win-banner .wb-txt { font-size:12.5px; line-height:1.42; }
+  .win-banner .wb-txt b { font-weight:800; }
+
+  /* HIGHLIGHT BLOCK */
+  .highlight {
+    background: linear-gradient(135deg, #5b50d6 0%, #4a3fc5 100%);
+    color: #fff;
+    border-radius: 8px;
+    padding: 18px 24px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .highlight .cell .label {
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #d9d3ee;
+    font-weight: 600;
+    margin-bottom: 5px;
+  }
+  .highlight .cell .value {
+    font-size: 26px;
+    font-weight: 700;
+    line-height: 1.05;
+  }
+  .highlight .cell .note {
+    font-size: 11px;
+    color: #d9d3ee;
+    margin-top: 3px;
+  }
+
+  /* TABLE */
+  table.belb {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+  }
+  table.belb th {
+    text-align: left;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #6b6f88;
+    font-weight: 600;
+    padding: 7px 10px;
+    border-bottom: 1px solid #d8d3e6;
+  }
+  table.belb th.right, table.belb td.right { text-align: right; }
+  table.belb td {
+    padding: 7px 10px;
+    border-bottom: 1px solid #ece9f3;
+    color: #1a1f3a;
+  }
+  table.belb td.metric { color: #4a4f6a; }
+  table.belb td.num { font-variant-numeric: tabular-nums; font-weight: 600; }
+  table.belb tr.totalrow td { font-weight: 700; background: #f3effc; border-bottom: none; }
+  table.belb tr.totalrow td:first-child { color: #5b50d6; }
+  table.belb .now { color: #6b6f88; }
+  table.belb .future { color: #5b50d6; font-weight: 700; }
+
+  /* DISCLAIMER */
+  .disclaimer {
+    background: #fff4ec;
+    border-left: 4px solid #e88a3b;
+    border-radius: 4px;
+    padding: 10px 14px;
+    font-size: 10.5px;
+    line-height: 1.45;
+    color: #5b3a1a;
+    flex-shrink: 0;
+  }
+  .disclaimer .d-title {
+    font-weight: 700;
+    color: #b86420;
+    font-size: 9.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin-bottom: 3px;
+  }
+
+  /* QUOTES */
+  .quote-card {
+    background: #fff;
+    border-radius: 8px;
+    padding: 26px 28px;
+    position: relative;
+    border-left: 4px solid #5b50d6;
+  }
+  .quote-card .qmark {
+    font-size: 56px;
+    color: #ece9f9;
+    line-height: 0.6;
+    position: absolute;
+    top: 22px;
+    right: 22px;
+    font-weight: 700;
+  }
+  .quote-card .qtext {
+    font-size: 16px;
+    line-height: 1.5;
+    color: #1a1f3a;
+    font-weight: 500;
+    margin-bottom: 12px;
+    font-style: italic;
+  }
+  .quote-card .qauth {
+    font-size: 12px;
+    color: #6b6f88;
+    letter-spacing: 0.04em;
+  }
+
+  /* FOOTER */
+  .slide-footer {
+    margin-top: auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid #e7e3d8;
+    padding-top: 12px;
+    font-size: 10.5px;
+    color: #6b6f88;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+  }
+  .slide-footer .belb-mark {
+    font-weight: 700;
+    color: #1a1f3a;
+    letter-spacing: 0.04em;
+  }
+  .contact-bar {
+    margin-top: auto; flex-shrink: 0;
+    display: grid; grid-template-columns: 1.25fr 1fr 1.1fr;
+    background: linear-gradient(135deg, #5b50d6 0%, #4a3fc5 100%);
+    color: #fff; border-radius: 10px; padding: 10px 22px;
+    box-shadow: 0 3px 12px rgba(91,80,214,0.20);
+  }
+  .contact-bar .cb-cell { padding-right: 18px; }
+  .contact-bar .cb-cell + .cb-cell { border-left: 1px solid rgba(255,255,255,0.18); padding-left: 20px; }
+  .contact-bar .cb-k { display: block; font-size: 8px; letter-spacing: 0.12em; color: #c9c3f3; font-weight: 700; }
+  .contact-bar .cb-v { display: block; font-size: 14.5px; font-weight: 800; margin-top: 2px; line-height: 1.1; }
+  .contact-bar .cb-s { display: block; font-size: 9.5px; color: #d9d4f7; margin-top: 1px; }
+
+  /* ROADMAP */
+  .roadmap-list { display: flex; flex-direction: column; gap: 14px; }
+  .roadmap-step { display: flex; gap: 18px; align-items: flex-start; }
+  .roadmap-num {
+    background: #5b50d6;
+    color: #fff;
+    font-weight: 700;
+    width: 32px; height: 32px;
+    border-radius: 16px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    font-size: 14px;
+  }
+  .roadmap-step .body { flex: 1; }
+  .roadmap-step .body .title-line { font-weight: 700; color: #1a1f3a; font-size: 14px; margin-bottom: 4px; }
+  .roadmap-step .body .desc-line { font-size: 13px; color: #4a4f6a; line-height: 1.5; }
+  .roadmap-divider { height: 1px; background: #e3dfee; margin-left: 50px; }
+
+  /* SMALL UTILITY */
+  .pill {
+    display: inline-block;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    padding: 4px 9px;
+    border-radius: 4px;
+    background: #ece9f9;
+    color: #5b50d6;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  .pill.warn { background: #fde3d2; color: #b86420; }
+  .pill.ok { background: #d8efe0; color: #2c7a4a; }
+  .pill.bad { background: #fadcde; color: #a13442; }
+
+  .two-col-block { display: grid; grid-template-columns: 1.4fr 1fr; gap: 22px; }
+
+  /* large number */
+  .megalarge { font-size: 64px; font-weight: 700; color: #fff; line-height: 1; letter-spacing: -0.02em; }
+  .megalarge-sub { font-size: 13px; color: #d9d3ee; margin-top: 6px; }
+
+  .checkmark {
+    display: inline-block;
+    width: 16px; height: 16px;
+    background: #5b50d6;
+    color: #fff;
+    border-radius: 8px;
+    font-size: 10px;
+    text-align: center;
+    line-height: 16px;
+    margin-right: 8px;
+    vertical-align: middle;
+  }
+
+  .footer-line-section {
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    color: #6b6f88;
+    text-transform: uppercase;
+    font-weight: 600;
+    margin-bottom: 10px;
+  }
+
+  /* CLOSING SLIDE */
+  .slide.closing {
+    background: linear-gradient(135deg, #1f1547 0%, #2b1f5e 48%, #3a2a7a 100%);
+    color: #fff;
+    padding: 56px 72px 40px 72px;
+    justify-content: space-between;
+  }
+  .closing-eyebrow {
+    font-size: 13px;
+    letter-spacing: 0.3em;
+    color: #b6abe6;
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+  .closing-quote {
+    font-size: 42px;
+    font-weight: 700;
+    line-height: 1.12;
+    letter-spacing: -0.015em;
+    color: #fff;
+    margin: 8px 0 4px;
+    max-width: 1050px;
+  }
+  .rr-title {
+    font-size: 12px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #cdc5ee;
+    font-weight: 600;
+    margin-bottom: 12px;
+  }
+  .rr-certs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; align-items: stretch; margin-bottom: 16px; }
+
+  /* Карточка-сертификат Рейтинга Рунета — красная */
+  .rr-cert {
+    background: linear-gradient(160deg, #d4202e 0%, #a8121d 100%);
+    border-radius: 16px;
+    padding: 22px 22px 18px;
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 8px 24px rgba(168,18,29,0.4);
+  }
+  .rr-cert-top { display: flex; align-items: center; gap: 11px; margin-bottom: 16px; }
+  .rr-mark {
+    width: 34px; height: 34px;
+    display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr;
+    gap: 3px;
+  }
+  .rr-mark span { background: #fff; border-radius: 2px; }
+  .rr-mark span:nth-child(2) { border-radius: 2px 8px 2px 2px; }
+  .rr-mark-text {
+    font-size: 11px; font-weight: 700; line-height: 1.05;
+    letter-spacing: 0.12em; color: #fff;
+  }
+  .rr-cert-place { font-size: 34px; font-weight: 800; line-height: 1; margin-bottom: 14px; }
+  .rr-cert-cap { font-size: 10.5px; color: rgba(255,255,255,0.7); margin-bottom: 3px; }
+  .rr-cert-cat { font-size: 13px; font-weight: 700; line-height: 1.3; margin-bottom: 12px; }
+  .rr-cert-brand { font-size: 17px; font-weight: 700; margin-bottom: auto; }
+  .rr-cert-foot {
+    display: flex; justify-content: space-between; align-items: flex-end;
+    margin-top: 16px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.2);
+  }
+  .rr-sign { font-size: 8px; color: rgba(255,255,255,0.65); line-height: 1.5; font-style: italic; }
+  .rr-year { font-size: 22px; font-weight: 800; }
+
+  /* Горизонтальная полоса фактов */
+  .closing-strip {
+    display: flex; flex-wrap: wrap; gap: 24px;
+    padding: 14px 0;
+    border-top: 1px solid rgba(255,255,255,0.14);
+    border-bottom: 1px solid rgba(255,255,255,0.14);
+    align-items: center;
+  }
+  .cs-item { font-size: 12.5px; color: #d9d3ee; display: flex; align-items: center; gap: 8px; }
+  .cs-num { font-size: 20px; font-weight: 700; color: #fff; }
+  .cs-badge {
+    width: 22px; height: 22px; border-radius: 6px;
+    background: rgba(255,255,255,0.14); color: #ffd96b;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700;
+  }
+  .closing-contacts {
+    display: flex; flex-wrap: wrap; gap: 24px; align-items: baseline;
+    font-size: 13px; color: #cdc5ee;
+  }
+  .closing-contacts .cc-brand {
+    font-size: 24px; font-weight: 700; color: #fff; letter-spacing: -0.01em;
+    margin-right: 8px;
+  }
+</style>
+</head>
+<body>
+
+
+
+
+
+
+
+
+
+<section class="slide title">
+  <div class="eyebrow">BELBERRY · СТРАТЕГИЧЕСКИЙ ОТДЕЛ</div>
+  <h1>Коммерческое предложение<br>для клиники «Заботливый Доктор»</h1>
+  <div class="lead">SEO-продвижение под ключевые услуги. Больше пациентов из поиска на гинекологию, УЗИ и анализы.</div>
+  <div class="divider"></div>
+  <div class="title-meta">
+    <div class="cell">
+      <div class="label">ДЛЯ</div>
+      <div class="value">Заботливый Доктор</div>
+      <div class="note">med-shushary.ru · Шушары, СПб</div>
+    </div>
+    <div class="cell">
+      <div class="label">УСЛУГА</div>
+      <div class="value">SEO-продвижение</div>
+      <div class="note">состав обсуждён на встрече 02.06</div>
+    </div>
+    <div class="cell">
+      <div class="label">ПОДГОТОВЛЕНО</div>
+      <div class="value">09.06.2026</div>
+      <div class="note">Семенихин Егор · менеджер проекта</div>
+    </div>
+    <div class="cell">
+      <div class="label">ПОДАРОК</div>
+      <div class="value">Внедрение правок</div>
+      <div class="note">бесплатно при старте до 19.06.2026</div>
+    </div>
+  </div>
+</section>
+
+
+<section class="slide">
+  <div class="slide-header">
+    <h2>Что сейчас мешает потоку пациентов</h2>
+    <div class="pagenum">02 / 12</div>
+  </div>
+  <div class="slide-subheader">Диагноз по пресейл-аудиту вашего сайта на 10.06.2026 · только проверяемые данные</div>
+  <div class="slide-rule"></div>
+
+  <div class="pain-banner">
+    <div class="pb-num">−45%</div>
+    <div class="pb-txt"><b>Трафик из поиска просел почти вдвое.</b> Пик 3 390 визитов (ноябрь 2025) → 1 880 (апрель 2026). Кривая идёт вниз — без работ просадка продолжится, а соседи забирают ваших пациентов.</div>
+  </div>
+
+  <div class="grid-3">
+    <div class="pgroup bad">
+      <span class="ph red">Видимость в поиске</span>
+      <ul>
+        <li>Google знает лишь <b>130 страниц</b> из <b>354</b> в Яндексе — под Google почти не работали</li>
+        <li>Авторитет сайта <b>ИКС 80</b> — у соседей-лидеров <b>130–140</b></li>
+        <li>Всего <b>1 внешняя ссылка</b> (донор) — сайту нечем расти в выдаче</li>
+        <li>Трафик из поиска за полгода <b>−45%</b> — кривая идёт вниз</li>
+      </ul>
+      <div class="src">🔍 из автоматического аудита сайта</div>
+    </div>
+    <div class="pgroup bad">
+      <span class="ph amber">Техническая база и разметка</span>
+      <ul>
+        <li><b>Нет медицинской Schema-разметки</b>: на страницах врачей отсутствует тип <b>Physician</b>, на услугах — <b>MedicalProcedure</b> (стоит только базовая разметка) → Яндекс и Google не показывают расширенные карточки докторов и услуг в выдаче</li>
+        <li>Не выделены <b>квалификации врачей</b> (категория, к.м.н.) — недобор E-E-A-T-сигналов, которые важны для медицины</li>
+        <li>Семантика проработана частично — <b>не добраны коммерческие и симптомные запросы</b> района (резерв роста)</li>
+      </ul>
+      <div class="src">🔍 проверено на сайте 10.06.2026 · сам сайт сделан добротно — услуги, врачи с образованием и онлайн-запись на месте</div>
+    </div>
+    <div class="pgroup bad">
+      <span class="ph blue">Аналитика и контроль</span>
+      <ul>
+        <li>Прошлый подрядчик — <b>результат непрозрачен</b>, отчёт в «позициях», а не в обращениях</li>
+        <li>Поток зависит от <b>рекламы и порталов</b> — платите за каждого лида снова и снова</li>
+        <li>Загрузка врачей <b>непредсказуема</b> — нельзя планировать и расти</li>
+      </ul>
+      <div class="src">🗣 из разбора встречи</div>
+    </div>
+  </div>
+
+  <div style="font-size:10.5px;color:#6b6f88;margin-top:12px;line-height:1.4;">🔍 — данные из автоматического аудита сайта (ИКС, индексация, ссылки, трафик через API, на 10.06.2026). 🗣 — из разбора встречи с вами. Цифры не выдуманы.</div>
+
+  <div class="contact-bar">
+    <div class="cb-cell"><span class="cb-k">КОНТАКТ</span><span class="cb-v">Семенихин Егор</span><span class="cb-s">менеджер проекта · Belberry</span></div>
+    <div class="cb-cell"><span class="cb-k">EMAIL · ТЕЛЕФОН</span><span class="cb-v">hello@belberry.net</span><span class="cb-s">+7 (495) 845-37-89</span></div>
+    <div class="cb-cell"><span class="cb-k">САЙТ · КЕЙСЫ</span><span class="cb-v">belberry.net</span><span class="cb-s">медицинские SEO-кейсы — belberry.net/works</span></div>
+  </div>
+</section>
+
+<section class="slide">
+  <div class="slide-header">
+    <h2>Как мы это чиним — по каждой проблеме</h2>
+    <div class="pagenum">03 / 12</div>
+  </div>
+  <div class="slide-subheader">Каждой проблеме из аудита — конкретное действие и измеримый результат</div>
+  <div class="slide-rule"></div>
+
+  <div class="grid-3">
+    <div class="pgroup good">
+      <span class="ph red">Видимость в поиске</span>
+      <ul>
+        <li>Открываем сайт для Google: <b>robots, карта сайта</b>, технический порядок, ускоряем переобход</li>
+        <li>Наращиваем <b>ИКС</b>: проработка страниц, внутренняя перелинковка, поведенческие факторы</li>
+        <li>Ссылочная масса: <b>тематические медицинские доноры</b> и каталоги</li>
+      </ul>
+      <div class="outcome">→ Индекс и авторитет <b>к уровню соседей 130–140</b>, разворот трафика вверх</div>
+    </div>
+    <div class="pgroup good">
+      <span class="ph amber">Техническая база и разметка</span>
+      <ul>
+        <li>Внедряем <b>медицинскую Schema</b>: <b>Physician</b> на врачей, <b>MedicalProcedure</b> на услуги → расширенные карточки докторов и услуг в выдаче, фид врачей в Яндекс</li>
+        <li>Добавляем в карточки <b>квалификации врачей</b> (категория, к.м.н.) — усиливаем E-E-A-T</li>
+        <li>Добираем <b>семантику</b>: коммерческие и симптомные запросы района + перелинковка существующих страниц услуг (их 26+)</li>
+      </ul>
+      <div class="outcome">→ Расширенные сниппеты и <b>больше точек входа</b> из поиска при той же базе сайта</div>
+    </div>
+    <div class="pgroup good">
+      <span class="ph blue">Аналитика и контроль</span>
+      <ul>
+        <li>Сквозная аналитика: считаем <b>обращения и записи</b> с сайта, а не «позиции»</li>
+        <li>Ежемесячный отчёт <b>«сколько обращений принёс поиск»</b> + понятный план работ</li>
+        <li>SEO как <b>собственный актив</b> — поток пациентов без оплаты за каждого лида</li>
+      </ul>
+      <div class="outcome">→ <b>Предсказуемый поток</b> и независимость от рекламы и порталов</div>
+    </div>
+  </div>
+
+  <div style="display:flex;align-items:baseline;gap:10px;margin-top:15px;margin-bottom:9px;">
+    <span style="font-size:13px;font-weight:800;color:#1a1f3a;">Дорожная карта работ</span>
+    <span style="font-size:11px;color:#6b6f88;">прозрачный план на полгода — процесс, а не «магия»</span>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;">
+    <div style="background:#fff;border:1px solid #eceaf6;border-radius:10px;padding:12px 14px;position:relative;">
+      <div style="position:absolute;top:0;left:14px;width:40px;height:3px;background:#5b50d6;border-radius:2px;"></div>
+      <div style="font-size:9.5px;font-weight:800;letter-spacing:0.06em;color:#5b50d6;">МЕСЯЦ 1</div>
+      <div style="font-size:12.5px;font-weight:700;color:#1a1f3a;margin:3px 0 6px;">Аудит и фундамент</div>
+      <div style="font-size:10.5px;line-height:1.45;color:#6b6f88;">Углублённый техаудит (60+ параметров), robots/sitemap/Schema, открываем сайт для Google, план семантики</div>
+    </div>
+    <div style="background:#fff;border:1px solid #eceaf6;border-radius:10px;padding:12px 14px;position:relative;">
+      <div style="position:absolute;top:0;left:14px;width:40px;height:3px;background:#7c72e0;border-radius:2px;"></div>
+      <div style="font-size:9.5px;font-weight:800;letter-spacing:0.06em;color:#5b50d6;">МЕСЯЦ 2–3</div>
+      <div style="font-size:12.5px;font-weight:700;color:#1a1f3a;margin:3px 0 6px;">Контент и структура</div>
+      <div style="font-size:10.5px;line-height:1.45;color:#6b6f88;">Страницы услуг и симптомов, карточки врачей + Schema Physician, метаданные, внутренняя перелинковка</div>
+    </div>
+    <div style="background:#fff;border:1px solid #eceaf6;border-radius:10px;padding:12px 14px;position:relative;">
+      <div style="position:absolute;top:0;left:14px;width:40px;height:3px;background:#9b93e8;border-radius:2px;"></div>
+      <div style="font-size:9.5px;font-weight:800;letter-spacing:0.06em;color:#5b50d6;">МЕСЯЦ 3–5</div>
+      <div style="font-size:12.5px;font-weight:700;color:#1a1f3a;margin:3px 0 6px;">Авторитет и ссылки</div>
+      <div style="font-size:10.5px;line-height:1.45;color:#6b6f88;">Тематические медицинские доноры, Яндекс.Бизнес и Карты, рост ИКС и поведенческих факторов</div>
+    </div>
+    <div style="background:#fff;border:1px solid #eceaf6;border-radius:10px;padding:12px 14px;position:relative;">
+      <div style="position:absolute;top:0;left:14px;width:40px;height:3px;background:#12a273;border-radius:2px;"></div>
+      <div style="font-size:9.5px;font-weight:800;letter-spacing:0.06em;color:#0a8f5f;">МЕСЯЦ 4–6</div>
+      <div style="font-size:12.5px;font-weight:700;color:#1a1f3a;margin:3px 0 6px;">Рост и аналитика</div>
+      <div style="font-size:10.5px;line-height:1.45;color:#6b6f88;">Вывод запросов в топ, сквозная аналитика обращений, ежемесячные отчёты «факт vs план», корректировка</div>
+    </div>
+  </div>
+
+  <div style="font-size:13px;font-weight:800;color:#1a1f3a;margin:14px 0 8px;">Над проектом — выделенная команда</div>
+  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:9px;">
+    <div style="background:#fff;border:1px solid #eceaf6;border-radius:10px;padding:11px 10px;display:flex;align-items:center;gap:11px;">
+      <div style="width:34px;height:34px;border-radius:9px;background:linear-gradient(140deg,#7c72e0,#5b50d6);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;flex:none;">SEO</div>
+      <div><div style="font-size:11.5px;font-weight:700;line-height:1.2;color:#1a1f3a;">SEO-специалист</div><div style="font-size:9.5px;color:#9a9eb2;">по медицине</div></div>
+    </div>
+    <div style="background:#fff;border:1px solid #eceaf6;border-radius:10px;padding:11px 10px;display:flex;align-items:center;gap:11px;">
+      <div style="width:34px;height:34px;border-radius:9px;background:linear-gradient(140deg,#7c72e0,#5b50d6);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex:none;">К</div>
+      <div><div style="font-size:11.5px;font-weight:700;line-height:1.2;color:#1a1f3a;">Копирайтер</div><div style="font-size:9.5px;color:#9a9eb2;">с медобразованием</div></div>
+    </div>
+    <div style="background:#fff;border:1px solid #eceaf6;border-radius:10px;padding:11px 10px;display:flex;align-items:center;gap:11px;">
+      <div style="width:34px;height:34px;border-radius:9px;background:linear-gradient(140deg,#7c72e0,#5b50d6);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex:none;">Т</div>
+      <div><div style="font-size:11.5px;font-weight:700;line-height:1.2;color:#1a1f3a;">Технический спец</div><div style="font-size:9.5px;color:#9a9eb2;">правки по ТЗ</div></div>
+    </div>
+    <div style="background:#fff;border:1px solid #eceaf6;border-radius:10px;padding:11px 10px;display:flex;align-items:center;gap:11px;">
+      <div style="width:34px;height:34px;border-radius:9px;background:linear-gradient(140deg,#7c72e0,#5b50d6);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex:none;">А</div>
+      <div><div style="font-size:11.5px;font-weight:700;line-height:1.2;color:#1a1f3a;">Аналитик</div><div style="font-size:9.5px;color:#9a9eb2;">метрики и отчёты</div></div>
+    </div>
+    <div style="background:#fff;border:1px solid #eceaf6;border-radius:10px;padding:11px 10px;display:flex;align-items:center;gap:11px;">
+      <div style="width:34px;height:34px;border-radius:9px;background:linear-gradient(140deg,#7c72e0,#5b50d6);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px;flex:none;">PM</div>
+      <div><div style="font-size:11.5px;font-weight:700;line-height:1.2;color:#1a1f3a;">Проджект</div><div style="font-size:9.5px;color:#9a9eb2;">ведёт проект</div></div>
+    </div>
+  </div>
+
+  <div class="contact-bar">
+    <div class="cb-cell"><span class="cb-k">КОНТАКТ</span><span class="cb-v">Семенихин Егор</span><span class="cb-s">менеджер проекта · Belberry</span></div>
+    <div class="cb-cell"><span class="cb-k">EMAIL · ТЕЛЕФОН</span><span class="cb-v">hello@belberry.net</span><span class="cb-s">+7 (495) 845-37-89</span></div>
+    <div class="cb-cell"><span class="cb-k">САЙТ · КЕЙСЫ</span><span class="cb-v">belberry.net</span><span class="cb-s">медицинские SEO-кейсы — belberry.net/works</span></div>
+  </div>
+</section>
+
+<section class="slide">
+  <div class="slide-header">
+    <h2>SEO-продвижение · что именно делаем</h2>
+    <div class="pagenum">04 / 12</div>
+  </div>
+  <div class="slide-subheader">42 часа в месяц · приоритет — гинекология, УЗИ, анализы · гео Шушары и Пушкинский район</div>
+  <div class="slide-rule"></div>
+
+  <div class="grid-3" style="margin-bottom: 12px;">
+    <div class="card">
+      <div class="bar"></div>
+      <span class="tag">БЛОК 1 · СТАРТ</span>
+      <h3>Аудит и техническая база</h3>
+      <div style="font-size:11px;line-height:1.5;color:#4a4f6a;margin-top:6px;">
+        · Полный технический аудит сайта на WordPress<br>
+        · Исправление индексации в Google (сейчас 130 страниц против 354 в Яндексе)<br>
+        · Скорость загрузки по чек-листу (PageSpeed)<br>
+        · robots, карта сайта, корректные ответы сервера<br>
+        · Настройка целей в Яндекс.Метрике на онлайн-запись
+      </div>
+    </div>
+    <div class="card">
+      <div class="bar"></div>
+      <span class="tag">БЛОК 2 · ЗАПРОСЫ</span>
+      <h3>Семантика и страницы</h3>
+      <div style="font-size:11px;line-height:1.5;color:#4a4f6a;margin-top:6px;">
+        · Семантика проработана частично — <strong>основной резерв роста</strong><br>
+        · Добор коммерческих запросов («гинеколог Шушары», «УЗИ Пушкинский»)<br>
+        · Доработка услуг и карточек врачей (Schema, фид) + страницы симптомов<br>
+        · Коммерческие блоки: врачи, цены, отзывы, регалии<br>
+        · Фид врачей для Яндекса — карточки докторов в выдаче
+      </div>
+    </div>
+    <div class="card">
+      <div class="bar"></div>
+      <span class="tag">БЛОК 3 · АВТОРИТЕТ</span>
+      <h3>Ссылочная масса и гео</h3>
+      <div style="font-size:11px;line-height:1.5;color:#4a4f6a;margin-top:6px;">
+        · Расширение списка площадок, ссылающихся на сайт (сейчас их мало)<br>
+        · Безопасная замена «однотипных» ссылок на качественные<br>
+        · Яндекс.Бизнес и Карты, синергия с ПроДокторов<br>
+        · Страницы по районам и станциям — локальная привязка<br>
+        · По Google Бизнес — поможем восстановить доступ
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:12px;padding:12px 18px;">
+    <div class="bar"></div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <span style="font-size:11px;font-weight:700;color:#5b50d6;letter-spacing:0.04em;text-transform:uppercase;margin-right:6px;">Логика семантики</span>
+      <span class="pill">Пациент</span><span style="color:#b8bccd;">→</span>
+      <span class="pill">Симптом</span><span style="color:#b8bccd;">→</span>
+      <span class="pill">Услуга</span><span style="color:#b8bccd;">→</span>
+      <span class="pill">Врач</span><span style="color:#b8bccd;">→</span>
+      <span class="pill" style="background:#5b50d6;color:#fff;">Запись</span>
+      <span style="font-size:11px;color:#6b6f88;margin-left:auto;">каждый шаг пути пациента закрыт своей страницей</span>
+    </div>
+  </div>
+
+  <div class="two-col-block">
+    <div class="card">
+      <div class="bar"></div>
+      <h3 style="font-size:14px;margin-bottom:9px;">Инструменты, которыми работаем</h3>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;">
+        <span class="pill">Яндекс.Вебмастер</span>
+        <span class="pill">Яндекс.Метрика</span>
+        <span class="pill">Google Search Console</span>
+        <span class="pill">съём позиций</span>
+        <span class="pill">анализ ссылочного</span>
+        <span class="pill">валидатор Schema.org</span>
+        <span class="pill">PageSpeed</span>
+        <span class="pill">анализ конкурентов</span>
+      </div>
+      <div style="font-size:10.5px;color:#6b6f88;margin-top:9px;line-height:1.45;">Профессиональный стек, а не «продвижение вслепую»: каждое решение опирается на данные, прогресс проверяем на каждом этапе.</div>
+    </div>
+    <div class="card" style="background:#f3effc;">
+      <div class="bar"></div>
+      <h3 style="font-size:14px;margin-bottom:7px;">Контроль качества и E-E-A-T</h3>
+      <div style="font-size:11.5px;line-height:1.5;color:#4a4f6a;">Тексты пишут <strong style="color:#1a1f3a;">копирайтеры с медобразованием</strong> с экспертной вычиткой — корректно по медицине и сильно по доверию. Технические правки — <strong>по нашим ТЗ</strong> в связке с вашим программистом. Отчёт — в обращениях, а не в обещаниях.</div>
+    </div>
+  </div>
+
+  <div class="contact-bar">
+    <div class="cb-cell"><span class="cb-k">КОНТАКТ</span><span class="cb-v">Семенихин Егор</span><span class="cb-s">менеджер проекта · Belberry</span></div>
+    <div class="cb-cell"><span class="cb-k">EMAIL · ТЕЛЕФОН</span><span class="cb-v">hello@belberry.net</span><span class="cb-s">+7 (495) 845-37-89</span></div>
+    <div class="cb-cell"><span class="cb-k">САЙТ · КЕЙСЫ</span><span class="cb-v">belberry.net</span><span class="cb-s">медицинские SEO-кейсы — belberry.net/works</span></div>
+  </div>
+</section>
+
+<section class="slide">
+  <div class="slide-header">
+    <h2>Вы — лидер района по репутации. А в поиске вас не находят</h2>
+    <div class="pagenum">05 / 12</div>
+  </div>
+  <div class="slide-subheader">Репутация — с ПроДокторов · видимость — индекс Яндекса · только проверяемые данные на 10.06.2026</div>
+  <div class="slide-rule"></div>
+
+  <div class="card" style="margin-bottom:12px;background:#eaf7f0;padding:11px 18px;border-left:3px solid #12a273;">
+    <div style="font-size:13.5px;line-height:1.45;color:#1a1f3a;">На ПроДокторов у вас <strong>105 отзывов и оценка 97</strong> — больше и выше всех соседей. Но по <strong>авторитету сайта (ИКС 80)</strong> вы лишь в середине, а в Google уступаете каждому. <strong style="color:#0a8f5f;">Дело не в клинике и не в репутации — вас просто не находят в поиске.</strong></div>
+  </div>
+
+  <div class="two-col-block" style="margin-bottom:12px;">
+    <div class="card">
+      <div class="bar"></div>
+      <h3 style="margin-bottom:10px;">Репутация — вы первые <span class="pill">ПроДокторов</span></h3>
+      <table class="belb">
+        <thead>
+          <tr><th>Клиника</th><th class="right">Врачи</th><th class="right">Отзывы</th><th class="right">Оценка*</th></tr>
+        </thead>
+        <tbody>
+          <tr class="totalrow"><td>Заботливый Доктор<br><a href="https://med-shushary.ru" target="_blank" style="font-size:10.5px;color:#5b50d6;text-decoration:none;font-weight:600;">med-shushary.ru ↗</a></td><td class="right num">27</td><td class="right num">105</td><td class="right num">97</td></tr>
+          <tr><td><strong>Веда</strong><br><a href="https://cl-veda.ru" target="_blank" style="font-size:10.5px;color:#5b50d6;text-decoration:none;font-weight:600;">cl-veda.ru ↗</a></td><td class="right num">18</td><td class="right num now">25</td><td class="right num now">64</td></tr>
+          <tr><td><strong>Мир семьи</strong><br><a href="https://flmed.ru" target="_blank" style="font-size:10.5px;color:#5b50d6;text-decoration:none;font-weight:600;">flmed.ru ↗</a></td><td class="right num">34</td><td class="right num now">17</td><td class="right num now">59</td></tr>
+          <tr><td><strong>Феникс-Мед</strong><br><a href="https://feniksmed.ru" target="_blank" style="font-size:10.5px;color:#5b50d6;text-decoration:none;font-weight:600;">feniksmed.ru ↗</a></td><td class="right num">21</td><td class="right num now">5</td><td class="right num now">50</td></tr>
+        </tbody>
+      </table>
+      <div style="font-size:10px;color:#6b6f88;margin-top:8px;line-height:1.5;">* оценка ПроДокторов 0–100. По отзывам и оценке вы — <strong>первые в районе</strong>.</div>
+    </div>
+    <div class="card">
+      <div class="bar"></div>
+      <h3 style="margin-bottom:10px;">Видимость — вы отстаёте <span class="pill">индекс Яндекса</span></h3>
+      <table class="belb">
+        <thead>
+          <tr>
+            <th>Клиника</th>
+            <th class="right">ИКС<br><span style="font-weight:400;text-transform:none;letter-spacing:0;">авторитет в Яндексе</span></th>
+            <th class="right">Стр. в<br>Яндексе</th>
+            <th class="right">Стр. в<br>Google</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>Феникс Мед</strong></td><td class="right num future">140</td><td class="right num">145</td><td class="right num">157</td></tr>
+          <tr><td><strong>Мир семьи</strong></td><td class="right num future">130</td><td class="right num">232</td><td class="right num">200</td></tr>
+          <tr class="totalrow"><td>Заботливый Доктор</td><td class="right num">80</td><td class="right num">354</td><td class="right num" style="color:#a13442;">130</td></tr>
+          <tr><td><strong>Веда</strong></td><td class="right num now">70</td><td class="right num">184</td><td class="right num">240</td></tr>
+        </tbody>
+      </table>
+      <div style="font-size:10px;color:#6b6f88;margin-top:8px;line-height:1.5;">ИКС — официальный индекс качества от Яндекса. <span style="color:#a13442;">Красным</span> — где отстаёте вы.</div>
+    </div>
+  </div>
+
+  <div class="card" style="background:#f3effc;">
+    <div class="bar"></div>
+    <div style="font-size:12px;line-height:1.48;color:#4a4f6a;">В Яндексе у вас <strong style="color:#1a1f3a;">354 страницы — больше любого соседа</strong>: материал уже есть, а авторитет ниже → дело в <strong>проработке и ссылках, а не в объёме</strong>. Это чинится быстрее, чем строить с нуля. Плюс сильная репутация — новый трафик из поиска у вас <strong>конвертится выше среднего</strong>.</div>
+  </div>
+
+  <div class="disclaimer">
+    <div class="d-title">ИСТОЧНИКИ И КОНТРОЛЬ ДОСТОВЕРНОСТИ</div>
+    Врачи / отзывы / оценка — с карточек ПроДокторов (live, 10.06.2026). ИКС и индексация — данные Яндекса/Google через PR-CY; ваш ИКС (80) и страницы (354/130) точно совпали с нашим пресейл-аудитом — значит цифры реальные. Трафик и заявки конкурентов снаружи не измеряются — их не приводим.
+  </div>
+
+  <div class="contact-bar">
+    <div class="cb-cell"><span class="cb-k">КОНТАКТ</span><span class="cb-v">Семенихин Егор</span><span class="cb-s">менеджер проекта · Belberry</span></div>
+    <div class="cb-cell"><span class="cb-k">EMAIL · ТЕЛЕФОН</span><span class="cb-v">hello@belberry.net</span><span class="cb-s">+7 (495) 845-37-89</span></div>
+    <div class="cb-cell"><span class="cb-k">САЙТ · КЕЙСЫ</span><span class="cb-v">belberry.net</span><span class="cb-s">медицинские SEO-кейсы — belberry.net/works</span></div>
+  </div>
+</section>
+
+<section class="slide">
+  <div class="slide-header">
+    <h2>Прогноз: трафик, обращения, выручка</h2>
+    <div class="pagenum">06 / 12</div>
+  </div>
+  <div class="slide-subheader">Консервативная оценка · диапазоны, точные цифры дадим после доступа к вашей Метрике</div>
+  <div class="slide-rule"></div>
+
+  <div class="two-col-block" style="margin-bottom: 12px;">
+    <div class="card">
+      <div class="bar"></div>
+      <h3 style="margin-bottom: 12px;">Воронка из поиска</h3>
+      <table class="belb">
+        <thead>
+          <tr>
+            <th>Показатель</th>
+            <th class="right">Сейчас</th>
+            <th class="right">6 мес</th>
+            <th class="right">12 мес</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Визиты из поиска / мес</td><td class="right num now">~1 880</td><td class="right num">3 200&ndash;3 800</td><td class="right num future">4 500&ndash;5 500</td></tr>
+          <tr><td>Обращений / мес</td><td class="right num now">~35&ndash;40</td><td class="right num">60&ndash;75</td><td class="right num future">90&ndash;110</td></tr>
+          <tr><td>Доп. обращений к сегодня</td><td class="right num now">&mdash;</td><td class="right num">+25&ndash;40</td><td class="right num future">+55&ndash;70</td></tr>
+          <tr class="totalrow"><td>Доп. выручка / мес*</td><td class="right num">&mdash;</td><td class="right num">40&ndash;65 тыс ₽</td><td class="right num">90&ndash;145 тыс ₽</td></tr>
+        </tbody>
+      </table>
+      <div style="font-size:10px;color:#6b6f88;margin-top:8px;line-height:1.5;">* при среднем чеке 2 500 ₽ (с ваших слов на встрече 02.06) и консервативной конверсии обращения→запись; <strong>без учёта повторных визитов, семей и многопрофиля</strong> — с ними выручка выше.</div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+      <div class="card" style="background:#fff4ec;border-left:4px solid #e88a3b;">
+        <h3 style="font-size:14px;margin-bottom:6px">Сначала &mdash; остановить просадку</h3>
+        <div style="font-size:12px;line-height:1.5;color:#5b3a1a;">Трафик уже упал с <strong>3 390</strong> (ноябрь 2025) до <strong>1 880</strong> визитов &mdash; это цена «поддержания за 30к». Первая задача &mdash; развернуть падение и вернуть рост.</div>
+      </div>
+      <div class="card">
+        <div class="bar"></div>
+        <h3 style="font-size:14px;margin-bottom:6px">Окупаемость &mdash; по-честному</h3>
+        <div style="font-size:12px;line-height:1.5;color:#4a4f6a;">К 12-му месяцу доп. выручка из поиска <strong style="color:#1a1f3a;">сопоставима со стоимостью SEO уже на одном среднем чеке</strong>. Врачи недозагружены, пациент возвращается &mdash; реальная отдача выше и раньше.</div>
+      </div>
+      <div class="card" style="background:#f3effc;">
+        <div class="bar"></div>
+        <h3 style="font-size:13px;margin-bottom:5px">Откуда цифры</h3>
+        <div style="font-size:10.5px;line-height:1.5;color:#4a4f6a;">«Сейчас» &mdash; наш пресейл-аудит по открытым данным (PR-CY, Яндекс/Google) на 09.06. Прогноз &mdash; модель Belberry по 100+ медпроектам. Точные текущие цифры дадим по вашей Метрике.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="disclaimer">
+    <div class="d-title">ВАЖНО — ОЦЕНКА НА ТЕКУЩИЙ МОМЕНТ</div>
+    Внешняя оценка на <strong>09.06.2026</strong> без доступа к вашей Метрике — открытые счётчики на малых сайтах часто занижают реальный трафик, поэтому базу уточняем по Метрике. SEO даёт результат на горизонте 3–6 месяцев. Факт vs прогноз сверяем каждый месяц.
+  </div>
+
+  <div class="contact-bar">
+    <div class="cb-cell"><span class="cb-k">КОНТАКТ</span><span class="cb-v">Семенихин Егор</span><span class="cb-s">менеджер проекта · Belberry</span></div>
+    <div class="cb-cell"><span class="cb-k">EMAIL · ТЕЛЕФОН</span><span class="cb-v">hello@belberry.net</span><span class="cb-s">+7 (495) 845-37-89</span></div>
+    <div class="cb-cell"><span class="cb-k">САЙТ · КЕЙСЫ</span><span class="cb-v">belberry.net</span><span class="cb-s">медицинские SEO-кейсы — belberry.net/works</span></div>
+  </div>
+</section>
+
+<section class="slide">
+  <div class="slide-header">
+    <h2>Сколько стоит ждать</h2>
+    <div class="pagenum">07 / 12</div>
+  </div>
+  <div class="slide-subheader">Пауза работает против вас — каждый месяц на «поддержании» имеет цену</div>
+  <div class="slide-rule"></div>
+
+  <div class="two-col-block" style="margin-bottom: 12px;">
+    <div class="card" style="border-left:3px solid #e88a3b;">
+      <h3 style="margin-bottom: 12px;">Что происходит, пока ничего не менять</h3>
+      <div style="font-size:12.5px;line-height:1.7;color:#4a4f6a;">
+        <div><span style="display:inline-block;width:7px;height:7px;border-radius:2px;background:#a13442;margin-right:10px;vertical-align:middle;"></span>Трафик продолжает падать — уже <strong>3 390 → 1 880</strong> визитов за полгода, тренд вниз</div>
+        <div><span style="display:inline-block;width:7px;height:7px;border-radius:2px;background:#e88a3b;margin-right:10px;vertical-align:middle;"></span>Соседи наращивают авторитет: <strong>Феникс 140, Мир семьи 130</strong> против вашего 80 — разрыв растёт</div>
+        <div><span style="display:inline-block;width:7px;height:7px;border-radius:2px;background:#e88a3b;margin-right:10px;vertical-align:middle;"></span>Тёплые запросы района («УЗИ, анализы Шушары») забирают они — пациент идёт к тому, кого нашёл</div>
+        <div><span style="display:inline-block;width:7px;height:7px;border-radius:2px;background:#a13442;margin-right:10px;vertical-align:middle;"></span>Деньги на «поддержание за 30к» идут, а видимость не растёт</div>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 14px;">
+      <div class="card">
+        <div class="bar"></div>
+        <h3 style="font-size:14px;margin-bottom:8px">Цена отсрочки — по нашему прогнозу</h3>
+        <table class="belb">
+          <thead><tr><th>Отложить старт на</th><th class="right">Недополучено обращений*</th></tr></thead>
+          <tbody>
+            <tr><td class="metric">3 месяца</td><td class="right num">~30–55</td></tr>
+            <tr><td class="metric">6 месяцев</td><td class="right num future">~110–190</td></tr>
+          </tbody>
+        </table>
+        <div style="font-size:10px;color:#6b6f88;margin-top:8px;line-height:1.5;">* накопленным итогом, по консервативному прогнозу роста из поиска. Плюс за это время соседи уходят дальше в отрыв.</div>
+      </div>
+      <div class="card" style="background:#f3effc;">
+        <div class="bar"></div>
+        <div style="font-size:13px;line-height:1.5;color:#1a1f3a;">SEO — отложенный эффект: результат идёт через 3–6 мес. Чем позже старт, тем позже поток. <strong style="color:#5b50d6;">Самый дешёвый месяц продвижения — сегодняшний.</strong></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="disclaimer">
+    <div class="d-title">ЧЕСТНО ПРО ОЦЕНКУ</div>
+    Числа недополученных обращений — консервативный прогноз из расчёта роста поискового трафика (слайд «Прогноз»), при среднем чеке и конверсии с ваших слов. Не гарантия, а порядок величины «цены паузы».
+  </div>
+
+  <div class="contact-bar">
+    <div class="cb-cell"><span class="cb-k">КОНТАКТ</span><span class="cb-v">Семенихин Егор</span><span class="cb-s">менеджер проекта · Belberry</span></div>
+    <div class="cb-cell"><span class="cb-k">EMAIL · ТЕЛЕФОН</span><span class="cb-v">hello@belberry.net</span><span class="cb-s">+7 (495) 845-37-89</span></div>
+    <div class="cb-cell"><span class="cb-k">САЙТ · КЕЙСЫ</span><span class="cb-v">belberry.net</span><span class="cb-s">медицинские SEO-кейсы — belberry.net/works</span></div>
+  </div>
+</section>
+
+<section class="slide">
+  <div class="slide-header">
+    <h2>Почему с нами, а не как сейчас</h2>
+    <div class="pagenum">08 / 12</div>
+  </div>
+  <div class="slide-subheader">Сравнение по тому, что реально влияет на поток пациентов</div>
+  <div class="slide-rule"></div>
+
+  <div class="card" style="margin-bottom:12px;">
+    <div class="bar"></div>
+    <table class="belb">
+      <thead>
+        <tr>
+          <th style="width:30%;">Что важно</th>
+          <th>Текущий подрядчик<br><span style="font-weight:400;text-transform:none;letter-spacing:0;">«поддержание ~30к»</span></th>
+          <th>Свой SEO-штат<br><span style="font-weight:400;text-transform:none;letter-spacing:0;">нанимать самим</span></th>
+          <th class="right">Belberry</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="metric">Полный цикл: техника + контент + ссылки</td><td><span class="pill bad">поверхностно</span></td><td><span class="pill warn">зависит от людей</span></td><td class="right"><span class="pill ok">42 ч/мес, всё в смете</span></td></tr>
+        <tr><td class="metric">Контент с врачами и E-E-A-T</td><td>—</td><td>редко</td><td class="right"><span class="pill ok">копирайтеры-медики</span></td></tr>
+        <tr><td class="metric">Отчёт в обращениях, а не «позициях»</td><td><span class="pill bad">отчётов нет</span></td><td>редко</td><td class="right"><span class="pill ok">каждый месяц</span></td></tr>
+        <tr><td class="metric">Опыт именно в медицине</td><td class="metric">—</td><td class="metric">низкий</td><td class="right"><span class="pill ok">11 лет · 700+</span></td></tr>
+        <tr><td class="metric">KPI и гарантия результата</td><td>—</td><td>—</td><td class="right"><span class="pill ok">в договоре</span></td></tr>
+        <tr class="totalrow"><td>Стоимость в месяц</td><td>~30 000 ₽<br><span style="font-size:10px;color:#a13442;">без результата</span></td><td>150–250 тыс ₽<br><span style="font-size:10px;color:#6b6f88;">ФОТ штата</span></td><td class="right">120 750 ₽<br><span style="font-size:10px;color:#5b50d6;">+ внедрение в подарок</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="disclaimer">
+    <div class="d-title">СУТЬ</div>
+    «Поддержание за 30к» дешевле по цифре, но платится за процесс без результата. Свой штат — дорого и долго собирать. Belberry — полный цикл, медицинская экспертиза и ответственность за результат по фиксированной цене.
+  </div>
+
+  <div class="contact-bar">
+    <div class="cb-cell"><span class="cb-k">КОНТАКТ</span><span class="cb-v">Семенихин Егор</span><span class="cb-s">менеджер проекта · Belberry</span></div>
+    <div class="cb-cell"><span class="cb-k">EMAIL · ТЕЛЕФОН</span><span class="cb-v">hello@belberry.net</span><span class="cb-s">+7 (495) 845-37-89</span></div>
+    <div class="cb-cell"><span class="cb-k">САЙТ · КЕЙСЫ</span><span class="cb-v">belberry.net</span><span class="cb-s">медицинские SEO-кейсы — belberry.net/works</span></div>
+  </div>
+</section>
+
+<section class="slide">
+  <div class="slide-header">
+    <h2>Как начинаем работу</h2>
+    <div class="pagenum">09 / 12</div>
+  </div>
+  <div class="slide-subheader">5 шагов до старта · внедрение SEO-правок в подарок при старте до 19.06.2026</div>
+  <div class="slide-rule"></div>
+
+  <div class="two-col-block" style="margin-bottom: 12px;">
+    <div class="card">
+      <div class="bar"></div>
+      <h3 style="margin-bottom: 16px;">Шаги до запуска</h3>
+      <div class="roadmap-list">
+        <div class="roadmap-step">
+          <div class="roadmap-num">1</div>
+          <div class="body">
+            <div class="title-line">До 16.06 · решение</div>
+            <div class="desc-line">Согласуете состав работ и подтверждаете выход на договор.</div>
+          </div>
+        </div>
+        <div class="roadmap-divider"></div>
+        <div class="roadmap-step">
+          <div class="roadmap-num">2</div>
+          <div class="body">
+            <div class="title-line">До 19.06 · договор и оплата</div>
+            <div class="desc-line">При старте до 19.06 — внедрение всех SEO-правок на сайт в подарок. Договор готовим за 24 часа.</div>
+          </div>
+        </div>
+        <div class="roadmap-divider"></div>
+        <div class="roadmap-step">
+          <div class="roadmap-num">3</div>
+          <div class="body">
+            <div class="title-line">48 часов · знакомство и доступы</div>
+            <div class="desc-line">Гостевой доступ к Метрике, доступы к сайту и вебмастерам, знакомство с командой (30 мин онлайн).</div>
+          </div>
+        </div>
+        <div class="roadmap-divider"></div>
+        <div class="roadmap-step">
+          <div class="roadmap-num">4</div>
+          <div class="body">
+            <div class="title-line">1-й месяц · аудит + быстрые победы</div>
+            <div class="desc-line">Углублённый аудит, технические правки, настройка целей в Метрике, старт работы по гинекологии/УЗИ/анализам.</div>
+          </div>
+        </div>
+        <div class="roadmap-divider"></div>
+        <div class="roadmap-step">
+          <div class="roadmap-num">5</div>
+          <div class="body">
+            <div class="title-line">Через 30 дней · первый отчёт</div>
+            <div class="desc-line">Отчёт «факт vs прогноз» на языке обращений и записей, а не «позиций».</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 16px;">
+      <div class="card">
+        <div class="bar"></div>
+        <h3 style="font-size:16px;margin-bottom:12px;">Что от вас</h3>
+        <div style="font-size:13px;line-height:1.7;color:#4a4f6a;">
+          <div><span class="checkmark">✓</span> Гостевой доступ к Яндекс.Метрике</div>
+          <div><span class="checkmark">✓</span> Доступы к сайту и вебмастерам</div>
+          <div><span class="checkmark">✓</span> Приоритетные услуги (гинекология, УЗИ, анализы)</div>
+          <div><span class="checkmark">✓</span> Контакт вашего технаря / разработчика сайта</div>
+          <div><span class="checkmark">✓</span> 30 минут на старте на знакомство</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="bar"></div>
+        <h3 style="font-size:16px;margin-bottom:12px;">Что от нас</h3>
+        <div style="font-size:13px;line-height:1.7;color:#4a4f6a;">
+          <div><span class="checkmark">✓</span> Ведущий SEO + копирайтер медицинского профиля</div>
+          <div><span class="checkmark">✓</span> Линкбилдер и контент-менеджер</div>
+          <div><span class="checkmark">✓</span> Настройка аналитики и целей в Метрике</div>
+          <div><span class="checkmark">✓</span> Аккаунт-менеджер на связи 5/7</div>
+          <div><span class="checkmark">✓</span> Ежемесячный отчёт в обращениях и деньгах</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="highlight">
+    <div class="cell">
+      <div class="label">КОНТАКТ</div>
+      <div class="value" style="font-size:22px">Семенихин Егор</div>
+      <div class="note">Менеджер проекта · Belberry</div>
+    </div>
+    <div class="cell">
+      <div class="label">EMAIL · ТЕЛЕФОН</div>
+      <div class="value" style="font-size:18px">hello@belberry.net</div>
+      <div class="note">+7 (495) 845-37-89</div>
+    </div>
+    <div class="cell">
+      <div class="label">САЙТ · КЕЙСЫ</div>
+      <div class="value" style="font-size:16px">belberry.net</div>
+      <div class="note">медицинские SEO-кейсы — belberry.net/works</div>
+    </div>
+  </div>
+
+  <div class="contact-bar">
+    <div class="cb-cell"><span class="cb-k">КОНТАКТ</span><span class="cb-v">Семенихин Егор</span><span class="cb-s">менеджер проекта · Belberry</span></div>
+    <div class="cb-cell"><span class="cb-k">EMAIL · ТЕЛЕФОН</span><span class="cb-v">hello@belberry.net</span><span class="cb-s">+7 (495) 845-37-89</span></div>
+    <div class="cb-cell"><span class="cb-k">САЙТ · КЕЙСЫ</span><span class="cb-v">belberry.net</span><span class="cb-s">медицинские SEO-кейсы — belberry.net/works</span></div>
+  </div>
+</section>
+
+<section class="slide">
+  <div class="slide-header">
+    <h2>Почему Belberry — и доказательства</h2>
+    <div class="pagenum">10 / 12</div>
+  </div>
+  <div class="slide-subheader">11 лет только в медицине · кейсы кликабельны — открываются на belberry.net</div>
+  <div class="slide-rule"></div>
+
+  <div class="card" style="margin-bottom:12px;">
+    <div class="bar"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 26px;">
+      <div style="font-size:12.5px;line-height:1.6;color:#4a4f6a;">
+        <div><span class="checkmark">✓</span> <strong>11 лет только в медицинском digital</strong>, 700+ проектов</div>
+        <div><span class="checkmark">✓</span> Победитель <strong>Рейтинга Рунета 2025</strong> (SEO мед-сайтов)</div>
+        <div><span class="checkmark">✓</span> Копирайтеры с медобразованием, экспертность врачей (E-E-A-T)</div>
+      </div>
+      <div style="font-size:12.5px;line-height:1.6;color:#4a4f6a;">
+        <div><span class="checkmark">✓</span> Отчёт в обращениях и записях, а не в «позициях»</div>
+        <div><span class="checkmark">✓</span> Многопрофильные клиники — наш профиль</div>
+        <div><span class="checkmark">✓</span> 5,0 по отзывам · видео-отзывы клиник вашей ниши — <a href="https://belberry.net/reviews/" target="_blank" style="color:#5b50d6;text-decoration:none;font-weight:600;">belberry.net/reviews ↗</a></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="proof-grid">
+      <a class="tile fill" href="https://belberry.net/works/seo-dlya-mezhdunarodnogo-medicinskogo-centra-sinaj/" target="_blank">
+        <div class="tt">МНОГОПРОФИЛЬ ↗</div>
+        <div class="tn">ММЦ «Синай»</div>
+        <div class="tnum">20 <span class="arrow">→</span> 190</div>
+        <div class="tm">ИКС сайта</div>
+        <div class="tcap">за 2,5 месяца · у вас сейчас 80</div>
+      </a>
+      <a class="tile" href="https://belberry.net/works/seo-sayta-kliniki-k-meditsina/" target="_blank">
+        <div class="tt">МНОГОПРОФИЛЬ ↗</div>
+        <div class="tn">К-Медицина</div>
+        <div class="tnum">×&nbsp;4,5</div>
+        <div class="tm">обращения с сайта</div>
+        <div class="tcap">визиты ×6 · многопрофильная</div>
+      </a>
+      <a class="tile fill" href="https://belberry.net/works/seo-dlya-kliniki-doktora-glazkova/" target="_blank">
+        <div class="tt">КЛИНИКА ↗</div>
+        <div class="tn">Доктор Глазков</div>
+        <div class="tnum">35&nbsp;₽</div>
+        <div class="tm">цена обращения</div>
+        <div class="tcap">визиты 208 → 57 495 / мес</div>
+      </a>
+      <a class="tile" href="https://belberry.net/works/razrabotka-sayta-na-shablone-belberry-dlya-dental-luxury-clinic/" target="_blank">
+        <div class="tt">СТОМАТОЛОГИЯ ↗</div>
+        <div class="tn">Dental Luxury</div>
+        <div class="tnum">+170%</div>
+        <div class="tm">органический трафик</div>
+        <div class="tcap">стоимость лида −36,8%</div>
+      </a>
+      <a class="tile" href="https://belberry.net/works/" target="_blank">
+        <div class="tt">КОСМЕТОЛОГИЯ ↗</div>
+        <div class="tn">Beautyway</div>
+        <div class="tnum">×&nbsp;2</div>
+        <div class="tm">поток пациентов</div>
+        <div class="tcap">цена лида 75 ₽</div>
+      </a>
+      <a class="tile fill" href="https://belberry.net/works/sds-clinic/" target="_blank">
+        <div class="tt">ИМПЛАНТОЛОГИЯ ↗</div>
+        <div class="tn">SDS Clinic</div>
+        <div class="tnum">+104%</div>
+        <div class="tm">трафик из Яндекса</div>
+        <div class="tcap">рост лидов без роста бюджета</div>
+      </a>
+  </div>
+
+  <a href="https://belberry.net/works/" target="_blank" style="display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:13px;text-decoration:none;background:linear-gradient(135deg,#5b50d6 0%,#4a3fc5 100%);color:#fff;border-radius:12px;padding:15px 22px;box-shadow:0 6px 18px rgba(91,80,214,0.22);">
+    <div style="display:flex;align-items:center;gap:16px;">
+      <div style="font-size:30px;font-weight:900;line-height:1;letter-spacing:-0.02em;">70+</div>
+      <div>
+        <div style="font-size:14.5px;font-weight:700;line-height:1.2;">медицинских кейсов в портфолио</div>
+        <div style="font-size:11.5px;color:#d9d4f7;margin-top:2px;">клиники, стоматологии, косметология — с цифрами роста</div>
+      </div>
+    </div>
+    <div style="flex:none;display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,0.16);padding:9px 16px;border-radius:100px;font-size:12.5px;font-weight:700;white-space:nowrap;">Смотреть все кейсы · belberry.net/works ↗</div>
+  </a>
+
+  <div class="slide-footer">
+    <span class="belb-mark">BELBERRY</span>
+    <span>КП · Заботливый Доктор · med-shushary.ru</span>
+    <span>09.06.2026</span>
+  </div>
+</section>
+
+<section class="slide">
+  <div class="slide-header">
+    <h2>Стоимость и состав</h2>
+    <div class="pagenum">11 / 12</div>
+  </div>
+  <div class="slide-subheader">Все цены с НДС 5% · SEO — актив, который со временем окупает себя и остаётся у вас</div>
+  <div class="slide-rule"></div>
+
+  <div class="card" style="margin-bottom: 14px;">
+    <div class="bar"></div>
+    <span class="tag">ЕЖЕМЕСЯЧНО</span>
+    <h3>SEO-продвижение сайта</h3>
+    <div class="desc" style="border-top: none; padding-top: 0; margin-top: 0;">42 часа работы команды в месяц. Вывод в топ коммерческих запросов по гинекологии, УЗИ и анализам с привязкой к Шушарам и Пушкинскому району. Технический порядок, страницы услуг и врачей, ссылочная масса, аналитика и понятный отчёт «сколько обращений принёс поиск».</div>
+    <div style="display:flex;gap:36px;margin-top:10px;">
+      <div><div class="kpi-label">ЦЕНА С НДС 5% / МЕС</div><div class="kpi-value purple">120 750 ₽</div></div>
+      <div><div class="kpi-label">БАЗА БЕЗ НДС</div><div class="kpi-value" style="color:#6b6f88;">115 000 ₽</div></div>
+    </div>
+  </div>
+
+  <div class="highlight" style="margin-bottom:12px;">
+    <div class="cell">
+      <div class="label">ЦЕНА С НДС 5% / МЕС</div>
+      <div class="value">120 750 ₽</div>
+      <div class="note">база 115 000 ₽ + НДС 5%</div>
+    </div>
+    <div class="cell">
+      <div class="label">В 1-Й МЕСЯЦ</div>
+      <div class="value">Аудит + техбаза</div>
+      <div class="note">углублённый старт без доплат</div>
+    </div>
+    <div class="cell">
+      <div class="label">БЕЗ ДОПЛАТ</div>
+      <div class="value">Всё в смете</div>
+      <div class="note">ссылки и контент внутри</div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:12px;background:#f0effb;border-left:3px solid #5b50d6;padding:12px 18px;">
+    <div style="font-size:12.5px;line-height:1.5;color:#1a1f3a;"><strong>Окупаемость.</strong> По консервативному прогнозу к концу первого года дополнительная выручка из поиска выходит на <strong>90–145 тыс ₽/мес</strong> — это сопоставимо с абонплатой, а дальше работает в плюс. В отличие от рекламы и порталов, <strong style="color:#5b50d6;">страницы и позиции остаются вашим активом</strong> — вы не платите за каждого пациента снова.</div>
+  </div>
+
+  <div style="background:linear-gradient(135deg,#12a273 0%,#0a8f5f 100%);color:#fff;border-radius:10px;padding:13px 18px;display:flex;align-items:center;gap:16px;box-shadow:0 4px 14px rgba(10,143,95,0.28);">
+    <div style="flex:0 0 auto;text-align:center;background:rgba(255,255,255,0.18);border-radius:8px;padding:7px 13px;">
+      <div style="font-size:12.5px;font-weight:800;letter-spacing:0.12em;">ПОДАРОК</div>
+      <div style="font-size:10px;color:#d6f5e9;margin-top:2px;font-weight:700;">до 19.06</div>
+    </div>
+    <div style="min-width:0;">
+      <div style="font-size:15.5px;font-weight:700;line-height:1.2;">Внедрение всех SEO-правок на сайт — бесплатно</div>
+      <div style="font-size:11.5px;color:#d6f5e9;margin-top:3px;line-height:1.4;">Обычно правки внедряет ваш программист или это отдельная статья сметы. Берём внедрение на себя — <strong style="color:#fff;">но только при старте до 19.06.2026.</strong> Успеваем зафиксировать условия в этом месяце.</div>
+    </div>
+  </div>
+
+  <div class="slide-footer">
+    <span class="belb-mark">BELBERRY</span>
+    <span>КП · Заботливый Доктор · med-shushary.ru</span>
+    <span>09.06.2026</span>
+  </div>
+</section>
+
+<section class="slide closing">
+  <div class="closing-eyebrow">BELBERRY · МЕДИЦИНСКИЙ DIGITAL С 2015 ГОДА</div>
+
+  <div class="closing-quote">
+    «Мы заботимся о вашем&nbsp;маркетинге —<br>а вы о&nbsp;пациентах»
+  </div>
+
+  <div class="rr-title">Победитель Рейтинга Рунета 2025</div>
+  <div class="rr-certs">
+    <div class="rr-cert">
+      <div class="rr-cert-top">
+        <div class="rr-mark"><span></span><span></span><span></span><span></span></div>
+        <div class="rr-mark-text">РЕЙТИНГ<br>РУНЕТА</div>
+      </div>
+      <div class="rr-cert-place">1 место</div>
+      <div class="rr-cert-cap">В рейтинге:</div>
+      <div class="rr-cert-cat">Поддержка и развитие сайтов / Медицина, здоровье: поликлиники, больницы и т.п.</div>
+      <div class="rr-cert-cap">Поздравляем:</div>
+      <div class="rr-cert-brand">Belberry</div>
+      <div class="rr-cert-foot">
+        <div class="rr-sign">Рук. проекта: Сергей Бесшабашнов<br>Гл. редактор: Анатолий Денисов</div>
+        <div class="rr-year">2025</div>
+      </div>
+    </div>
+    <div class="rr-cert">
+      <div class="rr-cert-top">
+        <div class="rr-mark"><span></span><span></span><span></span><span></span></div>
+        <div class="rr-mark-text">РЕЙТИНГ<br>РУНЕТА</div>
+      </div>
+      <div class="rr-cert-place">3 место</div>
+      <div class="rr-cert-cap">В рейтинге:</div>
+      <div class="rr-cert-cat">Поисковое продвижение (SEO) / Медицина, здоровье: Услуги</div>
+      <div class="rr-cert-cap">Поздравляем:</div>
+      <div class="rr-cert-brand">Belberry</div>
+      <div class="rr-cert-foot">
+        <div class="rr-sign">Рук. проекта: Сергей Бесшабашнов<br>Гл. редактор: Анатолий Денисов</div>
+        <div class="rr-year">2025</div>
+      </div>
+    </div>
+    <div class="rr-cert">
+      <div class="rr-cert-top">
+        <div class="rr-mark"><span></span><span></span><span></span><span></span></div>
+        <div class="rr-mark-text">РЕЙТИНГ<br>РУНЕТА</div>
+      </div>
+      <div class="rr-cert-place">1 место</div>
+      <div class="rr-cert-cap">В рейтинге:</div>
+      <div class="rr-cert-cat">Комплексные разработчики / Красота, парфюмерия, уход: Косметология</div>
+      <div class="rr-cert-cap">Поздравляем:</div>
+      <div class="rr-cert-brand">Belberry</div>
+      <div class="rr-cert-foot">
+        <div class="rr-sign">Рук. проекта: Сергей Бесшабашнов<br>Гл. редактор: Анатолий Денисов</div>
+        <div class="rr-year">2025</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="closing-strip">
+    <div class="cs-item"><span class="cs-num">11</span> лет в медицинском digital (с 2015)</div>
+    <div class="cs-item"><span class="cs-num">700+</span> реализованных проектов в медицине</div>
+    <div class="cs-item"><span class="cs-num">5,0</span> рейтинг по отзывам клиентов</div>
+    <div class="cs-item"><span class="cs-badge">★</span> Золотой партнёр Битрикс</div>
+    <div class="cs-item"><span class="cs-badge">+</span> 1С-Битрикс: Решения для медицины</div>
+  </div>
+
+  <div class="closing-contacts">
+    <span class="cc-brand">Belberry</span>
+    <span>belberry.net</span>
+    <span>hello@belberry.net</span>
+    <span>+7 (495) 845-37-89</span>
+    <span>Москва, Варшавское ш. 118, к. 1, эт. 13, оф. 22</span>
+  </div>
+</section>
+</body>
+</html>

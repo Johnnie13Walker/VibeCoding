@@ -1,14 +1,11 @@
-import Link from 'next/link';
 import type {
-  TmFunnel50Stage,
   TmKpis,
   TmManagerRow,
-  TmManagerOption,
   TmMeetingsResult,
   TmMicroFunnel,
   TmMonthlyRow,
   TmOutreach,
-  TmPlanFactRow,
+  TmPlanFact,
   TmRejections,
   TmHeatmap,
   TmMeetingQuality,
@@ -32,15 +29,39 @@ const ava: React.CSSProperties = {
 const cell: React.CSSProperties = { padding: '10px 10px', borderBottom: '1px solid var(--bb-line)' };
 const head: React.CSSProperties = { ...cell, color: 'var(--bb-faint)', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' };
 
-function Mini({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: 'good' | 'warn' }) {
+function Mini({ label, value, sub, tone, delta }: { label: string; value: string; sub?: string; tone?: 'good' | 'warn'; delta?: React.ReactNode }) {
   const bg = tone === 'good' ? 'linear-gradient(180deg,#f4faf6,#fff)' : tone === 'warn' ? 'linear-gradient(180deg,#fdf4ee,#fff)' : '#fff';
   return (
     <div style={{ background: bg, border: '1px solid var(--bb-line)', borderRadius: 16, padding: '15px 17px', boxShadow: 'var(--bb-shadow)' }}>
-      <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.05 }}>{value}</div>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+        <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.05 }}>{value}</div>
+        {delta ?? null}
+      </div>
       <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--bb-faint)', fontWeight: 600, marginTop: 6 }}>{label}</div>
       {sub ? <div style={{ fontSize: 12, color: 'var(--bb-muted)', marginTop: 3 }}>{sub}</div> : null}
     </div>
   );
+}
+
+// Δ-пилюля к аналогичному периоду прошлого месяца (▲/▼ + значение). Зелёный рост,
+// красный спад; для долей — в процентных пунктах (пп), для счётчиков — в %.
+function DeltaTag({ dir, text, title }: { dir: 'up' | 'down' | 'flat'; text: string; title?: string }) {
+  const c = dir === 'up' ? { bg: '#e7f4ec', fg: 'var(--bb-green)', a: '↑' } : dir === 'down' ? { bg: '#fdeced', fg: 'var(--bb-red)', a: '↓' } : { bg: '#eef0f4', fg: 'var(--bb-muted)', a: '→' };
+  return (
+    <span title={title} className="tabular" style={{ background: c.bg, color: c.fg, fontSize: 11, fontWeight: 800, borderRadius: 999, padding: '2px 8px', lineHeight: 1.5, whiteSpace: 'nowrap' }}>
+      {c.a} {text}
+    </span>
+  );
+}
+function deltaCount(cur: number, prev: number): React.ReactNode {
+  if (prev <= 0) return cur > 0 ? <DeltaTag dir="up" text="новое" title="в прошлом периоде 0" /> : null;
+  const pct = Math.round(((cur - prev) / prev) * 100);
+  return <DeltaTag dir={pct > 0 ? 'up' : pct < 0 ? 'down' : 'flat'} text={`${pct > 0 ? '+' : ''}${pct}%`} title={`было ${nf(prev)}`} />;
+}
+function deltaPp(cur: number | null, prev: number | null): React.ReactNode {
+  if (cur == null || prev == null) return null;
+  const d = Math.round((cur - prev) * 10) / 10;
+  return <DeltaTag dir={d > 0 ? 'up' : d < 0 ? 'down' : 'flat'} text={`${d > 0 ? '+' : ''}${d} пп`} title={`было ${prev}%`} />;
 }
 
 function convBadge(v: number | null): React.ReactNode {
@@ -51,20 +72,26 @@ function convBadge(v: number | null): React.ReactNode {
 
 // ───────────────────────── A. KPI обзвона ─────────────────────────
 
-export function TmKpiGrid({ kpis }: { kpis: TmKpis }) {
+export function TmKpiGrid({ kpis, kpisPrev, cmpLabel }: { kpis: TmKpis; kpisPrev?: TmKpis | null; cmpLabel?: string }) {
+  const p = kpisPrev ?? null;
   return (
     <div>
+      {p ? (
+        <div style={{ fontSize: 12, color: 'var(--bb-faint)', marginBottom: 12 }}>
+          ↑↓ — к аналогичному периоду прошлого месяца по календарным дням{cmpLabel ? ` (${cmpLabel})` : ''}
+        </div>
+      ) : null}
       <div className="bb-grid bb-grid-4" style={{ marginBottom: 14 }}>
-        <Mini label="Наборов" value={nf(kpis.dials)} sub={`${nf(kpis.dialsPerDay)}/день · ${nf(kpis.dialsPerZvonar)} на звонаря`} />
-        <Mini label="Дозвонов ≥60с" value={nf(kpis.calls60)} sub={`${nf(kpis.calls60PerDay)}/день · ${kpis.dials > 0 ? Math.round((kpis.calls60 / kpis.dials) * 100) : 0}% от наборов`} tone="good" />
-        <Mini label="Берут трубку" value={pp(kpis.answerPct)} sub={`${nf(kpis.answered)} соединений`} />
-        <Mini label="Часы разговоров" value={`${kpis.talkHours} ч`} sub={`звонарей: ${kpis.zvonari}`} />
+        <Mini label="Наборов" value={nf(kpis.dials)} sub={`${nf(kpis.dialsPerDay)}/день · ${nf(kpis.dialsPerZvonar)} на телемаркетолога`} delta={p ? deltaCount(kpis.dials, p.dials) : null} />
+        <Mini label="Дозвонов ≥60с" value={nf(kpis.calls60)} sub={`${nf(kpis.calls60PerDay)}/день · ${kpis.dials > 0 ? Math.round((kpis.calls60 / kpis.dials) * 100) : 0}% от наборов`} tone="good" delta={p ? deltaCount(kpis.calls60, p.calls60) : null} />
+        <Mini label="Берут трубку" value={pp(kpis.answerPct)} sub={`${nf(kpis.answered)} соединений`} delta={p ? deltaPp(kpis.answerPct, p.answerPct) : null} />
+        <Mini label="Часы разговоров" value={`${kpis.talkHours} ч`} sub={`телемаркетологов: ${kpis.zvonari}`} delta={p ? deltaCount(kpis.talkHours, p.talkHours) : null} />
       </div>
       <div className="bb-grid bb-grid-4">
-        <Mini label="Встреч назначено" value={nf(kpis.meetingsSet)} sub="по создателю (ТМ)" tone="good" />
-        <Mini label="Встреч состоялось" value={nf(kpis.meetingsHeld)} sub="назначены ТМ, прошли по БП" tone="good" />
-        <Mini label="Явка" value={pp(kpis.heldPct)} sub="состоялось / назначено" />
-        <Mini label="Конверсия дозвон→встреча" value={pp(kpis.convDialToMeeting)} sub={`${nf(kpis.meetingsSet)} / ${nf(kpis.calls60)} дозвонов`} />
+        <Mini label="Встреч назначено" value={nf(kpis.meetingsSet)} sub="по создателю (ТМ)" tone="good" delta={p ? deltaCount(kpis.meetingsSet, p.meetingsSet) : null} />
+        <Mini label="Встреч состоялось" value={nf(kpis.meetingsHeld)} sub="назначены ТМ, прошли по БП" tone="good" delta={p ? deltaCount(kpis.meetingsHeld, p.meetingsHeld) : null} />
+        <Mini label="Явка" value={pp(kpis.heldPct)} sub="состоялось / назначено" delta={p ? deltaPp(kpis.heldPct, p.heldPct) : null} />
+        <Mini label="Конверсия дозвон→встреча" value={pp(kpis.convDialToMeeting)} sub={`${nf(kpis.meetingsSet)} / ${nf(kpis.calls60)} дозвонов`} delta={p ? deltaPp(kpis.convDialToMeeting, p.convDialToMeeting) : null} />
       </div>
     </div>
   );
@@ -79,7 +106,7 @@ export function TmManagerTable({ rows }: { rows: TmManagerRow[] }) {
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13.5 }}>
         <thead>
           <tr>
-            <th style={{ ...head, textAlign: 'left' }}>Звонарь</th>
+            <th style={{ ...head, textAlign: 'left' }}>Телемаркетолог</th>
             <th style={{ ...head, textAlign: 'right' }}>Наборы</th>
             <th style={{ ...head, textAlign: 'right' }}>Снято</th>
             <th style={{ ...head, textAlign: 'right' }}>Дозвон ≥60с</th>
@@ -123,40 +150,8 @@ export function TmManagerTable({ rows }: { rows: TmManagerRow[] }) {
 
 // ───────────────────────── C. Воронка cat50 ─────────────────────────
 
-export function TmFunnel50View({ stages }: { stages: TmFunnel50Stage[] }) {
-  const max = Math.max(...stages.map((s) => s.count), 1);
-  const fill = (kind: TmFunnel50Stage['kind']) =>
-    kind === 'win'
-      ? 'linear-gradient(90deg,#3a9c63,#2c7a4a)'
-      : kind === 'lose'
-        ? 'linear-gradient(90deg,#e0606b,#d4202e)'
-        : 'linear-gradient(90deg,var(--bb-violet),var(--bb-indigo))';
-  if (stages.every((s) => s.count === 0)) {
-    return <p style={{ color: 'var(--bb-muted)' }}>Снимок воронки [50] пуст на последнюю дату.</p>;
-  }
-  // Закрытые стадии (Успех/Отложено/Отвал) в снимок открытых сделок не попадают —
-  // показываем их только если есть данные; иначе скрываем, чтобы не висели нулём.
-  const shown = stages.filter((s) => s.kind === 'open' || s.count > 0);
-  return (
-    <div>
-      <div className="bb-funnel">
-        {shown.map((s) => (
-          <div className="bb-fbar" key={s.stage}>
-            <span className="bb-fbar-name">{s.label}</span>
-            <div className="bb-fbar-track">
-              <div className="bb-fbar-fill" style={{ width: `${Math.max(8, (s.count / max) * 100)}%`, background: fill(s.kind) }}>
-                {nf(s.count)}
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-      <p style={{ fontSize: 12, color: 'var(--bb-faint)', marginTop: 10 }}>
-        Снимок открытых сделок cat50. «Успех / Отвал за месяц» (закрытые) и Δ к началу месяца — со сбором потока в раннере.
-      </p>
-    </div>
-  );
-}
+// TmFunnel50View вынесен в отдельный клиентский компонент TmFunnel.tsx
+// (мультиселект владельцев — ТМ и МП).
 
 // ───────────────────── D. Встречи → результат ─────────────────────
 
@@ -179,12 +174,12 @@ export function TmMeetingsResultView({ result }: { result: TmMeetingsResult }) {
 // ───────────────────── F. Динамика по месяцам ─────────────────────
 
 export function TmMonthlyView({ rows, name }: { rows: TmMonthlyRow[]; name: string | null }) {
-  if (rows.length === 0) return <p style={{ color: 'var(--bb-muted)' }}>Нет истории по выбранному звонарю.</p>;
+  if (rows.length === 0) return <p style={{ color: 'var(--bb-muted)' }}>Нет истории по выбранному телемаркетологу.</p>;
   // Обрезаем ведущие месяцы без активности (звонарь ещё не работал).
   const firstActive = rows.findIndex((r) => r.dials > 0 || r.calls60 > 0 || r.meetingsSet > 0);
   const shown = firstActive > 0 ? rows.slice(firstActive) : rows;
   if (shown.every((r) => r.dials === 0 && r.meetingsSet === 0)) {
-    return <p style={{ color: 'var(--bb-muted)' }}>Нет истории по выбранному звонарю.</p>;
+    return <p style={{ color: 'var(--bb-muted)' }}>Нет истории по выбранному телемаркетологу.</p>;
   }
   const maxConv = Math.max(...shown.map((r) => r.conv ?? 0), 1);
   return (
@@ -285,7 +280,7 @@ export function TmMicroFunnelsView({ funnels }: { funnels: TmMicroFunnel[] }) {
 
 export function TmRejectionsView({ rejections }: { rejections: TmRejections[] }) {
   if (rejections.length === 0 || rejections.every((r) => r.total === 0)) {
-    return <p style={{ color: 'var(--bb-muted)' }}>Нет личных отвалов по звонарям (массовые/админ-закрытия исключены).</p>;
+    return <p style={{ color: 'var(--bb-muted)' }}>Нет личных отвалов по телемаркетологам (массовые/админ-закрытия исключены).</p>;
   }
   return (
     <div className="bb-grid" style={{ gridTemplateColumns: rejections.length > 1 ? 'repeat(2, 1fr)' : '1fr' }}>
@@ -318,28 +313,84 @@ export function TmRejectionsView({ rejections }: { rejections: TmRejections[] })
 
 // ───────────────────────── E. План / факт ─────────────────────────
 
-export function TmPlanFactView({ rows }: { rows: TmPlanFactRow[] }) {
-  if (rows.length === 0) return <p style={{ color: 'var(--bb-muted)' }}>План на период не задан.</p>;
+function pfPct(f: number, p: number): number | null {
+  return p > 0 ? Math.round((f / p) * 100) : null;
+}
+function pfTone(p: number | null): 'green' | 'amber' | 'red' | 'grey' {
+  return p == null ? 'grey' : p >= 100 ? 'green' : p >= 50 ? 'amber' : 'red';
+}
+const PF_PILL: Record<string, React.CSSProperties> = {
+  green: { background: '#e7f4ec', color: 'var(--bb-green)' },
+  amber: { background: '#fdf2e7', color: '#b5651d' },
+  red: { background: '#fdeced', color: 'var(--bb-red)' },
+  grey: { background: '#eef0f4', color: 'var(--bb-muted)' },
+};
+const PF_FILL: Record<string, string> = {
+  green: 'linear-gradient(90deg,#5fcf8b,#2c7a4a)',
+  amber: 'linear-gradient(90deg,#f4b46a,#e88a3b)',
+  red: 'linear-gradient(90deg,#ef8d5e,#d4202e)',
+  grey: '#dcd7d0',
+};
+function pfInitials(name: string): string {
+  const x = name.trim().split(/\s+/);
+  return ((x[0]?.[0] ?? '') + (x[1]?.[0] ?? '')).toUpperCase() || '—';
+}
+
+function PfRow({ ava, name, fact, plan, team }: { ava: string; name: string; fact: number; plan: number; team?: boolean }) {
+  const p = pfPct(fact, plan);
+  const tone = pfTone(p);
+  const fill = p == null || p === 0 ? 2 : Math.min(100, p);
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      {rows.map((r) => {
-        const over = r.pct >= 100;
-        const bar = over ? 'linear-gradient(90deg,#3a9c63,#2c7a4a)' : r.pct >= 80 ? 'linear-gradient(90deg,var(--bb-violet),var(--bb-indigo))' : 'linear-gradient(90deg,#e88a3b,#d4202e)';
-        return (
-          <div key={r.label}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6, gap: 12 }}>
-              <span>{r.label} {r.unit ? <span style={{ color: 'var(--bb-faint)', fontSize: 11.5 }}>· {r.unit}</span> : null}</span>
-              <b style={{ whiteSpace: 'nowrap' }}>
-                {r.isPercent ? `${nf(r.fact)}% / ${nf(r.plan)}%` : `${nf(r.fact)} / ${nf(r.plan)}`}{' '}
-                <span style={{ color: over ? 'var(--bb-green)' : 'var(--bb-muted)' }}>({r.pct}%)</span>
-              </b>
-            </div>
-            <div style={{ height: 10, borderRadius: 6, background: '#f0ece7', overflow: 'hidden' }}>
-              <div style={{ height: '100%', width: `${Math.min(100, r.pct)}%`, background: bar }} />
-            </div>
-          </div>
-        );
-      })}
+    <div style={{
+      padding: team ? '9px 12px' : '8px 0',
+      margin: team ? '5px -12px 0' : undefined,
+      background: team ? 'linear-gradient(90deg,var(--bb-violet-soft),transparent)' : undefined,
+      borderRadius: team ? 11 : undefined,
+      borderTop: team ? undefined : '1px solid #f4f1ec',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+        <span style={{ width: 24, height: 24, flex: '0 0 24px', borderRadius: '50%', display: 'grid', placeItems: 'center', fontSize: 9.5, fontWeight: 700, color: '#fff', background: team ? 'linear-gradient(135deg,var(--bb-indigo),var(--bb-violet))' : 'linear-gradient(135deg,#8b80ff,#5b50d6)' }}>{ava}</span>
+        <span style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{name}</span>
+        <span className="tabular" style={{ marginLeft: 'auto', fontSize: 12.5, fontWeight: 700, whiteSpace: 'nowrap' }}>
+          <b style={{ fontWeight: 800 }}>{nf(fact)}</b> <span style={{ color: 'var(--bb-faint)', fontWeight: 600 }}>/ {nf(plan)}</span>
+        </span>
+        <span className="tabular" style={{ ...PF_PILL[tone], fontSize: 11, fontWeight: 800, borderRadius: 999, padding: '2px 9px', flex: '0 0 auto' }}>{p != null ? `${p}%` : '—'}</span>
+      </div>
+      <div style={{ height: 6, borderRadius: 5, background: '#f1ede8', overflow: 'hidden' }}>
+        <i style={{ display: 'block', height: '100%', borderRadius: 5, width: `${fill}%`, background: p ? PF_FILL[tone] : PF_FILL.grey }} />
+      </div>
+    </div>
+  );
+}
+
+function PfHead({ dot, title, hint }: { dot: string; title: string; hint: string }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+      <span style={{ width: 8, height: 8, borderRadius: '50%', background: dot, flex: '0 0 auto' }} />
+      <h4 style={{ fontSize: 13, fontWeight: 800, margin: 0 }}>{title}</h4>
+      <span style={{ fontSize: 11, color: 'var(--bb-faint)', marginLeft: 'auto', fontWeight: 500 }}>{hint}</span>
+    </div>
+  );
+}
+
+export function TmPlanFactView({ data }: { data: TmPlanFact }) {
+  if (data.dials60.managers.length === 0) return <p style={{ color: 'var(--bb-muted)' }}>Телемаркетологи за период не найдены.</p>;
+  return (
+    <div className="bb-pf-cols" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0 }}>
+      <div style={{ paddingRight: 26, borderRight: '1px solid var(--bb-line)' }}>
+        <PfHead dot="var(--bb-violet)" title="Дозвоны ≥60с" hint={`план ${data.dials60.perTm}/чел`} />
+        {data.dials60.managers.map((m) => (
+          <PfRow key={`d-${m.managerId}`} ava={pfInitials(m.name)} name={m.name} fact={m.fact} plan={m.plan} />
+        ))}
+        <PfRow ava="ТМ" name="Итого" fact={data.dials60.teamFact} plan={data.dials60.teamPlan} team />
+      </div>
+      <div style={{ paddingLeft: 26 }}>
+        <PfHead dot="var(--bb-green)" title="Брифования состоялись" hint={`план ${data.briefings.perTm}/чел`} />
+        {data.briefings.managers.map((m) => (
+          <PfRow key={`b-${m.managerId}`} ava={pfInitials(m.name)} name={m.name} fact={m.fact} plan={m.plan} />
+        ))}
+        <PfRow ava="ТМ" name="Итого" fact={data.briefings.teamFact} plan={data.briefings.teamPlan} team />
+      </div>
     </div>
   );
 }
@@ -359,41 +410,6 @@ export function TmOutreachView({ outreach }: { outreach: TmOutreach }) {
   );
 }
 
-// ───────────────── Селектор звонаря (через ?manager) ─────────────────
-
-export function TmManagerSelect({
-  managers,
-  selectedId,
-  range,
-}: {
-  managers: TmManagerOption[];
-  selectedId: number | null;
-  range: 'month' | 'week';
-}) {
-  if (managers.length <= 1) return null;
-  const q = (id: number) => `/telemarketing?period=${range}&manager=${id}`;
-  return (
-    <div style={{ display: 'inline-flex', gap: 4, background: '#f3f0ec', borderRadius: 10, padding: 3, marginLeft: 'auto', flexWrap: 'wrap' }}>
-      <span style={{ alignSelf: 'center', color: 'var(--bb-faint)', fontWeight: 600, fontSize: 12.5, padding: '0 6px' }}>Звонарь:</span>
-      {managers.map((m) => {
-        const on = m.managerId === selectedId;
-        return (
-          <Link
-            key={m.managerId}
-            href={q(m.managerId)}
-            style={{
-              padding: '5px 12px', borderRadius: 7, fontSize: 12.5, fontWeight: 600, textDecoration: 'none',
-              background: on ? '#fff' : 'transparent', color: on ? 'var(--bb-violet)' : 'var(--bb-muted)',
-              boxShadow: on ? '0 1px 2px rgba(0,0,0,.05)' : 'none',
-            }}
-          >
-            {m.name}
-          </Link>
-        );
-      })}
-    </div>
-  );
-}
 
 // ───────────────────────── Heatmap времени дозвона ─────────────────────────
 
@@ -401,38 +417,81 @@ export function TmHeatmapView({ heatmap }: { heatmap: TmHeatmap }) {
   if (heatmap.hours.length === 0 || heatmap.rows.every((r) => r.cells.every((c) => c.pct == null))) {
     return <p style={{ color: 'var(--bb-muted)' }}>Недостаточно данных о звонках для тепловой карты.</p>;
   }
-  const cellBg = (pct: number | null): string => {
-    if (pct == null) return '#f3f0ec';
-    const ratio = Math.max(0, Math.min(1, pct / heatmap.maxPct));
-    return `hsl(${Math.round(ratio * 130)}, 52%, ${Math.round(56 - ratio * 14)}%)`; // красный→зелёный
+  const { mean, minSample } = heatmap;
+  // Максимум объёма среди достоверных ячеек — для нормировки яркости.
+  const maxDials = Math.max(
+    1,
+    ...heatmap.rows.flatMap((r) => r.cells.filter((c) => c.dials >= minSample).map((c) => c.dials)),
+  );
+  // Цвет = отклонение от среднего (синий ниже · зелёный выше); текст тёмный, кроме
+  // сильного зелёного. Якорь — среднее по отделу.
+  const devColor = (pct: number): { bg: string; fg: string } => {
+    const dev = pct - mean;
+    if (dev <= -8) return { bg: '#a9bce6', fg: '#27314a' };
+    if (dev <= -3) return { bg: '#cdd8ef', fg: '#2c2a3e' };
+    if (dev < 3) return { bg: '#e4ddcf', fg: '#2c2a3e' };
+    if (dev < 8) return { bg: '#bfe3cd', fg: '#1e4a32' };
+    return { bg: '#3a9c63', fg: '#fff' };
   };
-  const cols = `34px repeat(${heatmap.hours.length}, 1fr)`;
+  const cols = `34px repeat(${heatmap.hours.length}, minmax(48px, 1fr))`;
+  const legend: { box: React.CSSProperties; label: string }[] = [
+    { box: { background: '#a9bce6' }, label: 'заметно ниже' },
+    { box: { background: '#cdd8ef' }, label: 'ниже' },
+    { box: { background: '#e4ddcf' }, label: '~среднее' },
+    { box: { background: '#bfe3cd' }, label: 'выше' },
+    { box: { background: '#3a9c63' }, label: 'заметно выше' },
+    { box: { background: '#efece6', border: '1px dashed #cfcabf' }, label: 'мало данных' },
+  ];
   return (
     <div>
       <div style={{ overflowX: 'auto' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: cols, gap: 4, minWidth: 520 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: cols, gap: 5, minWidth: 760 }}>
           <div />
           {heatmap.hours.map((h) => (
-            <div key={`h${h}`} style={{ textAlign: 'center', fontSize: 11, color: 'var(--bb-faint)', fontWeight: 600, paddingBottom: 2 }}>{h}</div>
+            <div key={`h${h}`} style={{ textAlign: 'center', fontSize: 11.5, color: 'var(--bb-faint)', fontWeight: 700, paddingBottom: 2 }}>{h}</div>
           ))}
           {heatmap.rows.map((row) => (
             <div key={`r${row.dow}`} style={{ display: 'contents' }}>
-              <div style={{ display: 'flex', alignItems: 'center', fontSize: 12, color: 'var(--bb-muted)', fontWeight: 600 }}>{row.label}</div>
-              {row.cells.map((c) => (
-                <div
-                  key={`${row.dow}-${c.hour}`}
-                  title={c.pct != null ? `${row.label} ${c.hour}:00 — дозвон ${c.pct}% (${nf(c.calls60)}/${nf(c.dials)})` : `${row.label} ${c.hour}:00 — нет звонков`}
-                  style={{ height: 26, borderRadius: 5, background: cellBg(c.pct), display: 'grid', placeItems: 'center', color: c.pct == null ? 'var(--bb-faint)' : '#fff', fontSize: 10, fontWeight: 600 }}
-                >
-                  {c.pct != null ? c.pct : ''}
-                </div>
-              ))}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', fontSize: 12.5, color: 'var(--bb-muted)', fontWeight: 700, paddingRight: 4 }}>{row.label}</div>
+              {row.cells.map((c) => {
+                if (c.pct == null) {
+                  // нет звонков в этот час
+                  return <div key={`${row.dow}-${c.hour}`} style={{ height: 40, borderRadius: 9 }} />;
+                }
+                if (c.dials < minSample) {
+                  return (
+                    <div key={`${row.dow}-${c.hour}`}
+                      title={`${row.label} ${c.hour}:00 — мало данных (${nf(c.dials)} наборов)`}
+                      style={{ height: 40, borderRadius: 9, background: '#efece6', border: '1px dashed #cfcabf', display: 'grid', placeItems: 'center', color: '#b7b2a6', fontSize: 9, fontWeight: 700, lineHeight: 1.1, textAlign: 'center' }}>
+                      мало<br />данных
+                    </div>
+                  );
+                }
+                const { bg, fg } = devColor(c.pct);
+                const opacity = Math.min(1, 0.5 + (c.dials / maxDials) * 0.5);
+                return (
+                  <div key={`${row.dow}-${c.hour}`}
+                    title={`${row.label} ${c.hour}:00 — дозвон ${c.pct}% (${nf(c.calls60)}/${nf(c.dials)} наборов) · среднее ${mean}%`}
+                    style={{ position: 'relative', height: 40, borderRadius: 9, background: bg, opacity, display: 'grid', placeItems: 'center', color: fg, fontSize: 12.5, fontWeight: 800 }}>
+                    <span className="tabular">{c.pct}%</span>
+                    <span className="tabular" style={{ position: 'absolute', bottom: 2, right: 5, fontSize: 8.5, fontWeight: 700, opacity: 0.75 }}>{nf(c.dials)}</span>
+                  </div>
+                );
+              })}
             </div>
           ))}
         </div>
       </div>
+      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'center', marginTop: 14, fontSize: 12, color: 'var(--bb-muted)' }}>
+        {legend.map((l) => (
+          <span key={l.label} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ width: 16, height: 16, borderRadius: 5, display: 'inline-block', ...l.box }} />
+            {l.label}
+          </span>
+        ))}
+      </div>
       <p style={{ fontSize: 12, color: 'var(--bb-faint)', marginTop: 10 }}>
-        % дозвона ≥60с по часам (МСК) и дням недели за последние месяцы. Зеленее — лучше берут трубку. Дозвон = разговор ≥60 секунд.
+        % дозвона ≥60с по часам (МСК) и дням недели за 3 месяца · цвет — отклонение от среднего по отделу ({mean}%), число снизу — объём наборов · ячейки с выборкой меньше {minSample} наборов помечены «мало данных». Дозвон = разговор ≥60 секунд.
       </p>
     </div>
   );

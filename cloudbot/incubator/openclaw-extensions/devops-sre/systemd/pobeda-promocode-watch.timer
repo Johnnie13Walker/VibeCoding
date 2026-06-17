@@ -1,0 +1,10 @@
+[Unit]
+Description=Run Pobeda promo code watcher every 15 minutes
+
+[Timer]
+OnCalendar=*:0/15
+Persistent=true
+Unit=pobeda-promocode-watch.service
+
+[Install]
+WantedBy=timers.target

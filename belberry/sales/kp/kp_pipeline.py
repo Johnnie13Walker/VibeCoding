@@ -1,0 +1,1454 @@
+#!/usr/bin/env python3
+"""KP-пайплайн MVP: сделка → данные аудитов → заготовка КП (SEO-Belberry).
+
+Оркестрирует существующие скрипты движка (bitrix_audit / build_kp / metrika_audit /
+prodoctorov_audit) в папке клиента, ведёт состояние стадий в kp_job.json
+(идемпотентно: готовые стадии пропускаются), собирает kp_data.json — свод фактов
+строго с источниками — и копирует эталон деки. Цены НЕ считает (зона сметчика),
+в Bitrix НЕ пишет. Спека: KP-ENGINE-MVP-SPEC.md.
+
+    python3 kp_pipeline.py <deal_id> [--client имя] [--competitors d1 d2 ...]
+                           [--days 90] [--prodoctorov url ...]
+                           [--skip-metrika] [--skip-prodoctorov]
+                           [--status] [--force стадия|all]
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+KP_DIR = Path(__file__).resolve().parent
+
+# enum «Список услуг» брифа СП1056 → пресет сметы kp_smeta (тарифы матрицы)
+BRIEF_SVC_TO_PRESET = {
+    2730: "seo", 2726: "ppc", 2732: "orm", 2738: "program",
+    2740: "lp", 2742: "branding", 2736: "tv",
+}
+
+
+def pick_template(brand: str = "belberry", service: str = "seo") -> Path:
+    """Шаблон деки по услуге+бренду; фолбэк seo-<brand>, затем клиентский эталон."""
+    for name in (f"{service}-{brand}", f"seo-{brand}"):
+        tpl = KP_DIR / "templates" / name
+        if (tpl / "kp.html").exists():
+            return tpl
+    return KP_DIR / "clients" / "med-shushary"
+
+
+def preset_for_brief(brief_services: list | None, default: str = "seo") -> str:
+    """Пресет сметы по услугам брифа: первая знакомая услуга, иначе default."""
+    for svc in brief_services or []:
+        if svc in BRIEF_SVC_TO_PRESET:
+            return BRIEF_SVC_TO_PRESET[svc]
+    return default
+
+
+
+
+# ── бренд-палитра рендеров (графики/карточки/боли) ───────────────────────────
+# Дефолт — Acoola (синий); set_palette переключает на Belberry (фиолетовый).
+# Тесты дёргают рендеры напрямую и видят дефолт — поведение Acoola не меняется.
+PALETTES = {
+    "acoola":   {"accent": "#3086FB", "deep": "#1F6FDE", "soft": "#C9D7EC"},
+    "belberry": {"accent": "#6B5AF9", "deep": "#4A3FD0", "soft": "#D9D3EE"},
+}
+ACCENT, ACCENT_DEEP, ACCENT_SOFT = (PALETTES["acoola"]["accent"],
+                                    PALETTES["acoola"]["deep"],
+                                    PALETTES["acoola"]["soft"])
+
+
+def set_palette(brand: str) -> None:
+    """Выбрать акцент-цвета рендеров по бренду (вызывается в начале прогона)."""
+    global ACCENT, ACCENT_DEEP, ACCENT_SOFT
+    p = PALETTES.get(brand, PALETTES["acoola"])
+    ACCENT, ACCENT_DEEP, ACCENT_SOFT = p["accent"], p["deep"], p["soft"]
+
+
+CODE_JUNK_RE = re.compile(r"[\[{(]+[^\]})]*[\"'_$][^\]})]*[\]})]+")
+
+
+def sanitize_text(value: str, limit: int = 160) -> str:
+    """Чистка текста для слайда: куски кода/JSON — вон, обрыв — по границе слова."""
+    t = CODE_JUNK_RE.sub(" ", str(value))
+    t = re.sub(r"\s+", " ", t).strip(" -–,.;:")
+    if len(t) > limit:
+        t = t[:limit].rsplit(" ", 1)[0].rstrip(" -–,.;:") + "…"
+    return t
+
+
+def first_clause(value: str, limit: int = 60) -> str:
+    """Первая законченная мысль бриф-значения («Основной продукт - радиогид»)."""
+    t = sanitize_text(value, 200)
+    # Берём САМУЮ РАННЮЮ границу мысли, а не первую по списку: иначе далёкая
+    # запятая (после нескольких предложений) уводит срез за точку и режет
+    # слово при обрезке по limit (баг biospaclinic 17.06: «…продавать. Это Bo»).
+    cuts = [t.split(sep)[0] for sep in (", но", ",", ";", ".")
+            if sep in t and len(t.split(sep)[0]) >= 8]
+    if cuts:
+        t = min(cuts, key=len)
+    if len(t) > limit:  # не обрывать слово — режем по последнему пробелу
+        t = t[:limit].rsplit(" ", 1)[0]
+    return t.rstrip(" -–,.")
+
+
+# Клиент в брифе часто пишет не ответ, а обещание прислать данные позже.
+# Такие строки нельзя подставлять в КП и тем более считать от них факты
+# (иначе «целевой регион = Пришлют информацию» → ложный гео-вывод).
+NONANSWER_RE = re.compile(
+    r"^(пришл[юёе]\w*|уточн\w*|не\s+(спрос\w*|знаю|готов\w*|определил\w*)|"
+    r"позже|потом|будет\s+позже|нет\s+данных|tbd|n/?a)\b", re.I)
+
+
+def is_nonanswer(value) -> bool:
+    """True, если бриф-значение — клиентская отписка, а не реальный ответ."""
+    t = str(value or "").strip()
+    if not t or set(t) <= set("—–-?.… "):  # пусто или только тире/знаки
+        return True
+    return bool(NONANSWER_RE.match(t))
+
+
+def brief_pick(facts: dict, *prefixes: str):
+    """Значение бриф-факта по ПРЕФИКСУ подписи — подписи полей гуляют между
+    брифами («Приоритетные товары/услуги…» vs «Приоритетные услуги или направления»)."""
+    for key, val in facts.items():
+        if not key.startswith("brief:"):
+            continue
+        label = key[len("brief:"):]
+        if any(label.startswith(p) for p in prefixes) and val and not is_nonanswer(val):
+            return val
+    return None
+
+
+def benchmark_substitutions(audit: dict | None) -> dict[str, str]:
+    """Заголовок и вывод бенчмарк-слайда — ПО ДАННЫМ, а не из шаблона.
+
+    Шаблонный заголовок «вы отстаёте» врал лидерам ниши (crystal-sound: ИКС 270
+    против 170 у лучшего конкурента) — теперь формулировка следует фактам.
+    """
+    cl = (audit or {}).get("client") or {}
+    comps = [c for c in (audit or {}).get("competitors", []) if c.get("sqi")]
+    sqi = cl.get("sqi")
+    if not sqi or not comps:
+        return {}
+    best = max(comps, key=lambda c: c["sqi"])
+    if sqi >= best["sqi"]:
+        return {
+            "{{БЕНЧМАРК_ЗАГОЛОВОК}}": "По авторитету вы впереди — закрепляем отрыв",
+            "{{БЕНЧМАРК_ПОДЗАГОЛОВОК}}": "Видимость — вы впереди",
+            "{{БЕНЧМАРК_ВЫВОД}}": (
+                f"По <strong>авторитету сайта (ИКС {sqi})</strong> вы впереди конкурентов "
+                f"(лучший — {best['domain']}, ИКС {best['sqi']}). "
+                f'<strong style="color:#0a8f5f;">Авторитет уже есть — задача конвертировать '
+                f"его в позиции и заявки, пока конкуренты не догнали.</strong>"),
+        }
+    return {
+        "{{БЕНЧМАРК_ЗАГОЛОВОК}}": "В поиске вас находят реже, чем конкурентов",
+        "{{БЕНЧМАРК_ПОДЗАГОЛОВОК}}": "Видимость — вы отстаёте",
+        "{{БЕНЧМАРК_ВЫВОД}}": (
+            f"По <strong>авторитету сайта (ИКС {sqi})</strong> вы отстаёте от лидера ниши "
+            f"({best['domain']}, ИКС {best['sqi']}). "
+            f'<strong style="color:#0a8f5f;">Дело не в продукте — вас просто '
+            f"не находят в поиске.</strong>"),
+    }
+
+
+SLIDE_SECTION_RE = re.compile(r'<section class="slide[^"]*"[^>]*>.*?</section>', re.S)
+
+
+
+
+def drop_empty_marker_slides(html: str) -> tuple[str, int]:
+    """Слайды с незаполненными <!--AUTO:*--> маркерами удаляются целиком.
+
+    Данных не случилось (нет LLM-ключа/Метрики) — лучше нет слайда, чем пустой каркас.
+    """
+    dropped = 0
+
+    def repl(m):
+        nonlocal dropped
+        if "<!--AUTO:" in m.group(0):
+            dropped += 1
+            return ""
+        return m.group(0)
+
+    return SLIDE_SECTION_RE.sub(repl, html), dropped
+
+
+def renumber_pagenums(html: str) -> str:
+    """Нумерация слайдов ПО ФАКТУ после всех вставок: «NN / total».
+
+    Вставные data-слайды ломали статическую нумерацию («07 / 12» на 9-м из 14).
+    """
+    total = len(SLIDE_SECTION_RE.findall(html))
+    if not total:
+        return html
+    counter = {"n": 0}
+
+    def slide_sub(m):
+        counter["n"] += 1
+        return re.sub(r'(class="pagenum">)[^<]*(<)',
+                      rf"\g<1>{counter['n']:02d} / {total}\g<2>", m.group(0))
+
+    return SLIDE_SECTION_RE.sub(slide_sub, html)
+
+
+def render_trend_svg(metrika: dict | None, width: int = 520, height: int = 110) -> str | None:
+    """Спарклайн органики по месяцам (Метрика) — единственный график деки.
+
+    Только полные месяцы; подписи первого/последнего значения. Данных < 3 точек —
+    графика нет (две точки — не тренд).
+    """
+    months = [m for m in (((metrika or {}).get("trend") or {}).get("organic") or {})
+              .get("months", []) if not m.get("partial") and m.get("visits") is not None]
+    if len(months) < 3:
+        return None
+    vals = [m["visits"] for m in months]
+    vmax, vmin = max(vals), min(vals)
+    span = (vmax - vmin) or 1
+    pad, w, h = 8, width, height
+    step = (w - 2 * pad) / (len(vals) - 1)
+    pts = [(pad + i * step, pad + (h - 2 * pad) * (1 - (v - vmin) / span))
+           for i, v in enumerate(vals)]
+    poly = " ".join(f"{x:.0f},{y:.0f}" for x, y in pts)
+    first, last = months[0], months[-1]
+    lx, ly = pts[-1]
+    return (f'<svg width="{w}" height="{h + 26}" viewBox="0 0 {w} {h + 26}" '
+            f'xmlns="http://www.w3.org/2000/svg">'
+            f'<polyline points="{poly}" fill="none" stroke="{ACCENT}" stroke-width="3" '
+            f'stroke-linecap="round" stroke-linejoin="round"/>'
+            + "".join(f'<circle cx="{x:.0f}" cy="{y:.0f}" r="3.5" fill="{ACCENT}"/>'
+                      for x, y in pts)
+            + f'<text x="{pad}" y="{h + 18}" font-size="11" fill="#6b6f88">'
+              f'{first["month"]}: {first["visits"]}</text>'
+            f'<text x="{lx:.0f}" y="{ly - 9:.0f}" font-size="12" font-weight="700" '
+            f'fill="#313131" text-anchor="end">{last["visits"]}</text>'
+            f'<text x="{w - pad}" y="{h + 18}" font-size="11" fill="#6b6f88" '
+            f'text-anchor="end">{last["month"]} · визиты из поиска [Метрика]</text></svg>')
+
+
+def render_iks_bars(audit: dict | None, width: int = 560) -> str | None:
+    """Горизонтальный бар-чарт ИКС: клиент против конкурентов (визуал бенчмарка)."""
+    cl = (audit or {}).get("client") or {}
+    if not cl.get("sqi"):
+        return None
+    rows = [(cl.get("domain", "вы"), cl["sqi"], True)] + [
+        (c["domain"], c["sqi"], False)
+        for c in (audit or {}).get("competitors", []) if c.get("sqi")]
+    if len(rows) < 2:
+        return None
+    rows.sort(key=lambda r: -r[1])
+    vmax = rows[0][1] or 1
+    bar_h, gap, label_w = 21, 8, 150
+    h = len(rows) * (bar_h + gap)
+    parts = [f'<svg width="{width}" height="{h}" viewBox="0 0 {width} {h}" '
+             f'xmlns="http://www.w3.org/2000/svg" font-family="Manrope,sans-serif">']
+    for i, (name, val, me) in enumerate(rows):
+        y = i * (bar_h + gap)
+        w = (width - label_w - 60) * val / vmax
+        color = ACCENT if me else ACCENT_SOFT
+        weight = "800" if me else "500"
+        label = f"{name} · вы" if me else name
+        parts.append(
+            f'<text x="0" y="{y + bar_h - 8}" font-size="12" font-weight="{weight}" '
+            f'fill="#313131">{label[:22]}</text>'
+            f'<rect x="{label_w}" y="{y}" width="{w:.0f}" height="{bar_h}" rx="6" fill="{color}"/>'
+            f'<text x="{label_w + w + 8:.0f}" y="{y + bar_h - 8}" font-size="13" '
+            f'font-weight="800" fill="#313131">{val}</text>')
+    parts.append("</svg>")
+    return "".join(parts)
+
+
+
+
+def problem_paths_from_metrika(metrika: dict | None, limit: int = 2) -> list[str]:
+    """Пути проблемных страниц из находок Метрики («/rent собирает 10%…»)."""
+    out = []
+    for p in (metrika or {}).get("problems") or []:
+        m = re.search(r"(/[a-z0-9_\-/]+)", p.get("fact", ""))
+        if m and m.group(1) not in out:
+            out.append(m.group(1))
+    return out[:limit]
+
+
+def render_problem_shots(tmp_dir: Path, metrika: dict | None) -> str | None:
+    """Мини-скрины проблемных страниц с подписями (слайд «проблема → решение»)."""
+    import base64
+    shots = []
+    for p in (metrika or {}).get("problems") or []:
+        m = re.search(r"(/[a-z0-9_\-/]+)", p.get("fact", ""))
+        if not m:
+            continue
+        slug = m.group(1).strip("/").replace("/", "_") or "page"
+        png = tmp_dir / f"page_{slug}.png"
+        if png.exists():
+            b64 = base64.b64encode(png.read_bytes()).decode()
+            ev = p.get("evidence") or {}
+            bounce = ev.get("page_bounce")
+            cap = f"{m.group(1)} — отказы {bounce}%" if bounce else m.group(1)
+            shots.append(
+                f'<div style="flex:1;min-width:0;max-width:460px;"><div style="border:1px solid #EDF1F7;'
+                f'border-radius:10px;overflow:hidden;"><img src="data:image/png;base64,{b64}" '
+                f'style="width:100%;max-height:100px;object-fit:cover;object-position:top;display:block;"/></div>'
+                f'<div style="font-size:11px;color:#a13442;font-weight:700;margin-top:6px;">'
+                f'{cap} <span style="color:#717885;font-weight:500;">[Метрика]</span></div></div>')
+    if not shots:
+        return None
+    return ('<div style="display:flex;gap:14px;margin-top:8px;">' + "".join(shots) + "</div>")
+
+
+def render_sources_svg(metrika: dict | None, width: int = 520) -> str | None:
+    """Источники трафика: визиты барами + конверсия подписью (топ-5)."""
+    rows = [(s.get("source", "")[:28], s.get("visits") or 0, s.get("conversion"))
+            for s in (metrika or {}).get("source_conversion") or [] if s.get("visits")]
+    if len(rows) < 2:
+        return None
+    rows = sorted(rows, key=lambda r: -r[1])[:5]
+    vmax = rows[0][1] or 1
+    bar_h, gap, label_w = 20, 9, 190
+    h = len(rows) * (bar_h + gap)
+    parts = [f'<svg width="{width}" height="{h}" viewBox="0 0 {width} {h}" '
+             f'xmlns="http://www.w3.org/2000/svg" font-family="Manrope,sans-serif">']
+    for i, (name, visits, conv) in enumerate(rows):
+        y = i * (bar_h + gap)
+        w = (width - label_w - 120) * visits / vmax
+        is_search = "поиск" in name.lower()
+        color = ACCENT if is_search else ACCENT_SOFT
+        conv_txt = f" · {conv}% в заявку" if conv else ""
+        parts.append(
+            f'<text x="0" y="{y + bar_h - 5}" font-size="11" '
+            f'font-weight="{"800" if is_search else "500"}" fill="#313131">{name}</text>'
+            f'<rect x="{label_w}" y="{y}" width="{w:.0f}" height="{bar_h}" rx="5" fill="{color}"/>'
+            f'<text x="{label_w + w + 7:.0f}" y="{y + bar_h - 5}" font-size="11" '
+            f'font-weight="700" fill="#313131">{visits:,}'.replace(",", " ") + f'{conv_txt}</text>')
+    parts.append("</svg>")
+    return "".join(parts)
+
+
+def render_geo_svg(metrika: dict | None, width: int = 480) -> str | None:
+    """География спроса: топ-5 регионов барами."""
+    rows = [(g.get("region", "")[:26], g.get("visits") or 0)
+            for g in (metrika or {}).get("geo") or []
+            if g.get("visits") and "Не определено" not in (g.get("region") or "")]
+    if len(rows) < 2:
+        return None
+    rows = rows[:5]
+    vmax = max(v for _, v in rows) or 1
+    bar_h, gap, label_w = 20, 9, 200
+    h = len(rows) * (bar_h + gap)
+    parts = [f'<svg width="{width}" height="{h}" viewBox="0 0 {width} {h}" '
+             f'xmlns="http://www.w3.org/2000/svg" font-family="Manrope,sans-serif">']
+    for i, (name, visits) in enumerate(rows):
+        y = i * (bar_h + gap)
+        w = (width - label_w - 70) * visits / vmax
+        parts.append(
+            f'<text x="0" y="{y + bar_h - 5}" font-size="11" fill="#313131">{name}</text>'
+            f'<rect x="{label_w}" y="{y}" width="{w:.0f}" height="{bar_h}" rx="5" fill="#7FB5FF"/>'
+            f'<text x="{label_w + w + 7:.0f}" y="{y + bar_h - 5}" font-size="11" '
+            f'font-weight="700" fill="#313131">{visits:,}'.replace(",", " ") + '</text>')
+    parts.append("</svg>")
+    return "".join(parts)
+
+
+
+
+def render_funnel_svg(metrika: dict | None, width: int = 1080, height: int = 120) -> str | None:
+    """Воронка поиска: визиты органики/мес → заявки (по фактической конверсии)."""
+    f = forecast_numbers(metrika)
+    if not f:
+        return None
+    return _funnel_build(f, width, height)
+
+
+def _funnel_build(f: dict, width: int, height: int) -> str:
+    mid = height // 2
+    left_w, right_w = 420, 200
+    fmt = lambda n: f"{n:,}".replace(",", " ")  # noqa: E731
+    return (f'<svg width="{width}" height="{height}" viewBox="0 0 {width} {height}" '
+            f'xmlns="http://www.w3.org/2000/svg" font-family="Manrope,sans-serif">'
+            f'<polygon points="0,8 {left_w},22 {left_w},{height-22} 0,{height-8}" fill="{ACCENT}" opacity="0.92"/>'
+            f'<text x="20" y="{mid-6}" font-size="13" fill="#fff">Визиты из поиска / мес</text>'
+            f'<text x="20" y="{mid+22}" font-size="24" fill="#fff" font-weight="800">~{fmt(f["visits_now"])}</text>'
+            f'<polygon points="{left_w+8},26 {left_w+248},{mid-14} {left_w+248},{mid+14} {left_w+8},{height-26}" fill="#C9D7EC"/>'
+            f'<text x="{left_w+34}" y="{mid+5}" font-size="12" fill="#313131" font-weight="700">× {f["conv"]}% — ваша конверсия</text>'
+            f'<polygon points="{left_w+264},{mid-26} {left_w+264+right_w},{mid-20} {left_w+264+right_w},{mid+20} {left_w+264},{mid+26}" fill="#0a8f5f"/>'
+            f'<text x="{left_w+282}" y="{mid-2}" font-size="11" fill="#fff">Заявок / мес</text>'
+            f'<text x="{left_w+282}" y="{mid+16}" font-size="18" fill="#fff" font-weight="800">~{f["leads_now"]}</text>'
+            f'<text x="{left_w+264+right_w+22}" y="{mid-2}" font-size="11" fill="#717885">рост органики ×1,5–2 за 6–12 мес →</text>'
+            f'<text x="{left_w+264+right_w+22}" y="{mid+18}" font-size="15" font-weight="800" '
+            f'fill="#0a8f5f">{f["leads_lo"]}–{f["leads_hi"]} заявок</text></svg>')
+
+
+def fetch_favicon_b64(domain: str) -> str | None:
+    """Фавиконка домена (сервис Google s2) → base64 PNG, 32px. Ошибки молча."""
+    import base64
+    import urllib.request
+    try:
+        req = urllib.request.Request(
+            f"https://www.google.com/s2/favicons?domain={domain}&sz=32",
+            headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=15) as r:
+            data = r.read()
+        return base64.b64encode(data).decode() if len(data) > 100 else None
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def inject_favicons(html: str, domains: list[str]) -> str:
+    """Фавиконки перед доменами в таблицах (бенчмарк): <strong>dom</strong> и строка клиента."""
+    for dom in domains:
+        b64 = fetch_favicon_b64(dom)
+        if not b64:
+            continue
+        icon = (f'<img src="data:image/png;base64,{b64}" width="16" height="16" '
+                f'style="vertical-align:-3px;margin-right:7px;border-radius:4px;"/>')
+        html = html.replace(f"<strong>{dom}</strong>", f"{icon}<strong>{dom}</strong>")
+        html = html.replace(f"{dom} <span class=\"pill\">вы</span>",
+                            f"{icon}{dom} <span class=\"pill\">вы</span>")
+    return html
+
+
+HIDE_EMPTY_RE = re.compile(
+    r'<div[^>]*data-optional[^>]*>(?:(?!data-optional).)*?</div>\s*</div>', re.S)
+
+
+def hide_empty_optional(html: str) -> tuple[str, int]:
+    """Удаление data-optional блоков без цифр (пустые ручные зоны не показываем)."""
+    removed = 0
+    def repl(m):
+        nonlocal removed
+        inner = re.sub(r"<[^>]+>", " ", m.group(0))
+        if re.search(r"\d", inner):
+            return m.group(0)
+        removed += 1
+        return ""
+    html = HIDE_EMPTY_RE.sub(repl, html)
+    return html, removed
+
+
+def offer_substitutions(metrika: dict | None, spec: dict | None) -> dict[str, str]:
+    """Оффер на титул и стоимость заявки — честный расчёт из прогноза и сметы."""
+    f = forecast_numbers(metrika)
+    if not f:
+        return {}
+    subs = {"{{ОФФЕР_ЗАЯВКИ}}": f"+{f['leads_lo'] - f['leads_now']}–"
+                                f"{f['leads_hi'] - f['leads_now']} заявок в месяц из поиска"}
+    if spec and spec.get("items"):
+        import kp_smeta
+        _, subtotal = kp_smeta.build_rows(spec["items"])
+        price = subtotal * (1 + kp_smeta.VAT)
+        if price > 0 and f["leads_lo"]:
+            lo, hi = round(price / f["leads_hi"]), round(price / f["leads_lo"])
+            subs["{{ЦЕНА_ЗА_ЗАЯВКУ}}"] = (f"{lo:,}–{hi:,} ₽".replace(",", " "))
+    return subs
+
+
+def smeta_substitutions(spec: dict | None) -> dict[str, str]:
+    """Ценовые плейсхолдеры деки из сметы (тарифы матрицы — официальные цены)."""
+    if not spec or not spec.get("items"):
+        return {}
+    import kp_smeta
+    _, subtotal = kp_smeta.build_rows(spec["items"])
+    if subtotal <= 0:
+        return {}
+    fmt = lambda n: f"{round(n):,}".replace(",", " ") + " ₽"  # noqa: E731
+    monthly = subtotal * (1 + kp_smeta.VAT)
+    subs = {"{{ЦЕНА_БЕЗ_НДС}}": fmt(subtotal),
+            "{{ЦЕНА_С_НДС}}": fmt(monthly)}
+    # лестница предоплаты (слайд «Бюджет», перенята из питч-шаблона Acoola)
+    for months, pct in ((3, 5), (6, 10), (9, 15), (12, 20)):
+        subs[f"{{{{ЦЕНА_ПРЕДОПЛ_{months}}}}}"] = fmt(monthly * (1 - pct / 100))
+    if spec.get("deadline"):
+        subs["{{ДЕДЛАЙН_ПОДАРКА}}"] = str(spec["deadline"])
+    return subs
+
+
+def deck_substitutions(data: dict, today: str) -> dict[str, str]:
+    """Карта замен плейсхолдеров деки реальными фактами (только то, что знаем)."""
+    facts = {f["key"]: f["value"] for f in data.get("facts", [])}
+    subs: dict[str, str] = {}
+    domain = data.get("domain") or ""
+    if domain:
+        subs["{{ДОМЕН}}"] = domain
+        subs["{{домен}}"] = domain
+        subs["{{КЛИЕНТ}}"] = str(facts.get("deal_title") or domain)
+    subs["{{ДАТА}}"] = today
+    region = brief_pick(facts, "Регион")
+    if region:
+        subs["{{ГОРОД}}"] = str(region)
+        subs["{{ГЕО}}"] = str(region)
+    services = brief_pick(facts, "Приоритетные")
+    if services:
+        subs["{{ПРИОРИТЕТНЫЕ_УСЛУГИ}}"] = first_clause(str(services))
+    return subs
+
+
+# Первый вариант съедает «· <словесная метка> {{X}}» целиком (« · гео {{ГЕО}}»),
+# чтобы после зачистки не оставалось висячих меток без значения; второй — одиночный
+# плейсхолдер с примыкающим разделителем.
+PLACEHOLDER_RE = re.compile(
+    r"\s*·\s*[^·{}<>]*?\{\{[А-ЯЁA-Z0-9_]+\}\}\.?"
+    r"|\s*[:·—-]?\s*\{\{[А-ЯЁA-Z0-9_]+\}\}\.?")
+
+
+def scrub_placeholders(html: str) -> tuple[str, int]:
+    """Зачистка уцелевших {{ПЛЕЙСХОЛДЕРОВ}} — клиент не должен видеть их никогда.
+
+    Убираем вместе с висящим разделителем («…из поиска: {{X}}.» → «…из поиска»).
+    """
+    left = len(PLACEHOLDER_RE.findall(html))
+    return PLACEHOLDER_RE.sub("", html), left
+
+
+def niche_text_from_bitrix(bx: dict) -> str:
+    """Текст ниши клиента для подбора кейсов: сфера + приоритетные услуги + продукт."""
+    brief = bx.get("brief") or {}
+    parts = [bx.get("sfera") or "",
+             brief.get("Приоритетные товары/услуги, которые нужно продвигать") or "",
+             brief.get("Что представляет собой продукт (товар, услуга или компания)?") or ""]
+    return " ".join(p for p in parts if p).strip()
+
+
+def filter_prcy_rows(rows_html: str | None, has_metrika: bool, brand: str) -> str | None:
+    """Чистка строк техаудита PR-CY: при живой Метрике — без его оценок трафика
+    (отказы/визиты), для немедицинских брендов — без мед-флагов (онлайн-запись)."""
+    if not rows_html:
+        return rows_html
+    kept = []
+    for row in re.findall(r"<tr>.*?</tr>", rows_html, re.S):
+        low = row.lower()
+        if has_metrika and ("отказ" in low or "визит" in low):
+            continue  # есть факт Метрики — оценки PR-CY не показываем
+        if brand != "belberry" and "онлайн-запис" in low:
+            continue  # мед-флаг неприменим вне медицины
+        kept.append(row)
+    return "\n".join(kept) if kept else None
+
+
+def combine_problem_rows(prcy_rows: str | None, metrika_rows: str | None,
+                         max_rows: int = 6) -> str | None:
+    """Слайд «проблема → решение»: строки одним списком, чистка кода, максимум 6."""
+    chunks = [c for c in (prcy_rows, metrika_rows) if c and c.strip()]
+    if not chunks:
+        return None
+    rows = re.findall(r"<tr>.*?</tr>", "\n".join(chunks), re.S)
+    cleaned = []
+    for row in rows[:max_rows]:
+        # сырой код в ячейках (json-«мусор» из evidence) — вычистить
+        row = re.sub(r">([^<]*)<", lambda m: ">" + sanitize_text(m.group(1), 180) + "<"
+                     if CODE_JUNK_RE.search(m.group(1)) else m.group(0), row)
+        cleaned.append(row)
+    return "\n".join(cleaned)
+
+
+PROBLEM_ROW_RE = re.compile(
+    r'<tr>\s*<td class="metric">(.*?)</td>\s*<td>(.*?)</td>\s*</tr>', re.S)
+
+
+def _plural_problems(n: int) -> str:
+    if n % 10 == 1 and n % 100 != 11:
+        return "проблему нашли в аудите"
+    if n % 10 in (2, 3, 4) and n % 100 not in (12, 13, 14):
+        return "проблемы нашли в аудите"
+    return "проблем нашли в аудите"
+
+
+def render_problem_cards(rows_html: str | None) -> str | None:
+    """Слайд «проблема → решение»: tr-строки четырёх аудитов → карточки-гибрид.
+
+    Каждая строка: номер → находка (+ серое «увидели: …») → стрелка → зелёное
+    решение с галкой. Внизу — счётчик находок и плашка «как закрываем».
+    Вход — строки combine_problem_rows (формат <td class="metric">), текст
+    в них уже экранирован и вычищен от кода.
+    """
+    if not rows_html:
+        return None
+    pairs = PROBLEM_ROW_RE.findall(rows_html)
+    if not pairs:
+        return None
+    import html as _h
+    esc = _h.escape
+    strip = lambda t: re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", t)).strip()
+    cards = []
+    for i, (raw_prob, raw_act) in enumerate(pairs, 1):
+        prob = _h.unescape(strip(raw_prob))
+        act = _h.unescape(strip(raw_act))
+        # «находка — подтверждение»: длинный хвост после тире уводим в серую строку
+        evidence = ""
+        head, sep, tail = prob.partition(" — ")
+        if sep and len(head) >= 40:
+            tail = tail.strip(' «»"\'')
+            prob, evidence = head, (tail if len(tail) >= 25 else "")
+        ev_html = ""
+        if evidence:
+            ev_html = (f'<div style="font-size:10.5px;color:#9aa3b2;margin-top:4px;'
+                       f'line-height:1.4;">увидели: {esc(sanitize_text(evidence, 90))}</div>')
+        cards.append(
+            f'<div style="display:grid;grid-template-columns:30px 1.05fr 34px 1fr;'
+            f'gap:14px;align-items:center;background:#fff;border:1px solid #EDF1F7;'
+            f'border-radius:13px;padding:10px 18px;">'
+            f'<span style="width:26px;height:26px;border-radius:8px;background:#fdecee;'
+            f'color:#a13442;font-size:12.5px;font-weight:800;display:inline-flex;'
+            f'align-items:center;justify-content:center;">{i}</span>'
+            f'<div><div style="font-size:12.5px;line-height:1.4;color:#313131;'
+            f'font-weight:700;">{esc(sanitize_text(prob, 160))}</div>{ev_html}</div>'
+            f'<svg width="24" height="14" viewBox="0 0 26 14" fill="none">'
+            f'<path d="M1 7h22m0 0-5-5m5 5-5 5" stroke="{ACCENT}" stroke-width="2.2" '
+            f'stroke-linecap="round"/></svg>'
+            f'<div style="display:flex;gap:8px;align-items:flex-start;">'
+            f'<svg width="15" height="15" viewBox="0 0 16 16" style="flex:none;margin-top:1px;">'
+            f'<circle cx="8" cy="8" r="8" fill="#e7f5ee"/>'
+            f'<path d="m4.5 8 2.5 2.5 4.5-5" stroke="#0a8f5f" stroke-width="1.8" '
+            f'fill="none" stroke-linecap="round"/></svg>'
+            f'<span style="font-size:12px;line-height:1.45;color:#0a8f5f;'
+            f'font-weight:600;">{esc(sanitize_text(act, 165))}</span></div></div>')
+    n = len(pairs)
+    return ('<div style="display:flex;flex-direction:column;gap:7px;">'
+            + "".join(cards) + "</div>"
+            '<div style="display:grid;grid-template-columns:200px 1fr;gap:14px;margin-top:10px;">'
+            f'<div style="background:linear-gradient(135deg,{ACCENT},{ACCENT_DEEP});'
+            'border-radius:13px;padding:11px 20px;color:#fff;">'
+            f'<div style="font-size:28px;font-weight:900;line-height:1;">{n}</div>'
+            f'<div style="font-size:10.5px;font-weight:700;opacity:.8;margin-top:3px;">'
+            f'{_plural_problems(n)}</div></div>'
+            '<div style="background:#EEF5FF;border-radius:13px;padding:14px 22px;'
+            'display:flex;align-items:center;">'
+            '<div style="font-size:12px;line-height:1.5;color:#1d3a63;font-weight:600;" '
+            'data-lock="1">Все находки закрываем в первый этап работ — технические '
+            'правки идут параллельно со сбором семантики и не задерживают '
+            'продвижение.</div></div></div>')
+
+
+MARK_BUDGET = "<!--AUTO:BUDGET_ROWS-->"
+
+
+def render_budget_rows(spec: dict | None) -> str | None:
+    """Слайд «Бюджет»: строки состава из smeta.json (маркер AUTO:BUDGET_ROWS).
+
+    Платные позиции — с ценой, included — «включено в бюджет». Первое слово
+    позиции — синим, как акцент (компоновка одобрена пользователем 11.06).
+    """
+    items = (spec or {}).get("items") or []
+    rows = []
+    import html as _h
+    for it in items:
+        if it.get("section") or not it.get("name"):
+            continue
+        name = sanitize_text(str(it["name"]), 90)
+        lead, _, rest = name.partition(" ")
+        lead_html = (f'<b style="color:{ACCENT};">{_h.escape(lead)}</b> '
+                     f'{_h.escape(rest)}' if rest else _h.escape(name))
+        if it.get("included"):
+            price = (f'<span style="font-size:13.5px;font-weight:800;color:{ACCENT};">включено'
+                     '</span> <span style="font-size:11px;color:#717885;">в бюджет</span>')
+        elif it.get("monthly"):
+            price = (f'<span style="font-size:15px;font-weight:800;color:{ACCENT};">'
+                     f'{round(it["monthly"]):,} ₽'.replace(",", " ") +
+                     '</span> <span style="font-size:11px;color:#717885;">/месяц</span>')
+        elif it.get("once"):
+            price = (f'<span style="font-size:15px;font-weight:800;color:{ACCENT};">'
+                     f'{round(it["once"]):,} ₽'.replace(",", " ") +
+                     '</span> <span style="font-size:11px;color:#717885;">разово</span>')
+        else:
+            continue
+        rows.append(
+            f'<div style="display:flex;align-items:center;justify-content:space-between;'
+            f'gap:24px;padding:17px 4px;border-bottom:1px solid #EDF1F7;">'
+            f'<span style="font-size:14px;color:#313131;">{lead_html}</span>'
+            f'<span style="flex:none;">{price}</span></div>')
+    if not rows:
+        return None
+    # платные позиции сверху
+    rows.sort(key=lambda r: "включено" in r)
+    return "".join(rows[:7])
+
+
+def render_blockers_html(audit: dict | None, metrika: dict | None,
+                         insights: dict | None) -> str | None:
+    """Слайд «Что мешает» — 3 колонки ТОЛЬКО из реальных данных клиента.
+
+    Заменяет ручную сетку с цифрами-образцами (баг: med-shushary-числа выглядели
+    как аудит клиента). Пункт появляется только при наличии данных; пусто — None.
+    """
+    import html as _h
+    cl = (audit or {}).get("client") or {}
+    comps = [c for c in (audit or {}).get("competitors", []) if c.get("sqi")]
+
+    vis: list[str] = []
+    sqi = cl.get("sqi")
+    if sqi and comps:
+        leader = max(comps, key=lambda c: c["sqi"])
+        if sqi < leader["sqi"]:
+            vis.append(f"Авторитет сайта <b>ИКС {sqi}</b> — у лидера ниши "
+                       f"{_h.escape(leader['domain'])} <b>{leader['sqi']}</b>")
+    yi, gi = cl.get("yandex_index"), cl.get("google_index")
+    if yi and gi and min(yi, gi) < max(yi, gi) * 0.7:
+        worse = "Google" if gi < yi else "Яндексе"
+        vis.append(f"В {worse} проиндексировано <b>{min(yi, gi)}</b> страниц "
+                   f"против <b>{max(yi, gi)}</b> — дисбаланс видимости")
+    donors = cl.get("donors")
+    if donors is not None and donors < 30:
+        vis.append(f"Внешних ссылок всего <b>{donors}</b> — ссылочный профиль "
+                   f"не даёт расти в выдаче")
+
+    tech: list[str] = []
+    if cl.get("schema_org") is False:
+        tech.append("<b>Нет Schema-разметки</b> — поисковики не показывают "
+                    "расширенные карточки в выдаче")
+    if (cl.get("load_time") or 0) > 2:
+        tech.append(f"Загрузка <b>{cl['load_time']:.1f} с</b> — медленно, "
+                    f"посетители уходят не дождавшись")
+    for flag, name in (("robots", "robots.txt"), ("sitemap", "карта сайта")):
+        if cl.get(flag) is False:
+            tech.append(f"Отсутствует <b>{name}</b>")
+    for issue in ((insights or {}).get("site_issues") or [])[:2]:
+        tech.append(f"{_h.escape(issue.get('issue', ''))} "
+                    f"<span style='opacity:.65'>({_h.escape(issue.get('evidence', '')[:60])})</span>")
+
+    flow: list[str] = []
+    for p in ((metrika or {}).get("problems") or [])[:2]:
+        flow.append(_h.escape(p.get("fact", "")))
+    for src in (metrika or {}).get("source_conversion") or []:
+        if "рекламе" in src.get("source", "") and src.get("visits"):
+            org = next((s for s in metrika["source_conversion"]
+                        if "поисков" in s.get("source", "")), None)
+            if org and org.get("conversion", 0) > (src.get("conversion") or 0):
+                flow.append(f"Реклама даёт <b>{src['visits']}</b> визитов, но конвертит "
+                            f"<b>{src['conversion']}%</b> против <b>{org['conversion']}%</b> "
+                            f"у поиска — платный трафик дороже и слабее")
+            break
+    pains = (insights or {}).get("pains") or []
+    if pains:
+        flow.append(f"{_h.escape(pains[0].get('pain', ''))} "
+                    f"<span style='opacity:.65'>— из разбора встречи</span>")
+
+    cols = [("Видимость в поиске", "red", vis, "🔍 API-аудит сайта"),
+            ("Сайт и техническая база", "amber", tech, "🔍 аудит + текст страниц"),
+            ("Поток и аналитика", "blue", flow, "📊 Яндекс.Метрика · 🗣 встреча")]
+    blocks = []
+    for title, color, items, src in cols:
+        if not items:
+            continue
+        lis = "".join(f"<li>{it}</li>" for it in items)
+        blocks.append(f'<div class="pgroup bad"><span class="ph {color}">{title}</span>'
+                      f'<ul>{lis}</ul><div class="src">{src}</div></div>')
+    return "\n".join(blocks) if blocks else None
+
+
+def forecast_numbers(metrika: dict | None) -> dict | None:
+    """Прогноз ОТ ФАКТИЧЕСКОЙ конверсии клиента: визиты органики × его конверсия.
+
+    Консервативно: конверсию НЕ повышаем, рост органики ×1,5–2 за 6–12 мес —
+    диапазон, не точка. Нет Метрики (визитов или конверсии) → None, прогноза нет.
+    """
+    if not metrika:
+        return None
+    organic = ((metrika.get("trend") or {}).get("organic") or {})
+    visits = organic.get("current")
+    conv = next((s.get("conversion") for s in metrika.get("source_conversion") or []
+                 if "поисков" in (s.get("source") or "")), None)
+    if not visits or not conv:
+        return None
+    leads_now = visits * conv / 100
+    return {"visits_now": int(visits), "conv": conv,
+            "leads_now": round(leads_now),
+            "visits_lo": int(visits * 1.5), "visits_hi": int(visits * 2),
+            "leads_lo": round(leads_now * 1.5), "leads_hi": round(leads_now * 2),
+            "goal": ((metrika.get("main_goal") or {}).get("name") or "обращение")}
+
+
+FORECAST_FALLBACK_ROW = (
+    '<tr><td colspan="4" style="color:#6b6f88;padding:14px 0;">Для честного прогноза '
+    'нужен доступ к вашей Яндекс.Метрике — посчитаем от фактической конверсии, '
+    'а не от «средних по рынку».</td></tr>')
+
+
+def render_forecast_html(metrika: dict | None) -> str | None:
+    """Строки прогноза для маркера AUTO:FORECAST (tbody таблицы
+    «Показатель | Сейчас | 6 мес | 12 мес» в шаблонах).
+
+    6 мес = рост органики ×1,5, 12 мес = ×2; конверсия клиента не повышается.
+    """
+    f = forecast_numbers(metrika)
+    if not f:
+        return None
+    fmt = lambda n: f"{n:,}".replace(",", " ")  # noqa: E731
+    return f'''          <tr><td>Визиты из поиска / мес</td>
+            <td class="right num now">~{fmt(f["visits_now"])}</td>
+            <td class="right num">{fmt(f["visits_lo"])}</td>
+            <td class="right num future">{fmt(f["visits_hi"])}</td></tr>
+          <tr><td>Конверсия в заявку — ваша, цель «{f["goal"]}» (не повышаем)</td>
+            <td class="right num">{f["conv"]}%</td>
+            <td class="right num">{f["conv"]}%</td>
+            <td class="right num">{f["conv"]}%</td></tr>
+          <tr class="totalrow"><td>Обращений из поиска / мес</td>
+            <td class="right num">~{f["leads_now"]}</td>
+            <td class="right num">{f["leads_lo"]} <span style="font-weight:400">(+{f["leads_lo"] - f["leads_now"]})</span></td>
+            <td class="right num">{f["leads_hi"]} <span style="font-weight:400">(+{f["leads_hi"] - f["leads_now"]})</span></td></tr>'''
+
+
+def render_traffic_drop(data: dict, metrika: dict | None = None) -> str | None:
+    """Баннер боли (маркер AUTO:TRAFFIC_DROP). ПРАВИЛО ЗАКАЗЧИКА 11.06:
+    есть Метрика — ориентируемся ТОЛЬКО на Метрику; PR-CY — лишь запасной.
+
+    Метрика-тренд падает → красный баннер из её чисел. Стабилен/растёт —
+    про просадку НЕ врём: баннер про недоинвестированный поиск (конверсии
+    из Метрики). Метрики нет → старый PR-CY-вариант с явной пометкой [оценка].
+    """
+    organic = ((metrika or {}).get("trend") or {}).get("organic") or {}
+    if organic.get("current"):
+        if organic.get("direction") == "падение":
+            peak, cur = organic.get("peak"), organic.get("current")
+            pct = organic.get("change_pct")
+            return (f'<div class="pb-num">{pct}%</div>\n'
+                    f'<div class="pb-txt"><b>Органика падает.</b> '
+                    f'{peak} визитов ({organic.get("peak_month", "")}) → {cur} '
+                    f'({organic.get("current_month", "")}). Без работ тренд продолжится. '
+                    f'<span style="opacity:.7">[Яндекс.Метрика]</span></div>')
+        # органика не падает — честный баннер про главный рычаг из конверсий
+        src = {s.get("source"): s for s in (metrika or {}).get("source_conversion") or []}
+        ads = next((v for k, v in src.items() if k and "рекламе" in k), None)
+        org = next((v for k, v in src.items() if k and "поисков" in k), None)
+        if ads and org and org.get("conversion", 0) > (ads.get("conversion") or 0):
+            total = sum(v.get("visits") or 0 for v in src.values()) or 1
+            share = round((ads.get("visits") or 0) * 100 / total)
+            return (f'<div class="pb-num">×{org["conversion"] / max(ads["conversion"], 0.01):.1f}</div>\n'
+                    f'<div class="pb-txt"><b>Поиск конвертит лучше рекламы.</b> '
+                    f'Органика даёт заявку с {org["conversion"]}% визитов против '
+                    f'{ads["conversion"]}% у рекламы ({share}% трафика — платный). '
+                    f'Каждый визит из поиска ценнее — и этот канал недоинвестирован. '
+                    f'<span style="opacity:.7">[Яндекс.Метрика]</span></div>')
+        return None  # Метрика есть, но боли по трафику нет — баннер не показываем
+    # Метрики нет — внешняя оценка с явной пометкой
+    fact = next((f for f in data.get("facts", []) if f["key"] == "traffic_drop"), None)
+    if not fact:
+        return None
+    txt = str(fact["value"])
+    pct = txt.split("=")[-1].strip() if "=" in txt else ""
+    return (f'<div class="pb-num">{pct}</div>\n'
+            f'<div class="pb-txt"><b>Трафик из поиска просел.</b> {txt}. '
+            f'<span style="opacity:.7">[оценка PR-CY — для точных цифр нужна '
+            f'ваша Метрика]</span></div>')
+# smeta ДО scaffold: ценовые плейсхолдеры деки заполняются из сметы (тарифы матрицы)
+# polish — финальный LLM-редактор текстов (механические гарды в kp_polish)
+STAGES = ["bitrix", "audit", "metrika", "webmaster", "prodoctorov", "reputation",
+          "insights", "screenshot", "assemble", "smeta", "scaffold", "polish", "pdf"]
+
+# Маркеры в kp.html эталона для автовставки (если их нет — оставляем файлы рядом)
+MARK_BENCH = "<!--AUTO:SEO_BENCHMARK-->"
+MARK_PROBLEMS = "<!--AUTO:PROBLEM_SOLUTION-->"
+MARK_TRAFFIC = "<!--AUTO:TRAFFIC_DROP-->"
+MARK_PAINS = "<!--AUTO:PAINS-->"
+MARK_BLOCKERS = "<!--AUTO:BLOCKERS-->"
+MARK_FORECAST = "<!--AUTO:FORECAST-->"
+MARK_TREND = "<!--AUTO:TREND_SVG-->"
+MARK_IKS = "<!--AUTO:IKS_BARS-->"
+MARK_SHOT = "<!--AUTO:SITE_SHOT-->"
+MARK_PSHOTS = "<!--AUTO:PROBLEM_SHOTS-->"
+MARK_SOURCES = "<!--AUTO:SOURCES_SVG-->"
+MARK_GEO = "<!--AUTO:GEO_SVG-->"
+MARK_FUNNEL = "<!--AUTO:FUNNEL_SVG-->"
+MARK_REP_TYPES = "<!--AUTO:REP_TYPES-->"
+MARK_REP_PLATFORMS = "<!--AUTO:REP_PLATFORMS-->"
+MARK_REP_STRATEGY = "<!--AUTO:REP_STRATEGY-->"
+
+CHROME_CANDIDATES = [
+    os.environ.get("CHROME_BIN"),
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "/usr/bin/google-chrome", "/usr/bin/chromium", "/usr/bin/chromium-browser",
+]
+
+
+def find_chrome():
+    for c in CHROME_CANDIDATES:
+        if c and Path(c).exists():
+            return c
+    return None
+
+
+def embed_screenshot_html(png_b64: str, domain: str) -> str:
+    """Скрин сайта в браузер-рамке (титул): «мы смотрели именно ваш сайт»."""
+    return (
+        '<div style="background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.3);'
+        'border-radius:14px;padding:10px 10px 8px;box-shadow:0 18px 50px rgba(0,0,0,.25);">'
+        '<div style="display:flex;gap:5px;align-items:center;margin:0 2px 8px;">'
+        '<span style="width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.5);"></span>'
+        '<span style="width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.35);"></span>'
+        '<span style="width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.25);"></span>'
+        f'<span style="font-size:10px;color:rgba(255,255,255,.75);margin-left:8px;">{domain}</span></div>'
+        f'<img src="data:image/png;base64,{png_b64}" style="width:100%;border-radius:7px;display:block;"/></div>')
+
+DOMAIN_RE = re.compile(r"\b((?:[a-zа-я0-9-]+\.)+(?:ru|com|net|org|рф|su|online|site|clinic|moscow|спб))\b",
+                       re.IGNORECASE)
+
+
+# ── pure-функции (покрыты тестами) ────────────────────────────────────────────
+
+def domain_from_bitrix(bx: dict) -> str:
+    """Домен клиента из bitrix.json: поле site сделки, затем бриф, затем TITLE."""
+    cands = [bx.get("site") or "",
+             (bx.get("brief") or {}).get("Адрес вашего сайта (SEO)") or "",
+             bx.get("title") or ""]
+    for c in cands:
+        c = c.strip().lower()
+        c = re.sub(r"^https?://", "", c)
+        c = re.sub(r"^www\.", "", c).split("/")[0].strip()
+        if "." in c and " " not in c:
+            return c
+    return ""
+
+
+def competitors_from_brief(bx: dict, limit: int = 5) -> list[str]:
+    """Домены конкурентов из текста брифа (поле со словом «конкурент»).
+
+    Берём только то, что похоже на домен; «мир семьи, веда» текстом — не берём
+    (сейлс передаст --competitors). Свой домен исключаем.
+    """
+    own = domain_from_bitrix(bx)
+    text = " ".join(v for k, v in (bx.get("brief") or {}).items()
+                    if "конкурент" in k.lower() and isinstance(v, str))
+    seen, out = set(), []
+    for m in DOMAIN_RE.finditer(text):
+        d = m.group(1).lower().lstrip("www.")
+        if d != own and d not in seen:
+            seen.add(d)
+            out.append(d)
+    return out[:limit]
+
+
+def plan_stages(job: dict, force: str | None = None,
+                skip: set[str] | None = None) -> list[str]:
+    """Какие стадии выполнять: не-done/skipped, минус пропущенные; force=имя|all сбрасывает."""
+    skip = skip or set()
+    done = {s for s, st in (job.get("stages") or {}).items()
+            if st.get("status") in ("done", "skipped")}
+    if force == "all":
+        done = set()
+    elif force:
+        done.discard(force)
+    return [s for s in STAGES if s not in done and s not in skip]
+
+
+def traffic_dynamics(history: dict, current=None) -> dict | None:
+    """Просадка трафика из visits_history PR-CY: пик → текущее → % падения.
+
+    Слайд «остановить просадку» — главный аргумент SEO-КП. Ключи YYYYMM, нули
+    игнорируем (PR-CY ставит 0 за месяцы без данных).
+    """
+    points = {m: v for m, v in (history or {}).items() if isinstance(v, (int, float)) and v > 0}
+    if not points:
+        return None
+    peak_month, peak = max(points.items(), key=lambda kv: kv[1])
+    cur = current if isinstance(current, (int, float)) and current > 0 else points[max(points)]
+    if peak <= cur:
+        return None
+    ym = str(peak_month)
+    return {"peak": int(peak), "peak_month": f"{ym[4:6]}.{ym[:4]}",
+            "current": int(cur), "drop_pct": -round((peak - cur) / peak * 100)}
+
+
+def assemble_kp_data(bitrix: dict | None, audit: dict | None,
+                     metrika: dict | None, prodoc: list | None,
+                     brand: str = "belberry") -> dict:
+    """Свод фактов с источниками + чек-лист ручных шагов. Без источника — не факт."""
+    facts, hypotheses = [], []
+
+    def fact(key, value, source):
+        if value is None or value == "":
+            return
+        facts.append({"key": key, "value": value, "source": source, "status": "факт"})
+
+    if bitrix:
+        fact("deal_title", bitrix.get("title"), "bitrix.json:deal")
+        fact("company_revenue", bitrix.get("company_revenue"), "bitrix.json:deal")
+        brief = bitrix.get("brief") or {}
+        # подписи полей гуляют между брифами — берём по префиксу
+        for k, v in brief.items():
+            if any(k.startswith(p) for p in
+                   ("Приоритетные", "Регион", "Опишите вашу целевую",
+                    "УТП", "Сильные стороны")):
+                fact(f"brief:{k}", v, "bitrix.json:бриф СП1056")
+    has_metrika_trend = bool(((metrika or {}).get("trend") or {}).get("organic", {}).get("current"))
+    if audit:
+        cl = audit.get("client") or {}
+        if isinstance(cl, dict):
+            # ПРАВИЛО: есть Метрика — трафик-показатели PR-CY (оценки) не используем
+            keys = ("sqi", "yandex_index", "google_index", "load_time", "schema_org")
+            if not metrika:
+                keys += ("organic_pct", "bounce_rate", "visits_monthly")
+            for k in keys:
+                fact(k, cl.get(k), "audit.json:pr-cy")
+            if not has_metrika_trend:
+                drop = traffic_dynamics(cl.get("visits_history") or {}, cl.get("visits_monthly"))
+                if drop:
+                    fact("traffic_drop",
+                         f"пик {drop['peak']} ({drop['peak_month']}) → сейчас {drop['current']} "
+                         f"= {drop['drop_pct']}%", "audit.json:pr-cy:visits_history (оценка)")
+    if metrika:
+        for k in ("visits", "users", "bounce_rate", "organic_share", "goals"):
+            fact(f"metrika:{k}", metrika.get(k), "metrika.json")
+        organic = (metrika.get("trend") or {}).get("organic") or {}
+        if organic.get("current"):
+            fact("metrika:organic_trend",
+                 f"{organic.get('peak')} ({organic.get('peak_month')}) → "
+                 f"{organic.get('current')} ({organic.get('current_month')}), "
+                 f"{organic.get('change_pct')}% — {organic.get('direction')}",
+                 "metrika.json:trend")
+    if prodoc:
+        for i, c in enumerate(prodoc):
+            if isinstance(c, dict):
+                fact(f"prodoctorov:{i}:rating", c.get("rating"), "prodoctorov.json")
+                fact(f"prodoctorov:{i}:reviews", c.get("reviews"), "prodoctorov.json")
+
+    if not metrika:
+        hypotheses.append({"key": "посещаемость", "status": "гипотеза",
+                           "note": "Метрика недоступна — только оценка PR-CY; запросить гостевой доступ"})
+
+    return {
+        "deal_id": (bitrix or {}).get("deal_id"),
+        "domain": domain_from_bitrix(bitrix or {}),
+        "brand": "Acoola Team" if brand == "acoola" else "Belberry",
+        "facts": facts,
+        "hypotheses": hypotheses,
+        "manual_checklist": [
+            "Цены — только из сметы сметчика (Google Sheets по матрице), не выдумывать",
+            "Титул: клиент, домен, дата, дедлайн подарка/скидки",
+            "Каскад скидок: 10% логотип / 5% оперативность с датой (по правилам матрицы)",
+            "Прогнозы — диапазоны + дисклеймер «оценка на текущий момент» (LEGAL-MED-2026 §2)",
+            "Никаких гарантий результата и «случаев излечения» (ст. 24 ФЗ-38)",
+            "Перед отправкой: в папке только клиентские файлы (без внутренних калькуляторов)",
+        ],
+    }
+
+
+def inject_auto_blocks(kp_html: str, benchmark: str | None, problems: str | None) -> tuple[str, list[str]]:
+    """Вставка авто-фрагментов по маркерам. Возвращает (html, что_не_вставлено)."""
+    missing = []
+    for mark, frag, name in ((MARK_BENCH, benchmark, "seo_benchmark"),
+                             (MARK_PROBLEMS, problems, "problem_solution")):
+        if frag and mark in kp_html:
+            kp_html = kp_html.replace(mark, frag)
+        elif frag:
+            missing.append(name)
+    return kp_html, missing
+
+
+# ── исполнение стадий ─────────────────────────────────────────────────────────
+
+def _now() -> str:
+    return datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
+
+
+def _load(path: Path):
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
+def _run(script: str, args: list[str], cwd: Path) -> None:
+    cmd = [sys.executable, str(KP_DIR / script), *args]
+    print(f"  $ {script} {' '.join(args)}")
+    r = subprocess.run(cmd, cwd=cwd, check=False)
+    if r.returncode != 0:
+        raise RuntimeError(f"{script} завершился с кодом {r.returncode}")
+
+
+def run_pipeline(a: argparse.Namespace) -> int:
+    # папка клиента: --client или домен (узнаём после стадии bitrix)
+    client_dir = KP_DIR / "clients" / a.client if a.client else None
+    if client_dir:
+        client_dir.mkdir(parents=True, exist_ok=True)
+
+    # bootstrap: bitrix первой стадией, чтобы получить домен для имени папки
+    tmp_dir = client_dir or (KP_DIR / "clients" / f"_deal_{a.deal_id}")
+    tmp_dir.mkdir(parents=True, exist_ok=True)
+    job_path = tmp_dir / "kp_job.json"
+    job = _load(job_path) or {"deal_id": a.deal_id, "stages": {}}
+
+    if a.status:
+        print(f"job: {job_path}")
+        for s in STAGES:
+            st = (job.get("stages") or {}).get(s, {})
+            print(f"  {s:<12} {st.get('status', '—'):<8} {st.get('at', '')}")
+        return 0
+
+    skip = set()
+    if a.skip_metrika:
+        skip.add("metrika")
+    if a.skip_prodoctorov or not a.prodoctorov:
+        skip.add("prodoctorov")
+
+    todo = plan_stages(job, a.force, skip)
+    print(f"Сделка {a.deal_id} → {tmp_dir.name} | стадии: {', '.join(todo) or 'всё готово'}")
+
+    def mark(stage, status="done"):
+        job.setdefault("stages", {})[stage] = {"status": status, "at": _now()}
+        job_path.write_text(json.dumps(job, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    for stage in todo:
+        print(f"▶ {stage}")
+        if stage == "bitrix":
+            _run("bitrix_audit.py", [str(a.deal_id)], tmp_dir)
+        elif stage == "audit":
+            bx = _load(tmp_dir / "bitrix.json") or {}
+            domain = domain_from_bitrix(bx)
+            if not domain:
+                raise RuntimeError("домен не определён — проверь bitrix.json или задай --client")
+            comps = a.competitors or competitors_from_brief(bx)
+            if not comps:
+                print("  ⚠ конкуренты не найдены в брифе — бенчмарк будет без соседей "
+                      "(можно перезапустить: --force audit --competitors d1 d2)")
+            _run("build_kp.py", [domain, *comps], tmp_dir)
+        elif stage == "metrika":
+            bx = _load(tmp_dir / "bitrix.json") or {}
+            args = [domain_from_bitrix(bx), str(a.days)]
+            region = (bx.get("brief") or {}).get("Регион продвижения")
+            if region and not is_nonanswer(region):
+                args.append(region)  # гео-проблемы считаются от целевого региона брифа
+            try:
+                _run("metrika_audit.py", args, tmp_dir)
+            except RuntimeError as e:
+                print(f"  ⚠ Метрика недоступна ({e}) — продолжаем без неё")
+                mark(stage, "skipped")
+                continue
+        elif stage == "webmaster":
+            bx = _load(tmp_dir / "bitrix.json") or {}
+            try:
+                _run("webmaster_audit.py", [domain_from_bitrix(bx)], tmp_dir)
+            except RuntimeError:
+                print("  ⚠ Вебмастер недоступен (нет права/делегирования) — пропускаем")
+                mark(stage, "skipped")
+                continue
+        elif stage == "prodoctorov":
+            _run("prodoctorov_audit.py", a.prodoctorov, tmp_dir)
+        elif stage == "reputation":
+            # репутационная выдача нужна только ORM-деке
+            if a.service != "orm":
+                mark(stage, "skipped")
+                continue
+            import reputation_audit
+            bx = _load(tmp_dir / "bitrix.json") or {}
+            facts = {f["key"]: f["value"] for f in
+                     (_load(tmp_dir / "kp_data.json") or {}).get("facts", [])}
+            brief = bx.get("brief") or {}
+            name = (brief_pick(brief, "Бренд", "Название") or
+                    bx.get("company") or domain_from_bitrix(bx) or tmp_dir.name)
+            seg = str(name).split(",")[0]                  # «Бренд - CrystalSound»
+            if re.search(r"\s[—-]\s", seg):
+                seg = re.split(r"\s[—-]\s", seg)[-1]      # → «CrystalSound»
+            name = seg.strip() or tmp_dir.name
+            city = brief_pick(brief, "Регион", "Город") or ""
+            dom = domain_from_bitrix(bx) or ""
+            print(f"  репутация: «{name}»{' · ' + str(city) if city else ''}")
+            rep = reputation_audit.collect(str(name), str(city), dom)
+            (tmp_dir / "reputation.json").write_text(
+                json.dumps(rep, ensure_ascii=False, indent=2), encoding="utf-8")
+            print(f"  площадок: {len(rep['platforms'])}, типы: {rep['type_counts']}"
+                  + (f", ПроДокторов {rep['prodoctorov'].get('rating')}"
+                     if rep.get("prodoctorov") else ""))
+        elif stage == "screenshot":
+            chrome = find_chrome()
+            bx = _load(tmp_dir / "bitrix.json") or {}
+            dom = domain_from_bitrix(bx)
+            if not chrome or not dom:
+                print("  ⚠ нет Chrome/домена — скрин пропущен")
+                mark(stage, "skipped")
+                continue
+            try:
+                subprocess.run([chrome, "--headless", "--disable-gpu", "--no-sandbox",
+                    "--disable-dev-shm-usage", "--timeout=25000",
+                    "--screenshot=" + str(tmp_dir / "site.png"),
+                    "--window-size=1280,860", "--hide-scrollbars",
+                    "--virtual-time-budget=6000", f"https://{dom}/"],
+                    capture_output=True, timeout=60)
+            except subprocess.TimeoutExpired:
+                pass  # скрин — украшение, не повод ронять задание
+            if not (tmp_dir / "site.png").exists():
+                print("  ⚠ скрин не снялся — пропуск")
+                mark(stage, "skipped")
+                continue
+            print(f"  скрин сайта: {((tmp_dir / 'site.png').stat().st_size // 1024)} КБ")
+            # проблемные страницы из находок Метрики
+            mt = _load(tmp_dir / "metrika.json") or {}
+            for path_ in problem_paths_from_metrika(mt):
+                slug = path_.strip("/").replace("/", "_") or "page"
+                try:
+                    subprocess.run([chrome, "--headless", "--disable-gpu", "--no-sandbox",
+                        "--disable-dev-shm-usage", "--timeout=25000",
+                        "--screenshot=" + str(tmp_dir / f"page_{slug}.png"),
+                        "--window-size=1280,860", "--hide-scrollbars",
+                        "--virtual-time-budget=6000", f"https://{dom}{path_}"],
+                        capture_output=True, timeout=60)
+                except subprocess.TimeoutExpired:
+                    print(f"  ⚠ страница {path_} висит — скрин пропущен")
+                    continue
+                if (tmp_dir / f"page_{slug}.png").exists():
+                    print(f"  скрин проблемной: {path_}")
+        elif stage == "pdf":
+            chrome = find_chrome()
+            if not chrome or not (tmp_dir / "kp.html").exists():
+                print("  ⚠ нет Chrome/деки — PDF пропущен")
+                mark(stage, "skipped")
+                continue
+            subprocess.run([chrome, "--headless", "--disable-gpu", "--no-sandbox", "--disable-dev-shm-usage",
+                "--no-pdf-header-footer", "--print-to-pdf=" + str(tmp_dir / "deck.pdf"),
+                "--virtual-time-budget=4000",
+                "file://" + str(tmp_dir / "kp.html")], capture_output=True, timeout=180)
+            if (tmp_dir / "deck.pdf").exists():
+                print(f"  deck.pdf: {((tmp_dir / 'deck.pdf').stat().st_size // 1024)} КБ")
+            else:
+                print("  ⚠ PDF не собрался — пропуск")
+                mark(stage, "skipped")
+                continue
+        elif stage == "insights":
+            # смысловой слой: бриф + транскрипт + сайт → боли и решения (LLM)
+            if not (os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("OPENAI_API_KEY")):
+                print("  ⚠ нет LLM-ключа (ANTHROPIC/OPENAI) — смысловой слой пропущен")
+                mark(stage, "skipped")
+                continue
+            try:
+                _run("kp_insights.py", [str(tmp_dir)], tmp_dir)
+            except RuntimeError as e:
+                print(f"  ⚠ смысловой слой не собрался ({e}) — продолжаем без него")
+                mark(stage, "skipped")
+                continue
+        elif stage == "assemble":
+            data = assemble_kp_data(_load(tmp_dir / "bitrix.json"), _load(tmp_dir / "audit.json"),
+                                    _load(tmp_dir / "metrika.json"), _load(tmp_dir / "prodoctorov.json"),
+                                    brand=a.brand)
+            (tmp_dir / "kp_data.json").write_text(
+                json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+            print(f"  факты: {len(data['facts'])}, гипотезы: {len(data['hypotheses'])}, "
+                  f"ручных шагов: {len(data['manual_checklist'])}")
+        elif stage == "scaffold":
+            set_palette(a.brand)  # акцент-цвета рендеров под бренд
+            # всегда с чистого эталона: в старом kp.html маркеры уже заменены,
+            # и повторный scaffold молча оставил бы прошлую вёрстку
+            dst = tmp_dir / "kp.html"
+            shutil.copy(pick_template(a.brand, a.service) / "kp.html", dst)
+            print(f"  эталон скопирован: {dst.relative_to(KP_DIR)}")
+            html = dst.read_text(encoding="utf-8")
+            bench = (tmp_dir / "seo_benchmark.html")
+            probs = (tmp_dir / "problem_solution.html")
+            # проблемы = техфлаги PR-CY + находки глубокого аудита Метрики
+            metrika = _load(tmp_dir / "metrika.json") or {}
+            metrika_rows = None
+            if metrika.get("problems"):
+                from metrika_audit import render_problems_html
+                metrika_rows = render_problems_html(metrika["problems"])
+                print(f"  проблем из Метрики: {len(metrika['problems'])}")
+            # смысловой слой: проблемы сайта (LLM по тексту страниц) + боли клиента
+            insights = _load(tmp_dir / "insights.json") or {}
+            site_rows = pains_html = None
+            if insights:
+                from kp_insights import render_pains_html, render_site_rows
+                site_rows = render_site_rows(insights)
+                contact = next((v for k, v in ((_load(tmp_dir / "bitrix.json") or {})
+                    .get("brief") or {}).items() if k.startswith("ФИО")), None)
+                pains_html = render_pains_html(insights, contact, ACCENT, ACCENT_DEEP)
+                print(f"  смысловой слой: болей {len(insights.get('pains') or [])}, "
+                      f"проблем сайта {len(insights.get('site_issues') or [])}")
+            wm = _load(tmp_dir / "webmaster.json") or {}
+            wm_rows = None
+            if wm.get("found"):
+                from webmaster_audit import render_webmaster_rows
+                wm_rows = render_webmaster_rows(wm)
+                if wm_rows:
+                    print(f"  Вебмастер: быстрых побед {len(wm.get('quick_wins') or [])}")
+            prcy_rows = filter_prcy_rows(
+                probs.read_text(encoding="utf-8") if probs.exists() else None,
+                bool(metrika), a.brand)
+            all_problems = combine_problem_rows(combine_problem_rows(combine_problem_rows(
+                prcy_rows, metrika_rows), site_rows), wm_rows)
+            html, missing = inject_auto_blocks(
+                html, bench.read_text(encoding="utf-8") if bench.exists() else None,
+                render_problem_cards(all_problems))
+            # кейсы с сайта Акулы — по нише клиента (только для бренда acoola)
+            if a.brand == "acoola":
+                try:
+                    import acoola_cases
+                    bx = _load(tmp_dir / "bitrix.json") or {}
+                    niche = niche_text_from_bitrix(bx) or domain_from_bitrix(bx)
+                    cases = acoola_cases.pick(niche)
+                    if cases:
+                        html, injected = acoola_cases.inject_cases(
+                            html, acoola_cases.render_cases_html(cases))
+                        mark_note = "" if injected else " (маркер AUTO:CASES не найден!)"
+                        print(f"  кейсы подобраны по нише «{niche[:50]}»{mark_note}: "
+                              + ", ".join(c.get("title", "?")[:25] for c in cases))
+                except Exception as e:  # noqa: BLE001 — кейсы не должны ронять сборку
+                    print(f"  ⚠ кейсы не подобраны: {e}")
+            # факты в слайды: плейсхолдеры + баннер просадки трафика
+            data = _load(tmp_dir / "kp_data.json") or {}
+            subs = deck_substitutions(data, datetime.now().strftime("%d.%m.%Y"))
+            spec = _load(tmp_dir / "smeta.json")
+            subs.update(smeta_substitutions(spec))
+            subs.update(benchmark_substitutions(_load(tmp_dir / "audit.json")))
+            subs.update(offer_substitutions(metrika, spec))
+            bx_data = _load(tmp_dir / "bitrix.json") or {}
+            if bx_data.get("manager"):
+                subs["{{МЕНЕДЖЕР}}"] = bx_data["manager"]
+            for ph, val in subs.items():
+                html = html.replace(ph, val)
+            drop_html = render_traffic_drop(data, metrika)
+            if MARK_TRAFFIC in html:
+                html = html.replace(MARK_TRAFFIC, drop_html or
+                    '<div class="pb-txt">Главные точки роста — в аудите '
+                    'на следующих слайдах.</div>')
+            if pains_html and MARK_PAINS in html:
+                html = html.replace(MARK_PAINS, pains_html)
+            # слайд «Что мешает» — только реальные данные клиента
+            blockers = render_blockers_html(_load(tmp_dir / "audit.json"), metrika, insights)
+            if blockers and MARK_BLOCKERS in html:
+                html = html.replace(MARK_BLOCKERS, blockers)
+            # прогноз — от фактической конверсии Метрики; нет данных — честная заглушка
+            forecast = render_forecast_html(metrika)
+            if MARK_FORECAST in html:
+                html = html.replace(MARK_FORECAST, forecast or FORECAST_FALLBACK_ROW)
+            # графики из данных: спарклайн органики + бар-чарт ИКС
+            trend_svg = render_trend_svg(metrika)
+            if MARK_TREND in html:
+                html = html.replace(MARK_TREND, trend_svg or "")
+            shot = tmp_dir / "site.png"
+            if MARK_SHOT in html:
+                if shot.exists():
+                    import base64
+                    b64 = base64.b64encode(shot.read_bytes()).decode()
+                    html = html.replace(MARK_SHOT,
+                        embed_screenshot_html(b64, data.get("domain") or ""))
+                else:
+                    html = html.replace(MARK_SHOT, "")
+            if MARK_PSHOTS in html:
+                html = html.replace(MARK_PSHOTS, render_problem_shots(tmp_dir, metrika) or "")
+            if MARK_SOURCES in html:
+                html = html.replace(MARK_SOURCES, render_sources_svg(metrika) or
+                    '<div style="font-size:12px;color:#717885;">нужен доступ к Метрике</div>')
+            if MARK_GEO in html:
+                html = html.replace(MARK_GEO, render_geo_svg(metrika) or "")
+            if MARK_BUDGET in html:
+                budget_rows = render_budget_rows(_load(tmp_dir / "smeta.json"))
+                html = html.replace(MARK_BUDGET, budget_rows or "")
+            # ORM: репутационная выдача (виды ресурсов + площадки) из reputation.json
+            rep = _load(tmp_dir / "reputation.json") or {}
+            if rep:
+                import reputation_audit
+                if MARK_REP_STRATEGY in html:
+                    html = html.replace(MARK_REP_STRATEGY,
+                        reputation_audit.render_strategy_rows(rep, ACCENT) or "")
+                if "{{ОРМ_ВЫВОД}}" in html:
+                    html = html.replace("{{ОРМ_ВЫВОД}}",
+                        reputation_audit.reputation_summary(rep))
+            if MARK_REP_TYPES in html:
+                import reputation_audit
+                html = html.replace(MARK_REP_TYPES,
+                    reputation_audit.render_resource_types_svg(rep, ACCENT) or "")
+            if MARK_REP_PLATFORMS in html:
+                import reputation_audit
+                html = html.replace(MARK_REP_PLATFORMS,
+                    reputation_audit.render_platforms_html(rep, ACCENT) or "")
+            if MARK_FUNNEL in html:
+                html = html.replace(MARK_FUNNEL, render_funnel_svg(metrika) or
+                    '<div style="font-size:12px;color:#717885;">нужен доступ к Метрике</div>')
+            iks_svg = render_iks_bars(_load(tmp_dir / "audit.json"))
+            if MARK_IKS in html:
+                html = html.replace(MARK_IKS, iks_svg or
+                    '<div style="font-size:12px;color:#717885;">данных по конкурентам нет</div>')
+            # клиент никогда не должен увидеть {{ПЛЕЙСХОЛДЕР}}
+            html, left = scrub_placeholders(html)
+            if left:
+                print(f"  ⚠ вычищено незаполненных плейсхолдеров: {left} "
+                      f"(данных в брифе не нашлось)")
+            # фавиконки конкурентов в таблицы (живость без выдумок)
+            audit_d = _load(tmp_dir / "audit.json") or {}
+            doms = [data.get("domain")] + [c.get("domain") for c in audit_d.get("competitors", [])]
+            html = inject_favicons(html, [d for d in doms if d])
+            # пустые ручные зоны не показываем
+            html, hidden = hide_empty_optional(html)
+            if hidden:
+                print(f"  скрыто пустых блоков: {hidden}")
+            # слайды с сиротскими маркерами — долой (лучше нет слайда, чем пустой)
+            html, dropped = drop_empty_marker_slides(html)
+            if dropped:
+                print(f"  удалено пустых слайдов: {dropped}")
+            # нумерация по факту — после ВСЕХ вставок
+            html = renumber_pagenums(html)
+            dst.write_text(html, encoding="utf-8")
+            if missing:
+                print(f"  ⚠ маркеры {missing} в эталоне не найдены — вставь фрагменты вручную "
+                      f"(карта слайдов: SEO-KP-PLAYBOOK.md)")
+        elif stage == "polish":
+            if a.no_polish:
+                mark(stage, "skipped")
+                continue
+            if not (os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("OPENAI_API_KEY")):
+                print("  ⚠ нет LLM-ключа — полировка пропущена")
+                mark(stage, "skipped")
+                continue
+            try:
+                _run("kp_polish.py", [str(tmp_dir)], tmp_dir)
+            except RuntimeError as e:
+                print(f"  ⚠ полировка не удалась ({e}) — дека остаётся как после scaffold")
+                mark(stage, "skipped")
+                continue
+        elif stage == "smeta":
+            import kp_smeta
+            spec_path = tmp_dir / "smeta.json"
+            if spec_path.exists():
+                # ручные правки сейлса священны — только пересобираем xlsx
+                spec = json.loads(spec_path.read_text(encoding="utf-8"))
+                print("  smeta.json уже есть — пересобираю xlsx без перезаписи спеки")
+            else:
+                bx = _load(tmp_dir / "bitrix.json") or {}
+                # услуга задана явно (--service) → её пресет; иначе из брифа
+                preset_key = (a.service if a.service in kp_smeta.PRESETS
+                              else preset_for_brief(bx.get("brief_services")))
+                spec = {"client": domain_from_bitrix(bx) or tmp_dir.name,
+                        "brand": "Acoola Team" if a.brand == "acoola" else "Belberry",
+                        "deadline": "", "flags": {"logo_discount": False, "fast_pay": True},
+                        **kp_smeta.PRESETS[preset_key]}
+                spec_path.write_text(json.dumps(spec, ensure_ascii=False, indent=2),
+                                     encoding="utf-8")
+                print(f"  пресет «{preset_key}» (тарифы матрицы) — состав и суммы "
+                      f"подтвердить со сметчиком")
+            kp_smeta.write_xlsx(spec, tmp_dir / f"Смета_{spec['client']}.xlsx")
+        mark(stage)
+
+    print("\nГотово. Дальше руками:")
+    print(f"  1. Чек-лист: {tmp_dir / 'kp_data.json'} → manual_checklist")
+    print(f"  2. Смета: python3 kp_smeta.py clients/{tmp_dir.name} --init --service seo"
+          f" → правка smeta.json → python3 kp_smeta.py clients/{tmp_dir.name}")
+    print(f"  3. Цены из сметы → kp.html")
+    print(f"  4. bash build.sh clients/{tmp_dir.name} \"КП Belberry — {tmp_dir.name}\"")
+    return 0
+
+
+def main() -> int:
+    p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument("deal_id", type=int)
+    p.add_argument("--client")
+    p.add_argument("--service", default="seo",
+                   help="услуга деки: seo|orm (выбор шаблона <service>-<brand> и пресета сметы)")
+    p.add_argument("--brand", choices=["belberry", "acoola"], default="belberry",
+                   help="шаблон деки: Belberry (медицина) или Acoola Team (остальные ниши)")
+    p.add_argument("--competitors", nargs="*", default=[])
+    p.add_argument("--days", type=int, default=90)
+    p.add_argument("--prodoctorov", nargs="*", default=[])
+    p.add_argument("--skip-metrika", action="store_true")
+    p.add_argument("--skip-prodoctorov", action="store_true")
+    p.add_argument("--no-polish", action="store_true",
+                   help="без LLM-полировки текстов (быстрее/дешевле)")
+    p.add_argument("--status", action="store_true")
+    p.add_argument("--force", help="имя стадии или all")
+    return run_pipeline(p.parse_args())
+
+
+if __name__ == "__main__":
+    sys.exit(main())

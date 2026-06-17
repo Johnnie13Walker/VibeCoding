@@ -90,6 +90,9 @@ export const dealsSnapshot = pgTable(
     managerId: integer('manager_id'),
     stuckDays: integer('stuck_days'),
     stageEntered: date('stage_entered'),
+    // Дата последней коммуникации с клиентом (звонок/Wazzup, обе стороны) — для
+    // блока «Тишина»: сделки без контакта >14 календарных дней. NULL = контакта не было.
+    lastCommAt: date('last_comm_at'),
     title: text('title'),
     companyId: integer('company_id'),
   },
@@ -272,6 +275,10 @@ export const dealRejections = pgTable(
     assignedBy: integer('assigned_by'),
     rejectedAt: timestamp('rejected_at', { withTimezone: true }),
     title: text('title'),
+    opportunity: numeric('opportunity', { precision: 14, scale: 2 }),
+    ownerName: text('owner_name'),
+    ownerDept: text('owner_dept'),
+    ownerActive: boolean('owner_active'),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
   },
   (table) => [
@@ -298,4 +305,25 @@ export const meetingTasks = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }),
   },
   (table) => [unique('meeting_tasks_meeting_id_step_key_unique').on(table.meetingId, table.stepKey)],
+);
+
+export const kpJobs = pgTable(
+  'kp_jobs',
+  {
+    id: serial('id').primaryKey(),
+    dealId: integer('deal_id').notNull(),
+    brand: text('brand').notNull().default('belberry'),
+    service: text('service').notNull().default('seo'),
+    status: text('status').notNull().default('pending'),
+    stage: text('stage'),
+    error: text('error'),
+    kpData: jsonb('kp_data'),
+    requestedBy: integer('requested_by'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+  },
+  (table) => [
+    index('kp_jobs_status_idx').on(table.status),
+    index('kp_jobs_deal_idx').on(table.dealId),
+  ],
 );

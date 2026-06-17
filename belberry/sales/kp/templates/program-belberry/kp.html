@@ -1,0 +1,966 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>КП Belberry — Техническая поддержка сайта — {{домен}}</title>
+<style>
+  @page { size: 1280px 800px; margin: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  html, body { background: #ffffff; }
+  body {
+    font-family: -apple-system, "Helvetica Neue", "Inter", "Segoe UI", Arial, sans-serif;
+    color: #1a1f3a;
+    font-feature-settings: "tnum" 1, "lnum" 1;
+  }
+  .slide {
+    width: 1280px;
+    height: 800px;
+    page-break-after: always;
+    position: relative;
+    padding: 44px 64px 26px 64px;
+    overflow: hidden;
+    background: #faf8f5;
+    display: flex;
+    flex-direction: column;
+  }
+  .slide:last-child { page-break-after: auto; }
+  .slide-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+
+  /* TITLE SLIDE */
+  .slide.title {
+    background: linear-gradient(135deg, #1f1547 0%, #2b1f5e 45%, #3a2a7a 100%);
+    color: #fff;
+    padding: 80px 96px;
+  }
+  .title .eyebrow {
+    font-size: 14px;
+    letter-spacing: 0.32em;
+    color: #cdc5ee;
+    text-transform: uppercase;
+    font-weight: 500;
+    margin-bottom: 96px;
+  }
+  .title h1 {
+    font-size: 64px;
+    line-height: 1.05;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: 28px;
+    max-width: 1000px;
+  }
+  .title .lead {
+    font-size: 22px;
+    color: #d9d3ee;
+    font-weight: 400;
+    max-width: 900px;
+    line-height: 1.45;
+    margin-bottom: 96px;
+  }
+  .title .divider {
+    height: 1px;
+    background: rgba(255,255,255,0.18);
+    margin-bottom: 36px;
+  }
+  .title-meta {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 32px;
+  }
+  .title-meta .cell .label {
+    font-size: 11px;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: #b6abe6;
+    font-weight: 500;
+    margin-bottom: 12px;
+  }
+  .title-meta .cell .value {
+    font-size: 20px;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 4px;
+  }
+  .title-meta .cell .note {
+    font-size: 13px;
+    color: #cdc5ee;
+  }
+
+  /* CONTENT SLIDE — HEADER */
+  .slide-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 8px;
+  }
+  .slide-header h2 {
+    font-size: 34px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: #1a1f3a;
+    line-height: 1.1;
+  }
+  .slide-header .pagenum {
+    font-size: 12px;
+    letter-spacing: 0.18em;
+    color: #5b50d6;
+    font-weight: 700;
+    margin-top: 14px;
+  }
+  .slide-subheader {
+    font-size: 14px;
+    color: #6b6f88;
+    margin-bottom: 16px;
+  }
+  .slide-rule {
+    height: 3px;
+    background: #1a1f3a;
+    margin-bottom: 20px;
+    width: 100%;
+  }
+
+  /* CARDS GRID */
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+
+  .card {
+    background: #ffffff;
+    border-radius: 8px;
+    padding: 18px 20px;
+    position: relative;
+    box-shadow: 0 1px 0 rgba(26,31,58,0.04);
+  }
+  .card .bar {
+    position: absolute; top: 0; left: 0;
+    width: 56px; height: 3px;
+    background: #5b50d6;
+    border-radius: 2px;
+  }
+  .card .tag {
+    display: inline-block;
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    background: #ece9f9;
+    color: #5b50d6;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    margin-bottom: 9px;
+  }
+  .card h3 {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1a1f3a;
+    margin-bottom: 8px;
+    line-height: 1.2;
+  }
+  .card .kpi-label {
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    color: #6b6f88;
+    text-transform: uppercase;
+    font-weight: 500;
+    margin-top: 8px;
+    margin-bottom: 2px;
+  }
+  .card .kpi-value {
+    font-size: 21px;
+    font-weight: 700;
+    color: #1a1f3a;
+    line-height: 1.1;
+  }
+  .card .kpi-value.purple { color: #5b50d6; }
+  .card .desc {
+    font-size: 11.5px;
+    line-height: 1.5;
+    color: #4a4f6a;
+    margin-top: 9px;
+    border-top: 1px dashed #d8d3e6;
+    padding-top: 9px;
+  }
+  .card .desc-tight {
+    font-size: 11.5px;
+    line-height: 1.55;
+    color: #4a4f6a;
+    margin-top: 6px;
+  }
+  .card .price-line {
+    margin-top: 10px;
+    font-size: 14px;
+    color: #4a4f6a;
+  }
+  .card .price-line strong { color: #1a1f3a; }
+  .card .price-line .strike { color: #b8bccd; text-decoration: line-through; margin-right: 8px; }
+
+  /* PROBLEM / SOLUTION GROUPS */
+  .pgroup { background:#fff; border:1px solid #eceaf6; border-radius:12px; padding:14px 16px 13px; display:flex; flex-direction:column; }
+  .pgroup .ph { font-size:10px; font-weight:800; letter-spacing:0.05em; text-transform:uppercase;
+       padding:5px 11px; border-radius:100px; align-self:flex-start; margin-bottom:11px; }
+  .ph.red { background:#fdecea; color:#c8483d; }
+  .ph.amber { background:#fbf1e2; color:#b5751a; }
+  .ph.blue { background:#e9f0fc; color:#2d6cdf; }
+  .pgroup ul { list-style:none; display:flex; flex-direction:column; gap:9px; margin:0; padding:0; }
+  .pgroup li { font-size:11.5px; line-height:1.38; color:#4a4f6a; padding-left:19px; position:relative; }
+  .pgroup li b { color:#1a1f3a; font-weight:700; }
+  .pgroup.bad li::before { content:'✕'; position:absolute; left:0; top:0; color:#dd5b4f; font-weight:800; font-size:11px; }
+  .pgroup.good li::before { content:'✓'; position:absolute; left:0; top:0; color:#12a273; font-weight:800; font-size:11px; }
+  .pgroup .src { font-size:9px; color:#a3a7ba; margin-top:11px; letter-spacing:0.03em; }
+  .pgroup .outcome { margin-top:auto; padding-top:11px; margin-top:13px; border-top:1px dashed #cfe7dc;
+       font-size:11px; line-height:1.38; color:#0a8f5f; font-weight:600; }
+  .pgroup .outcome b { color:#077a51; }
+
+  /* HIGHLIGHT BLOCK */
+  .highlight {
+    background: linear-gradient(135deg, #5b50d6 0%, #4a3fc5 100%);
+    color: #fff;
+    border-radius: 8px;
+    padding: 18px 24px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .highlight .cell .label {
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #d9d3ee;
+    font-weight: 600;
+    margin-bottom: 5px;
+  }
+  .highlight .cell .value {
+    font-size: 26px;
+    font-weight: 700;
+    line-height: 1.05;
+  }
+  .highlight .cell .note {
+    font-size: 11px;
+    color: #d9d3ee;
+    margin-top: 3px;
+  }
+
+  /* TABLE */
+  table.belb {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+  }
+  table.belb th {
+    text-align: left;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #6b6f88;
+    font-weight: 600;
+    padding: 7px 10px;
+    border-bottom: 1px solid #d8d3e6;
+  }
+  table.belb th.right, table.belb td.right { text-align: right; }
+  table.belb td {
+    padding: 7px 10px;
+    border-bottom: 1px solid #ece9f3;
+    color: #1a1f3a;
+  }
+  table.belb td.metric { color: #4a4f6a; }
+  table.belb td.num { font-variant-numeric: tabular-nums; font-weight: 600; }
+  table.belb tr.totalrow td { font-weight: 700; background: #f3effc; border-bottom: none; }
+  table.belb tr.totalrow td:first-child { color: #5b50d6; }
+  table.belb .now { color: #6b6f88; }
+  table.belb .future { color: #5b50d6; font-weight: 700; }
+
+  /* DISCLAIMER */
+  .disclaimer {
+    background: #fff4ec;
+    border-left: 4px solid #e88a3b;
+    border-radius: 4px;
+    padding: 10px 14px;
+    font-size: 10.5px;
+    line-height: 1.45;
+    color: #5b3a1a;
+    flex-shrink: 0;
+  }
+  .disclaimer .d-title {
+    font-weight: 700;
+    color: #b86420;
+    font-size: 9.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin-bottom: 3px;
+  }
+
+  /* FOOTER */
+  .slide-footer {
+    margin-top: auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid #e7e3d8;
+    padding-top: 12px;
+    font-size: 10.5px;
+    color: #6b6f88;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+  }
+  .slide-footer .belb-mark {
+    font-weight: 700;
+    color: #1a1f3a;
+    letter-spacing: 0.04em;
+  }
+  .contact-bar {
+    margin-top: auto; flex-shrink: 0;
+    display: grid; grid-template-columns: 1.25fr 1fr 1.1fr;
+    background: linear-gradient(135deg, #5b50d6 0%, #4a3fc5 100%);
+    color: #fff; border-radius: 10px; padding: 10px 22px;
+    box-shadow: 0 3px 12px rgba(91,80,214,0.20);
+  }
+  .contact-bar .cb-cell { padding-right: 18px; }
+  .contact-bar .cb-cell + .cb-cell { border-left: 1px solid rgba(255,255,255,0.18); padding-left: 20px; }
+  .contact-bar .cb-k { display: block; font-size: 8px; letter-spacing: 0.12em; color: #c9c3f3; font-weight: 700; }
+  .contact-bar .cb-v { display: block; font-size: 14.5px; font-weight: 800; margin-top: 2px; line-height: 1.1; }
+  .contact-bar .cb-s { display: block; font-size: 9.5px; color: #d9d4f7; margin-top: 1px; }
+
+  /* ROADMAP */
+  .roadmap-list { display: flex; flex-direction: column; gap: 14px; }
+  .roadmap-step { display: flex; gap: 18px; align-items: flex-start; }
+  .roadmap-num {
+    background: #5b50d6;
+    color: #fff;
+    font-weight: 700;
+    width: 32px; height: 32px;
+    border-radius: 16px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    font-size: 14px;
+  }
+  .roadmap-step .body { flex: 1; }
+  .roadmap-step .body .title-line { font-weight: 700; color: #1a1f3a; font-size: 14px; margin-bottom: 4px; }
+  .roadmap-step .body .desc-line { font-size: 13px; color: #4a4f6a; line-height: 1.5; }
+  .roadmap-divider { height: 1px; background: #e3dfee; margin-left: 50px; }
+
+  /* SMALL UTILITY */
+  .pill {
+    display: inline-block;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    padding: 4px 9px;
+    border-radius: 4px;
+    background: #ece9f9;
+    color: #5b50d6;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  .pill.warn { background: #fde3d2; color: #b86420; }
+  .pill.ok { background: #d8efe0; color: #2c7a4a; }
+  .pill.bad { background: #fadcde; color: #a13442; }
+
+  .two-col-block { display: grid; grid-template-columns: 1.4fr 1fr; gap: 22px; }
+
+  .checkmark {
+    display: inline-block;
+    width: 16px; height: 16px;
+    background: #5b50d6;
+    color: #fff;
+    border-radius: 8px;
+    font-size: 10px;
+    text-align: center;
+    line-height: 16px;
+    margin-right: 8px;
+    vertical-align: middle;
+  }
+
+  /* CLOSING SLIDE */
+  .slide.closing {
+    background: linear-gradient(135deg, #1f1547 0%, #2b1f5e 48%, #3a2a7a 100%);
+    color: #fff;
+    padding: 56px 72px 40px 72px;
+    justify-content: space-between;
+  }
+  .closing-eyebrow {
+    font-size: 13px;
+    letter-spacing: 0.3em;
+    color: #b6abe6;
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+  .closing-quote {
+    font-size: 42px;
+    font-weight: 700;
+    line-height: 1.12;
+    letter-spacing: -0.015em;
+    color: #fff;
+    margin: 8px 0 4px;
+    max-width: 1050px;
+  }
+  .rr-title {
+    font-size: 12px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #cdc5ee;
+    font-weight: 600;
+    margin-bottom: 12px;
+  }
+  .rr-certs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; align-items: stretch; margin-bottom: 16px; }
+
+  /* Карточка-сертификат Рейтинга Рунета — красная */
+  .rr-cert {
+    background: linear-gradient(160deg, #d4202e 0%, #a8121d 100%);
+    border-radius: 16px;
+    padding: 22px 22px 18px;
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 8px 24px rgba(168,18,29,0.4);
+  }
+  .rr-cert-top { display: flex; align-items: center; gap: 11px; margin-bottom: 16px; }
+  .rr-mark {
+    width: 34px; height: 34px;
+    display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr;
+    gap: 3px;
+  }
+  .rr-mark span { background: #fff; border-radius: 2px; }
+  .rr-mark span:nth-child(2) { border-radius: 2px 8px 2px 2px; }
+  .rr-mark-text {
+    font-size: 11px; font-weight: 700; line-height: 1.05;
+    letter-spacing: 0.12em; color: #fff;
+  }
+  .rr-cert-place { font-size: 34px; font-weight: 800; line-height: 1; margin-bottom: 14px; }
+  .rr-cert-cap { font-size: 10.5px; color: rgba(255,255,255,0.7); margin-bottom: 3px; }
+  .rr-cert-cat { font-size: 13px; font-weight: 700; line-height: 1.3; margin-bottom: 12px; }
+  .rr-cert-brand { font-size: 17px; font-weight: 700; margin-bottom: auto; }
+  .rr-cert-foot {
+    display: flex; justify-content: space-between; align-items: flex-end;
+    margin-top: 16px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.2);
+  }
+  .rr-sign { font-size: 8px; color: rgba(255,255,255,0.65); line-height: 1.5; font-style: italic; }
+  .rr-year { font-size: 22px; font-weight: 800; }
+
+  /* Горизонтальная полоса фактов */
+  .closing-strip {
+    display: flex; flex-wrap: wrap; gap: 24px;
+    padding: 14px 0;
+    border-top: 1px solid rgba(255,255,255,0.14);
+    border-bottom: 1px solid rgba(255,255,255,0.14);
+    align-items: center;
+  }
+  .cs-item { font-size: 12.5px; color: #d9d3ee; display: flex; align-items: center; gap: 8px; }
+  .cs-num { font-size: 20px; font-weight: 700; color: #fff; }
+  .cs-badge {
+    width: 22px; height: 22px; border-radius: 6px;
+    background: rgba(255,255,255,0.14); color: #ffd96b;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700;
+  }
+  .closing-contacts {
+    display: flex; flex-wrap: wrap; gap: 24px; align-items: baseline;
+    font-size: 13px; color: #cdc5ee;
+  }
+  .closing-contacts .cc-brand {
+    font-size: 24px; font-weight: 700; color: #fff; letter-spacing: -0.01em;
+    margin-right: 8px;
+  }
+</style>
+</head>
+<body>
+
+<!-- 01 · ТИТУЛ -->
+<section class="slide title">
+  <div class="eyebrow">BELBERRY · ТЕХНИЧЕСКАЯ ПОДДЕРЖКА САЙТОВ</div>
+  <h1 data-lock="1">Техническая поддержка сайта<br>{{КЛИЕНТ}}</h1>
+  <div class="lead">Сайт работает, обновляется и развивается — а у вас есть ответственная команда, понятные часы и отчёт за каждый месяц.</div>
+  <div class="divider"></div>
+  <div class="title-meta">
+    <div class="cell">
+      <div class="label">ДЛЯ</div>
+      <div class="value">{{КЛИЕНТ}}</div>
+      <div class="note">{{домен}}</div>
+    </div>
+    <div class="cell">
+      <div class="label">УСЛУГА</div>
+      <div class="value">Техподдержка сайта</div>
+      <div class="note">Битрикс · WordPress · HTML · Vue.js</div>
+    </div>
+    <div class="cell">
+      <div class="label">ПОДГОТОВЛЕНО</div>
+      <div class="value">{{ДАТА}}</div>
+      <div class="note">{{МЕНЕДЖЕР}} · менеджер проекта</div>
+    </div>
+    <div class="cell">
+      <div class="label">ТАРИФЫ</div>
+      <div class="value">от 31 000 ₽/мес</div>
+      <div class="note">«Цикл» и «Депозит» · 10 часов в пакете</div>
+    </div>
+  </div>
+</section>
+
+<!-- 02 · ЧТО БОЛИТ БЕЗ ПОДДЕРЖКИ -->
+<section class="slide">
+  <div class="slide-header">
+    <h2>Что обычно болит, когда у сайта нет поддержки</h2>
+    <div class="pagenum">02 / 08</div>
+  </div>
+  <div class="slide-subheader">Типовые ситуации, с которыми к нам приходят. Просто проверьте, что из этого знакомо.</div>
+  <div class="slide-rule"></div>
+
+  <div class="grid-3" style="margin-bottom:14px;">
+    <div class="card">
+      <div class="bar"></div>
+      <h3>Сайт упал — и никто не чинит</h3>
+      <div class="desc-tight">Сбой случается вечером или в выходной, узнаёте о нём от посетителей. Пока ищете, кому написать, сайт лежит — и всё это время не приносит обращений.</div>
+    </div>
+    <div class="card">
+      <div class="bar"></div>
+      <h3>Правки ждут неделями</h3>
+      <div class="desc-tight">Поменять цену, баннер или текст — задача на полчаса, но она висит неделями: у разовых исполнителей всегда есть «проект поважнее».</div>
+    </div>
+    <div class="card">
+      <div class="bar"></div>
+      <h3>Подрядчик пропал, доступы потеряны</h3>
+      <div class="desc-tight">Сайт делал фрилансер или студия, связи больше нет. Где доступы к хостингу и админке — никто в компании точно не знает.</div>
+    </div>
+  </div>
+
+  <div class="grid-3">
+    <div class="card">
+      <div class="bar"></div>
+      <h3>Обновления не ставятся</h3>
+      <div class="desc-tight">Версии CMS и модулей устаревают, накапливаются известные уязвимости. Это вопрос безопасности данных, а не «когда-нибудь потом».</div>
+    </div>
+    <div class="card">
+      <div class="bar"></div>
+      <h3>Страницы медленные — заявки теряются</h3>
+      <div class="desc-tight">Долго открывающиеся страницы посетители просто закрывают. Часть обращений теряется ещё до того, как человек увидел ваше предложение.</div>
+    </div>
+    <div class="card">
+      <div class="bar"></div>
+      <h3>Для клиники: упала форма записи</h3>
+      <div class="desc-tight">Сломанная онлайн-запись — это не «техническая мелочь», а пациенты, которые не дошли. Каждый день простоя формы считается в потерянных записях.</div>
+    </div>
+  </div>
+
+  <div style="font-size:11px;color:#6b6f88;margin-top:14px;line-height:1.45;">Ни одна из этих ситуаций не катастрофа сама по себе. Проблема в том, что без ответственной команды они повторяются — и каждый раз решаются в авральном режиме.</div>
+
+  <div class="contact-bar">
+    <div class="cb-cell"><span class="cb-k">КОНТАКТ</span><span class="cb-v">{{МЕНЕДЖЕР}}</span><span class="cb-s">менеджер проекта · Belberry</span></div>
+    <div class="cb-cell"><span class="cb-k">EMAIL · ТЕЛЕФОН</span><span class="cb-v">hello@belberry.net</span><span class="cb-s">+7 (495) 845-37-89</span></div>
+    <div class="cb-cell"><span class="cb-k">САЙТ · КЕЙСЫ</span><span class="cb-v">belberry.net</span><span class="cb-s">медицинские кейсы — belberry.net/works</span></div>
+  </div>
+</section>
+
+<!-- 03 · ЧТО ВХОДИТ -->
+<section class="slide">
+  <div class="slide-header">
+    <h2>Что входит в поддержку</h2>
+    <div class="pagenum">03 / 08</div>
+  </div>
+  <div class="slide-subheader">Состав работ в рамках часов тарифа — от срочной починки до планомерных доработок</div>
+  <div class="slide-rule"></div>
+
+  <div class="grid-3" style="margin-bottom:14px;">
+    <div class="card">
+      <div class="bar"></div>
+      <span class="tag">РАБОТОСПОСОБНОСТЬ</span>
+      <h3>Устранение ошибок вёрстки и логики</h3>
+      <div class="desc-tight">Чиним то, что отображается или работает неправильно: съехавшие блоки, неработающие формы и кнопки, ошибки в сценариях сайта.</div>
+    </div>
+    <div class="card">
+      <div class="bar"></div>
+      <span class="tag">РАЗВИТИЕ</span>
+      <h3>Доработка модулей, шаблонов и компонентов</h3>
+      <div class="desc-tight">Дорабатываем существующий функционал и добавляем новый: разделы, блоки, интеграции — в рамках часов тарифа.</div>
+    </div>
+    <div class="card">
+      <div class="bar"></div>
+      <span class="tag">СКОРОСТЬ</span>
+      <h3>Скорость загрузки</h3>
+      <div class="desc-tight">Следим за тем, как быстро открываются страницы, и устраняем причины замедления — чтобы посетители не уходили, не дождавшись.</div>
+    </div>
+  </div>
+
+  <div class="grid-3" style="margin-bottom:14px;">
+    <div class="card">
+      <div class="bar"></div>
+      <span class="tag">НАДЁЖНОСТЬ</span>
+      <h3>Резервные копии и обновления</h3>
+      <div class="desc-tight">Регулярные резервные копии и обновления CMS и модулей: сайт можно восстановить, а известные уязвимости закрыты.</div>
+    </div>
+    <div class="card">
+      <div class="bar"></div>
+      <span class="tag">КОНТЕНТ</span>
+      <h3>Мелкие правки контента</h3>
+      <div class="desc-tight">Тексты, цены, баннеры, новые страницы по вашим материалам — без ожидания «свободного окна у программиста».</div>
+    </div>
+    <div class="card">
+      <div class="bar"></div>
+      <span class="tag">ИНФРАСТРУКТУРА</span>
+      <h3>Взаимодействие с хостингом</h3>
+      <div class="desc-tight">Берём на себя общение с поддержкой хостинга: разбор инцидентов, технические вопросы по серверу и домену.</div>
+    </div>
+  </div>
+
+  <div class="card" style="padding:14px 20px;">
+    <div class="bar"></div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <span style="font-size:11px;font-weight:700;color:#5b50d6;letter-spacing:0.04em;text-transform:uppercase;margin-right:6px;">Технологии, с которыми работаем</span>
+      <span class="pill">CMS Битрикс</span>
+      <span class="pill">CMS WordPress</span>
+      <span class="pill">HTML</span>
+      <span class="pill">Vue.js</span>
+      <span class="pill warn">React — по согласованию</span>
+    </div>
+    <div style="font-size:10.5px;color:#6b6f88;margin-top:8px;line-height:1.45;">Работаем с сайтами на Битрикс и WordPress без конструкторов-плагинов. Фронтенд — HTML и Vue.js; проекты на React берём по согласованию после оценки.</div>
+  </div>
+
+  <div class="contact-bar">
+    <div class="cb-cell"><span class="cb-k">КОНТАКТ</span><span class="cb-v">{{МЕНЕДЖЕР}}</span><span class="cb-s">менеджер проекта · Belberry</span></div>
+    <div class="cb-cell"><span class="cb-k">EMAIL · ТЕЛЕФОН</span><span class="cb-v">hello@belberry.net</span><span class="cb-s">+7 (495) 845-37-89</span></div>
+    <div class="cb-cell"><span class="cb-k">САЙТ · КЕЙСЫ</span><span class="cb-v">belberry.net</span><span class="cb-s">медицинские кейсы — belberry.net/works</span></div>
+  </div>
+</section>
+
+<!-- 04 · КАК УСТРОЕНА РАБОТА -->
+<section class="slide">
+  <div class="slide-header">
+    <h2>Как устроена работа</h2>
+    <div class="pagenum">04 / 08</div>
+  </div>
+  <div class="slide-subheader">Понятный регламент вместо «напишите кому-нибудь — может, ответят»</div>
+  <div class="slide-rule"></div>
+
+  <div class="two-col-block" style="margin-bottom:14px;">
+    <div class="card">
+      <div class="bar"></div>
+      <h3 style="margin-bottom:16px;">Регламент по шагам</h3>
+      <div class="roadmap-list">
+        <div class="roadmap-step">
+          <div class="roadmap-num">1</div>
+          <div class="body">
+            <div class="title-line">Заявки — одним каналом</div>
+            <div class="desc-line">Все обращения вы отправляете в один согласованный канал. Ничего не теряется в личных переписках и звонках «кому попало».</div>
+          </div>
+        </div>
+        <div class="roadmap-divider"></div>
+        <div class="roadmap-step">
+          <div class="roadmap-num">2</div>
+          <div class="body">
+            <div class="title-line">Каждая заявка — задача</div>
+            <div class="desc-line">Обращение фиксируется как задача с описанием и оценкой в часах. Статус любой задачи можно узнать в любой момент.</div>
+          </div>
+        </div>
+        <div class="roadmap-divider"></div>
+        <div class="roadmap-step">
+          <div class="roadmap-num">3</div>
+          <div class="body">
+            <div class="title-line">Реакция — в рабочий день</div>
+            <div class="desc-line">На каждую заявку отвечаем в течение рабочего дня: что сделаем, сколько часов потребуется, когда будет готово.</div>
+          </div>
+        </div>
+        <div class="roadmap-divider"></div>
+        <div class="roadmap-step">
+          <div class="roadmap-num">4</div>
+          <div class="body">
+            <div class="title-line">Раз в месяц — отчёт по часам</div>
+            <div class="desc-line">Получаете отчёт: какие задачи закрыты, сколько часов на что списано, что в работе на следующий месяц.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div class="card">
+        <div class="bar"></div>
+        <h3 style="font-size:15px;margin-bottom:10px;">Кто работает над вашим сайтом</h3>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
+          <div style="width:36px;height:36px;border-radius:9px;background:linear-gradient(140deg,#7c72e0,#5b50d6);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex:none;">М</div>
+          <div>
+            <div style="font-size:12.5px;font-weight:700;color:#1a1f3a;">Менеджер поддержки</div>
+            <div style="font-size:10.5px;color:#6b6f88;line-height:1.4;">принимает заявки, держит вас в курсе, готовит ежемесячный отчёт</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div style="width:36px;height:36px;border-radius:9px;background:linear-gradient(140deg,#7c72e0,#5b50d6);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex:none;">Р</div>
+          <div>
+            <div style="font-size:12.5px;font-weight:700;color:#1a1f3a;">Разработчик</div>
+            <div style="font-size:10.5px;color:#6b6f88;line-height:1.4;">выполняет задачи по Битрикс / WordPress, вёрстке и фронтенду</div>
+          </div>
+        </div>
+      </div>
+      <div class="card" style="background:#f3effc;">
+        <div class="bar"></div>
+        <h3 style="font-size:14px;margin-bottom:6px;">Зачем такой регламент</h3>
+        <div style="font-size:11.5px;line-height:1.55;color:#4a4f6a;">Вы всегда знаете, <strong style="color:#1a1f3a;">кто отвечает, что в работе и куда ушли часы</strong>. Поддержка перестаёт быть «чёрным ящиком» и авралами — становится спокойным рабочим ритмом.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="contact-bar">
+    <div class="cb-cell"><span class="cb-k">КОНТАКТ</span><span class="cb-v">{{МЕНЕДЖЕР}}</span><span class="cb-s">менеджер проекта · Belberry</span></div>
+    <div class="cb-cell"><span class="cb-k">EMAIL · ТЕЛЕФОН</span><span class="cb-v">hello@belberry.net</span><span class="cb-s">+7 (495) 845-37-89</span></div>
+    <div class="cb-cell"><span class="cb-k">САЙТ · КЕЙСЫ</span><span class="cb-v">belberry.net</span><span class="cb-s">медицинские кейсы — belberry.net/works</span></div>
+  </div>
+</section>
+
+<!-- 05 · ТАРИФЫ -->
+<section class="slide">
+  <div class="slide-header">
+    <h2>Тарифы</h2>
+    <div class="pagenum">05 / 08</div>
+  </div>
+  <div class="slide-subheader">Два тарифа · 10 часов работы команды в пакете · какой подходит вам — обсудим на старте, исходя из объёма задач</div>
+  <div class="slide-rule"></div>
+
+  <div class="card" style="margin-bottom:14px;">
+    <div class="bar"></div>
+    <table class="belb">
+      <thead>
+        <tr>
+          <th style="width:40%;">Условия</th>
+          <th class="right">Тариф «Цикл»</th>
+          <th class="right">Тариф «Депозит»</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="metric">Часов в пакете</td><td class="right num">10 часов / мес</td><td class="right num">10 часов</td></tr>
+        <tr><td class="metric">Абонентская плата, без НДС</td><td class="right num">31 000 ₽</td><td class="right num">39 000 ₽</td></tr>
+        <tr class="totalrow"><td>Абонентская плата, с НДС 5%</td><td class="right num">32 550 ₽</td><td class="right num">40 950 ₽</td></tr>
+        <tr><td class="metric">Стоимость часа в пакете, без НДС</td><td class="right num">3 100 ₽</td><td class="right num">3 900 ₽</td></tr>
+        <tr><td class="metric">Дополнительный час сверх пакета, без НДС</td><td class="right num">3 300 ₽</td><td class="right num">3 900 ₽</td></tr>
+        <tr><td class="metric">Неиспользованные часы и правила переноса</td><td class="right">по договору</td><td class="right">по договору</td></tr>
+      </tbody>
+    </table>
+    <div style="font-size:10.5px;color:#6b6f88;margin-top:10px;line-height:1.5;">Часы сверх пакета списываются по фактической ставке выбранного тарифа. Ставки часа указаны без НДС, НДС 5% добавляется в счёте.</div>
+  </div>
+
+  <div class="highlight" style="margin-bottom:14px;">
+    <div class="cell">
+      <div class="label">«ЦИКЛ» · С НДС 5%</div>
+      <div class="value">32 550 ₽/мес</div>
+      <div class="note">база 31 000 ₽ без НДС · 10 часов</div>
+    </div>
+    <div class="cell">
+      <div class="label">«ДЕПОЗИТ» · С НДС 5%</div>
+      <div class="value">40 950 ₽</div>
+      <div class="note">база 39 000 ₽ без НДС · 10 часов</div>
+    </div>
+    <div class="cell">
+      <div class="label">СКИДКА</div>
+      <div class="value">−5%</div>
+      <div class="note">за оплату счёта в течение 10 дней</div>
+    </div>
+  </div>
+
+  <div class="card" style="background:#f0effb;border-left:3px solid #5b50d6;padding:12px 18px;">
+    <div style="font-size:12.5px;line-height:1.5;color:#1a1f3a;"><strong>Скидка 5%</strong> — при оплате счёта в течение 10 дней с момента выставления. Других скрытых условий нет: фиксированная абонентская плата, прозрачные часы, отчёт каждый месяц.</div>
+  </div>
+
+  <div class="contact-bar">
+    <div class="cb-cell"><span class="cb-k">КОНТАКТ</span><span class="cb-v">{{МЕНЕДЖЕР}}</span><span class="cb-s">менеджер проекта · Belberry</span></div>
+    <div class="cb-cell"><span class="cb-k">EMAIL · ТЕЛЕФОН</span><span class="cb-v">hello@belberry.net</span><span class="cb-s">+7 (495) 845-37-89</span></div>
+    <div class="cb-cell"><span class="cb-k">САЙТ · КЕЙСЫ</span><span class="cb-v">belberry.net</span><span class="cb-s">медицинские кейсы — belberry.net/works</span></div>
+  </div>
+</section>
+
+<!-- 06 · НАШИ ОБЯЗАТЕЛЬСТВА -->
+<section class="slide">
+  <div class="slide-header">
+    <h2>Наши обязательства</h2>
+    <div class="pagenum">06 / 08</div>
+  </div>
+  <div class="slide-subheader">Обещаем процесс, который можно проверить, — а не «результаты», которые нельзя</div>
+  <div class="slide-rule"></div>
+
+  <div class="grid-2" style="margin-bottom:14px;">
+    <div class="card">
+      <div class="bar"></div>
+      <span class="tag">КАЖДЫЙ МЕСЯЦ</span>
+      <h3>Отчёт по списанным часам</h3>
+      <div class="desc-tight">Раз в месяц вы получаете отчёт: какие задачи выполнены, сколько часов на что ушло. Видно, за что вы платите, — до копейки и до часа.</div>
+    </div>
+    <div class="card">
+      <div class="bar"></div>
+      <span class="tag">ПРОЗРАЧНОСТЬ</span>
+      <h3>Прозрачный список задач</h3>
+      <div class="desc-tight">Все заявки фиксируются в задачах с оценкой в часах. В любой момент можно посмотреть, что сделано, что в работе и что в очереди.</div>
+    </div>
+  </div>
+
+  <div class="grid-2" style="margin-bottom:14px;">
+    <div class="card">
+      <div class="bar"></div>
+      <span class="tag">РЕГЛАМЕНТ РЕАКЦИИ</span>
+      <h3>Ответ — в рабочий день</h3>
+      <div class="desc-tight">На каждую заявку реагируем в течение рабочего дня: подтверждаем, оцениваем и называем срок. Вы не остаётесь в неизвестности.</div>
+    </div>
+    <div class="card">
+      <div class="bar"></div>
+      <span class="tag">ЧЕСТНЫЕ УСЛОВИЯ</span>
+      <h3>Неиспользованные часы — по договору</h3>
+      <div class="desc-tight">Правила переноса и сгорания часов фиксируем в договоре до старта — без «мелкого шрифта» и сюрпризов в счёте.</div>
+    </div>
+  </div>
+
+  <div class="card" style="background:#f3effc;padding:14px 20px;">
+    <div class="bar"></div>
+    <div style="font-size:12.5px;line-height:1.55;color:#4a4f6a;">Мы сознательно <strong style="color:#1a1f3a;">не обещаем «рост показателей на N%»</strong> — поддержка сайта про надёжность и порядок, а не про громкие обещания. Наша ответственность — процесс: зафиксированные задачи, реакция в срок и понятный отчёт, который вы можете проверить каждый месяц.</div>
+  </div>
+
+  <div class="contact-bar">
+    <div class="cb-cell"><span class="cb-k">КОНТАКТ</span><span class="cb-v">{{МЕНЕДЖЕР}}</span><span class="cb-s">менеджер проекта · Belberry</span></div>
+    <div class="cb-cell"><span class="cb-k">EMAIL · ТЕЛЕФОН</span><span class="cb-v">hello@belberry.net</span><span class="cb-s">+7 (495) 845-37-89</span></div>
+    <div class="cb-cell"><span class="cb-k">САЙТ · КЕЙСЫ</span><span class="cb-v">belberry.net</span><span class="cb-s">медицинские кейсы — belberry.net/works</span></div>
+  </div>
+</section>
+
+<!-- 07 · КАК НАЧИНАЕМ -->
+<section class="slide">
+  <div class="slide-header">
+    <h2>Как начинаем</h2>
+    <div class="pagenum">07 / 08</div>
+  </div>
+  <div class="slide-subheader">Четыре шага от договора до рабочего ритма поддержки</div>
+  <div class="slide-rule"></div>
+
+  <div class="two-col-block" style="margin-bottom:14px;">
+    <div class="card">
+      <div class="bar"></div>
+      <h3 style="margin-bottom:16px;">Шаги старта</h3>
+      <div class="roadmap-list">
+        <div class="roadmap-step">
+          <div class="roadmap-num">1</div>
+          <div class="body">
+            <div class="title-line">Доступы</div>
+            <div class="desc-line">Передаёте доступы к админке сайта и хостингу. Помогаем их собрать и восстановить, если что-то потерялось.</div>
+          </div>
+        </div>
+        <div class="roadmap-divider"></div>
+        <div class="roadmap-step">
+          <div class="roadmap-num">2</div>
+          <div class="body">
+            <div class="title-line">Экспресс-аудит сайта</div>
+            <div class="desc-line">Смотрим текущее состояние: ошибки, обновления, резервные копии, скорость. Фиксируем, что требует внимания в первую очередь.</div>
+          </div>
+        </div>
+        <div class="roadmap-divider"></div>
+        <div class="roadmap-step">
+          <div class="roadmap-num">3</div>
+          <div class="body">
+            <div class="title-line">Список первых задач</div>
+            <div class="desc-line">По итогам аудита и вашим пожеланиям согласуем очередь первых задач с оценкой в часах.</div>
+          </div>
+        </div>
+        <div class="roadmap-divider"></div>
+        <div class="roadmap-step">
+          <div class="roadmap-num">4</div>
+          <div class="body">
+            <div class="title-line">Старт рабочего ритма</div>
+            <div class="desc-line">Заявки одним каналом, реакция в рабочий день, в конце месяца — первый отчёт по часам.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div class="card">
+        <div class="bar"></div>
+        <h3 style="font-size:15px;margin-bottom:10px;">Что нужно от вас</h3>
+        <div style="font-size:12.5px;line-height:1.7;color:#4a4f6a;">
+          <div><span class="checkmark">✓</span> Доступы к админке сайта и хостингу</div>
+          <div><span class="checkmark">✓</span> Контактное лицо для согласований</div>
+          <div><span class="checkmark">✓</span> Пожелания: что давно хотели поправить</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="bar"></div>
+        <h3 style="font-size:15px;margin-bottom:10px;">Что делаем мы</h3>
+        <div style="font-size:12.5px;line-height:1.7;color:#4a4f6a;">
+          <div><span class="checkmark">✓</span> Менеджер поддержки и разработчик</div>
+          <div><span class="checkmark">✓</span> Экспресс-аудит и список первых задач</div>
+          <div><span class="checkmark">✓</span> Реакция на заявки в рабочий день</div>
+          <div><span class="checkmark">✓</span> Ежемесячный отчёт по списанным часам</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="contact-bar">
+    <div class="cb-cell"><span class="cb-k">КОНТАКТ</span><span class="cb-v">{{МЕНЕДЖЕР}}</span><span class="cb-s">менеджер проекта · Belberry</span></div>
+    <div class="cb-cell"><span class="cb-k">EMAIL · ТЕЛЕФОН</span><span class="cb-v">hello@belberry.net</span><span class="cb-s">+7 (495) 845-37-89</span></div>
+    <div class="cb-cell"><span class="cb-k">САЙТ · КЕЙСЫ</span><span class="cb-v">belberry.net</span><span class="cb-s">медицинские кейсы — belberry.net/works</span></div>
+  </div>
+</section>
+
+<!-- 08 · ФИНАЛ · О BELBERRY -->
+<section class="slide closing">
+  <div class="closing-eyebrow">BELBERRY · МЕДИЦИНСКИЙ DIGITAL С 2015 ГОДА</div>
+
+  <div class="closing-quote">
+    «Мы заботимся о вашем&nbsp;маркетинге —<br>а вы о&nbsp;пациентах»
+  </div>
+
+  <div class="rr-title">Победитель Рейтинга Рунета 2025</div>
+  <div class="rr-certs">
+    <div class="rr-cert">
+      <div class="rr-cert-top">
+        <div class="rr-mark"><span></span><span></span><span></span><span></span></div>
+        <div class="rr-mark-text">РЕЙТИНГ<br>РУНЕТА</div>
+      </div>
+      <div class="rr-cert-place">1 место</div>
+      <div class="rr-cert-cap">В рейтинге:</div>
+      <div class="rr-cert-cat">Поддержка и развитие сайтов / Медицина, здоровье: поликлиники, больницы и т.п.</div>
+      <div class="rr-cert-cap">Поздравляем:</div>
+      <div class="rr-cert-brand">Belberry</div>
+      <div class="rr-cert-foot">
+        <div class="rr-sign">Рук. проекта: Сергей Бесшабашнов<br>Гл. редактор: Анатолий Денисов</div>
+        <div class="rr-year">2025</div>
+      </div>
+    </div>
+    <div class="rr-cert">
+      <div class="rr-cert-top">
+        <div class="rr-mark"><span></span><span></span><span></span><span></span></div>
+        <div class="rr-mark-text">РЕЙТИНГ<br>РУНЕТА</div>
+      </div>
+      <div class="rr-cert-place">3 место</div>
+      <div class="rr-cert-cap">В рейтинге:</div>
+      <div class="rr-cert-cat">Поисковое продвижение (SEO) / Медицина, здоровье: Услуги</div>
+      <div class="rr-cert-cap">Поздравляем:</div>
+      <div class="rr-cert-brand">Belberry</div>
+      <div class="rr-cert-foot">
+        <div class="rr-sign">Рук. проекта: Сергей Бесшабашнов<br>Гл. редактор: Анатолий Денисов</div>
+        <div class="rr-year">2025</div>
+      </div>
+    </div>
+    <div class="rr-cert">
+      <div class="rr-cert-top">
+        <div class="rr-mark"><span></span><span></span><span></span><span></span></div>
+        <div class="rr-mark-text">РЕЙТИНГ<br>РУНЕТА</div>
+      </div>
+      <div class="rr-cert-place">1 место</div>
+      <div class="rr-cert-cap">В рейтинге:</div>
+      <div class="rr-cert-cat">Комплексные разработчики / Красота, парфюмерия, уход: Косметология</div>
+      <div class="rr-cert-cap">Поздравляем:</div>
+      <div class="rr-cert-brand">Belberry</div>
+      <div class="rr-cert-foot">
+        <div class="rr-sign">Рук. проекта: Сергей Бесшабашнов<br>Гл. редактор: Анатолий Денисов</div>
+        <div class="rr-year">2025</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="closing-strip">
+    <div class="cs-item"><span class="cs-num">11</span> лет в медицинском digital (с 2015)</div>
+    <div class="cs-item"><span class="cs-num">300+</span> реализованных проектов в медицине</div>
+    <div class="cs-item"><span class="cs-num">5,0</span> рейтинг по отзывам клиентов</div>
+    <div class="cs-item"><span class="cs-badge">★</span> Золотой партнёр Битрикс</div>
+    <div class="cs-item"><span class="cs-badge">+</span> 1С-Битрикс: Решения для медицины</div>
+  </div>
+
+  <div class="closing-contacts">
+    <span class="cc-brand">Belberry</span>
+    <span>belberry.net</span>
+    <span>hello@belberry.net</span>
+    <span>+7 (495) 845-37-89</span>
+    <span>Москва, Варшавское ш. 118, к. 1, эт. 13, оф. 22</span>
+  </div>
+</section>
+</body>
+</html>

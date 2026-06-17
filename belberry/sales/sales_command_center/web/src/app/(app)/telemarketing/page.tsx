@@ -1,15 +1,15 @@
 import Link from 'next/link';
-import { Phone, Users, Filter, CalendarCheck, ListTree, BarChart3, Goal, Mail, Search, Sparkles, Coins, Clock, Bell } from 'lucide-react';
+import { Phone, Users, Filter, CalendarCheck, ListTree, BarChart3, Goal, Mail, Search, Sparkles, Coins, Clock, Bell, PhoneOutgoing } from 'lucide-react';
+import { TmFunnel50View } from '@/components/telemarketing/TmFunnel';
+import { TmMonthly } from '@/components/telemarketing/TmMonthly';
+import { TmDialsHeatmap } from '@/components/telemarketing/TmDialsHeatmap';
 import {
   TmKpiGrid,
   TmManagerTable,
-  TmFunnel50View,
   TmMeetingsResultView,
-  TmMonthlyView,
   TmMicroFunnelsView,
   TmPlanFactView,
   TmOutreachView,
-  TmManagerSelect,
   TmRejectionsView,
   TmHeatmapView,
   TmMeetingQualityView,
@@ -44,17 +44,15 @@ function SectionHead({ icon, title, hint, right }: { icon: React.ReactNode; titl
 export default async function TelemarketingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ period?: string; manager?: string; month?: string }>;
+  searchParams: Promise<{ period?: string; month?: string }>;
 }) {
   const params = await searchParams;
   const range: 'month' | 'week' = params.period === 'week' ? 'week' : 'month';
-  const managerParam = params.manager ? Number(params.manager) : null;
   const monthParam = params.month && /^\d{4}-\d{2}$/.test(params.month) ? params.month : null;
-  const data = await getTmDashboardData(range, Number.isFinite(managerParam) ? managerParam : null, monthParam);
+  const data = await getTmDashboardData(range, monthParam);
 
-  const mq = data.selectedManagerId ? `&manager=${data.selectedManagerId}` : '';
-  const periodHref = (p: 'month' | 'week') => `/telemarketing?period=${p}${mq}`;
-  const monthHref = (ym: string) => `/telemarketing?month=${ym}${mq}`;
+  const periodHref = (p: 'month' | 'week') => `/telemarketing?period=${p}`;
+  const monthHref = (ym: string) => `/telemarketing?month=${ym}`;
 
   return (
     <div className="bb-page bb-fade">
@@ -98,13 +96,19 @@ export default async function TelemarketingPage({
         <>
           {/* A. KPI обзвона */}
           <div className="bb-card" style={{ marginBottom: 16 }}>
-            <SectionHead icon={<Phone size={17} />} title="Обзвон · итог отдела" hint={`${data.monthLabel} · ${data.kpis.zvonari} звонаря`} />
-            <TmKpiGrid kpis={data.kpis} />
+            <SectionHead icon={<Phone size={17} />} title="Обзвон · итог отдела" hint={`${data.monthLabel} · ${data.kpis.zvonari} телемаркетолога`} />
+            <TmKpiGrid kpis={data.kpis} kpisPrev={data.kpisPrev} cmpLabel={data.kpisCmpLabel} />
+          </div>
+
+          {/* План / факт ТМ — сразу после итога обзвона */}
+          <div className="bb-card" style={{ marginBottom: 16 }}>
+            <SectionHead icon={<Goal size={17} />} title="План / факт ТМ" hint={`${data.monthLabel} · дозвоны + брифования`} />
+            <TmPlanFactView data={data.planFact} />
           </div>
 
           {/* B. По звонарям */}
           <div className="bb-card" style={{ marginBottom: 16 }}>
-            <SectionHead icon={<Users size={17} />} title="По звонарям" hint={data.monthLabel} />
+            <SectionHead icon={<Users size={17} />} title="По телемаркетологам" hint={data.monthLabel} />
             <TmManagerTable rows={data.table} />
           </div>
 
@@ -112,7 +116,7 @@ export default async function TelemarketingPage({
           <div className="bb-grid bb-grid-2" style={{ marginBottom: 16 }}>
             <div className="bb-card">
               <SectionHead icon={<Filter size={17} />} title="ТМ-воронка [50]" hint={`снимок ${data.snapshotDate ?? '—'}`} />
-              <TmFunnel50View stages={data.funnel50} />
+              <TmFunnel50View data={data.funnel50} />
             </div>
             <div className="bb-card">
               <SectionHead icon={<CalendarCheck size={17} />} title="Встречи → результат" hint={data.monthLabel} />
@@ -120,29 +124,19 @@ export default async function TelemarketingPage({
             </div>
           </div>
 
-          {/* F. Динамика по месяцам + селектор звонаря */}
+          {/* F. Динамика по месяцам — мультиселект звонарей + сравнение «на эту дату» */}
           <div className="bb-card" style={{ marginBottom: 16 }}>
-            <SectionHead
-              icon={<BarChart3 size={17} />}
-              title="Динамика по месяцам"
-              right={<TmManagerSelect managers={data.managers} selectedId={data.selectedManagerId} range={range} />}
-            />
+            <SectionHead icon={<BarChart3 size={17} />} title="Динамика по месяцам" hint="мультиселект · текущий vs прошлый на ту же дату" />
             <p style={{ fontSize: 12, color: 'var(--bb-faint)', margin: '-6px 0 14px' }}>
-              Таблица и график — по выбранному звонарю. Дашборд охватывает любого сотрудника ТМ (по должности), список не захардкожен.
+              Выберите одного или нескольких телемаркетологов — данные суммируются. По умолчанию выбраны все. Дашборд охватывает любого сотрудника ТМ (по должности), список не захардкожен.
             </p>
-            <TmMonthlyView rows={data.monthly} name={data.selectedManagerName} />
+            <TmMonthly data={data.monthlyBundle} />
           </div>
 
           {/* Причины отвала (накопленно, личные закрытия) */}
           <div className="bb-card" style={{ marginBottom: 16 }}>
             <SectionHead icon={<Search size={17} />} title="Причины отвала" hint="накопленно · личные закрытия" />
             <TmRejectionsView rejections={data.rejections} />
-          </div>
-
-          {/* E. План / факт */}
-          <div className="bb-card" style={{ marginBottom: 16 }}>
-            <SectionHead icon={<Goal size={17} />} title="План / факт ТМ" hint={data.monthLabel} />
-            <TmPlanFactView rows={data.planFact} />
           </div>
 
           {/* G. Outreach */}
@@ -153,7 +147,7 @@ export default async function TelemarketingPage({
 
           {/* Микро-воронка звонка */}
           <div className="bb-card" style={{ marginBottom: 16 }}>
-            <SectionHead icon={<ListTree size={17} />} title="Микро-воронка звонка — где теряется" hint={`${data.monthLabel} · по звонарю`} />
+            <SectionHead icon={<ListTree size={17} />} title="Микро-воронка звонка — где теряется" hint={`${data.monthLabel} · по телемаркетологу`} />
             <TmMicroFunnelsView funnels={data.microFunnels} />
           </div>
 
@@ -167,8 +161,14 @@ export default async function TelemarketingPage({
             <SoonCard title="Downstream-ценность холодных встреч" desc="Из назначенных ТМ встреч — сколько в Продажи, КП, оплат и на какую сумму. Нужна связка cat50 → cat10." />
           </div>
           <div className="bb-card" style={{ marginBottom: 16 }}>
-            <SectionHead icon={<Clock size={17} />} title="Когда берут трубку" hint="час × день недели" />
+            <SectionHead icon={<Clock size={17} />} title="Когда берут трубку" hint="час × день недели · за 3 месяца" />
             <TmHeatmapView heatmap={data.heatmap} />
+          </div>
+
+          {/* Карта активности набора — когда звонари делают наборы */}
+          <div className="bb-card" style={{ marginBottom: 16 }}>
+            <SectionHead icon={<PhoneOutgoing size={17} />} title="Когда звонят — активность набора" hint="час × день недели · за 3 месяца" />
+            <TmDialsHeatmap data={data.dialsHeatmap} />
           </div>
 
           {/* ТМ-алерты */}

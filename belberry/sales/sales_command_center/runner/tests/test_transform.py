@@ -9,6 +9,7 @@ from src.transform import (
     build_db_rows,
     build_post_meeting_comms,
     compute_stale_deals,
+    last_comm_date,
     manager_name,
     resolve_target_date,
     risk_reason,
@@ -26,6 +27,23 @@ def load_raw():
     raw["photos"] = json.loads((FIXTURE_DIR / "photos.json").read_text())
     raw.setdefault("wazzup", {})
     return raw
+
+
+def test_last_comm_date_takes_max_of_call_and_wazzup():
+    wazzup = {"1": [{"CREATED": "2026-05-25T12:00:00+03:00"}]}
+    last_calls = {"1": "2026-05-20T10:00:00+03:00"}
+    # Wazzup свежее звонка → берём дату Wazzup.
+    assert last_comm_date(1, wazzup, last_calls) == "2026-05-25"
+    # Звонок свежее переписки → берём дату звонка.
+    last_calls = {"1": "2026-05-28T09:00:00+03:00"}
+    assert last_comm_date(1, wazzup, last_calls) == "2026-05-28"
+
+
+def test_last_comm_date_handles_single_or_missing_source():
+    assert last_comm_date(7, {}, {"7": "2026-06-01T08:00:00+03:00"}) == "2026-06-01"
+    assert last_comm_date(7, {"7": [{"CREATED": "2026-06-02T08:00:00+03:00"}]}, {}) == "2026-06-02"
+    # Ни звонков, ни переписки → None (контакта с клиентом не было).
+    assert last_comm_date(7, {}, {}) is None
 
 
 def test_resolve_target_date_override():
@@ -138,6 +156,7 @@ def test_build_db_rows_matches_phase_one_schema_keys():
         "manager_id",
         "stuck_days",
         "stage_entered",
+        "last_comm_at",
         "title",
         "company_id",
     }
