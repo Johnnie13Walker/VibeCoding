@@ -46,6 +46,78 @@ def _add_business_days(start: date, days: int) -> date:
     return d
 
 
+# Месяцы по основе слова (родительный/именительный): «июня»/«июнь» → 6.
+_MONTHS = {
+    "январ": 1, "феврал": 2, "март": 3, "апрел": 4, "мая": 5, "май": 5,
+    "июн": 6, "июл": 7, "август": 8, "сентябр": 9, "октябр": 10,
+    "ноябр": 11, "декабр": 12,
+}
+
+
+def _roll_year_forward(d: date, base: date) -> date:
+    """Дата без года уже прошла относительно встречи → следующий год.
+    Дедлайн в прошлом для только что поставленной задачи бессмыслен."""
+    if d >= base:
+        return d
+    try:
+        return d.replace(year=d.year + 1)
+    except ValueError:  # 29 февраля
+        return d + timedelta(days=365)
+
+
+def _parse_explicit_date(t: str, base: date) -> date | None:
+    """Явная календарная дата из текста: «24.06.2026», «24.06», «24 июня»,
+    «24 числа», «к 15-му», «20-го». Без года/месяца — берём ближайшую будущую."""
+    # ДД.ММ(.ГГГГ)
+    m = re.search(r"\b(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4}))?\b", t)
+    if m:
+        day, month, year = int(m.group(1)), int(m.group(2)), m.group(3)
+        if 1 <= day <= 31 and 1 <= month <= 12:
+            if year:
+                y = int(year)
+                y = 2000 + y if y < 100 else y
+                try:
+                    return date(y, month, day)
+                except ValueError:
+                    return None
+            try:
+                return _roll_year_forward(date(base.year, month, day), base)
+            except ValueError:
+                return None
+
+    # ДД <месяц словом>: «24 июня», «5 мая»
+    m = re.search(r"\b(\d{1,2})\s+([а-яё]+)", t)
+    if m:
+        day, word = int(m.group(1)), m.group(2)
+        for stem, month in _MONTHS.items():
+            if word.startswith(stem):
+                if 1 <= day <= 31:
+                    try:
+                        return _roll_year_forward(date(base.year, month, day), base)
+                    except ValueError:
+                        return None
+                break
+
+    # День месяца без названия: «24 числа», «к 15-му», «20-го».
+    m = re.search(r"\b(\d{1,2})\s*-?\s*(?:го|му)\b|\b(\d{1,2})\s+числ\w*", t)
+    if m:
+        day = int(m.group(1) or m.group(2))
+        if 1 <= day <= 31:
+            try:
+                cand = date(base.year, base.month, day)
+            except ValueError:
+                return None
+            if cand < base:  # день уже прошёл в этом месяце → следующий месяц
+                ny = base.year + (1 if base.month == 12 else 0)
+                nm = 1 if base.month == 12 else base.month + 1
+                try:
+                    cand = date(ny, nm, day)
+                except ValueError:
+                    return None
+            return cand
+    return None
+
+
 def parse_deadline(text: str | None, base: date) -> tuple[date, bool]:
     """Свободный текст дедлайна → (дата, распознан ли). base — дата встречи.
     Если не распознан — base + FALLBACK_BUSINESS_DAYS рабочих дней, recognized=False."""
@@ -65,6 +137,12 @@ def parse_deadline(text: str | None, base: date) -> tuple[date, bool]:
     m = re.search(r"через\s+(\d+)\s*(дн|день|дня|дней)", t)
     if m:
         return base + timedelta(days=int(m.group(1))), True
+
+    # Явная календарная дата («24.06», «24 июня», «24 числа», «к 15-му») —
+    # приоритетнее дней недели и «недель». Закрывает кейс «созвон 24 числа».
+    explicit = _parse_explicit_date(t, base)
+    if explicit is not None:
+        return explicit, True
 
     # дни недели — РАНЬШЕ общей проверки «недел», иначе «на следующей неделе» ловится как +7.
     # Берём ближайший упомянутый день недели; «на следующей неделе» сдвигает на неделю вперёд.

@@ -18,6 +18,26 @@ def test_parse_deadline_weeks():
     assert T.parse_deadline("через две недели", base) == (date(2026, 6, 18), True)
 
 
+def test_parse_deadline_explicit_dates():
+    base = date(2026, 6, 11)  # четверг — день встречи delficlinic/medcel
+    # кейс 523340: «созвон 24 июня» дедлайн должен быть 24.06, а не фолбэк 12.06
+    assert T.parse_deadline("24.06.2026", base) == (date(2026, 6, 24), True)
+    assert T.parse_deadline("24.06", base) == (date(2026, 6, 24), True)
+    assert T.parse_deadline("24 июня", base) == (date(2026, 6, 24), True)
+    assert T.parse_deadline("к 24 числа", base) == (date(2026, 6, 24), True)
+    assert T.parse_deadline("к 24-му", base) == (date(2026, 6, 24), True)
+    assert T.parse_deadline("20-го", base) == (date(2026, 6, 20), True)
+
+
+def test_parse_deadline_explicit_date_rolls_forward():
+    base = date(2026, 6, 11)  # дата уже прошла в этом месяце/году → переносим вперёд
+    assert T.parse_deadline("5 июня", base) == (date(2027, 6, 5), True)   # месяц прошёл → +год
+    assert T.parse_deadline("01.03", base) == (date(2027, 3, 1), True)    # март прошёл → +год
+    assert T.parse_deadline("3 числа", base) == (date(2026, 7, 3), True)  # день прошёл → след. месяц
+    # год указан явно — не переносим, даже если в прошлом
+    assert T.parse_deadline("01.03.2026", base) == (date(2026, 3, 1), True)
+
+
 def test_parse_deadline_weekday_next_week():
     base = date(2026, 6, 4)  # четверг
     # «понедельник ... на следующей неделе» → 8 июня (ближайший пн)
