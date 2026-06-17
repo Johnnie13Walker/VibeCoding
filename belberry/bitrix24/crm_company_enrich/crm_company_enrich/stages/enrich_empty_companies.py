@@ -30,6 +30,7 @@ from ..config import (
     CCE_COMPANY_TOUCH,
     CCE_PRESET_ID,
     COMPANY_REGION_ENUM_MAP,
+    COMPANY_UF_LEGAL_ADDRESS,
     COMPANY_UF_CITY,
     COMPANY_UF_REGION,
     ENTITY_TYPE_COMPANY,
@@ -238,10 +239,13 @@ def run_enrich(*, limit: int | None = None, throttle_s: float = 0.1) -> dict:
     return summary
 
 
+UPLOAD_PLAN_HIDDEN_STATUSES = {"APPLIED", "APPLIED_LIQUIDATED", "COMPANY_DELETED"}
+
+
 def run_upload_plan() -> dict:
     state = _load_state()
     rows = [PlanRow(**r) for r in state.get("results", [])]
-    visible_rows = [r for r in rows if r.apply_status not in {"APPLIED", "APPLIED_LIQUIDATED"}]
+    visible_rows = [r for r in rows if r.apply_status not in UPLOAD_PLAN_HIDDEN_STATUSES]
     sheets = _sheets()
     sheets.ensure_sheet(TAB_PLAN)
     sheets.clear(TAB_PLAN)
@@ -252,7 +256,8 @@ def run_upload_plan() -> dict:
         sheets.update(TAB_PLAN, f"A{off + 2}:J{off + len(chunk) + 1}", chunk, value_input_option="USER_ENTERED")
     summary = _summary(rows)
     summary["uploaded"] = len(payload)
-    summary["hidden_applied"] = len(rows) - len(visible_rows)
+    summary["hidden_applied"] = sum(1 for r in rows if r.apply_status in {"APPLIED", "APPLIED_LIQUIDATED"})
+    summary["hidden_company_deleted"] = sum(1 for r in rows if r.apply_status == "COMPANY_DELETED")
     summary["sheet_tab"] = TAB_PLAN
     return summary
 
@@ -1546,7 +1551,11 @@ def verify_with_retries(bx: BitrixClient, company_id: str) -> tuple[bool, dict |
 
 def _fill_company_address_fields(bx: BitrixClient, company_id: str, company: dict) -> dict[str, Any]:
     """Заполнить город/область компании из юридического адреса, не затирая ручной ввод."""
-    raw_address = _clean(company.get("REG_ADDRESS") or company.get("ADDRESS"))
+    raw_address = _clean(
+        company.get("REG_ADDRESS")
+        or company.get("ADDRESS")
+        or company.get(COMPANY_UF_LEGAL_ADDRESS)
+    )
     fallback_city, fallback_region = _city_region_from_address(raw_address)
     reg_city = _clean(company.get("REG_ADDRESS_CITY") or company.get("ADDRESS_CITY") or fallback_city)
     reg_region = _clean(company.get("REG_ADDRESS_REGION") or company.get("ADDRESS_REGION") or fallback_region)

@@ -15,6 +15,8 @@ from zoneinfo import ZoneInfo
 from ..bitrix_client import BitrixClient
 from ..config import (
     CCE_BIZPROC_FIRST_ENTRY_ID,
+    CCE_BIZPROC_POLL_S,
+    CCE_BIZPROC_TIMEOUT_S,
     CCE_BIZPROC_UPDATE_ID,
     CCE_BIZPROC_WAIT_S,
     CCE_PRESET_ID,
@@ -57,6 +59,7 @@ AUDIT_PATH = LOG_DIR / "enrich_company_full.csv"
 STATE_PATH = LOG_DIR / "enrich_company_full_state.json"
 DEAL_OWNER_TYPE_ID = 2
 FINAL_STATUSES = {"ENRICHED", "REJECTED", "SKIPPED", "PARTIAL", "FAILED"}
+CROSS_DUP_CATEGORY_IDS = (int(TELEMARKETING_CATEGORY_ID), 40, 10)
 
 
 @dataclass
@@ -74,6 +77,11 @@ class FullEnrichmentOutcome:
     input_value: str
     company_id: str = ""
     deal_id: str = ""
+    cross_dup_deal_id: str = ""
+    cross_dup_company_id: str = ""
+    cross_dup_category_id: str = ""
+    cross_dup_stage_id: str = ""
+    no_touch_existing_deals: bool = False
     contact_ids: list[str] = field(default_factory=list)
     duplicate_company_ids: list[str] = field(default_factory=list)
     flags: list[str] = field(default_factory=list)
@@ -98,6 +106,11 @@ def run(
     skip_director_inn: bool = False,
     skip_telemarketing_dedupe: bool = False,
     skip_auto_reject: bool = False,
+    no_create_deal: bool = False,
+    no_touch_existing_deals: bool = False,
+    skip_cross_category_dup_check: bool = False,
+    skip_on_closed_dup: bool = False,
+    skip_uf_site_validation: bool = False,
     bizproc_wait_s: int | None = None,
 ) -> FullEnrichmentOutcome:
     """Главный orchestrator: resolve → enrich → deal workflow → audit."""
@@ -106,6 +119,7 @@ def run(
     outcome = FullEnrichmentOutcome(
         input_kind=input_kind,
         input_value=str(input_value),
+        no_touch_existing_deals=no_touch_existing_deals,
         timestamp=_now_iso(),
     )
 
@@ -128,6 +142,11 @@ def run(
         "skip_director_inn": skip_director_inn,
         "skip_telemarketing_dedupe": skip_telemarketing_dedupe,
         "skip_auto_reject": skip_auto_reject,
+        "no_create_deal": no_create_deal,
+        "no_touch_existing_deals": no_touch_existing_deals,
+        "skip_cross_category_dup_check": skip_cross_category_dup_check,
+        "skip_on_closed_dup": skip_on_closed_dup,
+        "skip_uf_site_validation": skip_uf_site_validation,
         "bizproc_wait_s": CCE_BIZPROC_WAIT_S if bizproc_wait_s is None else bizproc_wait_s,
     }
 
@@ -220,6 +239,10 @@ def _step_resolve(bx: BitrixClient, outcome: FullEnrichmentOutcome, context: dic
             context["company_id"] = str(company.get("ID") or "")
 
     if not company and flags["create_if_missing"]:
+        if not context.get("inn") and context.get("url"):
+            found, _name = enrich_web.try_web(context["url"], enrich_web.HttpFetcher().fetch, sleep_s=0.1)
+            if found:
+                context["inn"] = found
         if not context.get("inn"):
             outcome.flags.append("no_inn_no_company")
             outcome.final_status = "SKIPPED"
@@ -234,6 +257,11 @@ def _step_resolve(bx: BitrixClient, outcome: FullEnrichmentOutcome, context: dic
             outcome.flags.append("would_create_company")
             return StepOutcome("RESOLVE", "DONE", {"created": "dry_run", "company_id": context["company_id"]})
         fields = _minimum_company_fields(context)
+        _drop_dead_uf_site(
+            fields,
+            outcome,
+            enabled=not flags["skip_uf_site_validation"],
+        )
         context["company_id"] = _add_company(bx, fields)
         context["created_company"] = True
         company = bx.get_company(context["company_id"]) or {"ID": context["company_id"], **fields}
@@ -335,9 +363,8 @@ def _step_run_bp(bx: BitrixClient, outcome: FullEnrichmentOutcome, context: dict
         return StepOutcome("RUN_BP", "DONE", {"dry_run": True, "planned_template_ids": planned})
     results = []
     if not context.get("had_requisites_before"):
-        results.append(enrich_empty_companies.start_bp_first_entry(bx, outcome.company_id))
-        time.sleep(3)
-    results.append(enrich_empty_companies.start_bp_update(bx, outcome.company_id))
+        results.append(_start_bp_and_wait(bx, outcome.company_id, CCE_BIZPROC_FIRST_ENTRY_ID))
+    results.append(_start_bp_and_wait(bx, outcome.company_id, CCE_BIZPROC_UPDATE_ID))
     return StepOutcome("RUN_BP", "DONE", {"results": results})
 
 
@@ -361,6 +388,21 @@ def _step_verify(bx: BitrixClient, outcome: FullEnrichmentOutcome, context: dict
     return StepOutcome("VERIFY", "PARTIAL", {"flag": "verify_pending"})
 
 
+def _start_bp_and_wait(bx: BitrixClient, company_id: str, template_id: int | None) -> dict[str, Any]:
+    if not template_id:
+        return {"template_id": template_id, "skipped": True}
+    result = bx.start_workflow(template_id, ["crm", "CCrmDocumentCompany", f"COMPANY_{company_id}"])
+    workflow_id = str(result.get("workflow_id") or "")
+    result["template_id"] = template_id
+    if workflow_id and hasattr(bx, "wait_workflow_finished"):
+        result["wait_finished"] = bx.wait_workflow_finished(
+            workflow_id,
+            timeout_s=CCE_BIZPROC_TIMEOUT_S,
+            poll_s=CCE_BIZPROC_POLL_S,
+        )
+    return result
+
+
 def _step_sync_company(bx: BitrixClient, outcome: FullEnrichmentOutcome, context: dict[str, Any], flags: dict[str, Any]) -> StepOutcome:
     if not outcome.company_id or outcome.company_id == "DRY_RUN_COMPANY":
         return StepOutcome("SYNC_COMPANY", "SKIPPED", {"reason": "no_real_company"})
@@ -371,7 +413,10 @@ def _step_sync_company(bx: BitrixClient, outcome: FullEnrichmentOutcome, context
         site=context.get("site", ""),
         dry_run=flags["dry_run"],
         overwrite=False,
+        validate_uf_site=not flags["skip_uf_site_validation"],
     )
+    if (summary.get("uf_site_dead") or 0) > 0 and "uf_site_dead_skipped" not in outcome.flags:
+        outcome.flags.append("uf_site_dead_skipped")
     if not flags["dry_run"]:
         context["company"] = bx.get_company(outcome.company_id) or context.get("company") or {}
     return StepOutcome("SYNC_COMPANY", "DONE" if not summary.get("failed") else "FAILED", {"summary": summary})
@@ -432,6 +477,49 @@ def _step_rank_deal_viability(bx: BitrixClient, outcome: FullEnrichmentOutcome, 
 def _step_resolve_deal(bx: BitrixClient, outcome: FullEnrichmentOutcome, context: dict[str, Any], flags: dict[str, Any]) -> StepOutcome:
     if outcome.final_status in {"REJECTED", "SKIPPED"}:
         return StepOutcome("RESOLVE_DEAL", "SKIPPED", {"reason": "final_status_already_set"})
+    if outcome.no_touch_existing_deals:
+        outcome.deal_id = ""
+        context["deal_id"] = ""
+        context["deal_action"] = "skip"
+        return StepOutcome("RESOLVE_DEAL", "SKIPPED", {"reason": "no_touch_existing_deals"})
+    if not flags.get("skip_cross_category_dup_check"):
+        company = _company(bx, context)
+        site_key = _site_key(_primary_site(company))
+        dup = _find_cross_category_dup(bx, site_key, outcome.company_id)
+        if dup and str(dup.get("ID") or "") != str(outcome.deal_id or ""):
+            on_same_company = str(dup.get("COMPANY_ID") or "") == str(outcome.company_id)
+            is_open = str(dup.get("CLOSED") or "") != "Y"
+            if on_same_company:
+                outcome.deal_id = str(dup.get("ID") or "")
+                context["deal_id"] = outcome.deal_id
+                context["deal_action"] = "sync"
+                return StepOutcome("RESOLVE_DEAL", "DONE", {
+                    "action": "sync_same_company_cross_cat",
+                    "deal_id": outcome.deal_id,
+                    "category_id": str(dup.get("CATEGORY_ID") or ""),
+                })
+            if is_open:
+                _store_cross_dup(outcome, dup, "cross_category_dup_found")
+                outcome.final_status = "SKIPPED"
+                context["deal_action"] = "skip"
+                _log_cross_dup_on_current_company(bx, outcome, dup, flags)
+                return StepOutcome("RESOLVE_DEAL", "SKIPPED", {
+                    "reason": "cross_category_dup_open",
+                    "found_deal_id": outcome.cross_dup_deal_id,
+                    "found_company_id": outcome.cross_dup_company_id,
+                    "category_id": outcome.cross_dup_category_id,
+                })
+            if flags.get("skip_on_closed_dup"):
+                _store_cross_dup(outcome, dup, "cross_category_dup_closed_blocked")
+                outcome.final_status = "SKIPPED"
+                context["deal_action"] = "skip"
+                _log_cross_dup_on_current_company(bx, outcome, dup, flags)
+                return StepOutcome("RESOLVE_DEAL", "SKIPPED", {
+                    "reason": "cross_category_dup_closed",
+                    "found_deal_id": outcome.cross_dup_deal_id,
+                    "found_company_id": outcome.cross_dup_company_id,
+                    "category_id": outcome.cross_dup_category_id,
+                })
     if context.get("attached_input_deal") and outcome.deal_id:
         context["deal_action"] = "sync"
         return StepOutcome("RESOLVE_DEAL", "DONE", {
@@ -462,6 +550,15 @@ def _step_resolve_deal(bx: BitrixClient, outcome: FullEnrichmentOutcome, context
 
 
 def _step_create_deal(bx: BitrixClient, outcome: FullEnrichmentOutcome, context: dict[str, Any], flags: dict[str, Any]) -> StepOutcome:
+    if "cross_category_dup_found" in outcome.flags:
+        context["deal_action"] = "skip"
+        return StepOutcome("CREATE_DEAL", "SKIPPED", {"reason": "cross_category_dup_found"})
+    if flags.get("no_create_deal"):
+        context["deal_action"] = "skip"
+        return StepOutcome("CREATE_DEAL", "SKIPPED", {"reason": "flag_no_create"})
+    if flags.get("no_touch_existing_deals"):
+        context["deal_action"] = "skip"
+        return StepOutcome("CREATE_DEAL", "SKIPPED", {"reason": "no_touch_existing_deals"})
     if context.get("deal_action") != "create":
         return StepOutcome("CREATE_DEAL", "SKIPPED", {"reason": "not_needed"})
     company = _company(bx, context)
@@ -484,6 +581,8 @@ def _step_create_deal(bx: BitrixClient, outcome: FullEnrichmentOutcome, context:
 
 
 def _step_sync_deal(bx: BitrixClient, outcome: FullEnrichmentOutcome, context: dict[str, Any], flags: dict[str, Any]) -> StepOutcome:
+    if flags.get("no_touch_existing_deals"):
+        return StepOutcome("SYNC_DEAL", "SKIPPED", {"reason": "no_touch_existing_deals"})
     if context.get("deal_action") not in {"sync", "create"} or not outcome.deal_id or outcome.deal_id == "DRY_RUN_DEAL":
         return StepOutcome("SYNC_DEAL", "SKIPPED", {"reason": "not_needed"})
     if flags["dry_run"] and context.get("attached_input_deal") and context.get("created_company"):
@@ -500,6 +599,8 @@ def _step_sync_deal(bx: BitrixClient, outcome: FullEnrichmentOutcome, context: d
 
 
 def _step_revive_deal(bx: BitrixClient, outcome: FullEnrichmentOutcome, context: dict[str, Any], flags: dict[str, Any]) -> StepOutcome:
+    if flags.get("no_touch_existing_deals"):
+        return StepOutcome("REVIVE_DEAL", "SKIPPED", {"reason": "no_touch_existing_deals"})
     action = context.get("deal_action")
     if action not in {"revive_lose", "reactivate_apology"}:
         return StepOutcome("REVIVE_DEAL", "SKIPPED", {"reason": "not_needed"})
@@ -563,6 +664,8 @@ def _step_enrich_director_inn(bx: BitrixClient, outcome: FullEnrichmentOutcome, 
 
 
 def _step_telemarketing_dedupe_scoped(bx: BitrixClient, outcome: FullEnrichmentOutcome, context: dict[str, Any], flags: dict[str, Any]) -> StepOutcome:
+    if flags.get("no_touch_existing_deals"):
+        return StepOutcome("TELEMARKETING_DEDUPE_SCOPED", "SKIPPED", {"reason": "no_touch_existing_deals"})
     if flags["skip_telemarketing_dedupe"]:
         return StepOutcome("TELEMARKETING_DEDUPE_SCOPED", "SKIPPED", {"reason": "skip_telemarketing_dedupe"})
     if flags["dry_run"] and context.get("created_company"):
@@ -596,11 +699,43 @@ def _detect_input_kind(company_id: str, deal_id: str, inn: str, url: str) -> str
 
 def _find_company_by_url(bx: BitrixClient, url: str) -> dict | None:
     key = _site_key(url)
-    candidates = bx.list_companies(filter_={"%WEB": key}, select=["ID", "TITLE", "WEB", "UF_*"])
+    if not key or "." not in key:
+        return None
+    select = ["ID", "TITLE", "WEB", "UF_*"]
+    candidates = bx.list_companies(filter_={"%UF_CRM_5DEF838D882A2": key}, select=select)
+    match = _exact_company_url_match(candidates, key)
+    if match:
+        return match
+
+    candidates = _list_company_url_candidates(bx, key, select)
+    return _exact_company_url_match(candidates, key)
+
+
+def _list_company_url_candidates(bx: BitrixClient, key: str, select: list[str]) -> list[dict]:
+    if hasattr(bx, "call"):
+        body = bx.call(
+            "crm.company.list",
+            {"filter": {"%WEB": key}, "select": select, "start": -1},
+        )
+        result = body.get("result") if isinstance(body, dict) else []
+        return result if isinstance(result, list) else []
+    return bx.list_companies(filter_={"%WEB": key}, select=select)
+
+
+def _exact_company_url_match(candidates: list[dict], key: str) -> dict | None:
     for company in candidates:
-        if any(_site_key(item.get("VALUE") if isinstance(item, dict) else item) == key for item in company.get("WEB") or []):
+        company_keys = {
+            _site_key(item.get("VALUE") if isinstance(item, dict) else item)
+            for item in company.get("WEB") or []
+        }
+        company_keys.discard("")
+        if key in company_keys:
             return company
-    return candidates[0] if candidates else None
+    for company in candidates:
+        uf_site_key = _site_key(company.get("UF_CRM_5DEF838D882A2") or "")
+        if uf_site_key and uf_site_key == key:
+            return company
+    return None
 
 
 def _minimum_company_fields(context: dict[str, Any]) -> dict[str, Any]:
@@ -614,6 +749,19 @@ def _minimum_company_fields(context: dict[str, Any]) -> dict[str, Any]:
     if _looks_medical(title, context.get("url", "")):
         fields[UF_BRAND_FIELD] = UF_BRAND_BELBERRY
     return fields
+
+
+def _drop_dead_uf_site(fields: dict[str, Any], outcome: FullEnrichmentOutcome, *, enabled: bool) -> None:
+    if not enabled or "UF_CRM_5DEF838D882A2" not in fields:
+        return
+    from .enrich_web import is_site_alive
+
+    check = is_site_alive(str(fields.get("UF_CRM_5DEF838D882A2") or ""))
+    if check.is_alive:
+        return
+    fields.pop("UF_CRM_5DEF838D882A2", None)
+    if "uf_site_dead_skipped" not in outcome.flags:
+        outcome.flags.append("uf_site_dead_skipped")
 
 
 def _add_company(bx: BitrixClient, fields: dict[str, Any]) -> str:
@@ -661,6 +809,63 @@ def _first_open_c50_deal(bx: BitrixClient, company_id: str) -> dict | None:
         if _is_open_c50(deal):
             return deal
     return None
+
+
+def _find_cross_category_dup(bx: BitrixClient, site_key: str, current_company_id: str) -> dict | None:
+    """Ищет дубль сделки по доменному TITLE в C50+C10.
+
+    Возвращает наиболее приоритетную сделку: открытая выше закрытой,
+    C10 выше C50, затем самая свежая DATE_MODIFY.
+    """
+    if not site_key:
+        return None
+    if hasattr(bx, "find_deal_by_title"):
+        deals = bx.find_deal_by_title(site_key, list(CROSS_DUP_CATEGORY_IDS))
+    else:
+        body = bx.call(
+            "crm.deal.list",
+            {
+                "filter": {"%TITLE": site_key, "CATEGORY_ID": list(CROSS_DUP_CATEGORY_IDS)},
+                "select": ["ID", "COMPANY_ID", "CATEGORY_ID", "STAGE_ID", "CLOSED", "DATE_MODIFY", "TITLE"],
+                "order": {"DATE_MODIFY": "DESC"},
+            },
+        )
+        result = body.get("result") if isinstance(body, dict) else body
+        deals = result if isinstance(result, list) else []
+    ranked = sorted(
+        (dict(d) for d in deals),
+        key=lambda d: (
+            0 if str(d.get("CLOSED") or "") != "Y" else 1,
+            0 if str(d.get("CATEGORY_ID") or "") == "10" else 1,
+            -_date_modify_rank(d.get("DATE_MODIFY")),
+        ),
+    )
+    return ranked[0] if ranked else None
+
+
+def _store_cross_dup(outcome: FullEnrichmentOutcome, dup: dict, flag: str) -> None:
+    outcome.cross_dup_deal_id = str(dup.get("ID") or "")
+    outcome.cross_dup_company_id = str(dup.get("COMPANY_ID") or "")
+    outcome.cross_dup_category_id = str(dup.get("CATEGORY_ID") or "")
+    outcome.cross_dup_stage_id = str(dup.get("STAGE_ID") or "")
+    if flag not in outcome.flags:
+        outcome.flags.append(flag)
+
+
+def _log_cross_dup_on_current_company(
+    bx: BitrixClient,
+    outcome: FullEnrichmentOutcome,
+    dup: dict,
+    flags: dict[str, Any],
+) -> None:
+    if flags.get("dry_run") or not outcome.company_id or not hasattr(bx, "add_timeline_comment"):
+        return
+    text = (
+        "[enrich-full] создание C50-сделки пропущено: найден дубль по домену "
+        f"deal_id={dup.get('ID')} company_id={dup.get('COMPANY_ID')} "
+        f"category_id={dup.get('CATEGORY_ID')} stage_id={dup.get('STAGE_ID')}"
+    )
+    bx.add_timeline_comment(owner_type_id=ENTITY_TYPE_COMPANY, owner_id=outcome.company_id, text=text)
 
 
 def _is_open_c50(deal: dict) -> bool:
@@ -815,6 +1020,18 @@ def _date_from_value(value: Any) -> date | None:
             return date.fromisoformat(raw[:10])
         except ValueError:
             return None
+
+
+def _date_modify_rank(value: Any) -> int:
+    raw = str(value or "").strip()
+    if not raw:
+        return 0
+    try:
+        dt = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        return int(dt.strftime("%Y%m%d%H%M%S"))
+    except ValueError:
+        digits = "".join(ch for ch in raw if ch.isdigit())
+        return int((digits[:14] or "0").ljust(14, "0"))
 
 
 def _int_value(value: Any) -> int:

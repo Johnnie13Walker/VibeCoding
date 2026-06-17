@@ -80,6 +80,33 @@ cd ~/work-crm-enrich/belberry/bitrix24/crm_company_enrich
 - **Главный таб задачи:** `Телемаркетинг без реквизитов` (gid=1318170868, 1207 строк)
 - **OAuth Bitrix expires ~8h** — перед длинным batch обязательно `bash /Users/pro2kuror/Desktop/VibeCoding/shared/scripts/bitrix-sync-state.sh`
 
+## Ручное обогащение: обязательный brand/industry parity
+
+Для каждой компании из таба `Телемаркетинг без реквизитов` бренд проекта и сфера
+деятельности должны быть заполнены **и в компании, и во всех относящихся к ней
+сделках C50**. Строку нельзя удалять из Google Sheets, пока read-back не
+подтвердил parity:
+
+- company: `UF_CRM_1737098476975` / `UF_CRM_684FE59BA3C8C` и `INDUSTRY`
+- deal: `UF_CRM_1721661506` и `UF_CRM_6179712C57A4D`
+
+Правила классификации:
+
+- медклиника / стоматология / ветклиника → бренд `Belberry`, сфера `Медицина`
+- медицинские товары / оборудование / реабилитационные товары → сфера
+  `Медицинские товары и оборудование` в компании и сделке
+- если сайт ↔ юрлицо не подтверждены или компания закрыта/ликвидируется —
+  бренд/сферу не угадывать; строку оставить красной с причиной
+
+Для удаления обработанной строки использовать guard-команду, а не прямой
+`deleteDimension`:
+
+```bash
+cd ~/work-crm-enrich/belberry/bitrix24/crm_company_enrich
+.venv/bin/python -m crm_company_enrich.cli delete-sheet-row-guarded \
+  --row-number <N> --deal-id <deal_id> --company-id <company_id> --live
+```
+
 ## Главный CLI subcommand
 
 ```bash

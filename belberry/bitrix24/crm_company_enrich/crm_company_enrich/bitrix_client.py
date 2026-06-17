@@ -235,6 +235,31 @@ class BitrixClient:
             )
         )
 
+    def find_deal_by_title(self, title_substring: str, category_ids: list[int]) -> list[dict]:
+        """Найти сделки по подстроке TITLE в указанных воронках."""
+        if not title_substring:
+            return []
+        params: dict[str, Any] = {
+            "filter": {
+                "%TITLE": title_substring,
+                "CATEGORY_ID": [int(category_id) for category_id in category_ids],
+            },
+            "select": ["ID", "COMPANY_ID", "CATEGORY_ID", "STAGE_ID", "CLOSED", "DATE_MODIFY", "TITLE"],
+            "order": {"DATE_MODIFY": "DESC"},
+        }
+        deals: list[dict] = []
+        start: int | str = 0
+        while True:
+            body = self.call("crm.deal.list", {**params, "start": start})
+            result = body.get("result")
+            if isinstance(result, list):
+                deals.extend(result)
+            nxt = body.get("next")
+            if nxt is None:
+                break
+            start = nxt
+        return deals
+
     def list_deals_by_stages(
         self,
         *,
@@ -575,6 +600,39 @@ class BitrixClient:
                 f"bizproc.workflow.start returned empty workflow id: {body!r}"
             )
         return {"workflow_id": str(wf_id)}
+
+    def list_workflow_instances(self, *, workflow_id: str = "") -> list[dict]:
+        """Активные экземпляры BP.
+
+        Bitrix возвращает только незавершённые workflow. Для ожидания окончания
+        достаточно проверять, что workflow_id исчез из списка.
+        """
+        params: dict[str, Any] = {}
+        if workflow_id:
+            params["filter"] = {"ID": str(workflow_id)}
+        body = self.call("bizproc.workflow.instances", params)
+        result = body.get("result")
+        return result if isinstance(result, list) else []
+
+    def is_workflow_running(self, workflow_id: str) -> bool:
+        workflow_id = str(workflow_id or "").strip()
+        if not workflow_id:
+            return False
+        return any(str(item.get("ID") or "") == workflow_id for item in self.list_workflow_instances(workflow_id=workflow_id))
+
+    def wait_workflow_finished(self, workflow_id: str, *, timeout_s: int = 360, poll_s: int = 5) -> bool:
+        """Ждать завершения BP. True — завершился, False — timeout."""
+        workflow_id = str(workflow_id or "").strip()
+        if not workflow_id:
+            return True
+        deadline = time.monotonic() + max(0, int(timeout_s))
+        poll_s = max(1, int(poll_s))
+        while True:
+            if not self.is_workflow_running(workflow_id):
+                return True
+            if time.monotonic() >= deadline:
+                return False
+            time.sleep(poll_s)
 
     def delete_requisite(self, requisite_id: str) -> bool:
         """crm.requisite.delete — для rollback-стадии. Возвращает True/False."""

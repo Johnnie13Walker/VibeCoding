@@ -1,0 +1,16 @@
+[Unit]
+Description=Cloudbot Health API (Apple Health → state.json)
+After=network.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/openclaw/health-api.env
+ExecStart=/usr/bin/python3 /opt/cloudbot-health-api/server.py
+Restart=on-failure
+RestartSec=5s
+User=root
+StandardOutput=append:/var/log/cloudbot-health-api.log
+StandardError=append:/var/log/cloudbot-health-api.log
+
+[Install]
+WantedBy=multi-user.target

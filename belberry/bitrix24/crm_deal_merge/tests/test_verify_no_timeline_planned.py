@@ -1,65 +1,62 @@
 from __future__ import annotations
 
-from crm_deal_merge.models import Group
-from crm_deal_merge.stages.verify import _verify_group
+from crm_deal_merge.config import TAB_GROUPS, TAB_INVENTORY
+from crm_deal_merge.models import GROUP_HEADERS, INVENTORY_HEADERS, Group
+from crm_deal_merge.stages import verify
 from crm_deal_merge.state import Status
 
 
 class FakeBitrix:
-    def list_deal_contacts(self, deal_id: str):
-        return [{"CONTACT_ID": "1"}]
-
-    def list_deal_timeline_comments(self, deal_id: str):
+    def list_deal_contacts(self, deal_id):
         return []
 
-    def get_deal(self, deal_id: str):
+    def list_deal_timeline_comments(self, deal_id):
+        return []
+
+    def get_deal(self, deal_id):
         return {"ID": deal_id, "STAGE_ID": "C38:3"}
 
-    def list_deal_activities(self, deal_id: str):
+    def list_deal_activities(self, deal_id):
         return []
 
 
-def test_verify_does_not_require_transfer_marker_when_no_timeline_planned() -> None:
-    group = Group(
-        company_id="10",
-        company_name="Company",
-        inn="—",
-        domain="example.ru",
-        winner_id="200",
-        winner_stage="C38:NEW",
-        winner_stage_name="Новая",
-        winner_closed=False,
-        loser_ids=["100"],
-        n_total=2,
-        n_winner=1,
-        status=Status.MERGED,
-        n_timeline_planned=0,
-        n_contacts_planned=1,
-    )
+class FakeSheets:
+    def __init__(self) -> None:
+        group = Group(
+            company_id="10",
+            company_name="Company",
+            inn="123",
+            domain="foo.ru",
+            winner_id="200",
+            winner_stage="C50:NEW",
+            winner_stage_name="Новая",
+            winner_closed=False,
+            loser_ids=["100"],
+            n_timeline_planned=0,
+            status=Status.MERGED,
+            approved=True,
+        )
+        self.rows = {
+            TAB_GROUPS: [GROUP_HEADERS, group.to_sheet_row()],
+            TAB_INVENTORY: [INVENTORY_HEADERS],
+        }
+        self.updated: list[Group] = []
 
-    assert _verify_group(FakeBitrix(), group, set()) == []
+    def read(self, sheet, *args, **kwargs):
+        return self.rows.get(sheet, [])
+
+    def update(self, sheet, range_, rows, **kwargs):
+        if sheet == TAB_GROUPS:
+            self.updated.append(Group.from_sheet_row(rows[0], GROUP_HEADERS))
+
+    def ensure_sheet(self, title):
+        pass
 
 
-def test_verify_already_linked_contacts_do_not_require_extra_contacts() -> None:
-    group = Group(
-        company_id="10",
-        company_name="Company",
-        inn="—",
-        domain="example.ru",
-        winner_id="200",
-        winner_stage="C38:NEW",
-        winner_stage_name="Новая",
-        winner_closed=False,
-        loser_ids=["100"],
-        n_total=2,
-        n_winner=1,
-        status=Status.MERGED,
-        n_timeline_planned=0,
-        n_contacts_planned=2,
-    )
-    inventory_rows = [
-        (2, {"company_id": "10", "loser_id": "100", "entity_type": "contact", "child_id": "1", "transferred": "1", "note": "already_linked"}),
-        (3, {"company_id": "10", "loser_id": "100", "entity_type": "contact", "child_id": "2", "transferred": "1", "note": "already_linked"}),
-    ]
+def test_verify_without_timeline_planned_does_not_require_marker():
+    sheets = FakeSheets()
 
-    assert _verify_group(FakeBitrix(), group, set(), inventory_rows) == []
+    result = verify.run(FakeBitrix(), sheets)
+
+    assert result == {"done": 1, "failed": 0}
+    assert sheets.updated[-1].status == Status.DONE

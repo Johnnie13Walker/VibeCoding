@@ -160,6 +160,9 @@ def run(
     max_duration_min: int = 480,
     limit: int | None = None,
     cron_mode: bool = False,
+    skip_cross_category_dup_check: bool = False,
+    skip_on_closed_dup: bool = False,
+    skip_uf_site_validation: bool = False,
 ) -> dict:
     """Главный batch-runner. Возвращает summary с counters."""
     start_ts = datetime.now(MOSCOW_TZ)
@@ -205,6 +208,9 @@ def run(
                 url=inp.url,
                 dry_run=dry_run,
                 skip_bp=effective_skip_bp,
+                skip_cross_category_dup_check=skip_cross_category_dup_check,
+                skip_on_closed_dup=skip_on_closed_dup,
+                skip_uf_site_validation=skip_uf_site_validation,
             )
             batch_outcome = BatchOutcome(full, inp.source_row_ref, dry_run)
             status = full.final_status or "UNKNOWN"

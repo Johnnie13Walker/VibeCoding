@@ -52,6 +52,9 @@ from ..config import (
     UF_BRAND_ACOOLA,
     UF_BRAND_BELBERRY,
     UF_BRAND_FIELD,
+    UF_BRAND_LEGACY_ENUM_ACOOLA,
+    UF_BRAND_LEGACY_ENUM_BELBERRY,
+    UF_BRAND_LEGACY_ENUM_FIELD,
 )
 from ..models import (
     QueueRow,
@@ -392,8 +395,17 @@ def run(
                 domain=row.web,
             )
             brand_value = UF_BRAND_BELBERRY if is_med else UF_BRAND_ACOOLA
+            legacy_brand_value = (
+                UF_BRAND_LEGACY_ENUM_BELBERRY if is_med else UF_BRAND_LEGACY_ENUM_ACOOLA
+            )
             try:
-                bx.update_company(row.company_id, {UF_BRAND_FIELD: brand_value})
+                bx.update_company(
+                    row.company_id,
+                    {
+                        UF_BRAND_FIELD: brand_value,
+                        UF_BRAND_LEGACY_ENUM_FIELD: legacy_brand_value,
+                    },
+                )
                 outcome.brand_set = brand_value
                 if is_med:
                     brand_belberry += 1

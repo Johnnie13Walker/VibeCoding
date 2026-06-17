@@ -1,6 +1,11 @@
 from __future__ import annotations
 
-from crm_company_enrich.config import COMPANY_REGION_ENUM_MAP, COMPANY_UF_CITY, COMPANY_UF_REGION
+from crm_company_enrich.config import (
+    COMPANY_REGION_ENUM_MAP,
+    COMPANY_UF_CITY,
+    COMPANY_UF_LEGAL_ADDRESS,
+    COMPANY_UF_REGION,
+)
 from crm_company_enrich.region_rf_config import REGION_RF_VALUES
 from crm_company_enrich.stages import enrich_empty_companies as stage
 
@@ -41,6 +46,20 @@ def test_city_and_region_filled_from_full_moscow_reg_address():
         COMPANY_UF_CITY: "",
         COMPANY_UF_REGION: "",
         "REG_ADDRESS": "107078, г Москва, Красносельский р-н, Красноворотский проезд, д 3Б стр 3",
+    }
+
+    updates = stage._fill_company_address_fields(bx, "10", company)
+
+    assert updates == {COMPANY_UF_CITY: "Москва", COMPANY_UF_REGION: "9234"}
+    assert bx.update_company_calls == [("10", updates)]
+
+
+def test_city_and_region_filled_from_bp_legal_address_field():
+    bx = FakeBitrix()
+    company = {
+        COMPANY_UF_CITY: "",
+        COMPANY_UF_REGION: "",
+        COMPANY_UF_LEGAL_ADDRESS: "101000, г Москва, Красносельский р-н, Уланский пер, д 22 стр 1",
     }
 
     updates = stage._fill_company_address_fields(bx, "10", company)

@@ -37,8 +37,9 @@ HEADERS = [
 ]
 
 
-def run(bx: BitrixClient, sheets: SheetsClient) -> dict[str, Any]:
+def run(bx: BitrixClient, sheets: SheetsClient, *, write_sheet: bool = True) -> dict[str, Any]:
     started = datetime.now(MOSCOW_TZ)
+    previous_rows = _count_existing_rows(sheets)
     companies = _load_companies(bx)
     contacts = _load_contacts(bx)
     contact_counts, contacts_by_company = _index_contacts(contacts)
@@ -109,14 +110,22 @@ def run(bx: BitrixClient, sheets: SheetsClient) -> dict[str, Any]:
             ]
         )
 
-    sheets.ensure_sheet(TAB_EMPTY_COMPANIES)
-    sheets.clear(TAB_EMPTY_COMPANIES)
-    sheets.update(TAB_EMPTY_COMPANIES, "A1", rows, value_input_option="USER_ENTERED")
+    if write_sheet:
+        sheets.ensure_sheet(TAB_EMPTY_COMPANIES)
+        sheets.clear(TAB_EMPTY_COMPANIES)
+        sheets.update(TAB_EMPTY_COMPANIES, "A1", rows, value_input_option="USER_ENTERED")
+    else:
+        print("[empty-companies dry-run] Google Sheets не обновляю")
 
     return {
         "tab": TAB_EMPTY_COMPANIES,
+        "dry_run": not write_sheet,
         "companies_total": len(companies),
         "trash_companies": len(candidates),
+        "previous_snapshot_rows": previous_rows,
+        "delta_vs_previous": len(candidates) - previous_rows if previous_rows is not None else None,
+        "new_vs_previous": max(len(candidates) - previous_rows, 0) if previous_rows is not None else None,
+        "gone_vs_previous": max(previous_rows - len(candidates), 0) if previous_rows is not None else None,
         "without_contacts": sum(1 for _, category, _, _ in candidates if category == "без контактов"),
         "with_only_junk_contacts": sum(1 for _, category, _, _ in candidates if category == "только мусорные контакты"),
         "contacts_with_company_total": sum(contact_counts.values()),
@@ -124,6 +133,26 @@ def run(bx: BitrixClient, sheets: SheetsClient) -> dict[str, Any]:
         "leads_with_company_total": sum(lead_counts.values()),
         "updated_at_msk": started.isoformat(timespec="seconds"),
     }
+
+
+def _count_existing_rows(sheets: SheetsClient) -> int | None:
+    try:
+        rows = sheets.read(TAB_EMPTY_COMPANIES, "A1:R20000", unformatted=True)
+    except Exception as exc:  # noqa: BLE001 - отсутствие листа не должно валить dry-run
+        print(f"[empty-companies] не удалось прочитать текущий снапшот: {exc}")
+        return None
+    if len(rows) <= 2:
+        return 0
+    headers = [str(h) for h in rows[1]]
+    try:
+        company_id_idx = headers.index("company_id")
+    except ValueError:
+        company_id_idx = 12
+    return sum(
+        1
+        for row in rows[2:]
+        if len(row) > company_id_idx and str(row[company_id_idx] or "").strip()
+    )
 
 
 def _load_companies(bx: BitrixClient) -> list[dict]:

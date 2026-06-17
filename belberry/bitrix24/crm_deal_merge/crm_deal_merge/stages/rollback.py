@@ -1,9 +1,10 @@
-"""WRITE escape hatch — частичный rollback группы из backup-листа."""
+"""WRITE escape hatch — частичный rollback группы из backup."""
 from __future__ import annotations
 
 import json
 from dataclasses import replace
 from datetime import datetime
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from ..bitrix_client import BitrixClient
@@ -54,6 +55,25 @@ def run(
 
 
 def _read_backups(sheets: SheetsClient, backup_sheet: str) -> dict[str, dict]:
+    if _looks_like_file_path(backup_sheet):
+        return _read_file_backups(Path(backup_sheet))
+    return _read_sheet_backups(sheets, backup_sheet)
+
+
+def _read_file_backups(backup_file: Path) -> dict[str, dict]:
+    if not backup_file.exists():
+        raise ValueError(f"Бэкап не найден: {backup_file}")
+    data = json.loads(backup_file.read_text(encoding="utf-8"))
+    out: dict[str, dict] = {}
+    for entry in data.get("losers", []):
+        loser_id = str(entry.get("loser_id") or "")
+        raw = entry.get("raw")
+        if loser_id and isinstance(raw, dict):
+            out[loser_id] = raw
+    return out
+
+
+def _read_sheet_backups(sheets: SheetsClient, backup_sheet: str) -> dict[str, dict]:
     rows = sheets.read(backup_sheet)
     if not rows:
         return {}
@@ -66,3 +86,7 @@ def _read_backups(sheets: SheetsClient, backup_sheet: str) -> dict[str, dict]:
         if loser_id and raw_json:
             out[loser_id] = json.loads(raw_json)
     return out
+
+
+def _looks_like_file_path(value: str) -> bool:
+    return "/" in value or "\\" in value or value.endswith(".json")

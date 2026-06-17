@@ -23,8 +23,12 @@ from crm_company_enrich.config import (
     DEAL_UF_SITE_PRIMARY,
     HOLD_MARKER_FLAG_FIELD,
     HOLD_REASON_FIELD,
+    UF_BRAND_LEGACY_ENUM_BELBERRY,
+    UF_BRAND_LEGACY_ENUM_ACOOLA,
+    UF_BRAND_LEGACY_ENUM_FIELD,
 )
 from crm_company_enrich.stages import sync_deals
+from crm_company_enrich.stages.enrich_web import SiteAliveCheck
 
 ORIG_VERIFIED_SITE = sync_deals._verified_site
 
@@ -37,6 +41,11 @@ def no_live_rusprofile(monkeypatch):
         sync_deals,
         "_verified_site",
         lambda site, company, inn="": sync_deals.SiteVerification(site, True, True, ["test"]),
+    )
+    monkeypatch.setattr(
+        sync_deals,
+        "is_site_alive",
+        lambda url: SiteAliveCheck(url, True, 200, "ok"),
     )
 
 
@@ -185,7 +194,7 @@ def test_build_deal_fields_from_company_maps_known_fields():
     assert fields[DEAL_UF_REVENUE_MONEY] == "139866000|RUB"
     assert fields[DEAL_UF_RUSPROFILE_URL] == "https://www.rusprofile.ru/search?query=5406990573"
     assert fields[DEAL_UF_BRAND_PROJECT] == "1820"
-    assert fields[DEAL_UF_INDUSTRY] == "456"
+    assert fields[DEAL_UF_INDUSTRY] == DEAL_INDUSTRY_ENUM["E-commerce"]
 
     company_fields = sync_deals.build_company_fields_from_company(_company())
     assert company_fields == {
@@ -277,7 +286,7 @@ def test_dry_run_does_not_update_deal():
     summary = sync_deals.run(bx, company_id="100", dry_run=True)
 
     assert summary["dry_run_updates"] == 1
-    assert summary["company_dry_run_updates"] == 0
+    assert summary["company_dry_run_updates"] == 1
     assert summary["updated"] == 0
     assert bx.update_deal_calls == []
     assert bx.update_company_calls == []
@@ -322,7 +331,7 @@ def test_live_adds_company_contacts_to_deal_without_field_updates():
             DEAL_UF_REVENUE_TEXT: "139866000",
             DEAL_UF_REVENUE_MONEY: "139866000|RUB",
             DEAL_UF_REVENUE_NUMBER: 139866000,
-            DEAL_UF_INDUSTRY: "456",
+            DEAL_UF_INDUSTRY: DEAL_INDUSTRY_ENUM["E-commerce"],
             DEAL_UF_RUSPROFILE_URL: "https://www.rusprofile.ru/search?query=5406990573",
         }
     )
@@ -358,7 +367,7 @@ def test_live_adds_deal_contacts_to_company_without_field_updates():
             DEAL_UF_REVENUE_TEXT: "139866000",
             DEAL_UF_REVENUE_MONEY: "139866000|RUB",
             DEAL_UF_REVENUE_NUMBER: 139866000,
-            DEAL_UF_INDUSTRY: "456",
+            DEAL_UF_INDUSTRY: DEAL_INDUSTRY_ENUM["E-commerce"],
             DEAL_UF_RUSPROFILE_URL: "https://www.rusprofile.ru/search?query=5406990573",
         }
     )
@@ -389,7 +398,7 @@ def test_dry_run_reports_missing_company_contacts_without_writing():
             DEAL_UF_REVENUE_TEXT: "139866000",
             DEAL_UF_REVENUE_MONEY: "139866000|RUB",
             DEAL_UF_REVENUE_NUMBER: 139866000,
-            DEAL_UF_INDUSTRY: "456",
+            DEAL_UF_INDUSTRY: DEAL_INDUSTRY_ENUM["E-commerce"],
             DEAL_UF_RUSPROFILE_URL: "https://www.rusprofile.ru/search?query=5406990573",
         }
     )
@@ -479,7 +488,7 @@ def test_live_fills_empty_contact_communications_from_company():
             DEAL_UF_REVENUE_TEXT: "139866000",
             DEAL_UF_REVENUE_MONEY: "139866000|RUB",
             DEAL_UF_REVENUE_NUMBER: 139866000,
-            DEAL_UF_INDUSTRY: "456",
+            DEAL_UF_INDUSTRY: DEAL_INDUSTRY_ENUM["E-commerce"],
             DEAL_UF_RUSPROFILE_URL: "https://www.rusprofile.ru/search?query=5406990573",
         }
     )
@@ -526,7 +535,7 @@ def test_does_not_overwrite_existing_contact_communications():
             DEAL_UF_REVENUE_TEXT: "139866000",
             DEAL_UF_REVENUE_MONEY: "139866000|RUB",
             DEAL_UF_REVENUE_NUMBER: 139866000,
-            DEAL_UF_INDUSTRY: "456",
+            DEAL_UF_INDUSTRY: DEAL_INDUSTRY_ENUM["E-commerce"],
             DEAL_UF_RUSPROFILE_URL: "https://www.rusprofile.ru/search?query=5406990573",
         }
     )
@@ -557,13 +566,21 @@ def test_does_not_overwrite_existing_contact_communications():
 def test_live_reconciles_company_industry_even_when_deal_industry_is_filled():
     bx = FakeBitrix(
         companies={"100": _company(INDUSTRY="UC_0M5893")},
-        deals_by_company={"100": [_deal(**{DEAL_UF_INDUSTRY: "456"})]},
+        deals_by_company={"100": [_deal(**{DEAL_UF_INDUSTRY: DEAL_INDUSTRY_ENUM["E-commerce"]})]},
     )
 
     summary = sync_deals.run(bx, company_id="100", dry_run=False)
 
     assert summary["company_updated"] == 1
-    assert bx.update_company_calls == [("100", {"INDUSTRY": "UC_QOXULA"})]
+    assert bx.update_company_calls == [
+        (
+            "100",
+            {
+                "INDUSTRY": COMPANY_INDUSTRY_STATUS["E-commerce"],
+                UF_BRAND_LEGACY_ENUM_FIELD: UF_BRAND_LEGACY_ENUM_ACOOLA,
+            },
+        )
+    ]
     assert bx.companies["100"]["INDUSTRY"] == "UC_QOXULA"
 
 
@@ -574,7 +591,7 @@ def test_live_reconciles_company_rusprofile_link_even_when_deal_is_filled():
             "100": [
                 _deal(
                     **{
-                        DEAL_UF_INDUSTRY: "456",
+                        DEAL_UF_INDUSTRY: DEAL_INDUSTRY_ENUM["E-commerce"],
                         DEAL_UF_RUSPROFILE_URL: "https://www.rusprofile.ru/search?query=5406990573",
                     }
                 )
@@ -586,7 +603,13 @@ def test_live_reconciles_company_rusprofile_link_even_when_deal_is_filled():
 
     assert summary["company_updated"] == 1
     assert bx.update_company_calls == [
-        ("100", {COMPANY_UF_RUSPROFILE_CHECKO_URL: "https://www.rusprofile.ru/search?query=5406990573"})
+        (
+            "100",
+            {
+                COMPANY_UF_RUSPROFILE_CHECKO_URL: "https://www.rusprofile.ru/search?query=5406990573",
+                UF_BRAND_LEGACY_ENUM_FIELD: UF_BRAND_LEGACY_ENUM_ACOOLA,
+            },
+        )
     ]
 
 
@@ -598,7 +621,7 @@ def test_live_reconciles_company_organization_status(monkeypatch):
             "100": [
                 _deal(
                     **{
-                        DEAL_UF_INDUSTRY: "456",
+                        DEAL_UF_INDUSTRY: DEAL_INDUSTRY_ENUM["E-commerce"],
                         DEAL_UF_RUSPROFILE_URL: "https://www.rusprofile.ru/search?query=5406990573",
                     }
                 )
@@ -610,7 +633,13 @@ def test_live_reconciles_company_organization_status(monkeypatch):
 
     assert summary["company_updated"] == 1
     assert bx.update_company_calls == [
-        ("100", {COMPANY_UF_ORGANIZATION_STATUS: COMPANY_ORGANIZATION_STATUS_ENUM["Действующая"]})
+        (
+            "100",
+            {
+                COMPANY_UF_ORGANIZATION_STATUS: COMPANY_ORGANIZATION_STATUS_ENUM["Действующая"],
+                UF_BRAND_LEGACY_ENUM_FIELD: UF_BRAND_LEGACY_ENUM_ACOOLA,
+            },
+        )
     ]
 
 
@@ -712,7 +741,7 @@ def test_baggage_store_is_ecommerce_not_tourism():
         )
     )
 
-    assert fields[DEAL_UF_INDUSTRY] == "456"
+    assert fields[DEAL_UF_INDUSTRY] == DEAL_INDUSTRY_ENUM["E-commerce"]
 
 
 def test_site_primary_is_filled_only_when_site_identity_verified(monkeypatch):
@@ -883,7 +912,7 @@ def test_rusprofile_main_activity_fills_other_industry(monkeypatch):
     assert summary["updated"] == 1
     assert summary["company_updated"] == 1
     _, deal_fields = bx.update_deal_calls[0]
-    assert deal_fields[DEAL_UF_INDUSTRY] == "2122"
+    assert deal_fields[DEAL_UF_INDUSTRY] == DEAL_INDUSTRY_ENUM["Другое"]
     assert bx.update_company_calls[0][1]["INDUSTRY"] == COMPANY_INDUSTRY_STATUS["Другое"]
 
 
@@ -939,9 +968,53 @@ def test_run_company_fills_company_without_deals(monkeypatch):
                 COMPANY_UF_ORGANIZATION_STATUS: COMPANY_ORGANIZATION_STATUS_ENUM["Действующая"],
                 "UF_CRM_1735331882180": "7725819008",
                 "UF_CRM_1737098476975": "Belberry",
+                UF_BRAND_LEGACY_ENUM_FIELD: UF_BRAND_LEGACY_ENUM_BELBERRY,
             },
         )
     ]
+
+
+def test_run_syncs_brand_and_industry_to_company_and_deal(monkeypatch):
+    monkeypatch.setattr(sync_deals, "_organization_status_from_inn", lambda inn: "Действующая")
+    monkeypatch.setattr(
+        sync_deals,
+        "_industry_from_inn",
+        lambda inn: "Медицинские товары и оборудование",
+    )
+    bx = FakeBitrix(
+        companies={
+            "100": _company(
+                TITLE='ООО "МЕДТЕХ ПОСТАВКА"',
+                INDUSTRY="",
+                UF_CRM_1737100327954="Оптовая торговля медицинскими изделиями и оборудованием",
+                UF_CRM_1737098476975="",
+                **{UF_BRAND_LEGACY_ENUM_FIELD: ""},
+                **{COMPANY_UF_RUSPROFILE_CHECKO_URL: ""},
+                **{COMPANY_UF_ORGANIZATION_STATUS: ""},
+            )
+        },
+        deals_by_company={"100": [_deal()]},
+    )
+
+    summary = sync_deals.run(bx, company_id="100", dry_run=False)
+
+    assert summary["updated"] == 1
+    assert summary["company_updated"] == 1
+    assert bx.update_company_calls == [
+        (
+            "100",
+            {
+                "INDUSTRY": COMPANY_INDUSTRY_STATUS["Медицинские товары и оборудование"],
+                COMPANY_UF_RUSPROFILE_CHECKO_URL: "https://www.rusprofile.ru/search?query=5406990573",
+                COMPANY_UF_ORGANIZATION_STATUS: COMPANY_ORGANIZATION_STATUS_ENUM["Действующая"],
+                "UF_CRM_1737098476975": "Acoola Team",
+                UF_BRAND_LEGACY_ENUM_FIELD: UF_BRAND_LEGACY_ENUM_ACOOLA,
+            },
+        )
+    ]
+    _, deal_fields = bx.update_deal_calls[0]
+    assert deal_fields[DEAL_UF_BRAND_PROJECT] == "1820"
+    assert deal_fields[DEAL_UF_INDUSTRY] == DEAL_INDUSTRY_ENUM["Медицинские товары и оборудование"]
 
 
 def test_run_company_refines_other_industry_from_doctor_domain(monkeypatch):
@@ -974,6 +1047,7 @@ def test_run_company_refines_other_industry_from_doctor_domain(monkeypatch):
             {
                 "INDUSTRY": COMPANY_INDUSTRY_STATUS["Медицина"],
                 "UF_CRM_1737098476975": "Belberry",
+                UF_BRAND_LEGACY_ENUM_FIELD: UF_BRAND_LEGACY_ENUM_BELBERRY,
             },
         )
     ]
@@ -1039,7 +1113,15 @@ def test_run_company_replaces_dead_site_with_explicit_working_site(monkeypatch):
     )
 
     assert summary["updated"] == 1
-    assert bx.update_company_calls == [("1144", {"UF_CRM_5DEF838D882A2": "medscannet.ru"})]
+    assert bx.update_company_calls == [
+        (
+            "1144",
+            {
+                "UF_CRM_5DEF838D882A2": "medscannet.ru",
+                UF_BRAND_LEGACY_ENUM_FIELD: UF_BRAND_LEGACY_ENUM_BELBERRY,
+            },
+        )
+    ]
 
 
 def test_deal_replaces_dead_site_primary_with_working_company_site(monkeypatch):

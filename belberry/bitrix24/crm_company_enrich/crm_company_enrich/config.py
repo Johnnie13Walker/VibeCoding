@@ -205,6 +205,8 @@ CCE_APPLY_SLEEP_S = float(os.environ.get("CCE_APPLY_SLEEP_S", "0.5"))
 # Гибридный apply: пауза после bizproc.workflow.start перед verify-чтением
 # реквизитов (BP подтягивает данные из ЕГРЮЛ — реалистично 5-20 сек).
 CCE_BIZPROC_WAIT_S = int(os.environ.get("CCE_BIZPROC_WAIT_S", "15"))
+CCE_BIZPROC_POLL_S = int(os.environ.get("CCE_BIZPROC_POLL_S", "5"))
+CCE_BIZPROC_TIMEOUT_S = int(os.environ.get("CCE_BIZPROC_TIMEOUT_S", "360"))
 
 # Гибридный apply: touch компании (crm.company.update COMMENTS+=" ") перед BP.
 # По умолчанию выключено: на belberrycrm есть AUTO_EXECUTE=2 шаблон 5938,
@@ -245,11 +247,16 @@ CCE_APPLY_CLEANUP_DUPLICATE = _env_bool("CCE_APPLY_CLEANUP_DUPLICATE", default=T
 UF_BRAND_FIELD = "UF_CRM_1737098476975"
 UF_BRAND_BELBERRY = "Belberry"
 UF_BRAND_ACOOLA = "Acoola Team"
+UF_BRAND_LEGACY_ENUM_FIELD = "UF_CRM_684FE59BA3C8C"
+UF_BRAND_LEGACY_ENUM_BELBERRY = "2444"
+UF_BRAND_LEGACY_ENUM_ACOOLA = "2442"
 CCE_APPLY_SET_BRAND = _env_bool("CCE_APPLY_SET_BRAND", default=True)
+CCE_VALIDATE_UF_SITE = _env_bool("CCE_VALIDATE_UF_SITE", default=True)
 COMPANY_UF_RUSPROFILE_CHECKO_URL = "UF_CRM_RUSPROFILE_CHECKO_URL"  # Ссылка на Rusprofile / Checko
 COMPANY_UF_ORGANIZATION_STATUS = "UF_CRM_ORG_STATUS"  # Статус организации (enum)
 COMPANY_UF_CITY = "UF_CRM_1584876724"  # Город
 COMPANY_UF_REGION = "UF_CRM_REGION_RF"  # Область (enum)
+COMPANY_UF_LEGAL_ADDRESS = "UF_CRM_1737098445351"  # Юридический адрес из BP
 COMPANY_ORGANIZATION_STATUS_ENUM = {
     "Действующая": "8850",
     "Ликвидирована": "8852",
@@ -381,18 +388,74 @@ DEAL_BRAND_ENUM = {
     UF_BRAND_ACOOLA: "1820",
 }
 DEAL_INDUSTRY_ENUM = {
-    "E-commerce": "456",
-    "Медицина": "434",
-    "Туризм, отдых, путешествия": "460",
-    "Услуги для бизнеса": "498",
-    "Другое": "2122",
+    "Товары для дома / мебель / интерьер": "9498",
+    "Промышленность": "9470",
+    "Услуги безопасности": "9514",
+    "E-commerce": "9506",
+    "Медицина": "9518",
+    "Медицинские товары и оборудование": "9522",
+    "Фармацевтика": "9512",
+    "Оборудование": "9490",
+    "Аптеки": "9508",
+    "Автосервисы": "9496",
+    "Маркетинг / реклама / digital": "9502",
+    "Строительство": "9478",
+    "Не выяснено": "9480",
+    "Салоны красоты": "9516",
+    "Недвижимость (продажа)": "9484",
+    "Туризм, отдых, путешествия": "9472",
+    "Юриспруденция": "9474",
+    "Бытовое обслуживание": "9504",
+    "Общественное питание и рестораны": "9486",
+    "Финансовая деятельность": "9468",
+    "Фитнес и спорт": "9476",
+    "Производство продуктов питания": "9494",
+    "Информационные технологии и связь": "9520",
+    "Автодилер": "9500",
+    "Услуги для бизнеса": "9492",
+    "Логистика": "9482",
+    "Розничная торговля": "9524",
+    "Образование и воспитание": "9488",
+    "Другое": "9510",
+}
+DEAL_INDUSTRY_LEGACY_ENUM = {
+    "E-commerce": ("456",),
+    "Медицина": ("434",),
+    "Туризм, отдых, путешествия": ("460",),
+    "Услуги для бизнеса": ("498",),
+    "Другое": ("2122",),
 }
 
 # Значения стандартного поля компании INDUSTRY.
 COMPANY_INDUSTRY_STATUS = {
     "E-commerce": "UC_QOXULA",
     "Медицина": "UC_0M5893",
+    "Медицинские товары и оборудование": "UC_MEDICAL_GOODS_EQUIPMENT",
+    "Фармацевтика": "UC_2AMGTG",
+    "Оборудование": "UC_T7APRU",
+    "Товары для дома / мебель / интерьер": "UC_HOME_FURNITURE",
+    "Услуги безопасности": "UC_PS98RI",
+    "Аптеки": "UC_W646J6",
+    "Не выяснено": "UC_BBV4DD",
+    "Салоны красоты": "UC_EZM7QL",
+    "Юриспруденция": "UC_YDO7T9",
+    "Бытовое обслуживание": "UC_EGMMIT",
+    "Общественное питание и рестораны": "UC_CKGLTA",
+    "Автодилер": "UC_8XHWS5",
+    "Логистика": "UC_O9GIDC",
+    "Образование и воспитание": "UC_SWXB08",
+    "Промышленность": "UC_CZCFYY",
+    "Производство продуктов питания": "UC_Y0L2E9",
+    "Розничная торговля": "UC_RETAIL_TRADE",
+    "Маркетинг / реклама / digital": "UC_MARKETING_DIGITAL",
+    "Информационные технологии и связь": "UC_LGXE4T",
     "Туризм, отдых, путешествия": "UC_5ZP2PO",
     "Услуги для бизнеса": "UC_LEDS72",
+    "Финансовая деятельность": "UC_S8K4GG",
+    "Строительство": "UC_LYLC8F",
+    "Недвижимость (продажа)": "UC_GCRV6B",
+    "Автосервисы": "UC_RYGNU4",
+    "Фитнес и спорт": "UC_4AIF05",
     "Другое": "OTHER",
 }
+COMPANY_INDUSTRY_LEGACY_STATUS = {}

@@ -1,0 +1,21 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "crm_deal_merge"
+version = "0.1.0"
+description = "Cross-funnel deal deduplication for Bitrix24 (Реанимация [38] → Телемаркетинг [50])"
+requires-python = ">=3.10"
+dependencies = [
+  "google-api-python-client>=2.0",
+  "google-auth>=2.0",
+  "google-auth-httplib2>=0.2.0",
+  "httplib2>=0.22.0",
+]
+
+[project.scripts]
+deal-merge = "crm_deal_merge.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["crm_deal_merge"]
