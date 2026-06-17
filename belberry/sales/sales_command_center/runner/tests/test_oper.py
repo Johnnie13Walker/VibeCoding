@@ -16,9 +16,9 @@ def test_emails_and_chats_count():
     assert oper.operational_score(dials=0, calls_60s=0, messenger_dialogs=6, emails=4) == 3.3
 
 
-def test_short_dials_capped_at_90():
-    # 1000 коротких наборов → cap 90 мин → 90/300×10 = 3.0
-    assert oper.operational_score(dials=1000, calls_60s=0) == 3.0
+def test_short_dials_capped_at_150():
+    # 1000 коротких наборов → cap 150 мин → 150/300×10 = 5.0
+    assert oper.operational_score(dials=1000, calls_60s=0) == 5.0
 
 
 def test_score_capped_at_10():
@@ -27,8 +27,8 @@ def test_score_capped_at_10():
 
 
 def test_operational_minutes_raw():
-    # 84 набора (60 коротких×2=120→cap90) + 24 звонка60с+×5=120 + 8 чатов×10=80 = 290
-    assert oper.operational_minutes(dials=84, calls_60s=24, messenger_dialogs=8) == 290.0
+    # 84 набора (60 коротких×2=120, под потолком 150) + 24 звонка60с+×5=120 + 8 чатов×10=80 = 320
+    assert oper.operational_minutes(dials=84, calls_60s=24, messenger_dialogs=8) == 320.0
 
 
 def test_status_thresholds():
