@@ -3,8 +3,9 @@
 import { useMemo, useState } from 'react';
 import { Flame, Clock, BellRing, ExternalLink, VolumeX } from 'lucide-react';
 import type { AlertManager, AlertsData } from '@/lib/alerts';
-import { BURNING_TOP, SILENT_TOP, TASKS_TOP, filterSection, sectionManagers } from '@/lib/alerts-filter';
+import { BURNING_TOP, SILENT_TOP, TASKS_TOP, TASK_KINDS, filterSection, filterTasks, sectionManagers, type TaskKind } from '@/lib/alerts-filter';
 import { ManagerPicker } from '@/components/telemarketing/ManagerPicker';
+import { TaskTypePicker } from '@/components/alerts/TaskTypePicker';
 
 const PORTAL = 'https://belberrycrm.bitrix24.ru';
 const dealUrl = (id: number) => `${PORTAL}/crm/deal/details/${id}/`;
@@ -49,10 +50,11 @@ export function AlertsView({ data }: { data: AlertsData }) {
   const [selB, setSelB] = useState<Set<number>>(() => new Set(burningManagers.map((m) => m.managerId)));
   const [selS, setSelS] = useState<Set<number>>(() => new Set(silentManagers.map((m) => m.managerId)));
   const [selT, setSelT] = useState<Set<number>>(() => new Set(taskManagers.map((m) => m.managerId)));
+  const [selKind, setSelKind] = useState<Set<TaskKind>>(() => new Set(TASK_KINDS));
 
   const burning = useMemo(() => filterSection(data.burning, selB, burningManagers.length, BURNING_TOP), [data.burning, selB, burningManagers.length]);
   const silent = useMemo(() => filterSection(data.silent, selS, silentManagers.length, SILENT_TOP), [data.silent, selS, silentManagers.length]);
-  const tasks = useMemo(() => filterSection(data.tasks, selT, taskManagers.length, TASKS_TOP), [data.tasks, selT, taskManagers.length]);
+  const tasks = useMemo(() => filterTasks(data.tasks, selT, taskManagers.length, selKind, TASKS_TOP), [data.tasks, selT, taskManagers.length, selKind]);
 
   const criticalCount = burning.filter((b) => b.severity === 'critical').length;
   const overdueCount = tasks.filter((t) => t.overdue).length;
@@ -150,7 +152,10 @@ export function AlertsView({ data }: { data: AlertsData }) {
           <span className="bb-sect-ic" style={{ background: '#fdf2e7', color: '#b5651d' }}><Clock size={17} /></span>
           <h2>Задачи на контроле</h2>
           <small>из разбора встреч · {tasks.length}</small>
-          <SectionPicker managers={taskManagers} selected={selT} onChange={setSelT} />
+          <div style={{ display: 'flex', gap: 8 }}>
+            <TaskTypePicker selected={selKind} onChange={setSelKind} />
+            <SectionPicker managers={taskManagers} selected={selT} onChange={setSelT} />
+          </div>
         </div>
         {tasks.length === 0 ? (
           <p style={{ color: 'var(--bb-muted)' }}>Открытых задач из разборов нет.</p>
