@@ -7,6 +7,10 @@ export type ConsumeCodeResult =
   | { ok: true; email: string }
   | { ok: false; reason: 'expired' | 'mismatch' };
 
+export type VerifyCodeResult =
+  | { ok: true; id: number; email: string }
+  | { ok: false; reason: 'expired' | 'mismatch' };
+
 export interface LoginCodeRow {
   id: number;
   email: string;
@@ -131,11 +135,16 @@ export async function issueCode(
   return code;
 }
 
-export async function consumeCode(
+// Проверяет код, но НЕ помечает его использованным. Списание (markCodeUsed)
+// должно происходить последним шагом логина — уже после успешной проверки
+// активности сотрудника в Bitrix и сохранения сессии. Иначе транзиентный сбой
+// Bitrix/БД сжигал бы одноразовый код, и повторный ввод того же кода давал бы
+// ложное «код истёк» (замкнутый круг до запроса нового кода).
+export async function verifyLoginCode(
   email: string,
   plain: string,
   repo: LoginCodeRepo = drizzleLoginCodeRepo,
-): Promise<ConsumeCodeResult> {
+): Promise<VerifyCodeResult> {
   const normalizedEmail = normalizeEmail(email);
   const row = await repo.newestUnused(normalizedEmail);
   const now = new Date();
@@ -149,6 +158,29 @@ export async function consumeCode(
     return { ok: false, reason: 'mismatch' };
   }
 
-  await repo.markUsed(row.id);
-  return { ok: true, email: normalizedEmail };
+  return { ok: true, id: row.id, email: normalizedEmail };
+}
+
+export async function markCodeUsed(
+  id: number,
+  repo: LoginCodeRepo = drizzleLoginCodeRepo,
+): Promise<void> {
+  await repo.markUsed(id);
+}
+
+// Атомарная проверка-и-списание. Оставлена для обратной совместимости (тесты,
+// прочие вызовы). Логин-флоу использует verifyLoginCode + markCodeUsed раздельно.
+export async function consumeCode(
+  email: string,
+  plain: string,
+  repo: LoginCodeRepo = drizzleLoginCodeRepo,
+): Promise<ConsumeCodeResult> {
+  const result = await verifyLoginCode(email, plain, repo);
+
+  if (!result.ok) {
+    return result;
+  }
+
+  await markCodeUsed(result.id, repo);
+  return { ok: true, email: result.email };
 }

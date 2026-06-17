@@ -52,7 +52,15 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
     setLoading(false);
 
     if (!response.ok) {
-      setError(response.status === 429 ? 'Слишком много попыток. Попробуйте позже.' : 'Код не подошёл или уже истёк.');
+      if (response.status === 429) {
+        setError('Слишком много попыток. Попробуйте позже.');
+      } else if (response.status === 403) {
+        setError('Доступ закрыт: аккаунт не активен в Bitrix24.');
+      } else if (response.status >= 500) {
+        setError('Временный сбой сервиса. Код не потрачен — нажмите «Войти» ещё раз.');
+      } else {
+        setError('Код не подошёл или уже истёк.');
+      }
       return;
     }
 
