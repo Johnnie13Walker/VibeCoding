@@ -52,6 +52,7 @@ export interface OperationalRow {
   scores: (number | null)[]; // балл по дням (null = нет данных за день)
   minutes: (number | null)[]; // живые минуты по дням — для загрузки
   leave: boolean[]; // день отсутствия (отпуск/больничный) — «Отпуск», вне среднего
+  actions: (OperDayInput | null)[]; // разбивка действий по дням — для тултипа
   avg: number | null; // средний балл сотрудника за окно
 }
 
@@ -98,6 +99,7 @@ export function buildOperationalMatrix(days: string[], members: OperMemberInput[
     const scores: (number | null)[] = [];
     const minutes: (number | null)[] = [];
     const leave: boolean[] = [];
+    const actions: (OperDayInput | null)[] = [];
     for (const d of days) {
       // День отпуска/больничного: «Отпуск», вне среднего (не как простой-0 и не как
       // нет-данных). Активность в этот день (если вдруг есть) игнорируем для балла.
@@ -105,6 +107,7 @@ export function buildOperationalMatrix(days: string[], members: OperMemberInput[
         scores.push(null);
         minutes.push(null);
         leave.push(true);
+        actions.push(null);
         continue;
       }
       leave.push(false);
@@ -112,14 +115,16 @@ export function buildOperationalMatrix(days: string[], members: OperMemberInput[
       if (!a) {
         scores.push(null);
         minutes.push(null);
+        actions.push(null);
         continue;
       }
       scores.push(operationalScore(a));
       minutes.push(operationalMinutes(a));
+      actions.push(a);
     }
     const present = scores.filter((s): s is number => s != null);
     const avg = present.length ? Math.round((present.reduce((x, y) => x + y, 0) / present.length) * 10) / 10 : null;
-    return { managerId: m.managerId, name: m.name, role: m.role, isTm: m.isTm, scores, minutes, leave, avg };
+    return { managerId: m.managerId, name: m.name, role: m.role, isTm: m.isTm, scores, minutes, leave, actions, avg };
   };
 
   const byAvg = (a: OperationalRow, b: OperationalRow) => (b.avg ?? -1) - (a.avg ?? -1) || a.name.localeCompare(b.name, 'ru');

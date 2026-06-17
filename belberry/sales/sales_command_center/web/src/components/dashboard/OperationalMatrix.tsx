@@ -1,4 +1,9 @@
+'use client';
+
+import { useState } from 'react';
 import type { OperationalMatrix, OperationalRow } from '@/lib/operational';
+
+interface TipState { top: number; left: number; row: OperationalRow; i: number }
 
 function fmtDate(iso: string): string {
   const [, m, d] = iso.split('-');
@@ -27,10 +32,17 @@ function Mini({ label, value, sub }: { label: string; value: string; sub?: strin
 const NAME_W = 210;
 const COL_W = 58;
 
-function Cell({ v, leave }: { v: number | null; leave?: boolean }) {
+function Cell({ v, leave, hover }: { v: number | null; leave?: boolean; hover?: { onEnter: (rect: DOMRect) => void; onLeave: () => void } }) {
+  const hoverProps = hover
+    ? {
+        onMouseEnter: (e: React.MouseEvent<HTMLDivElement>) => hover.onEnter(e.currentTarget.getBoundingClientRect()),
+        onMouseLeave: hover.onLeave,
+        style: { cursor: 'default' as const },
+      }
+    : {};
   if (leave) {
     return (
-      <div title="Отпуск / отсутствие — вне среднего балла" style={{ height: 34, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#eef0fd', color: 'var(--bb-violet)', fontWeight: 700, fontSize: 11, letterSpacing: '.02em' }}>
+      <div {...hoverProps} style={{ ...(hoverProps as { style?: object }).style, height: 34, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#eef0fd', color: 'var(--bb-violet)', fontWeight: 700, fontSize: 11, letterSpacing: '.02em' }}>
         отп
       </div>
     );
@@ -45,15 +57,16 @@ function Cell({ v, leave }: { v: number | null; leave?: boolean }) {
   const t = tone(v);
   return (
     <div
+      {...hoverProps}
       className="tabular"
-      style={{ height: 34, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14, background: t.bg, color: t.fg }}
+      style={{ ...(hoverProps as { style?: object }).style, height: 34, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14, background: t.bg, color: t.fg }}
     >
       {v.toFixed(1)}
     </div>
   );
 }
 
-function Row({ r, ncols }: { r: OperationalRow; ncols: number }) {
+function Row({ r, ncols, onCell, onLeaveCell }: { r: OperationalRow; ncols: number; onCell: (i: number, rect: DOMRect) => void; onLeaveCell: () => void }) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: `${NAME_W}px repeat(${ncols}, ${COL_W}px) ${COL_W + 6}px`, gap: 4, alignItems: 'center' }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 1, paddingRight: 8 }}>
@@ -61,11 +74,50 @@ function Row({ r, ncols }: { r: OperationalRow; ncols: number }) {
         <span style={{ fontSize: 11, color: 'var(--bb-faint)', textTransform: 'uppercase', letterSpacing: '.04em' }}>{r.role || '—'}</span>
       </div>
       {r.scores.map((v, i) => (
-        <Cell key={i} v={v} leave={r.leave[i]} />
+        <Cell
+          key={i}
+          v={v}
+          leave={r.leave[i]}
+          hover={v != null || r.leave[i] ? { onEnter: (rect) => onCell(i, rect), onLeave: onLeaveCell } : undefined}
+        />
       ))}
       <div className="tabular" style={{ height: 34, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 14, background: '#0f172a', color: '#fff' }}>
         {r.avg != null ? r.avg.toFixed(1) : '—'}
       </div>
+    </div>
+  );
+}
+
+/** Всплывающая разбивка операционных показателей дня (fixed — не режется скроллом). */
+function OperTip({ tip, days }: { tip: TipState; days: string[] }) {
+  const { row, i } = tip;
+  const a = row.actions[i];
+  const lines: [string, string][] = [];
+  if (row.leave[i]) {
+    lines.push(['Статус', 'отпуск / отсутствие']);
+  } else if (a) {
+    lines.push(['Наборы', `${a.dials}${a.calls60 ? ` (дозвон 60с+: ${a.calls60})` : ''}`]);
+    lines.push(['Чаты Wazzup', String(a.messenger)]);
+    lines.push(['Письма', String(a.emails)]);
+    lines.push(['Встречи', String(a.meetings)]);
+    const mins = row.minutes[i];
+    if (mins != null) lines.push(['Живые минуты', `${Math.round(mins)} → балл ${row.scores[i]?.toFixed(1)}`]);
+  }
+  return (
+    <div
+      style={{
+        position: 'fixed', top: tip.top - 10, left: tip.left, transform: 'translate(-50%, -100%)', zIndex: 60,
+        background: '#1d1d1f', color: '#fff', borderRadius: 10, padding: '9px 12px', fontSize: 12, lineHeight: 1.5,
+        whiteSpace: 'nowrap', boxShadow: '0 10px 28px -8px rgba(0,0,0,.45)', pointerEvents: 'none', textAlign: 'left',
+      }}
+    >
+      <div style={{ fontWeight: 700, marginBottom: 5 }}>{row.name} · {days[i] ? fmtDate(days[i]) : ''}</div>
+      {lines.map(([k, val]) => (
+        <div key={k} style={{ display: 'flex', justifyContent: 'space-between', gap: 14 }}>
+          <span style={{ opacity: 0.7 }}>{k}</span>
+          <span style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{val}</span>
+        </div>
+      ))}
     </div>
   );
 }
@@ -79,12 +131,17 @@ function SectionLabel({ text }: { text: string }) {
 }
 
 export function OperationalMatrixView({ data }: { data: OperationalMatrix }) {
+  const [tip, setTip] = useState<TipState | null>(null);
   if (data.days.length === 0 || data.rows.length === 0) {
     return <p style={{ color: 'var(--bb-muted)' }}>За период нет данных по операционной активности.</p>;
   }
   const ncols = data.days.length;
   const op = data.rows.filter((r) => !r.isTm);
   const tm = data.rows.filter((r) => r.isTm);
+  const rowHover = (r: OperationalRow) => ({
+    onCell: (i: number, rect: DOMRect) => setTip({ top: rect.top, left: rect.left + rect.width / 2, row: r, i }),
+    onLeaveCell: () => setTip(null),
+  });
 
   return (
     <div>
@@ -109,14 +166,14 @@ export function OperationalMatrixView({ data }: { data: OperationalMatrix }) {
           {op.length > 0 ? <SectionLabel text="Отдел продаж" /> : null}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
             {op.map((r) => (
-              <Row key={r.managerId} r={r} ncols={ncols} />
+              <Row key={r.managerId} r={r} ncols={ncols} {...rowHover(r)} />
             ))}
           </div>
 
           {tm.length > 0 ? <SectionLabel text="Телемаркетинг" /> : null}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
             {tm.map((r) => (
-              <Row key={r.managerId} r={r} ncols={ncols} />
+              <Row key={r.managerId} r={r} ncols={ncols} {...rowHover(r)} />
             ))}
           </div>
 
@@ -152,6 +209,8 @@ export function OperationalMatrixView({ data }: { data: OperationalMatrix }) {
           </span>
         ))}
       </div>
+
+      {tip ? <OperTip tip={tip} days={data.days} /> : null}
     </div>
   );
 }
