@@ -286,6 +286,11 @@ def build_db_rows(raw: dict[str, Any], target_date: date, now: datetime) -> dict
         did = _to_int(d.get("ID"))
         if did is not None:
             deal_owner[did] = _to_int(d.get("ASSIGNED_BY_ID"))
+    # Явная карта владельцев родительских сделок брифов/КП (вкл. закрытые) — приоритет.
+    for did, owner in (raw.get("deal_owners") or {}).items():
+        di = _to_int(did)
+        if di is not None:
+            deal_owner[di] = _to_int(owner)
 
     def _deal_resp(item: dict[str, Any]) -> int | None:
         deal = _to_int(item.get("parentId2"))
