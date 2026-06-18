@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import type { SalesFunnel as SalesFunnelData } from '@/lib/dashboard';
+import { FUNNEL_MAX_ORDER, FUNNEL_STEPS_10 } from '@/lib/funnel-stages';
 import { ManagerPicker } from './ManagerPicker';
 
 function money(value: number): string {
@@ -11,15 +12,11 @@ function money(value: number): string {
 }
 
 const chipStyle: React.CSSProperties = {
-  fontSize: 13,
-  fontWeight: 500,
-  color: 'var(--bb-muted)',
-  background: 'var(--bb-soft, #f1f0fb)',
-  borderRadius: 999,
-  padding: '5px 12px',
+  fontSize: 13, fontWeight: 500, color: 'var(--bb-muted)',
+  background: 'var(--bb-soft, #f1f0fb)', borderRadius: 999, padding: '5px 12px',
 };
 
-/** Старый рендер (счётчик событий) — fallback для пустого состояния без сейлов. */
+/** Старый рендер (счётчик событий) — fallback для пустого состояния. */
 function LegacyFunnel({ data }: { data: SalesFunnelData }) {
   const [grown, setGrown] = useState(false);
   useEffect(() => {
@@ -29,11 +26,6 @@ function LegacyFunnel({ data }: { data: SalesFunnelData }) {
   const max = Math.max(...data.steps.map((s) => s.count)) || 1;
   return (
     <div>
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
-        <span style={chipStyle}>Холодные: <b style={{ color: 'var(--bb-ink)' }}>{data.dealsCold}</b></span>
-        <span style={chipStyle}>Входящие: <b style={{ color: 'var(--bb-ink)' }}>{data.dealsIncoming}</b></span>
-        <span style={chipStyle}>Средний чек: <b style={{ color: 'var(--bb-ink)' }}>{data.avgCheck > 0 ? money(data.avgCheck) : '—'}</b></span>
-      </div>
       <div className="bb-funnel">
         {data.steps.map((s) => (
           <div className="bb-fbar" key={s.key}>
@@ -49,10 +41,8 @@ function LegacyFunnel({ data }: { data: SalesFunnelData }) {
   );
 }
 
-
 export function SalesFunnel({ data }: { data: SalesFunnelData }) {
   const managers = useMemo(() => data.managers ?? [], [data.managers]);
-  // Мульти-выбор (чекбоксы). По умолчанию выбраны все.
   const [sel, setSel] = useState<Set<number>>(() => new Set(managers.map((m) => m.managerId)));
   const [grown, setGrown] = useState(false);
   useEffect(() => {
@@ -62,42 +52,33 @@ export function SalesFunnel({ data }: { data: SalesFunnelData }) {
 
   const agg = useMemo(() => {
     const picked = managers.filter((m) => sel.has(m.managerId));
-    const sum = (k: 'dealsInWork' | 'kpDeals' | 'defenseDeals' | 'won' | 'briefingDeals' | 'cold' | 'incoming' | 'wonAmount') =>
-      picked.reduce((s, m) => s + (m[k] || 0), 0);
-    const won = sum('won');
-    const wonAmount = sum('wonAmount');
-    return {
-      base: sum('dealsInWork'),
-      kp: sum('kpDeals'),
-      defense: sum('defenseDeals'),
-      won,
-      briefings: sum('briefingDeals'),
-      cold: sum('cold'),
-      incoming: sum('incoming'),
-      avgCheck: won > 0 ? Math.round(wonAmount / won) : 0,
-    };
+    const reached = new Array(FUNNEL_MAX_ORDER + 1).fill(0);
+    let entered = 0, won = 0, lost = 0, spam = 0, wonAmount = 0;
+    for (const m of picked) {
+      entered += m.entered; won += m.won; lost += m.lost; spam += m.spam; wonAmount += m.wonAmount;
+      for (let o = 1; o <= FUNNEL_MAX_ORDER; o++) reached[o] += m.reached?.[o] ?? 0;
+    }
+    return { entered, reached, won, lost, spam, wonAmount, avgCheck: won > 0 ? Math.round(wonAmount / won) : 0 };
   }, [sel, managers]);
 
   if (!managers.length) return <LegacyFunnel data={data} />;
 
-  const { base, kp, defense, won } = agg;
-  const rows = [
-    { key: 'deals', label: 'Сделки в работе', sub: '', count: base, prev: null as number | null },
-    { key: 'kp', label: 'Отправлено КП', sub: '', count: kp, prev: base },
-    { key: 'defense', label: 'Дошли до защиты', sub: 'презентация КП', count: defense, prev: kp },
-    { key: 'won', label: 'Оплатили', sub: '', count: won, prev: defense },
-  ];
-  const denom = Math.max(base, kp, defense, won, 1);
+  const entered = agg.entered;
+  const steps = FUNNEL_STEPS_10.map((s, i) => ({
+    ...s,
+    count: agg.reached[s.order] ?? 0,
+    prev: i === 0 ? null : (agg.reached[FUNNEL_STEPS_10[i - 1].order] ?? 0),
+  }));
+  const denom = Math.max(entered, 1);
   // Главная утечка — переход с максимальной абсолютной потерей сделок.
-  let leakKey = '';
-  let leakDrop = 0;
-  for (const r of rows) {
-    if (r.prev != null) {
-      const d = r.prev - r.count;
-      if (d > leakDrop) { leakDrop = d; leakKey = r.key; }
+  let leakIdx = -1, leakDrop = 0;
+  steps.forEach((s, i) => {
+    if (s.prev != null) {
+      const d = s.prev - s.count;
+      if (d > leakDrop) { leakDrop = d; leakIdx = i; }
     }
-  }
-  const pct = (n: number) => (base > 0 ? Math.round((n / base) * 100) : null);
+  });
+  const pct = (n: number) => (entered > 0 ? Math.round((n / entered) * 100) : null);
 
   return (
     <div>
@@ -108,57 +89,56 @@ export function SalesFunnel({ data }: { data: SalesFunnelData }) {
 
       {/* плашки-контекст */}
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 18 }}>
-        <span style={chipStyle}>Холодные: <b style={{ color: 'var(--bb-ink)' }}>{agg.cold}</b></span>
-        <span style={chipStyle}>Входящие: <b style={{ color: 'var(--bb-ink)' }}>{agg.incoming}</b></span>
-        <span style={chipStyle}>Первых встреч: <b style={{ color: 'var(--bb-ink)' }}>{agg.briefings}</b></span>
+        <span style={chipStyle}>Вошло в воронку: <b style={{ color: 'var(--bb-ink)' }}>{entered}</b></span>
+        {agg.spam > 0 ? <span style={chipStyle}>Спам исключён: <b style={{ color: 'var(--bb-ink)' }}>{agg.spam}</b></span> : null}
+        <span style={chipStyle}>Отвал/отложено: <b style={{ color: 'var(--bb-ink)' }}>{agg.lost}</b></span>
         <span style={chipStyle}>Средний чек: <b style={{ color: 'var(--bb-ink)' }}>{agg.avgCheck > 0 ? money(agg.avgCheck) : '—'}</b></span>
       </div>
 
-      {/* воронка-когорта */}
       {sel.size === 0 ? (
         <div style={{ padding: '28px 0', textAlign: 'center', color: 'var(--bb-faint)', fontSize: 14 }}>
-          Никто не выбран — отметьте сейлов или нажмите «Весь отдел».
+          Никто не выбран — отметьте сейлов или нажмите «Все менеджеры».
         </div>
       ) : (
       <>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
-        {rows.map((r) => {
-          const p = pct(r.count);
-          const drop = r.prev != null ? r.prev - r.count : null;
-          const isLeak = r.key === leakKey && leakDrop > 0;
-          const w = grown ? Math.max(8, (r.count / denom) * 100) : 0;
-          const zero = r.count === 0;
+      {/* воронка по стадиям (полная цепочка, событийно по входу) */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+        {steps.map((s, i) => {
+          const p = pct(s.count);
+          const drop = s.prev != null ? s.prev - s.count : null;
+          const isLeak = i === leakIdx && leakDrop > 0;
+          const w = grown ? Math.max(s.count > 0 ? 6 : 0, (s.count / denom) * 100) : 0;
+          const zero = s.count === 0;
           return (
-            <div key={r.key} style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-              <div style={{ width: 180, flex: '0 0 180px' }}>
-                <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--bb-ink)' }}>{r.label}</div>
-                {r.sub ? <div style={{ fontSize: 11, color: 'var(--bb-faint)' }}>{r.sub}</div> : null}
+            <div key={s.stage} style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              <div style={{ width: 190, flex: '0 0 190px' }}>
+                <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--bb-ink)' }}>{s.label}</div>
+                {s.sub ? <div style={{ fontSize: 11, color: 'var(--bb-faint)' }}>{s.sub}</div> : null}
               </div>
-              <div style={{ flex: 1, height: 38, background: '#f3f0ec', borderRadius: 10, overflow: 'hidden' }}>
+              <div style={{ flex: 1, height: 34, background: '#f3f0ec', borderRadius: 9, overflow: 'hidden' }}>
                 <div
                   className="tabular"
                   style={{
-                    height: '100%', borderRadius: 10, width: `${w}%`, minWidth: 46,
-                    background: zero ? '#cfcad9' : 'linear-gradient(90deg, var(--bb-violet), var(--bb-indigo))',
-                    display: 'flex', alignItems: 'center', justifyContent: 'flex-end', paddingRight: 14,
-                    color: '#fff', fontWeight: 800, fontSize: 16,
+                    height: '100%', borderRadius: 9, width: `${w}%`, minWidth: 42,
+                    background: s.order === 9 && s.count > 0 ? 'linear-gradient(90deg,#2c7a4a,#1f5e38)'
+                      : zero ? '#cfcad9' : 'linear-gradient(90deg, var(--bb-violet), var(--bb-indigo))',
+                    display: 'flex', alignItems: 'center', justifyContent: 'flex-end', paddingRight: 12,
+                    color: '#fff', fontWeight: 800, fontSize: 15,
                     transition: 'width .9s cubic-bezier(.22,1,.36,1)',
                   }}
                 >
-                  {r.count}
+                  {s.count}
                 </div>
               </div>
-              <div style={{ width: 152, flex: '0 0 152px', textAlign: 'right', display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'flex-end' }}>
-                <span className="tabular" style={{ fontSize: 16, fontWeight: 800 }}>{p != null ? `${p}%` : '—'}</span>
-                {drop != null ? (
-                  <span style={{ fontSize: 12, fontWeight: 600, color: isLeak ? 'var(--bb-red)' : 'var(--bb-muted)' }}>
-                    −{drop}
-                  </span>
-                ) : (
-                  <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--bb-faint)' }}>вход</span>
-                )}
+              <div style={{ width: 150, flex: '0 0 150px', textAlign: 'right', display: 'flex', flexDirection: 'column', gap: 0, alignItems: 'flex-end' }}>
+                <span className="tabular" style={{ fontSize: 15, fontWeight: 800 }}>{p != null ? `${p}%` : '—'}</span>
+                {drop != null && drop > 0 ? (
+                  <span style={{ fontSize: 11.5, fontWeight: 600, color: isLeak ? 'var(--bb-red)' : 'var(--bb-muted)' }}>−{drop}</span>
+                ) : i === 0 ? (
+                  <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--bb-faint)' }}>вход</span>
+                ) : null}
                 {isLeak ? (
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: '#fdecec', color: 'var(--bb-red)', fontSize: 11, fontWeight: 700, borderRadius: 999, padding: '3px 9px', marginTop: 2 }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: '#fdecec', color: 'var(--bb-red)', fontSize: 11, fontWeight: 700, borderRadius: 999, padding: '2px 8px', marginTop: 2 }}>
                     ▼ главная утечка
                   </span>
                 ) : null}
@@ -168,12 +148,12 @@ export function SalesFunnel({ data }: { data: SalesFunnelData }) {
         })}
       </div>
 
-      {leakKey && leakDrop > 0 ? (
-        <div style={{ marginTop: 18, paddingTop: 16, borderTop: '1px solid var(--bb-line)', display: 'flex', alignItems: 'center', gap: 10, fontSize: 13.5, color: 'var(--bb-muted)' }}>
+      {leakIdx >= 0 && leakDrop > 0 ? (
+        <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--bb-line)', display: 'flex', alignItems: 'center', gap: 10, fontSize: 13.5, color: 'var(--bb-muted)' }}>
           <span style={{ width: 9, height: 9, borderRadius: 999, background: 'var(--bb-red)', flex: '0 0 9px' }} />
           <span>
-            Узкое место — <b style={{ color: 'var(--bb-ink)' }}>{leakLabel(leakKey)}</b>: теряется {leakDrop}{' '}
-            {leakKey === 'won' && won === 0 ? '(до оплаты не дошла ни одна)' : 'сделок'}.
+            Узкое место — <b style={{ color: 'var(--bb-ink)' }}>{FUNNEL_STEPS_10[leakIdx - 1]?.label} → {FUNNEL_STEPS_10[leakIdx]?.label}</b>: теряется {leakDrop}{' '}
+            {agg.won === 0 && leakIdx === FUNNEL_STEPS_10.length - 1 ? '(до оплаты не дошла ни одна)' : 'сделок'}.
           </span>
         </div>
       ) : null}
@@ -181,11 +161,4 @@ export function SalesFunnel({ data }: { data: SalesFunnelData }) {
       )}
     </div>
   );
-}
-
-function leakLabel(key: string): string {
-  if (key === 'kp') return 'Сделки → КП';
-  if (key === 'defense') return 'КП → защита';
-  if (key === 'won') return 'защита → оплата';
-  return key;
 }

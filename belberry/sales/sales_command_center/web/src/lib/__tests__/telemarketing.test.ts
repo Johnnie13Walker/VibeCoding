@@ -26,12 +26,12 @@ import {
 const isaeva: TmMember = {
   managerId: 2772, name: 'Дарья Исаева', dept: 'Телемаркетолог',
   dials: 1336, answered: 928, calls60: 370, calls120: 0, talkSeconds: 904 * 60,
-  meetingsSet: 14, meetingsHeldByCreator: 12, rejectionsPeriod: 77, dealsCold: 0, messenger: 0, emails: 0,
+  meetingsSet: 14, meetingsHeldByCreator: 12, briefingsHeldByCreator: 12, rejectionsPeriod: 77, dealsCold: 0, messenger: 0, emails: 0,
 };
 const vostretsov: TmMember = {
   managerId: 2832, name: 'Аркадий Вострецов', dept: 'Телемаркетолог',
   dials: 1220, answered: 692, calls60: 219, calls120: 0, talkSeconds: 637 * 60,
-  meetingsSet: 14, meetingsHeldByCreator: 11, rejectionsPeriod: 236, dealsCold: 0, messenger: 0, emails: 0,
+  meetingsSet: 14, meetingsHeldByCreator: 11, briefingsHeldByCreator: 11, rejectionsPeriod: 236, dealsCold: 0, messenger: 0, emails: 0,
 };
 
 describe('isTelemarketing', () => {

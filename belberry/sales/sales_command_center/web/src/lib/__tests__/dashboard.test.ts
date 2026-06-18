@@ -80,7 +80,7 @@ describe('buildFunnel', () => {
     expect(result.map((s) => s.label)).toEqual([
       'Квалификация',
       'Подготовка КП',
-      'Подготовка договора',
+      'Согласование договора',
     ]);
   });
 });
@@ -145,22 +145,22 @@ describe('buildSalesFunnel', () => {
 
 describe('buildForecast', () => {
   const funnel = [
-    { stage: 'C10:UC_KC7195', label: 'Подготовка договора', order: 5, count: 1, amount: 250000 },
-    { stage: 'C10:FINAL_INVOICE', label: 'Догрев и переговоры', order: 4, count: 3, amount: 4000000 },
+    { stage: 'C10:UC_KC7195', label: 'Согласование договора', order: 7, count: 1, amount: 250000 },
+    { stage: 'C10:FINAL_INVOICE', label: 'Получить решение', order: 5, count: 3, amount: 4000000 },
     { stage: 'C10:EXECUTING', label: 'Подготовка КП', order: 3, count: 2, amount: 2000000 },
   ];
 
   it('взвешивает воронку по стадиям и добавляет оплаченное', () => {
-    // 250k*0.8=200k + 4M*0.25=1M + 2M*0.15=300k = 1.5M взвешенно; +0.3M оплачено = 1.8M
+    // 250k*0.8=200k + 4M*0.4=1.6M + 2M*0.15=300k = 2.1M взвешенно; +0.3M оплачено = 2.4M
     const f = buildForecast(funnel, 300000, 1500000, 15, 30);
-    expect(f.weighted).toBe(1_500_000);
-    expect(f.forecastClose).toBe(1_800_000);
-    expect(f.pct).toBe(120); // 1.8M / 1.5M
+    expect(f.weighted).toBe(2_100_000);
+    expect(f.forecastClose).toBe(2_400_000);
+    expect(f.pct).toBe(160); // 2.4M / 1.5M
     // pacing: ожид. = 1.5M * 15/30 = 750k; факт 300k → 40%
     expect(f.paceExpected).toBe(750_000);
     expect(f.pacePct).toBe(40);
-    // стадии отсортированы по порядку воронки (ранние сверху → договор снизу)
-    expect(f.byStage.map((s) => s.label)).toEqual(['Подготовка КП', 'Догрев и переговоры', 'Подготовка договора']);
+    // стадии отсортированы по порядку воронки (ранние сверху → оплата снизу)
+    expect(f.byStage.map((s) => s.label)).toEqual(['Подготовка КП', 'Получить решение', 'Согласование договора']);
   });
 
   it('без плана выручки не делит на ноль', () => {
@@ -247,7 +247,7 @@ describe('buildManagerPipeline', () => {
     const p = buildManagerPipeline([], {});
     expect(p.rows).toEqual([]);
     expect(p.grandTotal).toBe(0);
-    expect(p.stages.length).toBe(5);
+    expect(p.stages.length).toBe(8); // 8 открытых стадий [10] (без «Оплаты»)
   });
 });
 
@@ -308,7 +308,7 @@ describe('buildVelocity', () => {
     expect(v.aging.find((a) => a.key === '14-30')!.amount).toBe(300000);
     expect(v.aging.find((a) => a.key === '30+')!.amount).toBe(1000000);
     expect(v.agingRiskAmount).toBe(1000000);
-    expect(v.stages.length).toBe(5);
+    expect(v.stages.length).toBe(8); // 8 открытых стадий [10] (без «Оплаты»)
   });
 
   it('пустой ввод — нули', () => {

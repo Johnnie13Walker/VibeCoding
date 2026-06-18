@@ -299,6 +299,25 @@ export const dealRejections = pgTable(
   ],
 );
 
+export const funnelCohort = pgTable(
+  'funnel_cohort',
+  {
+    dealId: integer('deal_id').primaryKey(),
+    categoryId: integer('category_id'),
+    cohortDate: date('cohort_date'),
+    managerId: integer('manager_id'),
+    currentStage: text('current_stage'),
+    furthestStage: text('furthest_stage'),
+    furthestOrder: integer('furthest_order'),
+    isWon: boolean('is_won'),
+    isLost: boolean('is_lost'),
+    opportunity: numeric('opportunity', { precision: 14, scale: 2 }),
+    reasonId: integer('reason_id'),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+  },
+  (table) => [index('funnel_cohort_cohort_date_manager_idx').on(table.cohortDate, table.managerId)],
+);
+
 export const meetingTasks = pgTable(
   'meeting_tasks',
   {

@@ -2,7 +2,8 @@ import 'server-only';
 
 import { and, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 import { db } from '@/db';
-import { dealRejections, dealsSnapshot, kpBriefs, managerAbsences, managerActivity, meetings, payments, plans, reports, users } from '@/db/schema';
+import { dealRejections, dealsSnapshot, funnelCohort, kpBriefs, managerAbsences, managerActivity, meetings, payments, plans, reports, users } from '@/db/schema';
+import { FUNNEL_MAX_ORDER, STAGE_LABEL_10, STAGE_ORDER_10, WON_STAGE_10 } from './funnel-stages';
 import { MEETING_HELD_STAGE } from './telemarketing';
 import { buildOperationalMatrix, type OperationalMatrix, type OperDayInput, type OperMemberInput } from './operational';
 import { getSalesRejections } from './sales-rejections';
@@ -28,15 +29,15 @@ async function fetchHeldRows(from: string, to: string, managerIds?: number[]) {
   return rows.map((r) => ({ managerId: r.managerId, date: String(r.date), n: Number(r.n) }));
 }
 
-// Зеркало STAGE_RULES/STAGE_ORDER из runner/src/transform.py — воронка «Продажи» (CATEGORY_ID=10).
-// Порядок = реальная последовательность стадий в Bitrix.
-export const STAGE_META: Record<string, { label: string; order: number }> = {
-  'C10:NEW': { label: 'Квалификация', order: 1 },
-  'C10:PREPAYMENT_INVOIC': { label: 'Подготовка БРИФа', order: 2 },
-  'C10:EXECUTING': { label: 'Подготовка КП', order: 3 },
-  'C10:FINAL_INVOICE': { label: 'Догрев и переговоры', order: 4 },
-  'C10:UC_KC7195': { label: 'Подготовка договора', order: 5 },
-};
+// Открытые стадии воронки «Продажи» [10] для снимка/прогноза/алертов — выводятся
+// из канона funnel-stages.ts (зеркало runner/src/funnel_stages.py, сверено с Bitrix
+// 2026-06-18). Девять реальных стадий; «Оплата» (C10:WON) исключена — это закрытие,
+// в открытую воронку и взвешенный прогноз не входит (учитывается отдельно как paid).
+export const STAGE_META: Record<string, { label: string; order: number }> = Object.fromEntries(
+  Object.entries(STAGE_ORDER_10)
+    .filter(([stage]) => stage !== WON_STAGE_10)
+    .map(([stage, order]) => [stage, { label: STAGE_LABEL_10[stage], order }]),
+);
 
 export interface FunnelStage {
   stage: string;
@@ -264,22 +265,20 @@ export interface SalesFunnelStep {
   amount?: number;
 }
 
-/** Воронка-когорта в разрезе сейла (ОП) — distinct-сделки по этапам.
+/** Воронка-когорта в разрезе сейла (ОП) — событийно по входу в [10].
+ *  reached[o] = сколько сделок когорты дошли до стадии порядка ≥ o (o=1..9).
  *  Компонент суммирует выбранных в мульти-селекторе. */
 export interface FunnelManager {
   managerId: number;
   name: string;
-  /** Создано сделок за период (база воронки). */
-  dealsInWork: number;
-  cold: number;
-  incoming: number;
-  /** Distinct-сделок с брифингом (контекст, необязательный шаг). */
-  briefingDeals: number;
-  /** Distinct-сделок, по которым отправлено КП. */
-  kpDeals: number;
-  /** Distinct-сделок, дошедших до защиты (презентация). */
-  defenseDeals: number;
+  /** Вошло в воронку Продажи за период (без спама). */
+  entered: number;
+  /** reached[o] — дошли до стадии ≥ o; индексы 1..9, [0] не используется. */
+  reached: number[];
   won: number;
+  lost: number;
+  /** Исключённых спам-входов (для подписи). */
+  spam: number;
   wonAmount: number;
 }
 
@@ -339,13 +338,17 @@ export function buildSalesFunnel(input: SalesFunnelInput): SalesFunnel {
 }
 
 // Вероятность закрытия по стадии воронки Продажи — для взвешенного прогноза.
-// Эвристика (калибруется по историческому win rate): чем ближе к договору, тем выше.
+// Эвристика (калибруется по историческому win rate): чем ближе к оплате, тем выше.
+// 8 открытых стадий (1..8); «Оплата» (C10:WON) — уже закрыта, в прогноз не идёт.
 const STAGE_PROB: Record<string, number> = {
-  'C10:NEW': 0.05,
-  'C10:PREPAYMENT_INVOIC': 0.08,
-  'C10:EXECUTING': 0.15,
-  'C10:FINAL_INVOICE': 0.25,
-  'C10:UC_KC7195': 0.8,
+  'C10:NEW': 0.05,              // Квалификация
+  'C10:PREPAYMENT_INVOIC': 0.08, // Подготовка БРИФа
+  'C10:EXECUTING': 0.15,         // Подготовка КП
+  'C10:UC_4SJOE4': 0.25,         // Защита КП
+  'C10:FINAL_INVOICE': 0.4,      // Получить решение
+  'C10:UC_RJK0KE': 0.6,          // Получить реквизиты
+  'C10:UC_KC7195': 0.8,          // Согласование договора
+  'C10:UC_755Z64': 0.9,          // Ожидаем оплату
 };
 
 export interface ForecastStage {
@@ -1128,47 +1131,56 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
       else if (r.type === 'defense') presentations = Number(r.n);
     }
   }
-  // Воронка-когорта: distinct-сделки по этапам в разрезе менеджера (для мульти-выбора).
-  const kpDealsByMgr = new Map<number, number>();
-  const defenseDealsByMgr = new Map<number, number>();
-  const briefingDealsByMgr = new Map<number, number>();
-  if (salesIds.length) {
-    const kpRows = await db
-      .select({ managerId: kpBriefs.managerId, n: sql<number>`count(distinct ${kpBriefs.dealId})` })
-      .from(kpBriefs)
-      .where(and(gte(kpBriefs.reportDate, start), lte(kpBriefs.reportDate, end), eq(kpBriefs.itemType, 'kp'), inArray(kpBriefs.managerId, salesIds)))
-      .groupBy(kpBriefs.managerId);
-    for (const r of kpRows) if (r.managerId != null) kpDealsByMgr.set(r.managerId, Number(r.n));
+  // Воронка-когорта (событийно по ВХОДУ в [10]): из funnel_cohort.
+  // Когорта = сделки, вошедшие в воронку Продажи за период (cohort_date); для
+  // каждой — самая дальняя достигнутая стадия (furthest_order). СПАМ (8588) исключаем.
+  const cohortRows = await db
+    .select({
+      managerId: funnelCohort.managerId,
+      furthestOrder: funnelCohort.furthestOrder,
+      isWon: funnelCohort.isWon,
+      isLost: funnelCohort.isLost,
+      reasonId: funnelCohort.reasonId,
+      opportunity: funnelCohort.opportunity,
+    })
+    .from(funnelCohort)
+    .where(and(gte(funnelCohort.cohortDate, start), lte(funnelCohort.cohortDate, end)));
 
-    const mdRows = await db
-      .select({ managerId: meetings.managerId, type: meetings.meetingType, n: sql<number>`count(distinct ${meetings.dealId})` })
-      .from(meetings)
-      .where(and(gte(meetings.reportDate, start), lte(meetings.reportDate, end), inArray(meetings.managerId, salesIds)))
-      .groupBy(meetings.managerId, meetings.meetingType);
-    for (const r of mdRows) {
-      if (r.managerId == null) continue;
-      if (r.type === 'defense') defenseDealsByMgr.set(r.managerId, Number(r.n));
-      else if (r.type === 'briefing') briefingDealsByMgr.set(r.managerId, Number(r.n));
-    }
+  type CohortAgg = {
+    entered: number; reached: number[]; won: number; lost: number; spam: number; wonAmount: number;
+  };
+  const cohortByMgr = new Map<number, CohortAgg>();
+  for (const r of cohortRows) {
+    const mid = r.managerId ?? 0;
+    const spam = r.reasonId === SPAM_REASON_10;
+    let a = cohortByMgr.get(mid);
+    if (!a) { a = { entered: 0, reached: new Array(FUNNEL_MAX_ORDER + 1).fill(0), won: 0, lost: 0, spam: 0, wonAmount: 0 }; cohortByMgr.set(mid, a); }
+    if (spam) { a.spam += 1; continue; } // спам не считаем в воронку, только в подпись
+    a.entered += 1;
+    const ord = r.furthestOrder ?? 0;
+    for (let o = 1; o <= Math.min(ord, FUNNEL_MAX_ORDER); o++) a.reached[o] += 1;
+    if (r.isWon) { a.won += 1; a.wonAmount += Number(r.opportunity ?? 0); }
+    if (r.isLost) a.lost += 1;
   }
 
-  // Сейлы (ОП, включая РОП; без телемаркетинга) с активностью — для селектора.
+  // Сейлы (ОП, включая РОП; без телемаркетинга) с когортой в периоде — для селектора.
   const funnelManagers: FunnelManager[] = team
     .filter((m) => !isTelemarketing(m.role))
-    .map((m) => ({
-      managerId: m.managerId,
-      name: m.name,
-      dealsInWork: m.dealsCreated,
-      cold: m.dealsCold,
-      incoming: m.dealsIncoming,
-      briefingDeals: briefingDealsByMgr.get(m.managerId) ?? 0,
-      kpDeals: kpDealsByMgr.get(m.managerId) ?? 0,
-      defenseDeals: defenseDealsByMgr.get(m.managerId) ?? 0,
-      won: m.dealsWon,
-      wonAmount: m.dealsWonAmount,
-    }))
-    .filter((m) => m.dealsInWork > 0 || m.kpDeals > 0 || m.defenseDeals > 0 || m.briefingDeals > 0 || m.won > 0)
-    .sort((a, b) => b.dealsInWork - a.dealsInWork || b.kpDeals - a.kpDeals);
+    .map((m) => {
+      const a = cohortByMgr.get(m.managerId) ?? { entered: 0, reached: new Array(FUNNEL_MAX_ORDER + 1).fill(0), won: 0, lost: 0, spam: 0, wonAmount: 0 };
+      return {
+        managerId: m.managerId,
+        name: m.name,
+        entered: a.entered,
+        reached: a.reached,
+        won: a.won,
+        lost: a.lost,
+        spam: a.spam,
+        wonAmount: a.wonAmount,
+      };
+    })
+    .filter((m) => m.entered > 0 || m.spam > 0)
+    .sort((a, b) => b.entered - a.entered);
 
   const salesFunnel = buildSalesFunnel({
     dealsTotal: dealsCreatedTotal,
