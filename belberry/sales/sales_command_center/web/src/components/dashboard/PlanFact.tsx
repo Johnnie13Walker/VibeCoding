@@ -1,4 +1,5 @@
 import type { Forecast, PlanFact } from '@/lib/dashboard';
+import { NEW_STAGES_10 } from '@/lib/funnel-stages';
 
 function money(v: number): string {
   if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(2)} млн ₽`;
@@ -114,12 +115,18 @@ function Row({
 }
 
 // ── строка воронки ────────────────────────────────────────────────────────────
-function FunnelRow({ label, amount, prob, weighted, maxW }: { label: string; amount: number; prob: number; weighted: number; maxW: number }) {
+const funnelNewBadge: React.CSSProperties = {
+  fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.04em',
+  color: 'var(--bb-violet)', background: 'var(--bb-violet-soft)', borderRadius: 5,
+  padding: '1px 6px', marginLeft: 7,
+};
+function FunnelRow({ stage, label, amount, prob, weighted, maxW }: { stage: string; label: string; amount: number; prob: number; weighted: number; maxW: number }) {
   const zero = weighted <= 0;
+  const isNew = zero && NEW_STAGES_10.has(stage);
   const w = maxW > 0 ? Math.round((weighted / maxW) * 100) : 0;
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '3px 12px', alignItems: 'center', padding: '7px 0', borderTop: '1px solid #f4f1ec' }}>
-      <span style={{ fontSize: 13, fontWeight: 600, color: zero ? 'var(--bb-faint)' : 'var(--bb-ink)' }}>{label}</span>
+      <span style={{ fontSize: 13, fontWeight: 600, color: zero ? 'var(--bb-faint)' : 'var(--bb-ink)' }}>{label}{isNew ? <span style={funnelNewBadge}>нов.</span> : null}</span>
       <span className="tabular" style={{ justifySelf: 'end', fontSize: 12, color: 'var(--bb-muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>
         {short(amount)} · {Math.round(prob * 100)}% → <b style={{ color: 'var(--bb-ink)', fontWeight: 800 }}>{short(weighted)}</b>
       </span>
@@ -170,7 +177,7 @@ export function PlanFactView({ forecast, data }: { forecast: Forecast; data: Pla
       <div style={{ height: 1, background: 'var(--bb-line)', margin: '18px 0 16px' }} />
       <Sh dot="var(--bb-green)" title="Воронка · прогноз" hint="взвешенно по стадиям · снизу вверх" />
       {forecast.byStage.map((s) => (
-        <FunnelRow key={s.label} label={s.label} amount={s.amount} prob={s.prob} weighted={s.weighted} maxW={maxW} />
+        <FunnelRow key={s.stage} stage={s.stage} label={s.label} amount={s.amount} prob={s.prob} weighted={s.weighted} maxW={maxW} />
       ))}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center', marginTop: 4, paddingTop: 11, borderTop: '2px solid var(--bb-line)' }}>
         <span style={{ fontSize: 13, fontWeight: 800 }}>Взвешенная воронка</span>

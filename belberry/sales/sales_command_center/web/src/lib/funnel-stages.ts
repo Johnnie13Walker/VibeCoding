@@ -37,3 +37,7 @@ export const STAGE_ORDER_10: Record<string, number> = Object.fromEntries(
 );
 
 export const WON_STAGE_10 = 'C10:WON';
+
+// Стадии, добавленные при перестройке процесса Продаж (18.06). Пока в них нет
+// сделок — помечаются бейджем «нов.»; бейдж исчезает, как только стадия наполнится.
+export const NEW_STAGES_10 = new Set(['C10:UC_4SJOE4', 'C10:UC_RJK0KE', 'C10:UC_755Z64']);

@@ -352,6 +352,7 @@ const STAGE_PROB: Record<string, number> = {
 };
 
 export interface ForecastStage {
+  stage: string;
   label: string;
   order: number;
   amount: number;
@@ -381,7 +382,7 @@ export function buildForecast(
   const byStage = funnel
     .map((s) => {
       const prob = STAGE_PROB[s.stage] ?? 0;
-      return { label: s.label, order: s.order, amount: s.amount, prob, weighted: Math.round(s.amount * prob) };
+      return { stage: s.stage, label: s.label, order: s.order, amount: s.amount, prob, weighted: Math.round(s.amount * prob) };
     })
     // Порядок воронки: по стадиям (ранние сверху → договор снизу).
     .sort((a, b) => a.order - b.order);
@@ -966,7 +967,14 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
     opportunity: Number(r.opportunity ?? 0),
     stuckDays: r.stuckDays,
   }));
-  const funnel = buildFunnel(funnelRows);
+  // Воронка показывает ВСЕ открытые стадии нового процесса (1..8), даже пустые —
+  // чтобы видеть цепочку целиком (новые стадии Защита КП / Получить реквизиты /
+  // Ожидаем оплату пока без сделок). buildFunnel даёт только непустые → добиваем нулями.
+  const byStageFunnel = new Map(buildFunnel(funnelRows).map((s) => [s.stage, s]));
+  const funnel: FunnelStage[] = Object.entries(STAGE_META)
+    .map(([stage, meta]) => byStageFunnel.get(stage) ?? { stage, label: meta.label, order: meta.order, count: 0, amount: 0 })
+    .sort((a, b) => a.order - b.order);
+  // KPI «открытых сделок» и взвешенный прогноз — только по открытым стадиям (без «Оплаты»).
   const funnelCount = funnel.reduce((s, x) => s + x.count, 0);
   const funnelAmount = funnel.reduce((s, x) => s + x.amount, 0);
 
@@ -1182,6 +1190,8 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
     .filter((m) => m.entered > 0 || m.spam > 0)
     .sort((a, b) => b.entered - a.entered);
 
+  const wonCountTotal = team.reduce((s, x) => s + x.dealsWon, 0);
+  const wonAmountTotal = team.reduce((s, x) => s + x.dealsWonAmount, 0);
   const salesFunnel = buildSalesFunnel({
     dealsTotal: dealsCreatedTotal,
     dealsCold: team.reduce((s, x) => s + x.dealsCold, 0),
@@ -1189,10 +1199,25 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
     firstMeetings,
     presentations,
     kpSent: kpTotal,
-    wonCount: team.reduce((s, x) => s + x.dealsWon, 0),
-    wonAmount: team.reduce((s, x) => s + x.dealsWonAmount, 0),
+    wonCount: wonCountTotal,
+    wonAmount: wonAmountTotal,
     managers: funnelManagers,
   });
+
+  // Снимок «Воронка продаж» = открытые стадии (1..8) + закрытая «Оплата» (C10:WON)
+  // последней. «Оплата» = выигранные сделки за период (deals_snapshot хранит только
+  // открытые, поэтому won берём из агрегатов). В прогноз/KPI открытого пайплайна
+  // «Оплата» НЕ входит — там остаётся `funnel` (только открытые стадии).
+  const funnelDisplay: FunnelStage[] = [
+    ...funnel,
+    {
+      stage: WON_STAGE_10,
+      label: STAGE_LABEL_10[WON_STAGE_10],
+      order: STAGE_ORDER_10[WON_STAGE_10],
+      count: wonCountTotal,
+      amount: wonAmountTotal,
+    },
+  ];
 
   // Встречи по типам в разрезе менеджера — для конверсий по менеджерам.
   const firstByMgr = new Map<number, number>();
@@ -1646,7 +1671,7 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
   return {
     monthLabel: label,
     snapshotDate,
-    funnel,
+    funnel: funnelDisplay,
     funnelCount,
     funnelAmount,
     stuck,
