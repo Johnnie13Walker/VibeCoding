@@ -2,7 +2,7 @@ import 'server-only';
 
 import { and, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 import { db } from '@/db';
-import { dealRejections, dealsSnapshot, managerAbsences, managerActivity, meetings, payments, plans, reports, users } from '@/db/schema';
+import { dealRejections, dealsSnapshot, kpBriefs, managerAbsences, managerActivity, meetings, payments, plans, reports, users } from '@/db/schema';
 import { MEETING_HELD_STAGE } from './telemarketing';
 import { buildOperationalMatrix, type OperationalMatrix, type OperDayInput, type OperMemberInput } from './operational';
 import { getSalesRejections } from './sales-rejections';
@@ -264,6 +264,25 @@ export interface SalesFunnelStep {
   amount?: number;
 }
 
+/** Воронка-когорта в разрезе сейла (ОП) — distinct-сделки по этапам.
+ *  Компонент суммирует выбранных в мульти-селекторе. */
+export interface FunnelManager {
+  managerId: number;
+  name: string;
+  /** Создано сделок за период (база воронки). */
+  dealsInWork: number;
+  cold: number;
+  incoming: number;
+  /** Distinct-сделок с брифингом (контекст, необязательный шаг). */
+  briefingDeals: number;
+  /** Distinct-сделок, по которым отправлено КП. */
+  kpDeals: number;
+  /** Distinct-сделок, дошедших до защиты (презентация). */
+  defenseDeals: number;
+  won: number;
+  wonAmount: number;
+}
+
 export interface SalesFunnel {
   /** Шаги потока: сделки → первых встреч → презентаций → КП → оплаты. */
   steps: SalesFunnelStep[];
@@ -272,6 +291,8 @@ export interface SalesFunnel {
   wonAmount: number;
   /** Средний чек оплаченной сделки, ₽ (0 если оплат нет). */
   avgCheck: number;
+  /** По-менеджерно для воронки-когорты с мульти-выбором сейлов. */
+  managers: FunnelManager[];
 }
 
 export interface SalesFunnelInput {
@@ -285,6 +306,8 @@ export interface SalesFunnelInput {
   kpSent: number;
   wonCount: number;
   wonAmount: number;
+  /** По-менеджерно для воронки-когорты (мульти-выбор). По умолчанию пусто. */
+  managers?: FunnelManager[];
 }
 
 /** Воронка-поток вход→оплата за период. Чистая функция — тестируема.
@@ -311,6 +334,7 @@ export function buildSalesFunnel(input: SalesFunnelInput): SalesFunnel {
     dealsIncoming: input.dealsIncoming,
     wonAmount: input.wonAmount,
     avgCheck: input.wonCount > 0 ? Math.round(input.wonAmount / input.wonCount) : 0,
+    managers: input.managers ?? [],
   };
 }
 
@@ -1104,6 +1128,48 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
       else if (r.type === 'defense') presentations = Number(r.n);
     }
   }
+  // Воронка-когорта: distinct-сделки по этапам в разрезе менеджера (для мульти-выбора).
+  const kpDealsByMgr = new Map<number, number>();
+  const defenseDealsByMgr = new Map<number, number>();
+  const briefingDealsByMgr = new Map<number, number>();
+  if (salesIds.length) {
+    const kpRows = await db
+      .select({ managerId: kpBriefs.managerId, n: sql<number>`count(distinct ${kpBriefs.dealId})` })
+      .from(kpBriefs)
+      .where(and(gte(kpBriefs.reportDate, start), lte(kpBriefs.reportDate, end), eq(kpBriefs.itemType, 'kp'), inArray(kpBriefs.managerId, salesIds)))
+      .groupBy(kpBriefs.managerId);
+    for (const r of kpRows) if (r.managerId != null) kpDealsByMgr.set(r.managerId, Number(r.n));
+
+    const mdRows = await db
+      .select({ managerId: meetings.managerId, type: meetings.meetingType, n: sql<number>`count(distinct ${meetings.dealId})` })
+      .from(meetings)
+      .where(and(gte(meetings.reportDate, start), lte(meetings.reportDate, end), inArray(meetings.managerId, salesIds)))
+      .groupBy(meetings.managerId, meetings.meetingType);
+    for (const r of mdRows) {
+      if (r.managerId == null) continue;
+      if (r.type === 'defense') defenseDealsByMgr.set(r.managerId, Number(r.n));
+      else if (r.type === 'briefing') briefingDealsByMgr.set(r.managerId, Number(r.n));
+    }
+  }
+
+  // Сейлы (ОП, включая РОП; без телемаркетинга) с активностью — для селектора.
+  const funnelManagers: FunnelManager[] = team
+    .filter((m) => !isTelemarketing(m.role))
+    .map((m) => ({
+      managerId: m.managerId,
+      name: m.name,
+      dealsInWork: m.dealsCreated,
+      cold: m.dealsCold,
+      incoming: m.dealsIncoming,
+      briefingDeals: briefingDealsByMgr.get(m.managerId) ?? 0,
+      kpDeals: kpDealsByMgr.get(m.managerId) ?? 0,
+      defenseDeals: defenseDealsByMgr.get(m.managerId) ?? 0,
+      won: m.dealsWon,
+      wonAmount: m.dealsWonAmount,
+    }))
+    .filter((m) => m.dealsInWork > 0 || m.kpDeals > 0 || m.defenseDeals > 0 || m.briefingDeals > 0 || m.won > 0)
+    .sort((a, b) => b.dealsInWork - a.dealsInWork || b.kpDeals - a.kpDeals);
+
   const salesFunnel = buildSalesFunnel({
     dealsTotal: dealsCreatedTotal,
     dealsCold: team.reduce((s, x) => s + x.dealsCold, 0),
@@ -1113,6 +1179,7 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
     kpSent: kpTotal,
     wonCount: team.reduce((s, x) => s + x.dealsWon, 0),
     wonAmount: team.reduce((s, x) => s + x.dealsWonAmount, 0),
+    managers: funnelManagers,
   });
 
   // Встречи по типам в разрезе менеджера — для конверсий по менеджерам.
