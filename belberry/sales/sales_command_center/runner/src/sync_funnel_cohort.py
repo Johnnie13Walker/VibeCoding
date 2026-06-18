@@ -1,17 +1,21 @@
-"""Синк интейк-когорты воронки Продажи [10] в таблицу funnel_cohort.
+"""Синк когорты воронки Продажи [10] в таблицу funnel_cohort — СОБЫТИЙНО по входу.
 
-Когорта = сделки cat10, созданные с начала года. Для каждой считаем самую дальнюю
-достигнутую стадию (из stagehistory + текущая стадия), чтобы дашборд честно
-показывал «из созданных за месяц сколько ДОШЛО до этапа X» — по ОДНИМ И ТЕМ ЖЕ
-сделкам, а не по разрозненным событиям (старый гибрид: база=созданные, КП/защита=
-distinct-события могли быть по другим сделкам).
+Когорта = сделки, ВОШЕДШИЕ в воронку [10] за период (переход в C10:NEW в
+stagehistory). НЕ по дате создания сделки: сделки живут в Телемаркетинге [50]
+давно, а в Продажи переходят позже — «вход» воронки = момент перехода в [10],
+а не создание карточки. cohort_date = дата входа (первый C10:NEW).
 
-Почему furthest-stage, а не текущая стадия: сделка, дошедшая до «Защиты» и затем
-отвалившаяся, сейчас стоит на C10:LOSE — по текущей стадии она бы недосчиталась в
-середине воронки. История стадий ловит максимум достигнутого.
+Для каждой считаем самую дальнюю достигнутую стадию (из stagehistory + текущая),
+чтобы дашборд честно показывал «из вошедших за месяц сколько ДОШЛО до этапа X» —
+по ОДНИМ И ТЕМ ЖЕ сделкам (а не distinct-события КП/защиты, которые могли быть по
+сделкам, вошедшим в прошлые месяцы — старый гибрид).
 
-Идемпотентно (upsert по deal_id). Один прогон с начала года = бэкафилл + поддержка
-свежести на cron. НЕ трогает дневной пайплайн отчёта.
+Почему furthest-stage, а не текущая: сделка, дошедшая до «Защиты» и затем
+отвалившаяся, сейчас на C10:LOSE — по текущей стадии она бы недосчиталась в
+середине. История ловит максимум достигнутого.
+
+Идемпотентно (upsert по deal_id). Один прогон с начала года = бэкафилл + свежесть
+на cron. НЕ трогает дневной пайплайн.
 
     python -m src.sync_funnel_cohort
     python -m src.sync_funnel_cohort --dry-run
@@ -29,6 +33,7 @@ from .funnel_stages import LOST_STAGES_10, WON_STAGE_10, furthest_order, stage_o
 from .transform import parse_dt
 
 SALES_CATEGORY = 10
+ENTRY_STAGE = "C10:NEW"  # вход в воронку Продажи
 
 
 def _to_int(value) -> int | None:
@@ -45,20 +50,13 @@ def _to_float(value) -> float | None:
         return None
 
 
-def fetch_cohort_deals(bx, since: str) -> list[dict[str, Any]]:
-    """cat10-сделки, созданные с since (включая закрытые/выигранные/отвал)."""
-    return _fetch_all(
-        bx,
-        "crm.deal.list",
-        {
-            "filter": {"CATEGORY_ID": SALES_CATEGORY, ">=DATE_CREATE": f"{since}T00:00:00"},
-            "select": ["ID", "ASSIGNED_BY_ID", "DATE_CREATE", "STAGE_ID", "OPPORTUNITY", "CATEGORY_ID"],
-        },
-    )
+def _chunks(seq: list, n: int):
+    for i in range(0, len(seq), n):
+        yield seq[i : i + n]
 
 
-def fetch_stage_history(bx, since: str) -> dict[int, set[str]]:
-    """Из stagehistory: множество стадий, которые сделка КОГДА-ЛИБО проходила (cat10)."""
+def fetch_stage_history(bx, since: str) -> dict[int, list[dict[str, Any]]]:
+    """Из stagehistory cat10: по сделке — список переходов {stage, ct} с since."""
     rows = _fetch_all(
         bx,
         "crm.stagehistory.list",
@@ -68,44 +66,66 @@ def fetch_stage_history(bx, since: str) -> dict[int, set[str]]:
             "select": ["OWNER_ID", "STAGE_ID", "CREATED_TIME", "CATEGORY_ID"],
         },
     )
-    hist: dict[int, set[str]] = {}
+    hist: dict[int, list[dict[str, Any]]] = {}
     for h in rows:
         did = _to_int(h.get("OWNER_ID"))
         st = h.get("STAGE_ID")
         if did is None or not st:
             continue
-        hist.setdefault(did, set()).add(st)
+        hist.setdefault(did, []).append({"stage": st, "ct": h.get("CREATED_TIME")})
     return hist
 
 
+def fetch_deals_by_ids(bx, ids: list[int]) -> dict[int, dict[str, Any]]:
+    """Текущие поля сделок по ID (стадия/владелец/сумма), пакетами по 50."""
+    out: dict[int, dict[str, Any]] = {}
+    for chunk in _chunks(list(ids), 50):
+        for d in _fetch_all(
+            bx,
+            "crm.deal.list",
+            {"filter": {"@ID": chunk}, "select": ["ID", "ASSIGNED_BY_ID", "STAGE_ID", "OPPORTUNITY", "CATEGORY_ID"]},
+        ):
+            did = _to_int(d.get("ID"))
+            if did is not None:
+                out[did] = d
+    return out
+
+
+def _entered_at(events: list[dict[str, Any]]) -> str | None:
+    """Дата входа в [10] = самый ранний переход в C10:NEW. None — входа в окне нет."""
+    news = [e["ct"] for e in events if e.get("stage") == ENTRY_STAGE and e.get("ct")]
+    return min(news) if news else None
+
+
 def build_cohort_rows(
-    deals: list[dict[str, Any]], history: dict[int, set[str]]
+    deals_by_id: dict[int, dict[str, Any]], history: dict[int, list[dict[str, Any]]]
 ) -> list[dict[str, Any]]:
-    """Сырьё crm.deal.list + история стадий → строки funnel_cohort. Чистая функция."""
+    """История переходов + текущие поля → строки funnel_cohort. Чистая функция.
+    В когорту попадают только сделки с входом (C10:NEW) в окне."""
     rows: list[dict[str, Any]] = []
-    for d in deals:
-        did = _to_int(d.get("ID"))
-        if did is None:
-            continue
+    for did, events in history.items():
+        entered = _entered_at(events)
+        if not entered:
+            continue  # вошла в [10] раньше окна — не наша когорта периода
+        ent_dt = parse_dt(entered)
+        d = deals_by_id.get(did, {})
         current = d.get("STAGE_ID")
-        stages: set[str] = set(history.get(did, set()))
+        stages: set[str] = {e["stage"] for e in events if e.get("stage")}
         if current:
             stages.add(current)
         order = furthest_order(stages)
-        # Текстовая «самая дальняя стадия» — ключ с максимальным порядком.
         fstage = next((s for s in stages if stage_order(s) == order), None) if order else None
-        created = parse_dt(d.get("DATE_CREATE"))
         rows.append(
             {
                 "deal_id": did,
                 "category_id": SALES_CATEGORY,
-                "cohort_date": created.date() if created else None,
+                "cohort_date": ent_dt.date() if ent_dt else None,
                 "manager_id": _to_int(d.get("ASSIGNED_BY_ID")),
                 "current_stage": current,
                 "furthest_stage": fstage,
                 "furthest_order": order,
                 "is_won": WON_STAGE_10 in stages,
-                "is_lost": current in LOST_STAGES_10,
+                "is_lost": bool(stages & LOST_STAGES_10),
                 "opportunity": _to_float(d.get("OPPORTUNITY")),
             }
         )
@@ -114,9 +134,9 @@ def build_cohort_rows(
 
 def sync(conn=None, bx=None, dry_run: bool = False, since: str | None = None) -> dict[str, int]:
     since = since or f"{date.today().year}-01-01"
-    deals = fetch_cohort_deals(bx, since)
     history = fetch_stage_history(bx, since)
-    rows = build_cohort_rows(deals, history)
+    deals_by_id = fetch_deals_by_ids(bx, list(history.keys())) if history else {}
+    rows = build_cohort_rows(deals_by_id, history)
 
     written = 0
     if not dry_run and conn is not None and rows:
@@ -124,8 +144,8 @@ def sync(conn=None, bx=None, dry_run: bool = False, since: str | None = None) ->
         written = upsert(conn, "funnel_cohort", rows, ["deal_id"], update_cols)
         conn.commit()
     return {
-        "deals": len(deals),
         "history_deals": len(history),
+        "fetched_deals": len(deals_by_id),
         "rows": len(rows),
         "written": written,
     }
