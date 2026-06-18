@@ -61,6 +61,14 @@ def test_cohort_won():
     assert row["is_lost"] is False
 
 
+def test_reason_id_spam_captured():
+    history = {300: [{"stage": "C10:NEW", "ct": "2026-06-04T09:00:00+03:00"}, {"stage": "C10:LOSE", "ct": "2026-06-04T12:00:00+03:00"}]}
+    deals = {300: {"ID": "300", "STAGE_ID": "C10:LOSE", "ASSIGNED_BY_ID": "1", "UF_CRM_1771495464": ["8588"]}}
+    row = build_cohort_rows(deals, history)[0]
+    assert row["reason_id"] == 8588   # СПАМ — веб исключит
+    assert row["is_lost"] is True
+
+
 def test_skips_deal_without_entry_in_window():
     """Переходы есть, но C10:NEW в окне нет → вошла раньше периода, не наша когорта."""
     history = {103: [{"stage": "C10:EXECUTING", "ct": "2026-06-02T09:00:00+03:00"}]}

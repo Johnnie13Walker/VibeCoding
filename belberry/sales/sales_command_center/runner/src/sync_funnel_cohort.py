@@ -34,6 +34,7 @@ from .transform import parse_dt
 
 SALES_CATEGORY = 10
 ENTRY_STAGE = "C10:NEW"  # вход в воронку Продажи
+REASON_FIELD_10 = "UF_CRM_1771495464"  # причина отвала (8588 = СПАМ)
 
 
 def _to_int(value) -> int | None:
@@ -48,6 +49,13 @@ def _to_float(value) -> float | None:
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+def _first(value):
+    """Поле причины может прийти списком (enumeration) — берём первый код."""
+    if isinstance(value, (list, tuple)):
+        return value[0] if value else None
+    return value
 
 
 def _chunks(seq: list, n: int):
@@ -83,7 +91,7 @@ def fetch_deals_by_ids(bx, ids: list[int]) -> dict[int, dict[str, Any]]:
         for d in _fetch_all(
             bx,
             "crm.deal.list",
-            {"filter": {"@ID": chunk}, "select": ["ID", "ASSIGNED_BY_ID", "STAGE_ID", "OPPORTUNITY", "CATEGORY_ID"]},
+            {"filter": {"@ID": chunk}, "select": ["ID", "ASSIGNED_BY_ID", "STAGE_ID", "OPPORTUNITY", "CATEGORY_ID", REASON_FIELD_10]},
         ):
             did = _to_int(d.get("ID"))
             if did is not None:
@@ -127,6 +135,7 @@ def build_cohort_rows(
                 "is_won": WON_STAGE_10 in stages,
                 "is_lost": bool(stages & LOST_STAGES_10),
                 "opportunity": _to_float(d.get("OPPORTUNITY")),
+                "reason_id": _to_int(_first(d.get(REASON_FIELD_10))),
             }
         )
     return rows
