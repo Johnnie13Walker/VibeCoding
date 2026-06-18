@@ -32,6 +32,15 @@ function Mini({ label, value, sub }: { label: string; value: string; sub?: strin
 const NAME_W = 210;
 const COL_W = 58;
 
+/** Закрепляет первую колонку (имена/ярлыки) при горизонтальном скролле матрицы. */
+const stickyCol: React.CSSProperties = {
+  position: 'sticky',
+  left: 0,
+  zIndex: 2,
+  background: '#fff',
+  boxShadow: '6px 0 6px -6px rgba(15,23,42,.12)',
+};
+
 function Cell({ v, leave, hover }: { v: number | null; leave?: boolean; hover?: { onEnter: (rect: DOMRect) => void; onLeave: () => void } }) {
   const hoverProps = hover
     ? {
@@ -69,7 +78,7 @@ function Cell({ v, leave, hover }: { v: number | null; leave?: boolean; hover?: 
 function Row({ r, ncols, onCell, onLeaveCell }: { r: OperationalRow; ncols: number; onCell: (i: number, rect: DOMRect) => void; onLeaveCell: () => void }) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: `${NAME_W}px repeat(${ncols}, ${COL_W}px) ${COL_W + 6}px`, gap: 4, alignItems: 'center' }}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 1, paddingRight: 8 }}>
+      <div style={{ ...stickyCol, alignSelf: 'stretch', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 1, paddingRight: 8 }}>
         <b style={{ fontWeight: 600, fontSize: 14 }}>{r.name}</b>
         <span style={{ fontSize: 11, color: 'var(--bb-faint)', textTransform: 'uppercase', letterSpacing: '.04em' }}>{r.role || '—'}</span>
       </div>
@@ -124,7 +133,7 @@ function OperTip({ tip, days }: { tip: TipState; days: string[] }) {
 
 function SectionLabel({ text }: { text: string }) {
   return (
-    <div style={{ padding: '14px 0 4px', color: 'var(--bb-faint)', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em' }}>
+    <div style={{ position: 'sticky', left: 0, zIndex: 2, width: 'fit-content', padding: '14px 0 4px', color: 'var(--bb-faint)', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em' }}>
       {text}
     </div>
   );
@@ -156,7 +165,7 @@ export function OperationalMatrixView({ data }: { data: OperationalMatrix }) {
         <div style={{ minWidth: NAME_W + (ncols + 1) * (COL_W + 4) }}>
           {/* шапка дат */}
           <div style={{ display: 'grid', gridTemplateColumns: `${NAME_W}px repeat(${ncols}, ${COL_W}px) ${COL_W + 6}px`, gap: 4, marginBottom: 6, color: 'var(--bb-faint)', fontSize: 12.5 }}>
-            <div style={{ fontWeight: 600 }}>Сотрудник</div>
+            <div style={{ ...stickyCol, zIndex: 3, fontWeight: 600 }}>Сотрудник</div>
             {data.days.map((d) => (
               <div key={d} style={{ textAlign: 'center', fontWeight: 600 }}>{fmtDate(d)}</div>
             ))}
@@ -179,7 +188,7 @@ export function OperationalMatrixView({ data }: { data: OperationalMatrix }) {
 
           {/* среднее по отделу */}
           <div style={{ display: 'grid', gridTemplateColumns: `${NAME_W}px repeat(${ncols}, ${COL_W}px) ${COL_W + 6}px`, gap: 4, alignItems: 'center', marginTop: 12 }}>
-            <div style={{ fontWeight: 800, fontSize: 14 }}>Среднее по отделу</div>
+            <div style={{ ...stickyCol, display: 'flex', alignItems: 'center', fontWeight: 800, fontSize: 14 }}>Среднее по отделу</div>
             {data.deptAvgByDay.map((v, i) => (
               <div key={i} className="tabular" style={{ height: 34, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14, background: '#eef0f6', color: '#475569' }}>
                 {v != null ? v.toFixed(1) : '—'}
