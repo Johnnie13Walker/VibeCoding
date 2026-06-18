@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import type { SalesFunnel as SalesFunnelData } from '@/lib/dashboard';
+import { ManagerPicker } from './ManagerPicker';
 
 function money(value: number): string {
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)} млн ₽`;
@@ -48,31 +49,9 @@ function LegacyFunnel({ data }: { data: SalesFunnelData }) {
   );
 }
 
-function firstName(full: string): string {
-  const p = full.trim().split(/\s+/);
-  return p.length >= 2 ? `${p[0]} ${p[1][0]}.` : full;
-}
-
-/** Чекбокс-галочка для мульти-селектора. */
-function Check({ on }: { on?: boolean }) {
-  return (
-    <span
-      style={{
-        width: 15, height: 15, borderRadius: 5, flex: '0 0 15px',
-        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        background: on ? 'rgba(255,255,255,.22)' : 'transparent',
-        border: on ? '0' : '1.5px solid #c7c7cf',
-        color: '#fff', fontSize: 11, fontWeight: 900, lineHeight: 1,
-      }}
-    >
-      {on ? '✓' : ''}
-    </span>
-  );
-}
 
 export function SalesFunnel({ data }: { data: SalesFunnelData }) {
   const managers = useMemo(() => data.managers ?? [], [data.managers]);
-  const allIds = useMemo(() => managers.map((m) => m.managerId), [managers]);
   // Мульти-выбор (чекбоксы). По умолчанию выбраны все.
   const [sel, setSel] = useState<Set<number>>(() => new Set(managers.map((m) => m.managerId)));
   const [grown, setGrown] = useState(false);
@@ -80,8 +59,6 @@ export function SalesFunnel({ data }: { data: SalesFunnelData }) {
     const id = requestAnimationFrame(() => setGrown(true));
     return () => cancelAnimationFrame(id);
   }, []);
-
-  const isAll = allIds.length > 0 && sel.size === allIds.length;
 
   const agg = useMemo(() => {
     const picked = managers.filter((m) => sel.has(m.managerId));
@@ -122,53 +99,11 @@ export function SalesFunnel({ data }: { data: SalesFunnelData }) {
   }
   const pct = (n: number) => (base > 0 ? Math.round((n / base) * 100) : null);
 
-  const toggle = (id: number) => {
-    setSel((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  };
-  const selectAll = () => setSel(new Set(allIds));
-
   return (
     <div>
-      {/* мульти-селектор сейлов (чекбоксы) */}
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 14 }}>
-        <button
-          type="button"
-          onClick={selectAll}
-          style={{
-            ...chipStyle, cursor: 'pointer', border: 0, display: 'inline-flex', alignItems: 'center', gap: 7,
-            background: isAll ? 'var(--bb-violet)' : 'var(--bb-soft, #f1f0fb)',
-            color: isAll ? '#fff' : 'var(--bb-muted)', fontWeight: 600,
-          }}
-        >
-          {isAll ? <Check on /> : null}
-          Весь отдел
-        </button>
-        <span style={{ width: 1, height: 18, background: 'var(--bb-line)', margin: '0 2px' }} />
-        {managers.map((m) => {
-          const on = sel.has(m.managerId);
-          return (
-            <button
-              key={m.managerId}
-              type="button"
-              onClick={() => toggle(m.managerId)}
-              style={{
-                ...chipStyle, cursor: 'pointer', border: 0, display: 'inline-flex', alignItems: 'center', gap: 7,
-                background: on ? 'var(--bb-violet)' : 'var(--bb-soft, #f1f0fb)',
-                color: on ? '#fff' : 'var(--bb-muted)',
-              }}
-            >
-              <Check on={on} />
-              {firstName(m.name)}
-            </button>
-          );
-        })}
-        {!isAll && sel.size > 0 ? (
-          <span style={{ fontSize: 12.5, color: 'var(--bb-faint)', marginLeft: 2 }}>выбрано {sel.size} из {allIds.length}</span>
-        ) : null}
+      {/* мульти-селектор сейлов — общий ManagerPicker (как в «Отказах») */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 14 }}>
+        <ManagerPicker managers={managers} selected={sel} onChange={setSel} />
       </div>
 
       {/* плашки-контекст */}
