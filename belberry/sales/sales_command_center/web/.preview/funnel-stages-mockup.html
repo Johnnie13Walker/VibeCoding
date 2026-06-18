@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Мокап — Воронка по стадиям (полная цепочка)</title>
+<style>
+  :root{
+    --bb-indigo:#2b2a5e; --bb-indigo-2:#1f1e47; --bb-violet:#5b50d6; --bb-violet-soft:#f0eefb;
+    --bb-canvas:#faf8f5; --bb-ink:#1d1d1f; --bb-muted:#6e6e73; --bb-faint:#9a9aa0; --bb-line:#ece8e3;
+    --bb-red:#d4202e; --bb-amber:#e88a3b; --bb-green:#2c7a4a;
+    --bb-shadow:0 1px 3px rgba(20,18,50,.06),0 8px 24px -12px rgba(20,18,50,.12);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bb-canvas);color:var(--bb-ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    padding:40px 24px;display:flex;justify-content:center}
+  .wrap{width:100%;max-width:1000px}
+  .lbl{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--bb-violet);margin:0 0 10px 4px}
+  .bb-card{background:#fff;border:1px solid var(--bb-line);border-radius:18px;padding:22px 24px;box-shadow:var(--bb-shadow)}
+  .head{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+  .head .ic{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:var(--bb-violet-soft);color:var(--bb-violet);flex:0 0 34px}
+  .head h2{margin:0;font-size:21px;font-weight:800;letter-spacing:-.01em}
+  .head .per{margin-left:auto;color:var(--bb-faint);font-size:14px}
+
+  .sel{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+  .pill{font-size:13px;font-weight:500;border-radius:999px;padding:5px 12px;background:#f1f0fb;color:var(--bb-muted);border:0;display:inline-flex;align-items:center;gap:7px;cursor:pointer}
+  .pill.on{background:var(--bb-violet);color:#fff;font-weight:600}
+  .ck{width:15px;height:15px;border-radius:5px;display:inline-flex;align-items:center;justify-content:center;border:1.5px solid #c7c7cf;color:#fff;font-size:11px;font-weight:900}
+  .pill.on .ck{background:rgba(255,255,255,.22);border:0}
+  .seldiv{width:1px;height:18px;background:var(--bb-line);margin:0 2px}
+  .selcount{font-size:12.5px;color:var(--bb-faint);margin-left:2px}
+
+  .chips{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px}
+  .chip{font-size:13px;font-weight:500;color:var(--bb-muted);background:#f1f0fb;border-radius:999px;padding:6px 13px}
+  .chip b{color:var(--bb-ink)}
+
+  .fn{display:flex;flex-direction:column;gap:8px}
+  .row{display:flex;align-items:center;gap:14px}
+  .name{width:210px;flex:0 0 210px}
+  .name .t{font-size:13.5px;font-weight:600;color:var(--bb-ink)}
+  .name .code{font-size:10.5px;color:var(--bb-faint)}
+  .track{flex:1;height:34px;background:#f3f0ec;border-radius:9px;overflow:hidden}
+  .fill{height:100%;border-radius:9px;background:linear-gradient(90deg,var(--bb-violet),var(--bb-indigo));
+    display:flex;align-items:center;justify-content:flex-end;padding-right:12px;color:#fff;font-weight:800;font-size:15px;min-width:40px}
+  .fill.win{background:linear-gradient(90deg,#2c7a4a,#1f5e38)}
+  .fill.zero{background:#cfcad9;color:#fff}
+  .right{width:150px;flex:0 0 150px;text-align:right;display:flex;flex-direction:column;gap:0;align-items:flex-end}
+  .right .pct{font-size:15px;font-weight:800}
+  .right .here{font-size:11.5px;color:var(--bb-muted)}
+  .right .here.clog{color:var(--bb-amber);font-weight:700}
+  .foot{margin-top:18px;padding-top:16px;border-top:1px solid var(--bb-line);display:flex;align-items:center;gap:10px;font-size:13.5px;color:var(--bb-muted)}
+  .foot b{color:var(--bb-ink)}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--bb-amber);flex:0 0 9px}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <p class="lbl">Воронка по стадиям сделки — полная цепочка (живые данные, 60 открытых сделок cat10)</p>
+    <div class="bb-card">
+      <div class="head">
+        <div class="ic">📊</div><h2>Путь сделки: вход → оплата</h2><span class="per">открытый пайплайн · сейчас</span>
+      </div>
+
+      <div class="sel">
+        <button class="pill"><span class="ck"></span>Весь отдел</button>
+        <span class="seldiv"></span>
+        <button class="pill on"><span class="ck">✓</span>Семенихин Е.</button>
+        <button class="pill on"><span class="ck">✓</span>Гордиенко Е.</button>
+        <button class="pill"><span class="ck"></span>Деговцова Е.</button>
+        <button class="pill"><span class="ck"></span>Демидов П.</button>
+        <span class="selcount">выбрано 2 из 4</span>
+      </div>
+
+      <div class="chips">
+        <span class="chip">Открытых сделок: <b>60</b></span>
+        <span class="chip">Холодные: <b>3</b></span>
+        <span class="chip">Входящие: <b>51</b></span>
+        <span class="chip">Средний чек: <b>—</b></span>
+      </div>
+
+      <div class="fn">
+        <!-- name, code, cum(≥), pct, parked-at-prev -->
+        <div class="row"><div class="name"><div class="t">Квалификация</div><div class="code">C10:NEW</div></div>
+          <div class="track"><div class="fill" style="width:100%">60</div></div>
+          <div class="right"><span class="pct">100%</span><span class="here">здесь: 1</span></div></div>
+
+        <div class="row"><div class="name"><div class="t">Подготовка БРИФа</div><div class="code">C10:PREPAYMENT_INVOIC</div></div>
+          <div class="track"><div class="fill" style="width:98%">59</div></div>
+          <div class="right"><span class="pct">98%</span><span class="here">здесь: 8</span></div></div>
+
+        <div class="row"><div class="name"><div class="t">Подготовка КП</div><div class="code">C10:EXECUTING</div></div>
+          <div class="track"><div class="fill" style="width:85%">51</div></div>
+          <div class="right"><span class="pct">85%</span><span class="here clog">здесь: 27 ◀ скопилось</span></div></div>
+
+        <div class="row"><div class="name"><div class="t">Защита КП <span style="color:#5b50d6">• новая</span></div><div class="code">C10:UC_4SJOE4</div></div>
+          <div class="track"><div class="fill" style="width:40%">24</div></div>
+          <div class="right"><span class="pct">40%</span><span class="here">здесь: 0</span></div></div>
+
+        <div class="row"><div class="name"><div class="t">Получить решение</div><div class="code">C10:FINAL_INVOICE</div></div>
+          <div class="track"><div class="fill" style="width:40%">24</div></div>
+          <div class="right"><span class="pct">40%</span><span class="here clog">здесь: 20 ◀ скопилось</span></div></div>
+
+        <div class="row"><div class="name"><div class="t">Получить реквизиты <span style="color:#5b50d6">• новая</span></div><div class="code">C10:UC_RJK0KE</div></div>
+          <div class="track"><div class="fill" style="width:7%">4</div></div>
+          <div class="right"><span class="pct">7%</span><span class="here">здесь: 0</span></div></div>
+
+        <div class="row"><div class="name"><div class="t">Согласование договора</div><div class="code">C10:UC_KC7195</div></div>
+          <div class="track"><div class="fill" style="width:7%">4</div></div>
+          <div class="right"><span class="pct">7%</span><span class="here">здесь: 4</span></div></div>
+
+        <div class="row"><div class="name"><div class="t">Ожидаем оплату <span style="color:#5b50d6">• новая</span></div><div class="code">C10:UC_755Z64</div></div>
+          <div class="track"><div class="fill zero" style="width:40px">0</div></div>
+          <div class="right"><span class="pct">0%</span><span class="here">здесь: 0</span></div></div>
+
+        <div class="row"><div class="name"><div class="t">Оплачено</div><div class="code">C10:WON · за месяц</div></div>
+          <div class="track"><div class="fill zero" style="width:40px">0</div></div>
+          <div class="right"><span class="pct">0%</span><span class="here">—</span></div></div>
+      </div>
+
+      <div class="foot">
+        <span class="dot"></span>
+        <span>Заторы сейчас: <b>27 сделок</b> на «Подготовке КП» и <b>20</b> на «Получить решение» — две трети пайплайна стоят в середине, до оплаты не дошла ни одна.</span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

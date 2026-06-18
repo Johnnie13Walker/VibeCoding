@@ -53,22 +53,38 @@ function firstName(full: string): string {
   return p.length >= 2 ? `${p[0]} ${p[1][0]}.` : full;
 }
 
+/** Чекбокс-галочка для мульти-селектора. */
+function Check({ on }: { on?: boolean }) {
+  return (
+    <span
+      style={{
+        width: 15, height: 15, borderRadius: 5, flex: '0 0 15px',
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        background: on ? 'rgba(255,255,255,.22)' : 'transparent',
+        border: on ? '0' : '1.5px solid #c7c7cf',
+        color: '#fff', fontSize: 11, fontWeight: 900, lineHeight: 1,
+      }}
+    >
+      {on ? '✓' : ''}
+    </span>
+  );
+}
+
 export function SalesFunnel({ data }: { data: SalesFunnelData }) {
-  const managers = data.managers ?? [];
+  const managers = useMemo(() => data.managers ?? [], [data.managers]);
   const allIds = useMemo(() => managers.map((m) => m.managerId), [managers]);
-  // Пустой набор = «весь отдел» (все выбраны).
-  const [sel, setSel] = useState<Set<number>>(new Set());
+  // Мульти-выбор (чекбоксы). По умолчанию выбраны все.
+  const [sel, setSel] = useState<Set<number>>(() => new Set(managers.map((m) => m.managerId)));
   const [grown, setGrown] = useState(false);
   useEffect(() => {
     const id = requestAnimationFrame(() => setGrown(true));
     return () => cancelAnimationFrame(id);
   }, []);
 
-  const isAll = sel.size === 0 || sel.size === allIds.length;
+  const isAll = allIds.length > 0 && sel.size === allIds.length;
 
   const agg = useMemo(() => {
-    const ids = sel.size ? sel : new Set(allIds);
-    const picked = managers.filter((m) => ids.has(m.managerId));
+    const picked = managers.filter((m) => sel.has(m.managerId));
     const sum = (k: 'dealsInWork' | 'kpDeals' | 'defenseDeals' | 'won' | 'briefingDeals' | 'cold' | 'incoming' | 'wonAmount') =>
       picked.reduce((s, m) => s + (m[k] || 0), 0);
     const won = sum('won');
@@ -83,7 +99,7 @@ export function SalesFunnel({ data }: { data: SalesFunnelData }) {
       incoming: sum('incoming'),
       avgCheck: won > 0 ? Math.round(wonAmount / won) : 0,
     };
-  }, [sel, allIds, managers]);
+  }, [sel, managers]);
 
   if (!managers.length) return <LegacyFunnel data={data} />;
 
@@ -108,48 +124,51 @@ export function SalesFunnel({ data }: { data: SalesFunnelData }) {
 
   const toggle = (id: number) => {
     setSel((prev) => {
-      // из «весь отдел» (пусто) первый клик → изолируем одного сейла
-      if (prev.size === 0) return new Set([id]);
       const next = new Set(prev);
       if (next.has(id)) next.delete(id); else next.add(id);
-      // пусто или все выбраны → нормализуем к «весь отдел»
-      if (next.size === 0 || next.size === allIds.length) return new Set();
       return next;
     });
   };
+  const selectAll = () => setSel(new Set(allIds));
 
   return (
     <div>
-      {/* мульти-селектор сейлов */}
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
+      {/* мульти-селектор сейлов (чекбоксы) */}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 14 }}>
         <button
           type="button"
-          onClick={() => setSel(new Set())}
+          onClick={selectAll}
           style={{
-            ...chipStyle, cursor: 'pointer', border: 0,
+            ...chipStyle, cursor: 'pointer', border: 0, display: 'inline-flex', alignItems: 'center', gap: 7,
             background: isAll ? 'var(--bb-violet)' : 'var(--bb-soft, #f1f0fb)',
             color: isAll ? '#fff' : 'var(--bb-muted)', fontWeight: 600,
           }}
         >
+          {isAll ? <Check on /> : null}
           Весь отдел
         </button>
+        <span style={{ width: 1, height: 18, background: 'var(--bb-line)', margin: '0 2px' }} />
         {managers.map((m) => {
-          const on = !isAll && sel.has(m.managerId);
+          const on = sel.has(m.managerId);
           return (
             <button
               key={m.managerId}
               type="button"
               onClick={() => toggle(m.managerId)}
               style={{
-                ...chipStyle, cursor: 'pointer', border: 0,
+                ...chipStyle, cursor: 'pointer', border: 0, display: 'inline-flex', alignItems: 'center', gap: 7,
                 background: on ? 'var(--bb-violet)' : 'var(--bb-soft, #f1f0fb)',
                 color: on ? '#fff' : 'var(--bb-muted)',
               }}
             >
+              <Check on={on} />
               {firstName(m.name)}
             </button>
           );
         })}
+        {!isAll && sel.size > 0 ? (
+          <span style={{ fontSize: 12.5, color: 'var(--bb-faint)', marginLeft: 2 }}>выбрано {sel.size} из {allIds.length}</span>
+        ) : null}
       </div>
 
       {/* плашки-контекст */}
@@ -161,6 +180,12 @@ export function SalesFunnel({ data }: { data: SalesFunnelData }) {
       </div>
 
       {/* воронка-когорта */}
+      {sel.size === 0 ? (
+        <div style={{ padding: '28px 0', textAlign: 'center', color: 'var(--bb-faint)', fontSize: 14 }}>
+          Никто не выбран — отметьте сейлов или нажмите «Весь отдел».
+        </div>
+      ) : (
+      <>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
         {rows.map((r) => {
           const p = pct(r.count);
@@ -217,6 +242,8 @@ export function SalesFunnel({ data }: { data: SalesFunnelData }) {
           </span>
         </div>
       ) : null}
+      </>
+      )}
     </div>
   );
 }
