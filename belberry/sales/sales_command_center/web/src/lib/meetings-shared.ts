@@ -39,6 +39,10 @@ export interface MeetingItem {
   currentSituation: string;
   budgetSignals: string;
   dialogQuality: string;
+  /** Конкретные кейсы (бренд/клиент + услуга + цифры + цитата). null = старый разбор (блок скрыт); [] = кейсов не было. */
+  cases: { client: string; service: string; result: string; quote: string }[] | null;
+  /** Ниши, где менеджер заявил опыт без конкретного кейса. */
+  niches: string[];
   coaching: string;
   keyQuotes: string[];
 }

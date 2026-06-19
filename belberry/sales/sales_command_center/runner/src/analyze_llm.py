@@ -132,6 +132,22 @@ SYSTEM_PROMPT = """
   триггеры («горит», «к сезону»). Если нет — "не озвучено".
 - dialog_quality — качество диалога: вёл диалог или анкету, кто больше говорил
   (менеджер/клиент), глубина уточняющих вопросов менеджера.
+- cases_mentioned — КОНКРЕТНЫЕ кейсы Belberry (примеры работ для ДРУГИХ клиентов),
+  которые менеджер привёл на встрече. Цель — вытащить БРЕНД/клиента и ЦИФРЫ. ПРАВИЛА:
+  * client — самый КОНКРЕТНЫЙ идентификатор, что ПРОЗВУЧАЛ: имя бренда/компании
+    («Доктор Мартин», «Dental Luxury Clinic», «Beautyway») — приоритет; если бренд не
+    назван, но кейс описан — описательно с деталями («сетевая косметология в Ростове,
+    3 филиала»), НЕ сворачивай до голой ниши.
+  * result — ОБЯЗАТЕЛЬНО вытащи цифры/итог, если они звучали (+44% записей, до 700₽/лид,
+    рейтинг 3.8→4.6, 300–350 запросов). Нет цифр — краткий качественный итог или null.
+  * service — услуга из набора (SEO/ORM/Контекст/Веб-разработка/GEO/SMM/Аналитика) или null.
+  * quote — короткая ДОСЛОВНАЯ фраза менеджера про этот кейс (как подал), иначе null.
+  ВКЛЮЧАЙ кейс, только если есть конкретика: бренд ИЛИ цифры/результат. Голую нишу без
+  бренда и без цифр («работали со стоматологиями») в cases_mentioned НЕ клади.
+  Ничего не выдумывай. Конкретных кейсов не было — [].
+- niches_claimed — ниши, в которых менеджер ЗАЯВИЛ опыт БЕЗ конкретного кейса/цифр
+  («работали со стоматологиями, лабораториями, ветклиниками»). Список коротких ярлыков
+  ниш (["стоматологии","лаборатории","ветклиники"]). Если таких заявлений не было — [].
 - coaching — КОНКРЕТНЫЙ совет менеджеру: что сделать иначе/лучше в следующий раз
   именно по этой встрече (1-3 пункта, по делу, без воды).
 - key_quotes — 2-4 ключевые ДОСЛОВНЫЕ цитаты клиента, раскрывающие потребность/возражение/решение.
@@ -163,6 +179,8 @@ SYSTEM_PROMPT = """
   "current_situation": "...",
   "budget_signals": "...",
   "dialog_quality": "...",
+  "cases_mentioned": [{"client": "...", "service": "..." | null, "result": "..." | null, "quote": "..." | null}],
+  "niches_claimed": ["стоматологии", "лаборатории"],
   "coaching": "...",
   "key_quotes": ["...", "..."],
   "transcript_status": "ok"
@@ -478,6 +496,37 @@ def _normalize_kp_assessment(value: Any) -> str | None:
     return v if v in _KP_ASSESSMENTS else None
 
 
+def _normalize_cases(value: Any) -> list[dict[str, str]]:
+    """Конкретные кейсы: client + (service ИЛИ result), + quote (как подал менеджер).
+    Голые ниши без бренда и цифр отбрасываем (они идут в niches_claimed)."""
+    out: list[dict[str, str]] = []
+    for item in value or []:
+        if not isinstance(item, dict):
+            continue
+        client = str(item.get("client") or "").strip()
+        service = str(item.get("service") or "").strip()
+        result = str(item.get("result") or "").strip()
+        if not client or (not service and not result):
+            continue
+        out.append(
+            {"client": client, "service": service, "result": result, "quote": str(item.get("quote") or "").strip()}
+        )
+    return out
+
+
+def _normalize_niches(value: Any) -> list[str]:
+    """Ниши заявленного опыта (без конкретного кейса) — короткие ярлыки, дедуп."""
+    out: list[str] = []
+    seen: set[str] = set()
+    for item in value or []:
+        s = str(item or "").strip()
+        key = s.lower()
+        if s and key not in seen:
+            seen.add(key)
+            out.append(s)
+    return out
+
+
 def _normalize_needs(value: Any) -> list[dict[str, str]]:
     out: list[dict[str, str]] = []
     for item in value or []:
@@ -553,6 +602,8 @@ def _normalize_analysis(parsed: dict[str, Any]) -> dict[str, Any]:
         "current_situation": _opt_str(parsed.get("current_situation")),
         "budget_signals": _opt_str(parsed.get("budget_signals")),
         "dialog_quality": _opt_str(parsed.get("dialog_quality")),
+        "cases_mentioned": _normalize_cases(parsed.get("cases_mentioned")),
+        "niches_claimed": _normalize_niches(parsed.get("niches_claimed")),
         "coaching": _opt_str(parsed.get("coaching")),
         "key_quotes": _normalize_quotes(parsed.get("key_quotes")),
         "transcript_status": "ok",

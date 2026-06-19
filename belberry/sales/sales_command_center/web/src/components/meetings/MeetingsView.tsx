@@ -161,6 +161,7 @@ export function MeetingsView({ items }: { items: MeetingItem[] }) {
 
       {/* список + разбор */}
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,380px) 1fr', gap: 16, alignItems: 'start' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div className="bb-card" style={{ padding: 0, maxHeight: '80vh', overflowY: 'auto' }}>
           {rows.length === 0 ? (
             <p style={{ padding: 30, textAlign: 'center', color: 'var(--bb-faint)' }}>Нет встреч под фильтр</p>
@@ -194,11 +195,94 @@ export function MeetingsView({ items }: { items: MeetingItem[] }) {
             ))
           )}
         </div>
+        <ScoreLogic />
+        </div>
 
         <div className="bb-card">
           {selectedMeeting ? <Detail m={selectedMeeting} /> : <p style={{ padding: 30, textAlign: 'center', color: 'var(--bb-faint)' }}>← Выбери встречу из списка</p>}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── «Как считается балл» — пояснение логики оценки (узкая левая колонка) ──────
+const SCORE_BANDS: { range: string; bg: string; ttl: string; desc: string }[] = [
+  { range: '9–10', bg: 'linear-gradient(135deg,#3a9c63,#2c7a4a)', ttl: 'Образцовая', desc: 'весь чек-лист ✅, бюджет+ЛПР+сроки, клиент взял обязательство, дата зафиксирована' },
+  { range: '8', bg: '#3a9c63', ttl: 'Сильная', desc: 'почти весь ✅ (≤1 ⚠️), но обязательство мягкое или упущен 1 ключевой пункт' },
+  { range: '6–7', bg: '#c97a1e', ttl: 'Рабочая, с провисами', desc: '2–3 пункта ⚠️/❌, размытый следующий шаг' },
+  { range: '4–5', bg: '#dd7a3a', ttl: 'Слабая', desc: 'анкета вместо диалога / нет бюджета / кейсов / след. шага' },
+  { range: '1–3', bg: 'var(--bb-red)', ttl: 'Провал', desc: 'клиент потерян, нет потребности и шага' },
+];
+const factorStyle: React.CSSProperties = { fontSize: 11, fontWeight: 600, background: '#f4f2fb', color: 'var(--bb-indigo)', borderRadius: 999, padding: '3px 9px' };
+const chipStyle: React.CSSProperties = { fontSize: 11, color: 'var(--bb-ink)', background: '#f6f4f1', border: '1px solid var(--bb-line)', borderRadius: 7, padding: '3px 8px' };
+function tagStyle(kind: 'br' | 'df'): React.CSSProperties {
+  return { fontSize: 10, fontWeight: 700, borderRadius: 5, padding: '2px 6px', ...(kind === 'br' ? { background: '#eef0ff', color: '#4a3fd0' } : { background: '#fdeef6', color: '#c0297e' }) };
+}
+
+function ScoreLogic() {
+  const [open, setOpen] = useState(true);
+  return (
+    <div className="bb-card" style={{ padding: '14px 16px' }}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left' }}
+      >
+        <span style={{ width: 26, height: 26, borderRadius: 8, display: 'grid', placeItems: 'center', background: 'var(--bb-violet-soft)', color: 'var(--bb-violet)', flex: '0 0 26px', fontSize: 13 }}>★</span>
+        <span style={{ fontSize: 15, fontWeight: 800, letterSpacing: '-.01em' }}>Как считается балл</span>
+        <span style={{ marginLeft: 'auto', color: 'var(--bb-faint)', fontSize: 13 }}>{open ? '▾' : '▸'}</span>
+      </button>
+
+      {open ? (
+        <div style={{ marginTop: 12 }}>
+          <div style={{ fontSize: 12, color: 'var(--bb-muted)', lineHeight: 1.45, marginBottom: 12 }}>
+            Балл 1–10 ставит ИИ по транскрипту — это <b style={{ color: 'var(--bb-ink)' }}>качество проведения</b> встречи (как отработал менеджер), а не статус сделки. Строится из 4 факторов:
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 14 }}>
+            <span style={factorStyle}>✓ Чек-лист</span>
+            <span style={factorStyle}>→ Следующий шаг</span>
+            <span style={factorStyle}>📊 Аргументация</span>
+            <span style={factorStyle}>🤝 Обязательство</span>
+          </div>
+
+          {SCORE_BANDS.map((b, i) => (
+            <div key={b.range} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', borderTop: i === 0 ? 'none' : '1px solid #f3efe9' }}>
+              <span style={{ flex: '0 0 42px', width: 42, height: 30, borderRadius: 8, display: 'grid', placeItems: 'center', fontWeight: 800, fontSize: 13, color: '#fff', background: b.bg }}>{b.range}</span>
+              <span style={{ flex: 1, minWidth: 0 }}>
+                <span style={{ display: 'block', fontSize: 12.5, fontWeight: 700, lineHeight: 1.2 }}>{b.ttl}</span>
+                <span style={{ display: 'block', fontSize: 11, color: 'var(--bb-muted)', marginTop: 1, lineHeight: 1.35 }}>{b.desc}</span>
+              </span>
+            </div>
+          ))}
+
+          <div style={{ height: 1, background: 'var(--bb-line)', margin: '13px 0 11px' }} />
+
+          <div style={{ fontSize: 11.5, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
+            <span style={tagStyle('br')}>Брифинг</span> чек-лист
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 11 }}>
+            {['диалог-не-анкета', 'потребность', 'кейсы', 'бюджет', 'след. шаг'].map((c) => (
+              <span key={c} style={chipStyle}>{c === 'бюджет' ? <b>бюджет</b> : c}</span>
+            ))}
+          </div>
+          <div style={{ fontSize: 11.5, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
+            <span style={tagStyle('df')}>Защита КП</span> чек-лист
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 11 }}>
+            {['кейсы (обяз.)', 'аргументация цифрами', 'запрос след. шагов', 'итоги клиенту'].map((c) => (
+              <span key={c} style={chipStyle}>{c}</span>
+            ))}
+          </div>
+
+          <div style={{ fontSize: 11, color: 'var(--bb-muted)', lineHeight: 1.45, background: '#f7f6fc', border: '1px solid var(--bb-line)', borderRadius: 9, padding: '9px 11px', marginBottom: 10 }}>
+            🤝 <b style={{ color: 'var(--bb-ink)' }}>«Взял обязательство»</b> — клиент дал конкретное обещание двигаться дальше (действие + дата): «пришлю реквизиты до пятницы», «созвон во вторник», «выношу на совет директоров». А «подумаю / обсудим внутри» без даты — это <b>мягкое</b> обязательство (потолок балла ≈8), «нет» — клиент ушёл без шага.
+          </div>
+
+          <div style={{ fontSize: 11, color: 'var(--bb-faint)', lineHeight: 1.45 }}>
+            <b style={{ color: 'var(--bb-muted)' }}>Ориентиры:</b> брифинг без бюджета ≈ 5–6; крепкая защита с мягким обязательством ≈ 8. Цель — <b>≥7</b>.
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -269,6 +353,58 @@ function Obs({ items, kind }: { items: { text: string; metric?: string }[]; kind
         </li>
       ))}
     </ul>
+  );
+}
+
+function NichesLine({ niches }: { niches: string[] }) {
+  if (!niches.length) return null;
+  return (
+    <div style={{ marginTop: 12, paddingTop: 11, borderTop: '1px dashed #cfe0d4', fontSize: 13, color: 'var(--bb-muted)', lineHeight: 1.5 }}>
+      <b style={{ color: 'var(--bb-ink)' }}>Заявлен опыт по нишам</b> (без конкретного кейса):{' '}
+      {niches.map((n) => (
+        <span key={n} style={{ display: 'inline-block', fontSize: 12, background: '#eef3ef', color: '#3f7a56', borderRadius: 7, padding: '2px 8px', margin: '2px 3px 0 0' }}>{n}</span>
+      ))}
+    </div>
+  );
+}
+
+function CasesBlock({ cases, niches, isDefense }: { cases: { client: string; service: string; result: string; quote: string }[]; niches: string[]; isDefense: boolean }) {
+  if (cases.length > 0) {
+    return (
+      <div style={{ margin: '6px 0 16px', padding: '15px 17px', borderRadius: 13, background: '#f4fbf6', border: '1px solid #d8e9dd' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 12 }}>
+          <span style={{ fontSize: 14, fontWeight: 800 }}>📁 Кейсы</span>
+          <span style={{ fontSize: 11, fontWeight: 700, borderRadius: 999, padding: '2px 9px', background: '#e9f6ee', color: '#2c7a4a' }}>{cases.length === 1 ? 'показан' : 'показаны'} · {cases.length}</span>
+        </div>
+        <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 13 }}>
+          {cases.map((c, i) => (
+            <li key={i} style={{ display: 'flex', gap: 10, fontSize: 14, lineHeight: 1.5 }}>
+              <span style={{ color: '#2c7a4a', fontWeight: 800, flex: '0 0 auto' }}>·</span>
+              <span style={{ minWidth: 0 }}>
+                <b>{c.client}</b>
+                {c.service ? <span style={{ fontSize: 11.5, fontWeight: 700, color: '#4a3fd0', background: '#eef0ff', borderRadius: 6, padding: '1px 7px', marginLeft: 5 }}>{c.service}</span> : null}
+                {c.result ? <div style={{ marginTop: 2 }}>{c.result}</div> : null}
+                {c.quote ? <div style={{ fontSize: 12.5, color: 'var(--bb-faint)', fontStyle: 'italic', marginTop: 3 }}>«{c.quote.replace(/^«|»$/g, '')}»</div> : null}
+              </span>
+            </li>
+          ))}
+        </ul>
+        <NichesLine niches={niches} />
+      </div>
+    );
+  }
+  // конкретных кейсов нет (разбор есть)
+  return (
+    <div style={{ margin: '6px 0 16px', padding: '15px 17px', borderRadius: 13, background: '#fdf6ee', border: '1px solid #f0e0c8' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 6 }}>
+        <span style={{ fontSize: 14, fontWeight: 800 }}>📁 Кейсы</span>
+        <span style={{ fontSize: 11, fontWeight: 700, borderRadius: 999, padding: '2px 9px', background: '#fdf2e7', color: '#c97a1e' }}>не показаны</span>
+      </div>
+      <div style={{ fontSize: 13.5, color: '#9a6a1d', lineHeight: 1.45 }}>
+        Конкретные кейсы (бренд + цифры) на встрече не приводились.{isDefense ? ' Для защиты КП кейсы обязательны — это риск для следующего шага.' : ''}
+      </div>
+      <NichesLine niches={niches} />
+    </div>
   );
 }
 
@@ -368,6 +504,8 @@ function Detail({ m }: { m: MeetingItem }) {
           <Info label="Качество диалога" text={m.dialogQuality} />
         </div>
       ) : null}
+
+      {m.cases != null ? <CasesBlock cases={m.cases} niches={m.niches} isDefense={m.type === 'defense'} /> : null}
 
       {m.coaching ? (
         <div style={{ margin: '6px 0 16px', padding: '13px 16px', borderRadius: 12, background: '#eef6ff', border: '1px solid #cfe2fb' }}>
