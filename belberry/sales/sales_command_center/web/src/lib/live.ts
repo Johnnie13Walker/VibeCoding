@@ -295,6 +295,15 @@ export async function getDayBreakdown(date: string): Promise<LiveData | null> {
   const dir = new Map(userRows.map((u) => [u.id, { name: u.name, dept: u.dept ?? '' }]));
   const nameOf = (id: number | null) => (id ? (dir.get(id)?.name ?? `id ${id}`) : '—');
   const dealTitle = new Map(dsRows.map((d) => [d.dealId, d.title]));
+  // Назначенные-на-другой-день встречи: их сделки могут быть не в снимке дня D →
+  // добираем названия из deal_titles, чтобы в «Встречи назначены» был домен, не «Встреча».
+  const mtMissingTitleIds = [...new Set(
+    mtRows.map((r) => r.dealId).filter((x): x is number => x != null && !dealTitle.has(x)),
+  )];
+  if (mtMissingTitleIds.length) {
+    const dtRows = await db.select({ dealId: dealTitles.dealId, title: dealTitles.title }).from(dealTitles).where(inArray(dealTitles.dealId, mtMissingTitleIds));
+    for (const t of dtRows) if (t.title) dealTitle.set(t.dealId, t.title);
+  }
 
   // отменённые встречи по ответственному (manager_activity их не хранит)
   const cancelledByMgr = new Map<number, number>();
@@ -357,44 +366,6 @@ export async function getDayBreakdown(date: string): Promise<LiveData | null> {
         companyRevenue: r.companyRevenue != null ? Number(r.companyRevenue) : null,
       };
     });
-
-  // «Назначены в этот день, проведены позже» — встречи, СОЗДАННЫЕ в день D, но
-  // хранящиеся под датой проведения (другой report_date). Без дубль-строк: берём
-  // их запросом по created_at (MSK), исключая уже попавшие в mtRows (report_date=D).
-  const setRows = await db
-    .select()
-    .from(meetings)
-    .where(
-      and(
-        sql`date(${meetings.createdAt} at time zone 'Europe/Moscow') = ${date}`,
-        sql`${meetings.reportDate} <> ${date}`,
-        eq(meetings.status, 'DT1048_24:SUCCESS'),
-      ),
-    );
-  // Названия сделок «назначенных» (проведены в другой день → нет в снимке D) — из deal_titles.
-  const setDealIds = [...new Set(setRows.map((r) => r.dealId).filter((x): x is number => x != null && !dealTitle.has(x)))];
-  if (setDealIds.length) {
-    const dtRows = await db.select({ dealId: dealTitles.dealId, title: dealTitles.title }).from(dealTitles).where(inArray(dealTitles.dealId, setDealIds));
-    for (const t of dtRows) if (t.title) dealTitle.set(t.dealId, t.title);
-  }
-  for (const r of setRows) {
-    if (!keep(r.managerId)) continue;
-    const dt = r.dealId != null ? dealTitle.get(r.dealId) : null;
-    const type = (r.meetingType as LiveMeeting['type']) ?? null;
-    const label = MEETING_TYPE_LABEL[String(r.meetingType ?? '')] ?? 'Встреча';
-    meetingsList.push({
-      id: r.meetingId,
-      title: dt || label,
-      manager: nameOf(r.managerId),
-      at: r.scheduledAt ? new Date(r.scheduledAt).toISOString() : '',
-      status: meetingStatusFrom(r.status),
-      dealId: r.dealId,
-      setToday: true,
-      type,
-      creatorIsTm: isTm(r.createdBy ?? null),
-      companyRevenue: r.companyRevenue != null ? Number(r.companyRevenue) : null,
-    });
-  }
 
   const briefsList: LiveBrief[] = kbRows
     .filter((r) => r.itemType === 'brief' && keep(r.managerId))

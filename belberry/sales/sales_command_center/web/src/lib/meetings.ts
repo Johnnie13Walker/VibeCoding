@@ -66,10 +66,16 @@ export async function getMeetingsForAnalysis(days = 120): Promise<MeetingItem[]>
       status: meetings.status,
     })
     .from(meetings)
-    // Только ПРОВЕДЁННЫЕ встречи (стадия SP 1048 = SUCCESS). С паритетом архива
-    // /today в meetings теперь попадают и назначенные-непроведённые строки — на
-    // странице разбора их не показываем (нет разбора/транскрипта).
-    .where(and(gte(meetings.reportDate, cutoff), eq(meetings.status, 'DT1048_24:SUCCESS')))
+    // Только ПРОВЕДЁННЫЕ встречи, ОДНА строка на встречу. В meetings теперь две
+    // строки на встречу (назначение под датой создания + проведение под датой
+    // встречи) ради архива «Встречи назначены». Берём строку-ПРОВЕДЕНИЕ: статус
+    // SUCCESS И дата встречи = дата отчёта (date(scheduled)=report_date) — это
+    // убирает дубль (у строки-назначения дата встречи ≠ report_date).
+    .where(and(
+      gte(meetings.reportDate, cutoff),
+      eq(meetings.status, 'DT1048_24:SUCCESS'),
+      sql`date(${meetings.scheduledAt} at time zone 'Europe/Moscow') = ${meetings.reportDate}`,
+    ))
     .orderBy(sql`${meetings.reportDate} desc`);
 
   const dealIds = [...new Set(rows.map((r) => r.dealId).filter((x): x is number => x != null))];
