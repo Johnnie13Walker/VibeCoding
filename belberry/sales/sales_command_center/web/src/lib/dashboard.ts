@@ -1226,7 +1226,7 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
     const mtMgrRows = await db
       .select({ managerId: meetings.managerId, type: meetings.meetingType, n: sql<number>`count(*)` })
       .from(meetings)
-      .where(and(gte(meetings.reportDate, start), lte(meetings.reportDate, end), inArray(meetings.managerId, salesIds)))
+      .where(and(eq(meetings.status, MEETING_HELD_STAGE), gte(meetings.reportDate, start), lte(meetings.reportDate, end), inArray(meetings.managerId, salesIds)))
       .groupBy(meetings.managerId, meetings.meetingType);
     for (const r of mtMgrRows) {
       if (r.managerId == null) continue;
@@ -1375,7 +1375,7 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
   const dynMeetRows = await db
     .select({ ym: ymMeetExpr, type: meetings.meetingType, n: sql<number>`count(*)` })
     .from(meetings)
-    .where(gte(meetings.reportDate, dynStart))
+    .where(and(eq(meetings.status, MEETING_HELD_STAGE), gte(meetings.reportDate, dynStart)))
     .groupBy(ymMeetExpr, meetings.meetingType);
   const dynMeetings: Record<string, { first: number; defense: number }> = {};
   for (const r of dynMeetRows) {

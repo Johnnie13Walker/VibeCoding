@@ -140,6 +140,35 @@ def test_aggregate_calls_hourly_buckets_by_msk_hour():
     assert (None, 10) not in r  # без PORTAL_USER_ID — пропуск
 
 
+def test_meetings_store_set_meetings_with_created_at_and_revenue():
+    # meet_day: проведённая (held); meet_created_day: назначенная сегодня (другая,
+    # ещё не проведена) + та же held (дедуп). created_at и company_revenue заполняются.
+    raw = {
+        "deals_open": [], "deals_created": [],
+        "meet_day": [
+            {"id": 1, "parentId2": 100, "assignedById": 10, "createdBy": 10,
+             "stageId": "DT1048_24:SUCCESS", "createdTime": "2026-06-01T09:00:00+03:00",
+             "ufCrm16_1751009238": "2026-06-10T12:00:00+03:00"},
+        ],
+        "meet_created_day": [
+            {"id": 1, "parentId2": 100, "assignedById": 10, "createdBy": 10,
+             "stageId": "DT1048_24:SUCCESS", "createdTime": "2026-06-01T09:00:00+03:00",
+             "ufCrm16_1751009238": "2026-06-10T12:00:00+03:00"},
+            {"id": 2, "parentId2": 200, "assignedById": 11, "createdBy": 2772,
+             "stageId": "DT1048_24:CLIENT", "createdTime": "2026-06-10T15:00:00+03:00",
+             "ufCrm16_1751009238": "2026-06-18T10:00:00+03:00"},
+        ],
+        "meeting_deal_revenue": {200: 25_000_000.0},
+    }
+    rows = build_db_rows(raw, date(2026, 6, 10), NOW)
+    mt = {r["meeting_id"]: r for r in rows["meetings"]}
+    assert set(mt) == {1, 2}  # дедуп: встреча 1 один раз
+    assert mt[1]["status"] == "DT1048_24:SUCCESS"  # приоритет meet_day (held)
+    assert mt[1]["created_at"] is not None
+    assert mt[2]["company_revenue"] == 25_000_000.0  # выручка из карты
+    assert mt[2]["created_by"] == 2772  # назначил ТМ
+
+
 def test_build_db_rows_matches_phase_one_schema_keys():
     raw = load_raw()
 
@@ -168,7 +197,9 @@ def test_build_db_rows_matches_phase_one_schema_keys():
         "status",
         "manager_id",
         "created_by",
+        "created_at",
         "scheduled_at",
+        "company_revenue",
         "analysis_json",
         "transcript_url",
         "transcript_text",

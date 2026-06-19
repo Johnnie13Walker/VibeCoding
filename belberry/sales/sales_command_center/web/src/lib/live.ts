@@ -342,6 +342,8 @@ export async function getDayBreakdown(date: string): Promise<LiveData | null> {
       const dt = r.dealId != null ? dealTitle.get(r.dealId) : null;
       const type = (r.meetingType as LiveMeeting['type']) ?? null;
       const label = MEETING_TYPE_LABEL[String(r.meetingType ?? '')] ?? 'Встреча';
+      // «Назначено в этот день» = дата создания встречи совпадает с днём отчёта.
+      const setToday = r.createdAt != null && new Date(r.createdAt).toISOString().slice(0, 10) === date;
       return {
         id: r.meetingId,
         title: dt || label,
@@ -349,10 +351,10 @@ export async function getDayBreakdown(date: string): Promise<LiveData | null> {
         at: r.scheduledAt ? new Date(r.scheduledAt).toISOString() : '',
         status: meetingStatusFrom(r.status),
         dealId: r.dealId,
-        setToday: false,
+        setToday,
         type,
         creatorIsTm: isTm(r.createdBy ?? null),
-        companyRevenue: null, // в истории выручку не храним — показываем только в live
+        companyRevenue: r.companyRevenue != null ? Number(r.companyRevenue) : null,
       };
     });
 

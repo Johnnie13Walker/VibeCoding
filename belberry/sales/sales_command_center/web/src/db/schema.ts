@@ -129,7 +129,9 @@ export const meetings = pgTable(
     managerId: integer('manager_id'),
     // Создатель встречи (ТМ): событийная атрибуция «встречу назначил ТМ».
     createdBy: integer('created_by'),
+    createdAt: timestamp('created_at', { withTimezone: true }),
     scheduledAt: timestamp('scheduled_at', { withTimezone: true }),
+    companyRevenue: numeric('company_revenue', { precision: 14, scale: 2 }),
     analysisJson: jsonb('analysis_json'),
     transcriptUrl: text('transcript_url'),
     transcriptText: text('transcript_text'),

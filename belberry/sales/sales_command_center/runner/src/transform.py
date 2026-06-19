@@ -254,26 +254,39 @@ def build_db_rows(raw: dict[str, Any], target_date: date, now: datetime) -> dict
             }
         )
 
-    meetings = [
-        {
+    # Храним и проведённые в день (meet_day), и НАЗНАЧЕННЫЕ/созданные в день
+    # (meet_created_day) — чтобы архив /today показывал «Встречи назначены» так же,
+    # как live. Дедуп по meeting_id (созданная+проведённая в один день = одна строка;
+    # приоритет meet_day — там статус SUCCESS). created_at нужен для setToday в архиве
+    # (= created_at в день отчёта), company_revenue — годовая выручка для ТМ-брифингов.
+    revenue_map = raw.get("meeting_deal_revenue") or {}
+    _rev = lambda did: revenue_map.get(did) if did is not None else None  # noqa: E731
+    _meet_by_id: dict[int, dict[str, Any]] = {}
+    for item in [*raw.get("meet_day", []), *raw.get("meet_created_day", [])]:
+        mid = _to_int(item.get("id"))
+        if mid is None or mid in _meet_by_id:
+            continue
+        deal_id = _to_int(item.get("parentId2"))
+        _meet_by_id[mid] = {
             "report_date": report_date,
-            "meeting_id": _to_int(item.get("id")),
-            "deal_id": _to_int(item.get("parentId2")),
+            "meeting_id": mid,
+            "deal_id": deal_id,
             "meeting_type": _meeting_type(item),
             "status": item.get("stageId"),
             "manager_id": _to_int(item.get("assignedById")),
             # Создатель встречи (ТМ-телемаркетолог) — для событийных метрик ТМ:
             # «встречу назначил ТМ и она состоялась» считается запросом по этой таблице.
             "created_by": _to_int(item.get("createdBy")),
+            "created_at": parse_dt(item.get("createdTime")),
             "scheduled_at": parse_dt(item.get("ufCrm16_1751009238")),
+            "company_revenue": _rev(deal_id),
             "analysis_json": None,
             "transcript_url": None,
             "transcript_text": None,
             "transcript_ok": None,
             "analysis_status": None,
         }
-        for item in raw.get("meet_day", [])
-    ]
+    meetings = list(_meet_by_id.values())
 
     calls = aggregate_calls(raw.get("calls", []))
     emails_sent = aggregate_emails(raw.get("activities", []))
