@@ -8,23 +8,8 @@ from datetime import date, datetime
 from typing import Any
 
 from .collect import SEL_1048, _fetch_all, _range, collect_voximplant
+from .service_maps import BRIEF_SERVICE_FIELD, KP_SERVICE_FIELD, brief_service, kp_service
 from .transform import aggregate_calls, _to_int, _meeting_type
-
-# Поле брифа (1056) «Список услуг» — enumeration ufCrm20_1753290430.
-BRIEF_SERVICE_FIELD = "ufCrm20_1753290430"
-SERVICE_MAP = {
-    2722: "Дзен", 2724: "Копирайтинг", 2726: "Контекстная реклама", 2728: "GEO",
-    2730: "SEO", 2732: "ORM", 2734: "SMM", 2736: "Разработка сайта",
-    2738: "Техподдержка", 2740: "Лендинг", 2742: "Фирменный стиль", 9538: "AEO",
-}
-
-# Поле КП (1106) «Список услуг» — enumeration ufCrm44_1774430907621 (свой набор id).
-KP_SERVICE_FIELD = "ufCrm44_1774430907621"
-KP_SERVICE_MAP = {
-    8652: "SEO", 8654: "Дзен", 8656: "Копирайтинг", 8658: "Контекстная реклама",
-    8660: "GEO", 8662: "ORM", 8664: "SMM", 8666: "Разработка сайта",
-    8668: "Техподдержка", 8670: "Лендинг", 8672: "Фирменный стиль", 9540: "AEO",
-}
 
 # Годовая выручка компании пишется обогащением на сделку (3 формы поля). Берём первую
 # непустую: число → деньги (amount|CUR) → строка. Нужна для ТМ-брифингов на /today.
@@ -209,7 +194,7 @@ def build_live_payload(today: date, raw: dict[str, Any], now: datetime) -> dict[
         cell = slot(uid)
         if cell:
             cell["briefs"] += 1
-        service = SERVICE_MAP.get(_to_int(b.get(BRIEF_SERVICE_FIELD)) or 0, "")
+        service = brief_service(b)
         briefs_list.append(
             {"id": _to_int(b.get("id")), "title": b.get("title") or "Бриф", "manager_id": uid,
              "deal_id": _to_int(b.get("parentId2")), "service": service}
@@ -218,7 +203,7 @@ def build_live_payload(today: date, raw: dict[str, Any], now: datetime) -> dict[
     kp_list = []
     for k in kp:
         uid = _to_int(k.get("assignedById"))
-        service = KP_SERVICE_MAP.get(_to_int(k.get(KP_SERVICE_FIELD)) or 0, "")
+        service = kp_service(k)
         kp_list.append(
             {"id": _to_int(k.get("id")), "title": k.get("title") or "КП", "manager_id": uid,
              "deal_id": _to_int(k.get("parentId2")), "service": service,

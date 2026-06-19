@@ -191,6 +191,7 @@ export const kpBriefs = pgTable(
     itemType: text('item_type').notNull(),
     stage: text('stage'),
     managerId: integer('manager_id'),
+    service: text('service'),
     amount: numeric('amount', { precision: 14, scale: 2 }),
   },
   (table) => [

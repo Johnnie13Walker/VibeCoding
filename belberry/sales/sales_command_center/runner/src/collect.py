@@ -16,6 +16,7 @@ import requests
 
 from . import bx_client
 from .chat_attribution import attribute_dialogs
+from .service_maps import BRIEF_SERVICE_FIELD, KP_SERVICE_FIELD
 from .timeutil import next_working_day
 
 PORTAL_BASE = "https://belberrycrm.bitrix24.ru"
@@ -528,7 +529,7 @@ def collect_flow_day(target: date, bx=None) -> dict[str, Any]:
         {
             "entityTypeId": 1056,
             "filter": {">=updatedTime": d0, "<=updatedTime": d1},
-            "select": ["id", "title", "stageId", "createdTime", "updatedTime", "assignedById", "ufCrm20_1754044185200", "parentId2"],
+            "select": ["id", "title", "stageId", "createdTime", "updatedTime", "assignedById", "ufCrm20_1754044185200", BRIEF_SERVICE_FIELD, "parentId2"],
         },
         idfield="id",
     )
@@ -538,7 +539,7 @@ def collect_flow_day(target: date, bx=None) -> dict[str, Any]:
         {
             "entityTypeId": 1106,
             "filter": {">=updatedTime": d0, "<=updatedTime": d1},
-            "select": ["id", "title", "stageId", "createdTime", "updatedTime", "assignedById", "opportunity", "parentId2", "begindate"],
+            "select": ["id", "title", "stageId", "createdTime", "updatedTime", "assignedById", "opportunity", KP_SERVICE_FIELD, "parentId2", "begindate"],
         },
         idfield="id",
     )
@@ -678,6 +679,7 @@ def collect_day(target: date, bx=None) -> dict[str, Any]:
                 "updatedTime",
                 "assignedById",
                 "ufCrm20_1754044185200",
+                BRIEF_SERVICE_FIELD,
                 "parentId2",
             ],
         },
@@ -697,6 +699,7 @@ def collect_day(target: date, bx=None) -> dict[str, Any]:
                 "updatedTime",
                 "assignedById",
                 "opportunity",
+                KP_SERVICE_FIELD,
                 "parentId2",
                 "begindate",
             ],

@@ -227,11 +227,13 @@ def test_build_db_rows_counts_cat10_entries_vhod_holod():
 
 def test_briefs_kp_attributed_to_deal_owner():
     # Бриф/КП на сделке 100 (владелец 777), элемент назначен на 999 → кредит владельцу.
+    # Услуга: бриф (1056, поле ufCrm20_1753290430 = 2730 → SEO), КП (1106, поле
+    # ufCrm44_1774430907621 = 8662 → ORM) — разные enum-наборы, не путать.
     raw = {
         "deals_open": [{"ID": 100, "ASSIGNED_BY_ID": 777, "STAGE_ID": "C10:EXECUTING", "MOVED_TIME": "2026-06-01T10:00:00+03:00", "OPPORTUNITY": 0, "CATEGORY_ID": 10}],
         "deals_created": [],
-        "briefs": [{"id": 1, "parentId2": 100, "assignedById": 999, "title": "b", "stageId": "X"}],
-        "kp": [{"id": 2, "parentId2": 100, "assignedById": 999, "title": "k", "stageId": "X"}],
+        "briefs": [{"id": 1, "parentId2": 100, "assignedById": 999, "title": "b", "stageId": "X", "ufCrm20_1753290430": 2730}],
+        "kp": [{"id": 2, "parentId2": 100, "assignedById": 999, "title": "k", "stageId": "X", "ufCrm44_1774430907621": 8662}],
     }
     rows = build_db_rows(raw, date(2026, 6, 4), NOW)
     ma = {r["manager_id"]: r for r in rows["manager_activity"]}
@@ -240,6 +242,12 @@ def test_briefs_kp_attributed_to_deal_owner():
     assert 999 not in ma  # исполнитель элемента кредит НЕ получает
     kb = {r["item_id"]: r for r in rows["kp_briefs"]}
     assert kb[1]["manager_id"] == 777 and kb[2]["manager_id"] == 777
+    assert kb[1]["service"] == "SEO"   # бриф
+    assert kb[2]["service"] == "ORM"   # КП
+    # Услуга не выбрана → пустая строка, не падаем.
+    raw["briefs"][0].pop("ufCrm20_1753290430")
+    rows2 = build_db_rows(raw, date(2026, 6, 4), NOW)
+    assert {r["item_id"]: r for r in rows2["kp_briefs"]}[1]["service"] == ""
 
 
 def test_briefs_fallback_to_assignee_when_deal_unknown():

@@ -2,6 +2,7 @@ from collections import Counter, defaultdict
 from datetime import date, datetime
 from typing import Any
 
+from .service_maps import brief_service, kp_service
 from .timeutil import MSK, prev_working_day
 
 STAGE_RULES = {
@@ -384,6 +385,7 @@ def build_db_rows(raw: dict[str, Any], target_date: date, now: datetime) -> dict
 
     kp_briefs = []
     for item_type, key in [("brief", "briefs"), ("kp", "kp")]:
+        resolve_service = brief_service if item_type == "brief" else kp_service
         for item in raw.get(key, []):
             kp_briefs.append(
                 {
@@ -394,6 +396,7 @@ def build_db_rows(raw: dict[str, Any], target_date: date, now: datetime) -> dict
                     "item_type": item_type,
                     "stage": item.get("stageId"),
                     "manager_id": _deal_resp(item),  # ответственный по сделке, не исполнитель элемента
+                    "service": resolve_service(item),  # услуга брифа/КП (зеркало live.py)
                     "amount": _to_float(
                         item.get("opportunity") or item.get("ufCrm20_1754044185200")
                     ),

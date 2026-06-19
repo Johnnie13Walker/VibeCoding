@@ -270,7 +270,9 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
                           {b.dealId ? <> · <a href={dealUrl(b.dealId)} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--bb-violet)' }}>сделка</a></> : null}
                         </p>
                       </div>
-                      {b.service ? <span className="bb-reason" style={{ background: 'var(--bb-violet-soft)', color: 'var(--bb-violet)' }}>{b.service}</span> : null}
+                      {b.service
+                        ? <span className="bb-reason" style={{ background: 'var(--bb-violet-soft)', color: 'var(--bb-violet)' }}>{b.service}</span>
+                        : <span className="bb-reason" style={{ background: 'transparent', color: 'var(--bb-faint)', border: '1px dashed var(--bb-line)' }}>— услуга</span>}
                     </li>
                   ))}
                 </ul>
@@ -294,7 +296,9 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
                       </div>
                       <span style={{ display: 'inline-flex', gap: 6, flex: '0 0 auto', alignItems: 'center' }}>
                         {k.status === 'rejected' ? <span className="bb-reason" style={{ background: '#fdeced', color: 'var(--bb-red)' }}>Отклонено</span> : null}
-                        {k.service ? <span className="bb-reason" style={{ background: 'var(--bb-violet-soft)', color: 'var(--bb-violet)' }}>{k.service}</span> : null}
+                        {k.service
+                          ? <span className="bb-reason" style={{ background: 'var(--bb-violet-soft)', color: 'var(--bb-violet)' }}>{k.service}</span>
+                          : <span className="bb-reason" style={{ background: 'transparent', color: 'var(--bb-faint)', border: '1px dashed var(--bb-line)' }}>— услуга</span>}
                       </span>
                     </li>
                   ))}

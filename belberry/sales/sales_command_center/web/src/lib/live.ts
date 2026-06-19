@@ -363,7 +363,7 @@ export async function getDayBreakdown(date: string): Promise<LiveData | null> {
       title: r.title ?? 'Бриф',
       manager: nameOf(r.managerId),
       dealId: r.dealId,
-      service: '',
+      service: r.service ?? '',
     }));
 
   const kpList: LiveBrief[] = kbRows
@@ -373,7 +373,7 @@ export async function getDayBreakdown(date: string): Promise<LiveData | null> {
       title: r.title ?? 'КП',
       manager: nameOf(r.managerId),
       dealId: r.dealId,
-      service: '', // услугу КП в истории пока не храним (live — есть)
+      service: r.service ?? '',
       status: kpStatusFromStage(r.stage),
     }));
 
