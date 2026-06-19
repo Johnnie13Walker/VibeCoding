@@ -2,6 +2,7 @@ from collections import Counter, defaultdict
 from datetime import date, datetime
 from typing import Any
 
+from .service_maps import brief_service, kp_service
 from .timeutil import MSK, prev_working_day
 
 STAGE_RULES = {
@@ -253,6 +254,12 @@ def build_db_rows(raw: dict[str, Any], target_date: date, now: datetime) -> dict
             }
         )
 
+    # Храним ПРОВЕДЁННЫЕ встречи (meet_day) — одна строка на встречу под датой
+    # проведения. created_at (когда создана) и company_revenue нужны архиву /today:
+    # «Встречи назначены» за день D = проведённые встречи с created_at в день D
+    # (запрос по created_at, БЕЗ дубль-строки под датой создания — иначе двоятся
+    # /meetings и счётчики). company_revenue — годовая выручка для ТМ-брифингов.
+    revenue_map = raw.get("meeting_deal_revenue") or {}
     meetings = [
         {
             "report_date": report_date,
@@ -264,7 +271,10 @@ def build_db_rows(raw: dict[str, Any], target_date: date, now: datetime) -> dict
             # Создатель встречи (ТМ-телемаркетолог) — для событийных метрик ТМ:
             # «встречу назначил ТМ и она состоялась» считается запросом по этой таблице.
             "created_by": _to_int(item.get("createdBy")),
+            "created_at": parse_dt(item.get("createdTime")),
             "scheduled_at": parse_dt(item.get("ufCrm16_1751009238")),
+            "company_revenue": (revenue_map.get(_to_int(item.get("parentId2")))
+                                if _to_int(item.get("parentId2")) is not None else None),
             "analysis_json": None,
             "transcript_url": None,
             "transcript_text": None,
@@ -384,6 +394,7 @@ def build_db_rows(raw: dict[str, Any], target_date: date, now: datetime) -> dict
 
     kp_briefs = []
     for item_type, key in [("brief", "briefs"), ("kp", "kp")]:
+        resolve_service = brief_service if item_type == "brief" else kp_service
         for item in raw.get(key, []):
             kp_briefs.append(
                 {
@@ -394,6 +405,7 @@ def build_db_rows(raw: dict[str, Any], target_date: date, now: datetime) -> dict
                     "item_type": item_type,
                     "stage": item.get("stageId"),
                     "manager_id": _deal_resp(item),  # ответственный по сделке, не исполнитель элемента
+                    "service": resolve_service(item),  # услуга брифа/КП (зеркало live.py)
                     "amount": _to_float(
                         item.get("opportunity") or item.get("ufCrm20_1754044185200")
                     ),

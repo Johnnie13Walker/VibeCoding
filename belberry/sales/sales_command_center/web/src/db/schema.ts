@@ -129,7 +129,9 @@ export const meetings = pgTable(
     managerId: integer('manager_id'),
     // Создатель встречи (ТМ): событийная атрибуция «встречу назначил ТМ».
     createdBy: integer('created_by'),
+    createdAt: timestamp('created_at', { withTimezone: true }),
     scheduledAt: timestamp('scheduled_at', { withTimezone: true }),
+    companyRevenue: numeric('company_revenue', { precision: 20, scale: 2 }),
     analysisJson: jsonb('analysis_json'),
     transcriptUrl: text('transcript_url'),
     transcriptText: text('transcript_text'),
@@ -191,6 +193,7 @@ export const kpBriefs = pgTable(
     itemType: text('item_type').notNull(),
     stage: text('stage'),
     managerId: integer('manager_id'),
+    service: text('service'),
     amount: numeric('amount', { precision: 14, scale: 2 }),
   },
   (table) => [
@@ -297,6 +300,40 @@ export const dealRejections = pgTable(
     index('deal_rejections_modified_by_reason_idx').on(table.modifiedBy, table.reasonId),
     index('deal_rejections_stage_rejected_idx').on(table.stageId, table.rejectedAt),
   ],
+);
+
+export const dealWins = pgTable(
+  'deal_wins',
+  {
+    dealId: integer('deal_id').primaryKey(),
+    wonDate: date('won_date'),
+    opportunity: numeric('opportunity', { precision: 14, scale: 2 }),
+    ownerId: integer('owner_id'),
+    ownerName: text('owner_name'),
+    ownerDept: text('owner_dept'),
+    ownerActive: boolean('owner_active'),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+  },
+  (table) => [index('deal_wins_won_date_idx').on(table.wonDate)],
+);
+
+export const funnelCohort = pgTable(
+  'funnel_cohort',
+  {
+    dealId: integer('deal_id').primaryKey(),
+    categoryId: integer('category_id'),
+    cohortDate: date('cohort_date'),
+    managerId: integer('manager_id'),
+    currentStage: text('current_stage'),
+    furthestStage: text('furthest_stage'),
+    furthestOrder: integer('furthest_order'),
+    isWon: boolean('is_won'),
+    isLost: boolean('is_lost'),
+    opportunity: numeric('opportunity', { precision: 14, scale: 2 }),
+    reasonId: integer('reason_id'),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+  },
+  (table) => [index('funnel_cohort_cohort_date_manager_idx').on(table.cohortDate, table.managerId)],
 );
 
 export const meetingTasks = pgTable(

@@ -13,8 +13,8 @@ import {
   TmRejectionsView,
   TmHeatmapView,
   TmMeetingQualityView,
+  TmRoiView,
   TmAlertsView,
-  SoonCard,
 } from '@/components/telemarketing/blocks';
 import { getTmDashboardData } from '@/lib/telemarketing';
 
@@ -157,8 +157,8 @@ export default async function TelemarketingPage({
             <TmMeetingQualityView quality={data.meetingQuality} />
           </div>
           <div className="bb-card" style={{ marginBottom: 16 }}>
-            <SectionHead icon={<Coins size={17} />} title="Окупаемость ТМ — встречи → Продажи → деньги" hint="когорта" />
-            <SoonCard title="Downstream-ценность холодных встреч" desc="Из назначенных ТМ встреч — сколько в Продажи, КП, оплат и на какую сумму. Нужна связка cat50 → cat10." />
+            <SectionHead icon={<Coins size={17} />} title="Окупаемость ТМ — встречи → Продажи → деньги" hint="накопительно" />
+            <TmRoiView roi={data.roi} />
           </div>
           <div className="bb-card" style={{ marginBottom: 16 }}>
             <SectionHead icon={<Clock size={17} />} title="Когда берут трубку" hint="час × день недели · за 3 месяца" />

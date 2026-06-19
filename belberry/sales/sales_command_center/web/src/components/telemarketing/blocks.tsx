@@ -9,11 +9,23 @@ import type {
   TmRejections,
   TmHeatmap,
   TmMeetingQuality,
+  TmRoi,
   TmAlert,
 } from '@/lib/telemarketing-shared';
 
 const nf = (n: number): string => n.toLocaleString('ru-RU');
 const pp = (v: number | null): string => (v != null ? `${v}%` : '—');
+const PORTAL = 'https://belberrycrm.bitrix24.ru';
+function shortMoney(v: number): string {
+  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(2)} млн ₽`;
+  if (v >= 1_000) return `${Math.round(v / 1_000)} тыс ₽`;
+  return `${Math.round(v)} ₽`;
+}
+const MONTH_RU = ['', 'янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+function ymLabel(ym: string): string {
+  const [, m] = ym.split('-');
+  return MONTH_RU[Number(m)] ?? ym;
+}
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -499,28 +511,139 @@ export function TmHeatmapView({ heatmap }: { heatmap: TmHeatmap }) {
 
 // ───────────────── Качество встреч ТМ (из разбора) ─────────────────
 
+function pillStyle(kind: 'g' | 'a' | 'r'): React.CSSProperties {
+  const c = kind === 'g' ? { bg: '#e9f6ee', fg: 'var(--bb-green)' } : kind === 'a' ? { bg: '#fdf2e7', fg: '#c97a1e' } : { bg: '#fdeced', fg: 'var(--bb-red)' };
+  return { display: 'inline-block', fontSize: 12, fontWeight: 800, borderRadius: 999, padding: '2px 9px', background: c.bg, color: c.fg };
+}
+const pctTone = (v: number): 'g' | 'a' | 'r' => (v >= 60 ? 'g' : v >= 40 ? 'a' : 'r');
+
 export function TmMeetingQualityView({ quality }: { quality: TmMeetingQuality }) {
   if (quality.total === 0) {
     return <p style={{ color: 'var(--bb-muted)' }}>Нет разобранных встреч, назначенных ТМ, за период.</p>;
   }
+  const maxRich = Math.max(...quality.trend.map((t) => t.richPct), 1);
   return (
     <div>
       <div style={{ fontSize: 13, color: 'var(--bb-muted)', marginBottom: 8 }}>
-        {nf(quality.total)} разобранных встреч от ТМ (из разбора на «Анализе встреч»):
+        {nf(quality.total)} разобранных встреч, назначенных ТМ. Насколько целевой клиент пришёл — по сигналам разбора (бюджет, потребность, след. шаг).
       </div>
+      {/* бар: содержательные / слабые / пустые — все три группы согласованно */}
       <div style={{ height: 28, borderRadius: 9, overflow: 'hidden', display: 'flex' }}>
         {quality.rich > 0 ? <div style={{ flex: quality.rich, background: 'linear-gradient(90deg,#3a9c63,#2c7a4a)', color: '#fff', display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 700 }}>содержательные {quality.richPct}%</div> : null}
         {quality.weak > 0 ? <div style={{ flex: quality.weak, background: 'var(--bb-amber)', color: '#fff', display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 700 }}>слабые {quality.weakPct}%</div> : null}
         {quality.empty > 0 ? <div style={{ flex: quality.empty, background: '#c9c5d2', color: '#fff', display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 700 }}>пустые {quality.emptyPct}%</div> : null}
       </div>
+      {/* карточки про КЛИЕНТА/лид */}
       <div className="bb-grid bb-grid-4" style={{ marginTop: 14 }}>
-        <Mini label="Содержательные" value={`${quality.richPct}%`} sub="балл ≥7" tone="good" />
-        <Mini label="Пустые" value={nf(quality.empty)} sub="балл <4 · разобрать с РОПом" tone="warn" />
-        <Mini label="Со след. шагом" value={quality.nextStepPct != null ? `${quality.nextStepPct}%` : '—'} />
-        <Mini label="Разобрано" value={nf(quality.total)} sub={quality.byManager.map((m) => `${m.name.split(' ')[0]} ${m.richPct}%`).join(' · ')} />
+        <Mini label="Бюджет назван" value={pp(quality.budgetNamedPct)} sub="ключевой сигнал целевого лида" tone="good" />
+        <Mini label="Со след. шагом" value={pp(quality.nextStepPct)} />
+        <Mini label="Средний балл" value={quality.avgScore != null ? quality.avgScore.toFixed(1) : '—'} sub="из 10 · цель ≥7" />
+        <Mini label="Пустые (балл <4)" value={nf(quality.empty)} sub="разобрать с РОПом" tone="warn" />
       </div>
-      <p style={{ fontSize: 12, color: 'var(--bb-faint)', marginTop: 10 }}>
-        «Пустая» = встреча с низким баллом разбора (без выявленной потребности/бюджета/след. шага). Балл — из готового разбора на странице «Анализ встреч».
+
+      {/* по телемаркетологам — с объёмом */}
+      <div style={{ marginTop: 18, fontSize: 13, fontWeight: 700, color: 'var(--bb-ink)', marginBottom: 6 }}>По телемаркетологам</div>
+      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <thead><tr>
+          <th style={{ ...head, textAlign: 'left' }}>Телемаркетолог</th>
+          <th style={{ ...head, textAlign: 'right' }}>Разобрано</th>
+          <th style={{ ...head, textAlign: 'right' }}>Содержат.</th>
+          <th style={{ ...head, textAlign: 'right' }}>Бюджет назван</th>
+          <th style={{ ...head, textAlign: 'right' }}>Ср. балл</th>
+        </tr></thead>
+        <tbody>
+          {quality.byManager.map((m) => (
+            <tr key={m.managerId}>
+              <td style={{ ...cell, fontWeight: 600 }}>{m.name}</td>
+              <td style={{ ...cell, textAlign: 'right' }} className="tabular">{nf(m.total)}</td>
+              <td style={{ ...cell, textAlign: 'right' }}><span style={pillStyle(pctTone(m.richPct))}>{m.richPct}%</span></td>
+              <td style={{ ...cell, textAlign: 'right' }}><span style={pillStyle(pctTone(m.budgetPct))}>{m.budgetPct}%</span></td>
+              <td style={{ ...cell, textAlign: 'right' }} className="tabular">{m.avgScore.toFixed(1)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {/* тренд содержательности по месяцам */}
+      {quality.trend.length > 1 ? (
+        <>
+          <div style={{ marginTop: 18, fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Тренд содержательности <span style={{ fontWeight: 500, color: 'var(--bb-faint)' }}>· % с баллом ≥7 по месяцам</span></div>
+          <div style={{ display: 'flex', gap: 16, alignItems: 'flex-end', height: 120 }}>
+            {quality.trend.map((t) => (
+              <div key={t.ym} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, justifyContent: 'flex-end', height: '100%' }}>
+                <div className="tabular" style={{ width: 44, height: `${Math.max(8, (t.richPct / maxRich) * 100)}%`, borderRadius: '8px 8px 0 0', background: 'linear-gradient(180deg,#5fcf8b,#2c7a4a)', color: '#fff', fontWeight: 800, fontSize: 12, display: 'flex', justifyContent: 'center', paddingTop: 5 }}>{t.richPct}%</div>
+                <div style={{ fontSize: 12, color: 'var(--bb-muted)', fontWeight: 600 }}>{ymLabel(t.ym)}</div>
+                <div className="tabular" style={{ fontSize: 11, color: 'var(--bb-faint)' }}>ср. {t.avgScore.toFixed(1)}</div>
+              </div>
+            ))}
+          </div>
+        </>
+      ) : null}
+
+      {/* drill-down слабых встреч */}
+      {quality.weakList.length > 0 ? (
+        <>
+          <div style={{ marginTop: 18, fontSize: 13, fontWeight: 700, marginBottom: 4 }}>Слабые встречи — разобрать <span style={{ fontWeight: 500, color: 'var(--bb-faint)' }}>· балл 4–6</span></div>
+          <div>
+            {quality.weakList.map((w, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: '1px solid var(--bb-line)' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600 }}>
+                    {w.dealId ? <a href={`${PORTAL}/crm/deal/details/${w.dealId}/`} target="_blank" rel="noreferrer" style={{ color: 'var(--bb-ink)', textDecoration: 'none' }}>{w.title} ↗</a> : w.title}
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--bb-faint)', marginTop: 2 }}>
+                    {w.manager} · {w.date}
+                    {w.meetingId ? <> · <a href={`${PORTAL}/crm/type/1048/details/${w.meetingId}/`} target="_blank" rel="noreferrer" style={{ color: 'var(--bb-violet)' }}>встреча ↗</a></> : null}
+                    <span style={{ color: '#c97a1e' }}> · {w.reason}</span>
+                  </div>
+                </div>
+                <span style={{ fontSize: 13, fontWeight: 800, borderRadius: 999, padding: '3px 10px', background: '#fdf2e7', color: '#c97a1e', whiteSpace: 'nowrap' }}>{w.score}/10</span>
+              </div>
+            ))}
+          </div>
+        </>
+      ) : null}
+
+      <p style={{ fontSize: 12, color: 'var(--bb-faint)', marginTop: 12 }}>
+        Балл и сигналы — из готового разбора на «Анализ встреч». «Слабые» = балл 4–6, «пустые» = &lt;4 (анкета вместо диалога / не вскрыт бюджет / нет след. шага). Это качество <b>лида от ТМ</b>, отработку встречи ведёт продавец.
+      </p>
+    </div>
+  );
+}
+
+// ───────────────── Окупаемость ТМ (встречи → деньги) ─────────────────
+
+export function TmRoiView({ roi }: { roi: TmRoi }) {
+  if (roi.meetings === 0) {
+    return <p style={{ color: 'var(--bb-muted)' }}>Нет сделок со встречами от ТМ.</p>;
+  }
+  const max = roi.meetings || 1;
+  const rows = [
+    { label: 'Встречи ТМ (состоялись)', n: roi.meetings, note: 'сделок', dim: false },
+    { label: 'Получили КП', n: roi.withKp, note: `${Math.round((roi.withKp / max) * 100)}%`, dim: false },
+    { label: 'Сейчас в Продажах [10]', n: roi.openCat10, note: shortMoney(roi.openSum), noteSub: 'открытый пайплайн', dim: false },
+    { label: 'Выиграно (deal_wins)', n: roi.wonDeals, note: roi.wonDeals > 0 ? shortMoney(roi.wonSum) : '—', noteSub: 'выиграно ₽', dim: roi.wonDeals === 0 },
+  ];
+  return (
+    <div>
+      <div style={{ fontSize: 13, color: 'var(--bb-muted)', marginBottom: 12 }}>
+        Из встреч, назначенных ТМ (накопительно): сколько дошло до КП, открыто в Продажах и выиграно.
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+        {rows.map((r, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <div style={{ width: 200, flex: '0 0 200px', fontSize: 13.5, fontWeight: 600, color: r.dim ? 'var(--bb-faint)' : 'var(--bb-ink)' }}>{r.label}</div>
+            <div style={{ flex: 1, height: 32, background: '#f3f0ec', borderRadius: 9, overflow: 'hidden' }}>
+              <div className="tabular" style={{ height: '100%', borderRadius: 9, width: `${Math.max(r.n > 0 ? 8 : 0, (r.n / max) * 100)}%`, minWidth: r.n > 0 ? 36 : 0, background: r.dim ? '#cfcad9' : 'linear-gradient(90deg,var(--bb-violet),var(--bb-indigo))', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', paddingRight: 12, color: '#fff', fontWeight: 800, fontSize: 14 }}>{r.n}</div>
+            </div>
+            <div style={{ width: 140, flex: '0 0 140px', textAlign: 'right', fontSize: 14, fontWeight: 800, color: r.dim ? 'var(--bb-faint)' : 'var(--bb-ink)' }}>
+              {r.note}{r.noteSub ? <small style={{ display: 'block', fontSize: 11, color: 'var(--bb-faint)', fontWeight: 600 }}>{r.noteSub}</small> : null}
+            </div>
+          </div>
+        ))}
+      </div>
+      <p style={{ fontSize: 12, color: 'var(--bb-faint)', marginTop: 12 }}>
+        Связка по сделке встречи ТМ. «Выиграно» — из событийного слоя deal_wins (переходы в C10:WON). Закрытия лагают по времени, поэтому считаем накопительно по всем встречам ТМ.
       </p>
     </div>
   );

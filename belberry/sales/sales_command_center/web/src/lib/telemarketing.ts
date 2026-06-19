@@ -2,7 +2,7 @@ import 'server-only';
 
 import { and, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 import { db } from '@/db';
-import { callHourly, dealRejections, dealsSnapshot, managerActivity, meetings, plans, reports, users } from '@/db/schema';
+import { callHourly, dealRejections, dealsSnapshot, dealTitles, dealWins, kpBriefs, managerActivity, meetings, plans, reports, users } from '@/db/schema';
 import {
   buildTmAlerts,
   buildTmHeatmap,
@@ -102,6 +102,7 @@ function emptyData(): TmDashboardData {
     heatmap: buildTmHeatmap([]),
     dialsHeatmap: { hours: [], perManager: [], selectableManagers: [] },
     meetingQuality: buildTmMeetingQuality([]),
+    roi: { meetings: 0, withKp: 0, openCat10: 0, openSum: 0, wonDeals: 0, wonSum: 0 },
     alerts: [],
     monthOptions: [],
     selectedMonth: null,
@@ -541,7 +542,13 @@ export async function getTmDashboardData(
   // Качество встреч, назначенных ТМ — из готового разбора (analysis_json), только
   // состоявшиеся встречи создателя-ТМ с баллом.
   const mqRows = await db
-    .select({ creator: meetings.createdBy, analysis: meetings.analysisJson })
+    .select({
+      creator: meetings.createdBy,
+      analysis: meetings.analysisJson,
+      meetingId: meetings.meetingId,
+      dealId: meetings.dealId,
+      reportDate: meetings.reportDate,
+    })
     .from(meetings)
     .where(
       and(
@@ -551,19 +558,65 @@ export async function getTmDashboardData(
         gte(meetings.reportDate, dynStart),
       ),
     );
+  // Названия сделок (домены) для drill-down слабых встреч.
+  const mqDealIds = [...new Set(mqRows.map((r) => r.dealId).filter((x): x is number => x != null))];
+  const mqTitles = new Map<number, string>();
+  if (mqDealIds.length) {
+    const tRows = await db
+      .select({ dealId: dealTitles.dealId, title: dealTitles.title })
+      .from(dealTitles)
+      .where(inArray(dealTitles.dealId, mqDealIds));
+    for (const t of tRows) if (t.title) mqTitles.set(t.dealId, t.title);
+  }
   const qualityInputs: TmQualityInput[] = [];
   for (const r of mqRows) {
     if (r.creator == null) continue;
-    const a = (r.analysis ?? {}) as { score?: number; next_step?: unknown; next_steps?: unknown[] };
+    const a = (r.analysis ?? {}) as {
+      score?: number; next_step?: unknown; next_steps?: unknown[]; budget_named?: unknown;
+    };
     if (typeof a.score !== 'number') continue;
+    const date = String(r.reportDate);
     qualityInputs.push({
       managerId: r.creator,
       name: nameById.get(r.creator) ?? `id ${r.creator}`,
       score: a.score,
       hasNextStep: a.next_step != null || (Array.isArray(a.next_steps) && a.next_steps.length > 0),
+      budgetNamed: a.budget_named === true,
+      month: date.slice(0, 7),
+      meetingId: r.meetingId ?? null,
+      dealId: r.dealId ?? null,
+      title: (r.dealId != null ? mqTitles.get(r.dealId) : null) ?? (r.dealId != null ? `Сделка #${r.dealId}` : 'Встреча'),
+      date,
     });
   }
   const meetingQuality = buildTmMeetingQuality(qualityInputs);
+
+  // Окупаемость ТМ: из ВСЕХ встреч, назначенных ТМ (состоялись) — сколько сделок
+  // дошло до КП, открыто в Продажах [10] сейчас и выиграно (deal_wins). Накопительно
+  // (закрытия лагают → период не ограничиваем). Связка по meetings.deal_id.
+  const roiDealRows = await db
+    .selectDistinct({ dealId: meetings.dealId })
+    .from(meetings)
+    .where(and(eq(meetings.status, MEETING_HELD_STAGE), inArray(meetings.createdBy, tmIds), sql`${meetings.dealId} is not null`));
+  const roiDealIds = roiDealRows.map((r) => r.dealId).filter((x): x is number => x != null);
+  const roi = { meetings: roiDealIds.length, withKp: 0, openCat10: 0, openSum: 0, wonDeals: 0, wonSum: 0 };
+  if (roiDealIds.length) {
+    const [kpRows, openRows, wonRows] = await Promise.all([
+      db.selectDistinct({ dealId: kpBriefs.dealId }).from(kpBriefs)
+        .where(and(eq(kpBriefs.itemType, 'kp'), inArray(kpBriefs.dealId, roiDealIds))),
+      db.select({ dealId: dealsSnapshot.dealId, opp: dealsSnapshot.opportunity }).from(dealsSnapshot)
+        .where(and(eq(dealsSnapshot.reportDate, snapshotDate), eq(dealsSnapshot.categoryId, 10), inArray(dealsSnapshot.dealId, roiDealIds))),
+      db.select({ dealId: dealWins.dealId, opp: dealWins.opportunity }).from(dealWins)
+        .where(inArray(dealWins.dealId, roiDealIds)),
+    ]);
+    roi.withKp = new Set(kpRows.map((r) => r.dealId)).size;
+    const openSet = new Set<number>();
+    for (const r of openRows) { openSet.add(r.dealId); roi.openSum += Number(r.opp ?? 0); }
+    roi.openCat10 = openSet.size;
+    const wonSet = new Set<number>();
+    for (const r of wonRows) { wonSet.add(r.dealId); roi.wonSum += Number(r.opp ?? 0); }
+    roi.wonDeals = wonSet.size;
+  }
 
   // ТМ-алерты: конверсия дозвон→встреча за 2 последних ПОЛНЫХ месяца (месяц снимка —
   // частичный, исключаем) + сжигание/явка за период. snapYm/sy/sm объявлены выше.
@@ -691,6 +744,7 @@ export async function getTmDashboardData(
     heatmap,
     dialsHeatmap,
     meetingQuality,
+    roi,
     alerts,
     monthOptions: dynMonths.slice(-6).map((mo) => {
       const [oy, om] = mo.ym.split('-').map(Number);

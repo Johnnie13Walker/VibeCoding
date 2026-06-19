@@ -1,8 +1,8 @@
 import 'server-only';
 
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '@/db';
-import { liveChats, liveSnapshot, users, managerActivity, meetings, kpBriefs, dealsSnapshot, reports, dealRejections } from '@/db/schema';
+import { liveChats, liveSnapshot, users, managerActivity, meetings, kpBriefs, dealsSnapshot, dealTitles, reports, dealRejections } from '@/db/schema';
 import { isSalesDept, isTelemarketing } from './dashboard';
 import { SALES_LOSE_STAGE, SPAM_REASON_10, reasonLabel10 } from './sales-rejections-shared';
 
@@ -342,6 +342,8 @@ export async function getDayBreakdown(date: string): Promise<LiveData | null> {
       const dt = r.dealId != null ? dealTitle.get(r.dealId) : null;
       const type = (r.meetingType as LiveMeeting['type']) ?? null;
       const label = MEETING_TYPE_LABEL[String(r.meetingType ?? '')] ?? 'Встреча';
+      // «Назначено в этот день» = дата создания встречи совпадает с днём отчёта.
+      const setToday = r.createdAt != null && new Date(r.createdAt).toISOString().slice(0, 10) === date;
       return {
         id: r.meetingId,
         title: dt || label,
@@ -349,12 +351,50 @@ export async function getDayBreakdown(date: string): Promise<LiveData | null> {
         at: r.scheduledAt ? new Date(r.scheduledAt).toISOString() : '',
         status: meetingStatusFrom(r.status),
         dealId: r.dealId,
-        setToday: false,
+        setToday,
         type,
         creatorIsTm: isTm(r.createdBy ?? null),
-        companyRevenue: null, // в истории выручку не храним — показываем только в live
+        companyRevenue: r.companyRevenue != null ? Number(r.companyRevenue) : null,
       };
     });
+
+  // «Назначены в этот день, проведены позже» — встречи, СОЗДАННЫЕ в день D, но
+  // хранящиеся под датой проведения (другой report_date). Без дубль-строк: берём
+  // их запросом по created_at (MSK), исключая уже попавшие в mtRows (report_date=D).
+  const setRows = await db
+    .select()
+    .from(meetings)
+    .where(
+      and(
+        sql`date(${meetings.createdAt} at time zone 'Europe/Moscow') = ${date}`,
+        sql`${meetings.reportDate} <> ${date}`,
+        eq(meetings.status, 'DT1048_24:SUCCESS'),
+      ),
+    );
+  // Названия сделок «назначенных» (проведены в другой день → нет в снимке D) — из deal_titles.
+  const setDealIds = [...new Set(setRows.map((r) => r.dealId).filter((x): x is number => x != null && !dealTitle.has(x)))];
+  if (setDealIds.length) {
+    const dtRows = await db.select({ dealId: dealTitles.dealId, title: dealTitles.title }).from(dealTitles).where(inArray(dealTitles.dealId, setDealIds));
+    for (const t of dtRows) if (t.title) dealTitle.set(t.dealId, t.title);
+  }
+  for (const r of setRows) {
+    if (!keep(r.managerId)) continue;
+    const dt = r.dealId != null ? dealTitle.get(r.dealId) : null;
+    const type = (r.meetingType as LiveMeeting['type']) ?? null;
+    const label = MEETING_TYPE_LABEL[String(r.meetingType ?? '')] ?? 'Встреча';
+    meetingsList.push({
+      id: r.meetingId,
+      title: dt || label,
+      manager: nameOf(r.managerId),
+      at: r.scheduledAt ? new Date(r.scheduledAt).toISOString() : '',
+      status: meetingStatusFrom(r.status),
+      dealId: r.dealId,
+      setToday: true,
+      type,
+      creatorIsTm: isTm(r.createdBy ?? null),
+      companyRevenue: r.companyRevenue != null ? Number(r.companyRevenue) : null,
+    });
+  }
 
   const briefsList: LiveBrief[] = kbRows
     .filter((r) => r.itemType === 'brief' && keep(r.managerId))
@@ -363,7 +403,7 @@ export async function getDayBreakdown(date: string): Promise<LiveData | null> {
       title: r.title ?? 'Бриф',
       manager: nameOf(r.managerId),
       dealId: r.dealId,
-      service: '',
+      service: r.service ?? '',
     }));
 
   const kpList: LiveBrief[] = kbRows
@@ -373,7 +413,7 @@ export async function getDayBreakdown(date: string): Promise<LiveData | null> {
       title: r.title ?? 'КП',
       manager: nameOf(r.managerId),
       dealId: r.dealId,
-      service: '', // услугу КП в истории пока не храним (live — есть)
+      service: r.service ?? '',
       status: kpStatusFromStage(r.stage),
     }));
 

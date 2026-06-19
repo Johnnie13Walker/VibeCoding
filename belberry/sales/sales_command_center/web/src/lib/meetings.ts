@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { and, gte, inArray, sql } from 'drizzle-orm';
+import { and, eq, gte, inArray, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { dealsSnapshot, dealTitles, meetings, users } from '@/db/schema';
 import { isSalesDept, isTelemarketing } from './dashboard';
@@ -66,8 +66,10 @@ export async function getMeetingsForAnalysis(days = 120): Promise<MeetingItem[]>
       status: meetings.status,
     })
     .from(meetings)
-    // Исключаем отменённые встречи (стадия SP 1048 = FAIL).
-    .where(and(gte(meetings.reportDate, cutoff), sql`${meetings.status} is distinct from 'DT1048_24:FAIL'`))
+    // Только ПРОВЕДЁННЫЕ встречи (стадия SP 1048 = SUCCESS). С паритетом архива
+    // /today в meetings теперь попадают и назначенные-непроведённые строки — на
+    // странице разбора их не показываем (нет разбора/транскрипта).
+    .where(and(gte(meetings.reportDate, cutoff), eq(meetings.status, 'DT1048_24:SUCCESS')))
     .orderBy(sql`${meetings.reportDate} desc`);
 
   const dealIds = [...new Set(rows.map((r) => r.dealId).filter((x): x is number => x != null))];

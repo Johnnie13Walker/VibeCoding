@@ -16,7 +16,47 @@ import requests
 
 from . import bx_client
 from .chat_attribution import attribute_dialogs
+from .service_maps import BRIEF_SERVICE_FIELD, KP_SERVICE_FIELD
 from .timeutil import next_working_day
+
+# Годовая выручка компании пишется обогащением на сделку (3 формы поля). Берём
+# первую непустую: число → деньги (amount|CUR) → строка. Нужна для ТМ-брифингов.
+DEAL_REVENUE_FIELDS = ("UF_CRM_1774971054", "UF_CRM_67B35193BAFB4", "UF_CRM_5E79DD26CB010")
+
+
+def _parse_revenue(deal: dict[str, Any]) -> float | None:
+    for key in DEAL_REVENUE_FIELDS:
+        val = deal.get(key)
+        if val in (None, "", 0, "0"):
+            continue
+        s = str(val).split("|", 1)[0]  # money: "amount|RUB"
+        cleaned = "".join(ch for ch in s if ch.isdigit() or ch == ".")
+        try:
+            num = float(cleaned)
+        except ValueError:
+            continue
+        if num > 0:
+            return num
+    return None
+
+
+def fetch_deal_revenue(deal_ids, bx=None) -> dict[int, float]:
+    """Годовая выручка компании по сделкам (для company_revenue встреч в архиве)."""
+    ids = [int(i) for i in deal_ids if i not in (None, "", 0)]
+    out: dict[int, float] = {}
+    if not ids:
+        return out
+    for chunk in (ids[i : i + 50] for i in range(0, len(ids), 50)):
+        rows = _fetch_all(bx, "crm.deal.list", {"filter": {"@ID": chunk}, "select": ["ID", *DEAL_REVENUE_FIELDS]})
+        for d in rows:
+            try:
+                did = int(d.get("ID"))
+            except (TypeError, ValueError):
+                continue
+            rev = _parse_revenue(d)
+            if rev is not None:
+                out[did] = rev
+    return out
 
 PORTAL_BASE = "https://belberrycrm.bitrix24.ru"
 # Стадия проведённой встречи (SP 1048). NEW = ожидание, FAIL = отменена/перенесена —
@@ -528,7 +568,7 @@ def collect_flow_day(target: date, bx=None) -> dict[str, Any]:
         {
             "entityTypeId": 1056,
             "filter": {">=updatedTime": d0, "<=updatedTime": d1},
-            "select": ["id", "title", "stageId", "createdTime", "updatedTime", "assignedById", "ufCrm20_1754044185200", "parentId2"],
+            "select": ["id", "title", "stageId", "createdTime", "updatedTime", "assignedById", "ufCrm20_1754044185200", BRIEF_SERVICE_FIELD, "parentId2"],
         },
         idfield="id",
     )
@@ -538,7 +578,7 @@ def collect_flow_day(target: date, bx=None) -> dict[str, Any]:
         {
             "entityTypeId": 1106,
             "filter": {">=updatedTime": d0, "<=updatedTime": d1},
-            "select": ["id", "title", "stageId", "createdTime", "updatedTime", "assignedById", "opportunity", "parentId2", "begindate"],
+            "select": ["id", "title", "stageId", "createdTime", "updatedTime", "assignedById", "opportunity", KP_SERVICE_FIELD, "parentId2", "begindate"],
         },
         idfield="id",
     )
@@ -563,6 +603,9 @@ def collect_flow_day(target: date, bx=None) -> dict[str, Any]:
         "meet_day": meet_day,
         "meet_created_day": meet_created_day,
         "meet_today": [],
+        "meeting_deal_revenue": fetch_deal_revenue(
+            {item.get("parentId2") for item in [*meet_day, *meet_created_day]}, bx
+        ),
         "briefs": briefs,
         "kp": kp,
         "activities": activities,
@@ -678,6 +721,7 @@ def collect_day(target: date, bx=None) -> dict[str, Any]:
                 "updatedTime",
                 "assignedById",
                 "ufCrm20_1754044185200",
+                BRIEF_SERVICE_FIELD,
                 "parentId2",
             ],
         },
@@ -697,6 +741,7 @@ def collect_day(target: date, bx=None) -> dict[str, Any]:
                 "updatedTime",
                 "assignedById",
                 "opportunity",
+                KP_SERVICE_FIELD,
                 "parentId2",
                 "begindate",
             ],
@@ -765,6 +810,9 @@ def collect_day(target: date, bx=None) -> dict[str, Any]:
         "meet_day": meet_day,
         "meet_created_day": meet_created_day,
         "meet_today": meet_today,
+        "meeting_deal_revenue": fetch_deal_revenue(
+            {item.get("parentId2") for item in [*meet_day, *meet_created_day, *meet_today]}, bx
+        ),
         "briefs": briefs,
         "kp": kp,
         "activities": activities,
