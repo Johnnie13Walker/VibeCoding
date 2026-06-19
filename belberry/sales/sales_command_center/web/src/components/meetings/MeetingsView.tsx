@@ -356,6 +356,42 @@ function Obs({ items, kind }: { items: { text: string; metric?: string }[]; kind
   );
 }
 
+function CasesBlock({ cases, isDefense }: { cases: { client: string; service: string; result: string }[]; isDefense: boolean }) {
+  if (cases.length > 0) {
+    return (
+      <div style={{ margin: '6px 0 16px', padding: '15px 17px', borderRadius: 13, background: '#f4fbf6', border: '1px solid #d8e9dd' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 10 }}>
+          <span style={{ fontSize: 14, fontWeight: 800 }}>📁 Кейсы</span>
+          <span style={{ fontSize: 11, fontWeight: 700, borderRadius: 999, padding: '2px 9px', background: '#e9f6ee', color: '#2c7a4a' }}>показаны · {cases.length}</span>
+        </div>
+        <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 9 }}>
+          {cases.map((c, i) => (
+            <li key={i} style={{ display: 'flex', gap: 9, fontSize: 13.5, lineHeight: 1.45 }}>
+              <span style={{ color: '#2c7a4a', fontWeight: 800, flex: '0 0 auto' }}>·</span>
+              <span>
+                <b>{c.client}</b>{c.service ? <> — {c.service}</> : null}
+                {c.result ? <>: <span style={{ color: 'var(--bb-muted)' }}>{c.result}</span></> : null}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
+  // кейсы не показывали (разбор есть, список пуст)
+  return (
+    <div style={{ margin: '6px 0 16px', padding: '15px 17px', borderRadius: 13, background: '#fdf6ee', border: '1px solid #f0e0c8' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 6 }}>
+        <span style={{ fontSize: 14, fontWeight: 800 }}>📁 Кейсы</span>
+        <span style={{ fontSize: 11, fontWeight: 700, borderRadius: 999, padding: '2px 9px', background: '#fdf2e7', color: '#c97a1e' }}>не показаны</span>
+      </div>
+      <div style={{ fontSize: 13.5, color: '#9a6a1d', lineHeight: 1.45 }}>
+        Релевантные кейсы на встрече не приводились.{isDefense ? ' Для защиты КП кейсы обязательны — это риск для следующего шага.' : ''}
+      </div>
+    </div>
+  );
+}
+
 function Detail({ m }: { m: MeetingItem }) {
   const chip = (
     <span style={{ fontSize: 12, fontWeight: 700, borderRadius: 7, padding: '3px 9px', ...(m.type === 'defense' ? MINI.df : MINI.bf) }}>
@@ -452,6 +488,8 @@ function Detail({ m }: { m: MeetingItem }) {
           <Info label="Качество диалога" text={m.dialogQuality} />
         </div>
       ) : null}
+
+      {m.cases != null ? <CasesBlock cases={m.cases} isDefense={m.type === 'defense'} /> : null}
 
       {m.coaching ? (
         <div style={{ margin: '6px 0 16px', padding: '13px 16px', borderRadius: 12, background: '#eef6ff', border: '1px solid #cfe2fb' }}>

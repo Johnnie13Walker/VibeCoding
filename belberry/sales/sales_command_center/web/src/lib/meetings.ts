@@ -39,6 +39,7 @@ interface RawAnalysis {
   current_situation?: string | null;
   budget_signals?: string | null;
   dialog_quality?: string | null;
+  cases_mentioned?: { client?: string; service?: string | null; result?: string | null }[];
   coaching?: string | null;
   key_quotes?: string[];
 }
@@ -145,6 +146,10 @@ export async function getMeetingsForAnalysis(days = 120): Promise<MeetingItem[]>
       currentSituation: (a?.current_situation ?? '').toString().trim(),
       budgetSignals: (a?.budget_signals ?? '').toString().trim(),
       dialogQuality: (a?.dialog_quality ?? '').toString().trim(),
+      // Кейсы известны только у разборов с новым полем: array → знаем (даже []), undefined → старый разбор (блок не показываем).
+      cases: Array.isArray(a?.cases_mentioned)
+        ? a!.cases_mentioned!.filter((c) => c?.client).map((c) => ({ client: String(c.client), service: c.service ? String(c.service) : '', result: c.result ? String(c.result) : '' }))
+        : null,
       coaching: (a?.coaching ?? '').toString().trim(),
       keyQuotes: Array.isArray(a?.key_quotes) ? a!.key_quotes!.map(String) : [],
     });
