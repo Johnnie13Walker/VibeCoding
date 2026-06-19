@@ -270,5 +270,5 @@ def build_live_payload(today: date, raw: dict[str, Any], now: datetime) -> dict[
         "meetings_list": meetings_list,
         "briefs_list": briefs_list,
         "kp_list": kp_list,
-        "feed": feed[:15],
+        "feed": feed[:200],  # не режем агрессивно: фильтры Ленты (КП/Брифы/…) клиентские
     }

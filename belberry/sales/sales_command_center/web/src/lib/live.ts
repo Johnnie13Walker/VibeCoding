@@ -226,7 +226,7 @@ export async function getLive(): Promise<LiveData> {
   // По реальному моменту времени: baseFeed.at в формате Bitrix (+03:00),
   // rejFeed.at — ISO/UTC; лексикографически их мешать нельзя.
   const ts = (s: string) => { const t = Date.parse(s); return Number.isNaN(t) ? 0 : t; };
-  const feed: LiveFeedItem[] = [...baseFeed, ...rejFeed].sort((a, b) => ts(b.at) - ts(a.at)).slice(0, 30);
+  const feed: LiveFeedItem[] = [...baseFeed, ...rejFeed].sort((a, b) => ts(b.at) - ts(a.at)).slice(0, 200);
 
   const totals = {
     dials: shown.reduce((s, m) => s + m.dials, 0),
@@ -398,7 +398,7 @@ export async function getDayBreakdown(date: string): Promise<LiveData | null> {
   // По реальному моменту времени: baseFeed.at в формате Bitrix (+03:00),
   // rejFeed.at — ISO/UTC; лексикографически их мешать нельзя.
   const ts = (s: string) => { const t = Date.parse(s); return Number.isNaN(t) ? 0 : t; };
-  const feed: LiveFeedItem[] = [...baseFeed, ...rejFeed].sort((a, b) => ts(b.at) - ts(a.at)).slice(0, 30);
+  const feed: LiveFeedItem[] = [...baseFeed, ...rejFeed].sort((a, b) => ts(b.at) - ts(a.at)).slice(0, 200);
 
   const totals = {
     dials: shown.reduce((s, m) => s + m.dials, 0),

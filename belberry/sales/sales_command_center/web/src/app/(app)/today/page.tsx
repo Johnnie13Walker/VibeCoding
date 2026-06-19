@@ -201,7 +201,7 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
             <Tile icon={<Handshake size={14} />} label="Встречи проведено" value={t.meetingsHeld} sub={`назначено ${t.meetingsScheduled} · отменено ${t.meetingsCancelled}`} />
             <Tile icon={<CalendarClock size={14} />} label="Назначено · телемаркетинг" value={t.meetingsSetTm} sub="встречи, назначенные ТМ за день" />
             <Tile icon={<FileText size={14} />} label="Брифы" value={t.briefs} />
-            <Tile icon={<FileText size={14} />} label="КП" value={t.kp} />
+            <Tile icon={<FileText size={14} />} label="КП получено" value={kpClosed.length} sub="с решением · Готово + Отклонено" />
             <Tile icon={<Mail size={14} />} label="Письма" value={t.emails} />
             <Tile icon={<Zap size={14} />} label="Сделок создано" value={t.deals} sub={t.dealsSpam ? `${t.dealsSpam} спам исключён` : undefined} />
           </div>
