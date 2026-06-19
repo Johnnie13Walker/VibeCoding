@@ -2,23 +2,27 @@ from collections import Counter, defaultdict
 from datetime import date, datetime
 from typing import Any
 
+from .funnel_stages import STAGE_LABEL_10
 from .service_maps import brief_service, kp_service
 from .timeutil import MSK, prev_working_day
 
-STAGE_RULES = {
-    "C10:NEW": ("Квалификация", 2, "w"),
-    "C10:PREPAYMENT_INVOIC": ("Подготовка БРИФа", 3, "w"),
-    "C10:EXECUTING": ("Подготовка КП", 4, "w"),
-    "C10:UC_KC7195": ("Подготовка договора", 5, "w"),
-    "C10:FINAL_INVOICE": ("Догрев и переговоры", 14, "c"),
+# Пороги «застревания» сделки [10] в стадии (дни; w=рабочие, c=календарные) — для
+# раздела «Зависшие сделки» в питон-отчёте. Названия и порядок берём из канона
+# funnel_stages.py (9 стадий, сверено с Bitrix 18.06), чтобы отчёт и веб-дашборд
+# показывали одну воронку. Порядок dict = порядок воронки (1..8); WON не включаем
+# (выигранная сделка закрыта, не «зависает»).
+_STALE_THRESHOLD: dict[str, tuple[int, str]] = {
+    "C10:NEW": (2, "w"),               # Квалификация
+    "C10:PREPAYMENT_INVOIC": (3, "w"),  # Подготовка БРИФа
+    "C10:EXECUTING": (4, "w"),          # Подготовка КП
+    "C10:UC_4SJOE4": (5, "w"),          # Защита КП
+    "C10:FINAL_INVOICE": (14, "c"),     # Получить решение
+    "C10:UC_RJK0KE": (2, "w"),          # Получить реквизиты
+    "C10:UC_KC7195": (5, "w"),          # Согласование договора
+    "C10:UC_755Z64": (5, "w"),          # Ожидаем оплату
 }
-STAGE_ORDER = [
-    "Квалификация",
-    "Подготовка БРИФа",
-    "Подготовка КП",
-    "Догрев и переговоры",
-    "Подготовка договора",
-]
+STAGE_RULES = {s: (STAGE_LABEL_10[s], thr, mode) for s, (thr, mode) in _STALE_THRESHOLD.items()}
+STAGE_ORDER = [STAGE_LABEL_10[s] for s in _STALE_THRESHOLD]
 
 
 def parse_dt(value: Any) -> datetime | None:
