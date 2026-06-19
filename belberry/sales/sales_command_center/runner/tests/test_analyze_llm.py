@@ -370,3 +370,24 @@ def test_score_rubric_defines_9_and_10():
     assert "10 —" in SYSTEM_PROMPT
     assert "9 —" in SYSTEM_PROMPT
     assert "обязательство" in SYSTEM_PROMPT
+
+
+def test_normalize_cases_filters_and_maps():
+    raw = [
+        {"client": "Стоматология в Казани", "service": "ORM", "result": "3.8→4.6 за 4 мес"},
+        {"client": "  ", "service": "SEO"},          # пустой client → выкидываем
+        {"client": "Сеть клиник", "service": None, "result": None},  # service/result пустые
+        "мусор",                                       # не dict → пропуск
+    ]
+    out = analyze_llm._normalize_cases(raw)
+    assert len(out) == 2
+    assert out[0] == {"client": "Стоматология в Казани", "service": "ORM", "result": "3.8→4.6 за 4 мес"}
+    assert out[1] == {"client": "Сеть клиник", "service": "", "result": ""}
+    assert analyze_llm._normalize_cases(None) == []
+
+
+def test_normalize_analysis_persists_cases_mentioned():
+    # cases_mentioned должен попадать в собранный результат (а не отбрасываться whitelist'ом)
+    parsed = {"score": 8, "cases_mentioned": [{"client": "Клиника X", "service": "SEO", "result": "+120%"}]}
+    res = analyze_llm._normalize_analysis(parsed)
+    assert res["cases_mentioned"] == [{"client": "Клиника X", "service": "SEO", "result": "+120%"}]

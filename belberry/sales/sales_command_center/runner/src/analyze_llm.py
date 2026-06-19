@@ -485,6 +485,25 @@ def _normalize_kp_assessment(value: Any) -> str | None:
     return v if v in _KP_ASSESSMENTS else None
 
 
+def _normalize_cases(value: Any) -> list[dict[str, str]]:
+    """Кейсы, упомянутые на встрече: client (обязателен) + service/result (опц.)."""
+    out: list[dict[str, str]] = []
+    for item in value or []:
+        if not isinstance(item, dict):
+            continue
+        client = str(item.get("client") or "").strip()
+        if not client:
+            continue
+        out.append(
+            {
+                "client": client,
+                "service": str(item.get("service") or "").strip(),
+                "result": str(item.get("result") or "").strip(),
+            }
+        )
+    return out
+
+
 def _normalize_needs(value: Any) -> list[dict[str, str]]:
     out: list[dict[str, str]] = []
     for item in value or []:
@@ -560,6 +579,7 @@ def _normalize_analysis(parsed: dict[str, Any]) -> dict[str, Any]:
         "current_situation": _opt_str(parsed.get("current_situation")),
         "budget_signals": _opt_str(parsed.get("budget_signals")),
         "dialog_quality": _opt_str(parsed.get("dialog_quality")),
+        "cases_mentioned": _normalize_cases(parsed.get("cases_mentioned")),
         "coaching": _opt_str(parsed.get("coaching")),
         "key_quotes": _normalize_quotes(parsed.get("key_quotes")),
         "transcript_status": "ok",
