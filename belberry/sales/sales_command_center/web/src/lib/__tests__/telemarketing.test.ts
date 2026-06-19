@@ -311,12 +311,16 @@ describe('buildTmRejections', () => {
 });
 
 describe('buildTmMeetingQuality', () => {
+  const mk = (o: Partial<Parameters<typeof buildTmMeetingQuality>[0][number]> & { managerId: number; name: string; score: number }) => ({
+    hasNextStep: false, budgetNamed: false, month: '2026-06', meetingId: null, dealId: null, title: 'Встреча', date: '2026-06-01',
+    ...o,
+  });
   it('бьёт по баллам содержательные/слабые/пустые + по звонарю', () => {
     const q = buildTmMeetingQuality([
-      { managerId: 2772, name: 'Дарья Исаева', score: 8, hasNextStep: true },
-      { managerId: 2772, name: 'Дарья Исаева', score: 5, hasNextStep: false },
-      { managerId: 2832, name: 'Аркадий Вострецов', score: 9, hasNextStep: true },
-      { managerId: 2832, name: 'Аркадий Вострецов', score: 2, hasNextStep: false },
+      mk({ managerId: 2772, name: 'Дарья Исаева', score: 8, hasNextStep: true, budgetNamed: true }),
+      mk({ managerId: 2772, name: 'Дарья Исаева', score: 5, hasNextStep: false }),
+      mk({ managerId: 2832, name: 'Аркадий Вострецов', score: 9, hasNextStep: true, budgetNamed: true }),
+      mk({ managerId: 2832, name: 'Аркадий Вострецов', score: 2, hasNextStep: false }),
     ]);
     expect(q.total).toBe(4);
     expect(q.rich).toBe(2); // 8, 9
@@ -324,7 +328,21 @@ describe('buildTmMeetingQuality', () => {
     expect(q.empty).toBe(1); // 2
     expect(q.richPct).toBe(50);
     expect(q.nextStepPct).toBe(50);
+    expect(q.budgetNamedPct).toBe(50); // 2 из 4
+    expect(q.avgScore).toBe(6); // (8+5+9+2)/4
     expect(q.byManager.find((m) => m.managerId === 2772)!.richPct).toBe(50); // 1 из 2
+    expect(q.byManager.find((m) => m.managerId === 2772)!.budgetPct).toBe(50);
+  });
+
+  it('собирает слабые встречи (4–6) и тренд по месяцам', () => {
+    const q = buildTmMeetingQuality([
+      mk({ managerId: 1, name: 'А', score: 5, dealId: 100, meetingId: 900, title: 'med.ru', month: '2026-05', date: '2026-05-10' }),
+      mk({ managerId: 1, name: 'А', score: 8, budgetNamed: true, hasNextStep: true, month: '2026-06', date: '2026-06-02' }),
+    ]);
+    expect(q.weakList).toHaveLength(1);
+    expect(q.weakList[0]).toMatchObject({ dealId: 100, meetingId: 900, score: 5, reason: 'бюджет не вскрыт' });
+    expect(q.trend.map((t) => t.ym)).toEqual(['2026-05', '2026-06']);
+    expect(q.trend[1].richPct).toBe(100); // июнь: 1 из 1 ≥7
   });
 });
 

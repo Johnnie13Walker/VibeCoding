@@ -583,6 +583,15 @@ export interface TmQualityInput {
   name: string;
   score: number; // балл встречи из analysis_json (1..10)
   hasNextStep: boolean;
+  /** На встрече назван бюджет клиента (analysis_json.budget_named) — сигнал целевого лида. */
+  budgetNamed: boolean;
+  /** Месяц встречи 'YYYY-MM' — для тренда. */
+  month: string;
+  // ── для drill-down слабых встреч ──
+  meetingId: number | null;
+  dealId: number | null;
+  title: string;
+  date: string; // report_date встречи
 }
 
 export interface TmQualityRow {
@@ -591,6 +600,29 @@ export interface TmQualityRow {
   total: number;
   /** Содержательных (балл ≥7), %. */
   richPct: number;
+  /** Бюджет назван, %. */
+  budgetPct: number;
+  /** Средний балл разбора. */
+  avgScore: number;
+}
+
+/** Слабая встреча (балл 4–6) для разбора с РОПом. */
+export interface TmWeakMeeting {
+  meetingId: number | null;
+  dealId: number | null;
+  title: string;
+  manager: string;
+  date: string;
+  score: number;
+  reason: string;
+}
+
+/** Точка тренда качества по месяцу. */
+export interface TmQualityTrendPoint {
+  ym: string;
+  total: number;
+  richPct: number;
+  avgScore: number;
 }
 
 export interface TmMeetingQuality {
@@ -603,7 +635,15 @@ export interface TmMeetingQuality {
   emptyPct: number;
   /** % встреч со следующим шагом. */
   nextStepPct: number | null;
+  /** % встреч с названным бюджетом — ключевой сигнал качества лида. */
+  budgetNamedPct: number | null;
+  /** Средний балл разбора. */
+  avgScore: number | null;
   byManager: TmQualityRow[];
+  /** Слабые встречи (4–6) для разбора. */
+  weakList: TmWeakMeeting[];
+  /** Тренд содержательности по месяцам. */
+  trend: TmQualityTrendPoint[];
 }
 
 function qualityBucket(score: number): 'rich' | 'weak' | 'empty' {
@@ -612,21 +652,51 @@ function qualityBucket(score: number): 'rich' | 'weak' | 'empty' {
   return 'empty';
 }
 
+/** Окупаемость ТМ: из встреч, назначенных ТМ — сколько дошло до КП, открыто в
+ * Продажах [10] и выиграно (deal_wins). Накопительно по всем встречам ТМ. */
+export interface TmRoi {
+  meetings: number; // distinct сделок со встречами ТМ
+  withKp: number;
+  openCat10: number;
+  openSum: number;
+  wonDeals: number;
+  wonSum: number;
+}
+
 /** Качество встреч, назначенных ТМ — по готовому разбору (analysis_json). Только
  * разобранные встречи (есть балл). Чистая функция. */
+/** Короткая причина слабости встречи (балл 4–6) из доступных сигналов. */
+function weakReason(i: TmQualityInput): string {
+  if (!i.budgetNamed) return 'бюджет не вскрыт';
+  if (!i.hasNextStep) return 'нет след. шага';
+  return `слабый разбор · ${i.score}/10`;
+}
+
 export function buildTmMeetingQuality(inputs: TmQualityInput[]): TmMeetingQuality {
   const total = inputs.length;
   const rich = inputs.filter((i) => qualityBucket(i.score) === 'rich').length;
   const weak = inputs.filter((i) => qualityBucket(i.score) === 'weak').length;
   const empty = inputs.filter((i) => qualityBucket(i.score) === 'empty').length;
   const pct = (n: number) => (total > 0 ? Math.round((n / total) * 100) : 0);
-  const by = new Map<number, { name: string; total: number; rich: number }>();
+  const by = new Map<number, { name: string; total: number; rich: number; budget: number; scoreSum: number }>();
   for (const i of inputs) {
-    const e = by.get(i.managerId) ?? { name: i.name, total: 0, rich: 0 };
+    const e = by.get(i.managerId) ?? { name: i.name, total: 0, rich: 0, budget: 0, scoreSum: 0 };
     e.total += 1;
     if (qualityBucket(i.score) === 'rich') e.rich += 1;
+    if (i.budgetNamed) e.budget += 1;
+    e.scoreSum += i.score;
     by.set(i.managerId, e);
   }
+  // Тренд по месяцам.
+  const byMonth = new Map<string, { total: number; rich: number; scoreSum: number }>();
+  for (const i of inputs) {
+    const e = byMonth.get(i.month) ?? { total: 0, rich: 0, scoreSum: 0 };
+    e.total += 1;
+    if (qualityBucket(i.score) === 'rich') e.rich += 1;
+    e.scoreSum += i.score;
+    byMonth.set(i.month, e);
+  }
+  const round1 = (n: number) => Math.round(n * 10) / 10;
   return {
     total,
     rich,
@@ -636,14 +706,39 @@ export function buildTmMeetingQuality(inputs: TmQualityInput[]): TmMeetingQualit
     weakPct: pct(weak),
     emptyPct: pct(empty),
     nextStepPct: total > 0 ? Math.round((inputs.filter((i) => i.hasNextStep).length / total) * 100) : null,
+    budgetNamedPct: total > 0 ? Math.round((inputs.filter((i) => i.budgetNamed).length / total) * 100) : null,
+    avgScore: total > 0 ? round1(inputs.reduce((s, i) => s + i.score, 0) / total) : null,
     byManager: [...by.entries()]
       .map(([managerId, e]) => ({
         managerId,
         name: e.name,
         total: e.total,
         richPct: e.total > 0 ? Math.round((e.rich / e.total) * 100) : 0,
+        budgetPct: e.total > 0 ? Math.round((e.budget / e.total) * 100) : 0,
+        avgScore: e.total > 0 ? round1(e.scoreSum / e.total) : 0,
       }))
       .sort((a, b) => b.total - a.total),
+    weakList: inputs
+      .filter((i) => qualityBucket(i.score) === 'weak')
+      .sort((a, b) => a.score - b.score)
+      .slice(0, 8)
+      .map((i) => ({
+        meetingId: i.meetingId,
+        dealId: i.dealId,
+        title: i.title,
+        manager: i.name,
+        date: i.date,
+        score: i.score,
+        reason: weakReason(i),
+      })),
+    trend: [...byMonth.entries()]
+      .map(([ym, e]) => ({
+        ym,
+        total: e.total,
+        richPct: e.total > 0 ? Math.round((e.rich / e.total) * 100) : 0,
+        avgScore: e.total > 0 ? round1(e.scoreSum / e.total) : 0,
+      }))
+      .sort((a, b) => a.ym.localeCompare(b.ym)),
   };
 }
 
@@ -892,6 +987,7 @@ export interface TmDashboardData {
   dialsHeatmap: TmDialsHeatmapBundle;
   /** Качество встреч, назначенных ТМ (из разбора /meetings). */
   meetingQuality: TmMeetingQuality;
+  roi: TmRoi;
   /** Авто-сигналы по ТМ. */
   alerts: TmAlert[];
   /** Опции месячного пикера (последние месяцы). */
