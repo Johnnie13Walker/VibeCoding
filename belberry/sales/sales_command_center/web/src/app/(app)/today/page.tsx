@@ -154,9 +154,9 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
   const meetingsHappening = allMeetings.filter((m) => !(m.setToday && meetingDay(m.at) !== refDay));
   const hasSetOther = meetingsSetOther.length > 0;
 
-  // «КП получено»: только закрытые по процессу — Готово (success) и Не актуально
-  // (rejected, с плашкой «Отклонено»). КП в работе не показываем.
-  const kpClosed = (data?.kp ?? []).filter((k) => k.status === 'success' || k.status === 'rejected');
+  // «КП получено» = только ГОТОВЫЕ (status success). КП в работе и отклонённые
+  // (Не актуально) сюда не входят — отклонённые видны в Ленте (фильтр КП).
+  const kpClosed = (data?.kp ?? []).filter((k) => k.status === 'success');
 
   return (
     <div className="bb-page bb-fade">
@@ -201,7 +201,7 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
             <Tile icon={<Handshake size={14} />} label="Встречи проведено" value={t.meetingsHeld} sub={`назначено ${t.meetingsScheduled} · отменено ${t.meetingsCancelled}`} />
             <Tile icon={<CalendarClock size={14} />} label="Назначено · телемаркетинг" value={t.meetingsSetTm} sub="встречи, назначенные ТМ за день" />
             <Tile icon={<FileText size={14} />} label="Брифы" value={t.briefs} />
-            <Tile icon={<FileText size={14} />} label="КП получено" value={kpClosed.length} sub="с решением · Готово + Отклонено" />
+            <Tile icon={<FileText size={14} />} label="КП получено" value={kpClosed.length} sub="готовые КП за день" />
             <Tile icon={<Mail size={14} />} label="Письма" value={t.emails} />
             <Tile icon={<Zap size={14} />} label="Сделок создано" value={t.deals} sub={t.dealsSpam ? `${t.dealsSpam} спам исключён` : undefined} />
           </div>
