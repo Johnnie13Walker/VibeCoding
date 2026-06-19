@@ -374,15 +374,18 @@ def test_score_rubric_defines_9_and_10():
 
 def test_normalize_cases_filters_and_maps():
     raw = [
-        {"client": "Стоматология в Казани", "service": "ORM", "result": "3.8→4.6 за 4 мес"},
+        {"client": "Стоматология в Казани", "service": "ORM", "result": "3.8→4.6 за 4 мес"},  # полный — ок
+        {"client": "Клиника Y", "service": "SEO", "result": None},     # client+service — ок
+        {"client": "Клиника Z", "service": None, "result": "+90% трафика"},  # client+result — ок
         {"client": "  ", "service": "SEO"},          # пустой client → выкидываем
-        {"client": "Сеть клиник", "service": None, "result": None},  # service/result пустые
-        "мусор",                                       # не dict → пропуск
+        {"client": "Краснодар", "service": None, "result": None},   # обрывок (нет услуги и результата) → выкидываем
+        "мусор",                                      # не dict → пропуск
     ]
     out = analyze_llm._normalize_cases(raw)
-    assert len(out) == 2
+    assert len(out) == 3
     assert out[0] == {"client": "Стоматология в Казани", "service": "ORM", "result": "3.8→4.6 за 4 мес"}
-    assert out[1] == {"client": "Сеть клиник", "service": "", "result": ""}
+    assert out[1] == {"client": "Клиника Y", "service": "SEO", "result": ""}
+    assert out[2] == {"client": "Клиника Z", "service": "", "result": "+90% трафика"}
     assert analyze_llm._normalize_cases(None) == []
 
 
