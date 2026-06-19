@@ -140,10 +140,10 @@ def test_aggregate_calls_hourly_buckets_by_msk_hour():
     assert (None, 10) not in r  # без PORTAL_USER_ID — пропуск
 
 
-def test_meetings_store_held_with_created_at_and_revenue():
-    # Храним только ПРОВЕДЁННЫЕ (meet_day), одна строка на встречу. created_at и
-    # company_revenue заполняются (для «назначены» в архиве — запрос по created_at,
-    # без дубль-строки). meet_created_day отдельной строкой НЕ добавляется.
+def test_meetings_store_held_and_assigned_with_created_at_and_revenue():
+    # Храним проведённые (meet_day) И назначенные-непроведённые (meet_created_day),
+    # дедуп по meeting_id (1 в обоих → одна строка, приоритет meet_day/SUCCESS).
+    # created_at + company_revenue заполняются.
     raw = {
         "deals_open": [], "deals_created": [],
         "meet_day": [
@@ -152,18 +152,23 @@ def test_meetings_store_held_with_created_at_and_revenue():
              "ufCrm16_1751009238": "2026-06-10T12:00:00+03:00"},
         ],
         "meet_created_day": [
+            {"id": 1, "parentId2": 100, "assignedById": 10, "createdBy": 2772,
+             "stageId": "DT1048_24:SUCCESS", "createdTime": "2026-06-01T09:00:00+03:00",
+             "ufCrm16_1751009238": "2026-06-10T12:00:00+03:00"},
             {"id": 2, "parentId2": 200, "assignedById": 11, "createdBy": 2772,
-             "stageId": "DT1048_24:CLIENT", "createdTime": "2026-06-10T15:00:00+03:00",
-             "ufCrm16_1751009238": "2026-06-18T10:00:00+03:00"},
+             "stageId": "DT1048_24:NEW", "createdTime": "2026-06-10T15:00:00+03:00",
+             "ufCrm16_1751009238": "2026-06-25T10:00:00+03:00"},
         ],
         "meeting_deal_revenue": {100: 25_000_000.0},
     }
     rows = build_db_rows(raw, date(2026, 6, 10), NOW)
     mt = {r["meeting_id"]: r for r in rows["meetings"]}
-    assert set(mt) == {1}  # только проведённая; назначенная-непроведённая (2) не строкой
-    assert mt[1]["created_at"] is not None  # для запроса «назначены» по created_at
+    assert set(mt) == {1, 2}  # проведённая + назначенная-непроведённая (дедуп 1 один раз)
+    assert mt[1]["status"] == "DT1048_24:SUCCESS"  # приоритет meet_day
+    assert mt[1]["created_at"] is not None
     assert mt[1]["company_revenue"] == 25_000_000.0
-    assert mt[1]["created_by"] == 2772
+    assert mt[2]["status"] == "DT1048_24:NEW"  # назначена, не проведена
+    assert mt[2]["created_by"] == 2772
 
 
 def test_build_db_rows_matches_phase_one_schema_keys():
