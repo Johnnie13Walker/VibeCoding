@@ -374,23 +374,30 @@ def test_score_rubric_defines_9_and_10():
 
 def test_normalize_cases_filters_and_maps():
     raw = [
-        {"client": "Стоматология в Казани", "service": "ORM", "result": "3.8→4.6 за 4 мес"},  # полный — ок
-        {"client": "Клиника Y", "service": "SEO", "result": None},     # client+service — ок
+        {"client": "Доктор Мартин", "service": "SMM", "result": "", "quote": "вели им SMM"},  # бренд+услуга — ок
         {"client": "Клиника Z", "service": None, "result": "+90% трафика"},  # client+result — ок
         {"client": "  ", "service": "SEO"},          # пустой client → выкидываем
-        {"client": "Краснодар", "service": None, "result": None},   # обрывок (нет услуги и результата) → выкидываем
+        {"client": "стоматологии", "service": None, "result": None},  # голая ниша без цифр → выкидываем (в niches)
         "мусор",                                      # не dict → пропуск
     ]
     out = analyze_llm._normalize_cases(raw)
-    assert len(out) == 3
-    assert out[0] == {"client": "Стоматология в Казани", "service": "ORM", "result": "3.8→4.6 за 4 мес"}
-    assert out[1] == {"client": "Клиника Y", "service": "SEO", "result": ""}
-    assert out[2] == {"client": "Клиника Z", "service": "", "result": "+90% трафика"}
+    assert len(out) == 2
+    assert out[0] == {"client": "Доктор Мартин", "service": "SMM", "result": "", "quote": "вели им SMM"}
+    assert out[1] == {"client": "Клиника Z", "service": "", "result": "+90% трафика", "quote": ""}
     assert analyze_llm._normalize_cases(None) == []
 
 
-def test_normalize_analysis_persists_cases_mentioned():
-    # cases_mentioned должен попадать в собранный результат (а не отбрасываться whitelist'ом)
-    parsed = {"score": 8, "cases_mentioned": [{"client": "Клиника X", "service": "SEO", "result": "+120%"}]}
+def test_normalize_niches_dedups():
+    assert analyze_llm._normalize_niches(["стоматологии", "Стоматологии", "лаборатории", ""]) == ["стоматологии", "лаборатории"]
+    assert analyze_llm._normalize_niches(None) == []
+
+
+def test_normalize_analysis_persists_cases_and_niches():
+    parsed = {
+        "score": 8,
+        "cases_mentioned": [{"client": "Клиника X", "service": "SEO", "result": "+120%", "quote": "q"}],
+        "niches_claimed": ["стоматологии", "лаборатории"],
+    }
     res = analyze_llm._normalize_analysis(parsed)
-    assert res["cases_mentioned"] == [{"client": "Клиника X", "service": "SEO", "result": "+120%"}]
+    assert res["cases_mentioned"] == [{"client": "Клиника X", "service": "SEO", "result": "+120%", "quote": "q"}]
+    assert res["niches_claimed"] == ["стоматологии", "лаборатории"]

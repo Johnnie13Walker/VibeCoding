@@ -356,29 +356,44 @@ function Obs({ items, kind }: { items: { text: string; metric?: string }[]; kind
   );
 }
 
-function CasesBlock({ cases, isDefense }: { cases: { client: string; service: string; result: string }[]; isDefense: boolean }) {
+function NichesLine({ niches }: { niches: string[] }) {
+  if (!niches.length) return null;
+  return (
+    <div style={{ marginTop: 12, paddingTop: 11, borderTop: '1px dashed #cfe0d4', fontSize: 13, color: 'var(--bb-muted)', lineHeight: 1.5 }}>
+      <b style={{ color: 'var(--bb-ink)' }}>Заявлен опыт по нишам</b> (без конкретного кейса):{' '}
+      {niches.map((n) => (
+        <span key={n} style={{ display: 'inline-block', fontSize: 12, background: '#eef3ef', color: '#3f7a56', borderRadius: 7, padding: '2px 8px', margin: '2px 3px 0 0' }}>{n}</span>
+      ))}
+    </div>
+  );
+}
+
+function CasesBlock({ cases, niches, isDefense }: { cases: { client: string; service: string; result: string; quote: string }[]; niches: string[]; isDefense: boolean }) {
   if (cases.length > 0) {
     return (
       <div style={{ margin: '6px 0 16px', padding: '15px 17px', borderRadius: 13, background: '#f4fbf6', border: '1px solid #d8e9dd' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 12 }}>
           <span style={{ fontSize: 14, fontWeight: 800 }}>📁 Кейсы</span>
-          <span style={{ fontSize: 11, fontWeight: 700, borderRadius: 999, padding: '2px 9px', background: '#e9f6ee', color: '#2c7a4a' }}>показаны · {cases.length}</span>
+          <span style={{ fontSize: 11, fontWeight: 700, borderRadius: 999, padding: '2px 9px', background: '#e9f6ee', color: '#2c7a4a' }}>{cases.length === 1 ? 'показан' : 'показаны'} · {cases.length}</span>
         </div>
-        <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 9 }}>
+        <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 13 }}>
           {cases.map((c, i) => (
-            <li key={i} style={{ display: 'flex', gap: 9, fontSize: 13.5, lineHeight: 1.45 }}>
+            <li key={i} style={{ display: 'flex', gap: 10, fontSize: 14, lineHeight: 1.5 }}>
               <span style={{ color: '#2c7a4a', fontWeight: 800, flex: '0 0 auto' }}>·</span>
-              <span>
-                <b>{c.client}</b>{c.service ? <> — {c.service}</> : null}
-                {c.result ? <>: <span style={{ color: 'var(--bb-muted)' }}>{c.result}</span></> : null}
+              <span style={{ minWidth: 0 }}>
+                <b>{c.client}</b>
+                {c.service ? <span style={{ fontSize: 11.5, fontWeight: 700, color: '#4a3fd0', background: '#eef0ff', borderRadius: 6, padding: '1px 7px', marginLeft: 5 }}>{c.service}</span> : null}
+                {c.result ? <div style={{ marginTop: 2 }}>{c.result}</div> : null}
+                {c.quote ? <div style={{ fontSize: 12.5, color: 'var(--bb-faint)', fontStyle: 'italic', marginTop: 3 }}>«{c.quote.replace(/^«|»$/g, '')}»</div> : null}
               </span>
             </li>
           ))}
         </ul>
+        <NichesLine niches={niches} />
       </div>
     );
   }
-  // кейсы не показывали (разбор есть, список пуст)
+  // конкретных кейсов нет (разбор есть)
   return (
     <div style={{ margin: '6px 0 16px', padding: '15px 17px', borderRadius: 13, background: '#fdf6ee', border: '1px solid #f0e0c8' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 6 }}>
@@ -386,8 +401,9 @@ function CasesBlock({ cases, isDefense }: { cases: { client: string; service: st
         <span style={{ fontSize: 11, fontWeight: 700, borderRadius: 999, padding: '2px 9px', background: '#fdf2e7', color: '#c97a1e' }}>не показаны</span>
       </div>
       <div style={{ fontSize: 13.5, color: '#9a6a1d', lineHeight: 1.45 }}>
-        Релевантные кейсы на встрече не приводились.{isDefense ? ' Для защиты КП кейсы обязательны — это риск для следующего шага.' : ''}
+        Конкретные кейсы (бренд + цифры) на встрече не приводились.{isDefense ? ' Для защиты КП кейсы обязательны — это риск для следующего шага.' : ''}
       </div>
+      <NichesLine niches={niches} />
     </div>
   );
 }
@@ -489,7 +505,7 @@ function Detail({ m }: { m: MeetingItem }) {
         </div>
       ) : null}
 
-      {m.cases != null ? <CasesBlock cases={m.cases} isDefense={m.type === 'defense'} /> : null}
+      {m.cases != null ? <CasesBlock cases={m.cases} niches={m.niches} isDefense={m.type === 'defense'} /> : null}
 
       {m.coaching ? (
         <div style={{ margin: '6px 0 16px', padding: '13px 16px', borderRadius: 12, background: '#eef6ff', border: '1px solid #cfe2fb' }}>

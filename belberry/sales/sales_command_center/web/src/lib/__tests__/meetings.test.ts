@@ -9,7 +9,7 @@ function mk(p: Partial<MeetingItem>): MeetingItem {
     nextStep: { what: 'x' }, transcript: 'ok', summarySent: null, budgetNamed: null,
     products: [], kpAssessment: null, kpAssessmentNote: '',
     clientNeeds: [], decisionMakers: '', currentSituation: '', budgetSignals: '',
-    dialogQuality: '', cases: null, coaching: '', keyQuotes: [], ...p,
+    dialogQuality: '', cases: null, niches: [], coaching: '', keyQuotes: [], ...p,
   };
 }
 

@@ -39,7 +39,8 @@ interface RawAnalysis {
   current_situation?: string | null;
   budget_signals?: string | null;
   dialog_quality?: string | null;
-  cases_mentioned?: { client?: string; service?: string | null; result?: string | null }[];
+  cases_mentioned?: { client?: string; service?: string | null; result?: string | null; quote?: string | null }[];
+  niches_claimed?: string[];
   coaching?: string | null;
   key_quotes?: string[];
 }
@@ -148,8 +149,9 @@ export async function getMeetingsForAnalysis(days = 120): Promise<MeetingItem[]>
       dialogQuality: (a?.dialog_quality ?? '').toString().trim(),
       // Кейсы известны только у разборов с новым полем: array → знаем (даже []), undefined → старый разбор (блок не показываем).
       cases: Array.isArray(a?.cases_mentioned)
-        ? a!.cases_mentioned!.filter((c) => c?.client).map((c) => ({ client: String(c.client), service: c.service ? String(c.service) : '', result: c.result ? String(c.result) : '' }))
+        ? a!.cases_mentioned!.filter((c) => c?.client).map((c) => ({ client: String(c.client), service: c.service ? String(c.service) : '', result: c.result ? String(c.result) : '', quote: c.quote ? String(c.quote) : '' }))
         : null,
+      niches: Array.isArray(a?.niches_claimed) ? a!.niches_claimed!.map(String).filter(Boolean) : [],
       coaching: (a?.coaching ?? '').toString().trim(),
       keyQuotes: Array.isArray(a?.key_quotes) ? a!.key_quotes!.map(String) : [],
     });
