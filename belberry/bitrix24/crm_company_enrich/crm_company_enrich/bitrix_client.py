@@ -367,6 +367,27 @@ class BitrixClient:
             if isinstance(item, dict) and item.get("COMPANY_ID")
         ]
 
+    def list_contacts(self, *, filter: dict, select: list[str] | None = None) -> list[dict]:
+        """Контакты по фильтру (с пагинацией)."""
+        params: dict[str, Any] = {"filter": filter}
+        if select:
+            params["select"] = select
+        return list(self.paginate("crm.contact.list", params))
+
+    def find_by_comm(self, comm_type: str, value: str, entity_type: str) -> list[str]:
+        """crm.duplicate.findbycomm — найти сущности с тем же телефоном/почтой.
+
+        comm_type: PHONE | EMAIL; entity_type: CONTACT | COMPANY | LEAD.
+        Возвращает список ID найденных сущностей (без учёта самой ищущей).
+        """
+        body = self.call(
+            "crm.duplicate.findbycomm",
+            {"type": comm_type, "values": [value], "entity_type": entity_type},
+        )
+        result = body.get("result") or {}
+        ids = result.get(entity_type) or result.get(entity_type.upper()) or []
+        return [str(x) for x in ids if x]
+
     def list_contact_deals(self, contact_id: str) -> list[dict]:
         """Все сделки, где привязан контакт."""
         return list(
