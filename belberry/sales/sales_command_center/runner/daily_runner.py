@@ -14,8 +14,7 @@ from src.lock import AlreadyRunning, single_instance
 from src.promises import compute_promises_loop
 from src.collect import collect_day
 from src.enrich import enrich_meetings
-from src.render import extract_rejections, render_report
-from src.report_author import build_day_feed
+from src.feed import build_day_feed, extract_rejections
 from src.transform import build_db_rows, build_post_meeting_comms, compute_stale_deals, resolve_target_date
 from src.timeutil import now_msk
 from src.writer import write_day
@@ -194,89 +193,6 @@ def run(
         conn.close()
 
 
-def run_llm_only(target: date, *, connect_fn=connect, llm_client_factory=None):
-    conn = connect_fn()
-    rows = _read_meetings_from_db(conn, target)
-    pending = {}
-    all_analyses = {}
-    meetings_meta = {}
-    for row in rows["meetings"]:
-        mid = int(row["meeting_id"])
-        meetings_meta[mid] = row
-        if row.get("analysis_json"):
-            all_analyses[mid] = _json_load(row["analysis_json"])
-            continue
-        pending[mid] = {
-            "text": row.get("transcript_text") or "",
-            "url": row.get("transcript_url"),
-            "transcript_status": "ok" if row.get("transcript_ok") else "missing",
-            "meeting_title": f"Встреча {mid}",
-        }
-    client = (llm_client_factory or analyze_llm.get_client)()
-    new_analyses = analyze_llm.analyze_day(pending, meetings_meta, client=client) if pending else {}
-    all_analyses.update(new_analyses)
-    for row in rows["meetings"]:
-        mid = int(row["meeting_id"])
-        analysis = all_analyses.get(mid)
-        if analysis:
-            row["analysis_json"] = json.dumps(analysis, ensure_ascii=False)
-            row["analysis_status"] = "done" if analysis.get("analysis_available", True) else "skipped_no_transcript"
-    extras = {"raw": {"meet_day": []}, "report_date": target.isoformat(), "stale": {}, "users": {}, "photos": {}, "rejections": [], "analyses": all_analyses}
-    extras["narrative"] = analyze_llm.analyze_day_narrative(rows, extras, all_analyses, client=client)
-    html = render_report(rows, extras)
-    summary = {"generated_at": now_msk().isoformat(), "report_date": target.isoformat(), "llm_status": "done"}
-    counts = write_day(conn, target, rows, html, summary, status="done")
-    conn.commit()
-    return {"status": "done", "report_date": target.isoformat(), "counts": counts}
-
-
-def _read_meetings_from_db(conn, target: date) -> dict:
-    with conn.cursor() as cursor:
-        cursor.execute(
-            """
-            SELECT meeting_id, deal_id, meeting_type, status, manager_id, scheduled_at,
-                   transcript_url, transcript_text, transcript_ok, analysis_json
-            FROM meetings WHERE report_date = %s
-            """,
-            (target.isoformat(),),
-        )
-        db_rows = cursor.fetchall()
-    meetings = []
-    for row in db_rows:
-        if isinstance(row, dict):
-            meetings.append({**row, "report_date": target.isoformat()})
-        else:
-            (
-                meeting_id,
-                deal_id,
-                meeting_type,
-                status,
-                manager_id,
-                scheduled_at,
-                transcript_url,
-                transcript_text,
-                transcript_ok,
-                analysis_json,
-            ) = row
-            meetings.append(
-                {
-                    "report_date": target.isoformat(),
-                    "meeting_id": meeting_id,
-                    "deal_id": deal_id,
-                    "meeting_type": meeting_type,
-                    "status": status,
-                    "manager_id": manager_id,
-                    "scheduled_at": scheduled_at,
-                    "analysis_json": analysis_json,
-                    "transcript_url": transcript_url,
-                    "transcript_text": transcript_text,
-                    "transcript_ok": transcript_ok,
-                    "analysis_status": "done" if analysis_json else "pending",
-                }
-            )
-    return {"deals_snapshot": [], "meetings": meetings, "manager_activity": [], "kp_briefs": []}
-
-
 def _json_load(value):
     if isinstance(value, dict):
         return value
@@ -338,16 +254,10 @@ def cron_entry(
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--date", help="Дата отчёта YYYY-MM-DD")
+    parser.add_argument("--date", help="Дата сбора YYYY-MM-DD")
     parser.add_argument("--force", action="store_true", help="Перегенерировать готовый день")
-    parser.add_argument("--phase", choices=["all", "llm"], default="all")
     args = parser.parse_args()
     target = resolve_target_date(args.date)
-    if args.phase == "llm":
-        result = run_llm_only(target)
-        print(result)
-        return
-
     raise SystemExit(cron_entry(target, force=args.force))
 
 

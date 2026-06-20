@@ -73,76 +73,6 @@ def _post(
     return False
 
 
-def send_report_link(report_date: str | date, *, http_post: HttpPost | None = None) -> bool:
-    token = _env("TELEGRAM_BOT_TOKEN", "SCC_TELEGRAM_BOT_TOKEN")
-    chat_id = _env("TELEGRAM_CHAT_ID", "SCC_TELEGRAM_CHAT_ID")
-    base_url = _env("SCC_BASE_URL")
-
-    if not token or not chat_id or not base_url:
-        LOGGER.warning("Telegram report link skipped: missing env")
-        return False
-
-    date_text = html.escape(_report_date(report_date))
-    url = f"{base_url.rstrip('/')}/day/{date_text}"
-    text = f'Сводка продаж за {date_text} готова: <a href="{html.escape(url, quote=True)}">открыть</a>'
-
-    return _post(token, chat_id, text, http_post=http_post)
-
-
-TELEGRAM_DOC_API = "https://api.telegram.org/bot{token}/sendDocument"
-
-
-def _post_document(token: str, chat_id: str, filename: str, content: bytes, caption: str) -> bool:
-    boundary = "----SCCFormBoundary7MA4YWxkTrZu0gW"
-    pre = []
-    pre.append(f'--{boundary}\r\nContent-Disposition: form-data; name="chat_id"\r\n\r\n{chat_id}\r\n')
-    if caption:
-        pre.append(f'--{boundary}\r\nContent-Disposition: form-data; name="caption"\r\n\r\n{caption[:1024]}\r\n')
-    pre.append(
-        f'--{boundary}\r\nContent-Disposition: form-data; name="document"; filename="{filename}"\r\n'
-        "Content-Type: text/html\r\n\r\n"
-    )
-    body = "".join(pre).encode("utf-8") + content + f"\r\n--{boundary}--\r\n".encode("utf-8")
-    request = urllib.request.Request(
-        TELEGRAM_DOC_API.format(token=token),
-        data=body,
-        headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(request, timeout=30) as response:
-            return 200 <= response.status < 300
-    except Exception as exc:  # noqa: BLE001
-        LOGGER.warning("Telegram document send failed: %s", _mask(str(exc), token))
-        return False
-
-
-def send_report_dm(
-    report_date: str | date,
-    digest_text: str,
-    html_body: str,
-    *,
-    http_post: HttpPost | None = None,
-) -> bool:
-    """Личная доставка: текст-дайджест + полный отчёт HTML-файлом в ЛС.
-    Адресат — SCC_TELEGRAM_DM_CHAT_ID (личный chat_id), отдельно от группы."""
-    token = _env("TELEGRAM_BOT_TOKEN", "SCC_TELEGRAM_BOT_TOKEN")
-    chat_id = _env("SCC_TELEGRAM_DM_CHAT_ID", "TELEGRAM_DM_CHAT_ID")
-    if not token or not chat_id:
-        LOGGER.warning("Telegram DM skipped: missing env")
-        return False
-
-    date_text = _report_date(report_date)
-    ok = True
-    if digest_text:
-        ok = _post(token, chat_id, digest_text, http_post=http_post) and ok
-    if html_body:
-        filename = f"Сводка_продаж_{date_text}.html"
-        caption = f"HTML-отчёт отдела продаж за {date_text}"
-        ok = _post_document(token, chat_id, filename, html_body.encode("utf-8"), caption) and ok
-    return ok
-
-
 def send_alert(
     message: str,
     *,
@@ -162,6 +92,6 @@ def send_alert(
         return False
 
     date_part = f" за {html.escape(_report_date(report_date))}" if report_date else ""
-    text = f"⚠️ Сбой генерации сводки{date_part}: {html.escape(message)}"
+    text = f"⚠️ Сбой ежедневного прогона{date_part}: {html.escape(message)}"
 
     return _post(token, chat_id, text, http_post=http_post)
