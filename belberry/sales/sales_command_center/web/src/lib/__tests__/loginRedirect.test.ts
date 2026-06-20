@@ -3,7 +3,7 @@ import { safeLoginRedirect } from '../loginRedirect';
 
 describe('safeLoginRedirect', () => {
   it('keeps normal app paths', () => {
-    expect(safeLoginRedirect('/day/2026-05-29')).toBe('/day/2026-05-29');
+    expect(safeLoginRedirect('/meetings')).toBe('/meetings');
   });
 
   it('falls back to root for auth api and unsafe redirects', () => {

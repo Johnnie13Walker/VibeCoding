@@ -1,7 +1,6 @@
 import { and, eq, ilike, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { dealsSnapshot, users } from '@/db/schema';
-import { availableReportDates } from '@/lib/reports';
 import { isPreviewMode } from '@/lib/preview';
 import { getSession } from '@/lib/session';
 
@@ -16,10 +15,6 @@ export async function GET(request: Request) {
   // Ограничиваем длину запроса: q уходит bind-параметром (инъекции нет), но без
   // лимита гигантская строка = тяжёлый ILIKE-скан по таблицам.
   const q = (new URL(request.url).searchParams.get('q') ?? '').trim().slice(0, 64).toLowerCase();
-
-  // Дни с отчётами.
-  const allDates = await availableReportDates();
-  const days = (q ? allDates.filter((d) => d.includes(q)) : allDates).slice(0, 6);
 
   // Менеджеры по имени.
   const managerRows = await db
@@ -44,5 +39,5 @@ export async function GET(request: Request) {
     }
   }
 
-  return Response.json({ days, managers, deals });
+  return Response.json({ managers, deals });
 }

@@ -4,13 +4,12 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { canSeeKp } from '@/lib/kp-access';
-import { LayoutDashboard, CalendarDays, Radio, BellRing, LogOut, Search, ClipboardCheck, PhoneCall, FileText } from 'lucide-react';
+import { LayoutDashboard, Radio, BellRing, LogOut, Search, ClipboardCheck, PhoneCall, FileText } from 'lucide-react';
 
 const NAV = [
   { href: '/dashboard', label: 'Дашборд ОП', Icon: LayoutDashboard, tag: undefined },
   { href: '/telemarketing', label: 'Дашборд ТМ', Icon: PhoneCall, tag: undefined },
   { href: '/today', label: 'Сегодня', Icon: Radio, tag: 'live' },
-  { href: '/daily', label: 'Дневной отчёт', Icon: CalendarDays, tag: undefined },
   { href: '/meetings', label: 'Анализ встреч', Icon: ClipboardCheck, tag: undefined },
   { href: '/kp', label: 'Сборка КП', Icon: FileText, tag: undefined },
   { href: '/alerts', label: 'Алерты', Icon: BellRing, tag: undefined },
