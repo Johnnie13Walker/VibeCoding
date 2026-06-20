@@ -1,9 +1,16 @@
 """Синк когорты воронки Продажи [10] в таблицу funnel_cohort — СОБЫТИЙНО по входу.
 
-Когорта = сделки, ВОШЕДШИЕ в воронку [10] за период (переход в C10:NEW в
-stagehistory). НЕ по дате создания сделки: сделки живут в Телемаркетинге [50]
-давно, а в Продажи переходят позже — «вход» воронки = момент перехода в [10],
-а не создание карточки. cohort_date = дата входа (первый C10:NEW).
+Когорта = сделки, ВОШЕДШИЕ в воронку [10] (любой первой стадией) за период. НЕ по
+дате создания сделки: сделки живут в Телемаркетинге [50] давно, а в Продажи
+переходят позже — «вход» воронки = момент ПЕРВОГО перехода в [10], а не создание.
+cohort_date = дата входа = самый ранний переход в любую стадию [10].
+
+ВАЖНО: вход — это НЕ обязательно C10:NEW. Сделка может зайти в [10] сразу на другую
+стадию (создана/перемещена не в «Квалификацию»). Раньше брался только C10:NEW —
+из-за чего сделки без этого события выпадали из воронки целиком (видели лишь ~35%
+открытого пайплайна). stagehistory уже отфильтрован по CATEGORY_ID=10, поэтому любое
+событие истории = переход внутри [10], а самое раннее = вход. Окно `since` берём с
+запасом (несколько лет), чтобы поймать ИСТИННУЮ дату входа, а не обрезать её.
 
 Для каждой считаем самую дальнюю достигнутую стадию (из stagehistory + текущая),
 чтобы дашборд честно показывал «из вошедших за месяц сколько ДОШЛО до этапа X» —
@@ -33,7 +40,6 @@ from .funnel_stages import LOST_STAGES_10, WON_STAGE_10, furthest_order, stage_o
 from .transform import parse_dt
 
 SALES_CATEGORY = 10
-ENTRY_STAGE = "C10:NEW"  # вход в воронку Продажи
 REASON_FIELD_10 = "UF_CRM_1771495464"  # причина отвала (8588 = СПАМ)
 
 
@@ -100,21 +106,24 @@ def fetch_deals_by_ids(bx, ids: list[int]) -> dict[int, dict[str, Any]]:
 
 
 def _entered_at(events: list[dict[str, Any]]) -> str | None:
-    """Дата входа в [10] = самый ранний переход в C10:NEW. None — входа в окне нет."""
-    news = [e["ct"] for e in events if e.get("stage") == ENTRY_STAGE and e.get("ct")]
-    return min(news) if news else None
+    """Дата входа в [10] = самый ранний переход в ЛЮБУЮ стадию [10]. Все события
+    истории уже отфильтрованы по CATEGORY_ID=10, поэтому минимальный ct = вход.
+    None — только если у событий нет дат (аномалия)."""
+    cts = [e["ct"] for e in events if e.get("ct")]
+    return min(cts) if cts else None
 
 
 def build_cohort_rows(
     deals_by_id: dict[int, dict[str, Any]], history: dict[int, list[dict[str, Any]]]
 ) -> list[dict[str, Any]]:
     """История переходов + текущие поля → строки funnel_cohort. Чистая функция.
-    В когорту попадают только сделки с входом (C10:NEW) в окне."""
+    В когорту попадает каждая сделка с хотя бы одним [10]-переходом (вход = самый
+    ранний). cohort_date привязывает её к месяцу реального входа в Продажи."""
     rows: list[dict[str, Any]] = []
     for did, events in history.items():
         entered = _entered_at(events)
         if not entered:
-            continue  # вошла в [10] раньше окна — не наша когорта периода
+            continue  # у событий нет дат — пропускаем (аномалия данных)
         ent_dt = parse_dt(entered)
         d = deals_by_id.get(did, {})
         current = d.get("STAGE_ID")
@@ -142,7 +151,11 @@ def build_cohort_rows(
 
 
 def sync(conn=None, bx=None, dry_run: bool = False, since: str | None = None) -> dict[str, int]:
-    since = since or f"{date.today().year}-01-01"
+    # Окно истории берём с запасом (3 года назад), чтобы поймать ИСТИННУЮ дату входа
+    # даже у сделок, давно живущих в [10]. Иначе их самый ранний [10]-переход
+    # обрезается окном и сделка либо выпадает, либо мис-датируется в текущий период.
+    # Дашборд всё равно фильтрует cohort_date по выбранному месяцу.
+    since = since or f"{date.today().year - 3}-01-01"
     history = fetch_stage_history(bx, since)
     deals_by_id = fetch_deals_by_ids(bx, list(history.keys())) if history else {}
     rows = build_cohort_rows(deals_by_id, history)
