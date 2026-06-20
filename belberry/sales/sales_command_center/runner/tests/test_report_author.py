@@ -165,6 +165,30 @@ def test_validate_rules():
     assert not report_author._validate("слишком коротко")
 
 
+def test_validate_rejects_xss_vectors():
+    base = '<div class="hero">' + "x" * 500
+    # активные XSS-векторы должны отвергаться (defence-in-depth до записи в БД)
+    assert not report_author._validate(base + '<img src=x onerror="alert(1)">')
+    assert not report_author._validate(base + '<iframe src="//evil"></iframe>')
+    assert not report_author._validate(base + '<object data="//evil"></object>')
+    assert not report_author._validate(base + '<base href="//evil">')
+    assert not report_author._validate(base + '<form action="//evil"></form>')
+    assert not report_author._validate(base + '<a href="javascript:alert(1)">x</a>')
+    assert not report_author._validate(base + '<meta http-equiv="refresh" content="0">')
+    assert not report_author._validate(base + '<a href="data:text/html,<b>x">x</a>')
+
+
+def test_validate_allows_legit_report_html():
+    # легитимный отчёт с вёрсткой и data:image не должен ложно отвергаться
+    body = (
+        '<section class="hero"><h1>Сводка</h1>'
+        '<p style="color:#333">Позиция: monitoring данных, comparison=ок</p>'
+        '<img src="data:image/png;base64,iVBORw0KGgo=" alt="фото">'
+        '<a href="https://example.com">ссылка</a></section>' + "x" * 400
+    )
+    assert report_author._validate(body)
+
+
 def test_author_report_strips_fence_and_returns_body():
     text = '```html\n<div class="hero">' + "y" * 500 + "</div>\n```"
     body = report_author.author_report({"report_date": "2026-05-29"}, client=_Client(text))

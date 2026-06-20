@@ -42,9 +42,17 @@ export async function GET(_request: Request, { params }: DayRouteContext) {
     });
   }
 
+  // HTML отчёта генерируется LLM из данных CRM (заголовки сделок, транскрипты) —
+  // это НЕдоверенный ввод, и этот маршрут — единственная граница его рендера.
+  // Помимо дефолтного вырезания <script>/on*-обработчиков DOMPurify явно запрещаем:
+  // iframe/object/embed (clickjacking/внешние ресурсы), base (перехват относительных
+  // ссылок), form/formaction (фишинг-сабмит), http-equiv (meta-refresh редирект),
+  // srcdoc. <style> отчёту нужен для вёрстки — оставляем.
   const clean = DOMPurify.sanitize(html, {
     WHOLE_DOCUMENT: true,
     ADD_TAGS: ['style'],
+    FORBID_TAGS: ['iframe', 'object', 'embed', 'base', 'form'],
+    FORBID_ATTR: ['http-equiv', 'formaction', 'srcdoc'],
     FORCE_BODY: false,
   });
 

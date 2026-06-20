@@ -830,11 +830,27 @@ def _strip_fence(text: str) -> str:
     return _FENCE.sub("", text.strip()).strip()
 
 
+# Defence-in-depth: HTML отчёта генерирует LLM из данных CRM (заголовки сделок,
+# транскрипты) — недоверенный ввод. Основная граница — DOMPurify на отдаче
+# (web day/[date]). Здесь отвергаем (НЕ трансформируем) запись с любым активным
+# XSS-вектором, чтобы «грязный» HTML не попал в БД и не утёк в будущие sink'и.
+_XSS_RE = re.compile(
+    r"""(?ix)
+      <\s*(?:script|iframe|object|embed|base|form)\b  # опасные теги
+    | javascript\s*:                                   # js-URI
+    | vbscript\s*:
+    | data\s*:\s*text/html                             # data-URI с разметкой
+    | [\s"']on[a-z]+\s*=                               # on*-обработчики событий
+    | \bhttp-equiv\b                                   # meta refresh-редирект
+    | \bsrcdoc\b
+    """,
+)
+
+
 def _validate(body: str) -> bool:
     if not body or len(body) < 400:
         return False
-    low = body.lower()
-    if "<script" in low or "javascript:" in low:
+    if _XSS_RE.search(body):
         return False
     return 'class="hero"' in body or "<section" in body
 

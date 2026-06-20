@@ -52,6 +52,30 @@ describe('day report route', () => {
     expect(body).toContain('<style>');
   });
 
+  it('strips dangerous tags/attrs (onerror, iframe, meta-refresh, base) but keeps layout', async () => {
+    mocks.getReportHtml.mockResolvedValueOnce(
+      '<!DOCTYPE html><html lang="ru"><head>' +
+        '<meta http-equiv="refresh" content="0;url=//evil">' +
+        '<base href="//evil/"><style>body{color:red}</style></head><body>' +
+        '<h1>OK</h1><img src=x onerror="alert(1)">' +
+        '<iframe src="//evil"></iframe>' +
+        '<form action="//evil"><input></form>' +
+        '</body></html>',
+    );
+
+    const response = await GET(request('2026-05-29'), context('2026-05-29'));
+    const body = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(body).toContain('<h1>OK</h1>'); // легитимный контент цел
+    expect(body).toContain('<style>'); // вёрстка цела
+    expect(body).not.toContain('onerror');
+    expect(body).not.toContain('<iframe');
+    expect(body).not.toContain('http-equiv');
+    expect(body).not.toContain('<base');
+    expect(body).not.toContain('<form');
+  });
+
   it('returns 404 for invalid dates', async () => {
     const response = await GET(request('foo'), context('foo'));
 
