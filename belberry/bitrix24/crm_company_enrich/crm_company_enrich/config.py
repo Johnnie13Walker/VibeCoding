@@ -132,6 +132,14 @@ CONTACT_DEDUPE_SKIP_MULTI_COMPANY = os.environ.get("CCE_CONTACT_DEDUPE_SKIP_MULT
 # Вкладка для нерешённых дублей контактов.
 CONTACT_DEDUPE_SHEET_TAB = "contact_dup_unresolved"
 
+# Advisory-режим: дедуп НЕ мёржит/не удаляет/не отвязывает контакты, а только
+# находит дубли и пишет их в Sheets на ручной разбор. Включён по умолчанию —
+# менеджеры теряли рабочие контакты при авто-слиянии (инцидент 20.06.2026).
+# Выключить (вернуть авто-merge) можно через CCE_CONTACT_DEDUPE_ADVISORY_ONLY=0.
+CONTACT_DEDUPE_ADVISORY_ONLY = os.environ.get(
+    "CCE_CONTACT_DEDUPE_ADVISORY_ONLY", "1"
+).lower() not in {"0", "false", "no"}
+
 # Статус «Ликвидирована» в company.UF_CRM_ORG_STATUS.
 ORG_STATUS_LIQUIDATED = "8852"
 
