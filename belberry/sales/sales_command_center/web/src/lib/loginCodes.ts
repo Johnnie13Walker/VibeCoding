@@ -40,6 +40,12 @@ export interface LoginCodeRepo {
   purgeExpired(before: Date): Promise<void>;
 }
 
+// Максимум неверных вводов на ОДИН код. После порога код сжигается (помечается
+// used), и пользователь обязан запросить новый. Без этого 6-значный код (10⁶)
+// можно перебирать все 10 минут его жизни. 5 — комфортно для опечаток человека,
+// но закрывает автоматический перебор.
+export const MAX_CODE_ATTEMPTS = 5;
+
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
@@ -153,8 +159,22 @@ export async function verifyLoginCode(
     return { ok: false, reason: 'expired' };
   }
 
+  // Брутфорс-защита: исчерпан лимит попыток для этого кода — сжигаем его, чтобы
+  // он больше не принимал вводы (даже верный). Пользователь запрашивает новый.
+  // attemptsBefore фиксируем примитивом ДО инкремента: некоторые репозитории
+  // (in-memory) возвращают живую ссылку, которую incrementAttempts мутирует.
+  const attemptsBefore = row.attempts;
+  if (attemptsBefore >= MAX_CODE_ATTEMPTS) {
+    await repo.markUsed(row.id);
+    return { ok: false, reason: 'expired' };
+  }
+
   if (!verifyCode(plain, row.code)) {
     await repo.incrementAttempts(row.id);
+    // Этот ввод был последним допустимым — сжигаем код.
+    if (attemptsBefore + 1 >= MAX_CODE_ATTEMPTS) {
+      await repo.markUsed(row.id);
+    }
     return { ok: false, reason: 'mismatch' };
   }
 

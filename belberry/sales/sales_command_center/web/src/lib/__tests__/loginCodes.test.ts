@@ -107,6 +107,25 @@ describe('login code lifecycle', () => {
     expect(repo.rows[0].attempts).toBe(1);
   });
 
+  it('burns the code after MAX_CODE_ATTEMPTS wrong tries (brute-force guard)', async () => {
+    const code = await issueCode('manager@example.com', repo);
+
+    // 5 неверных вводов — на 5-м код сжигается (used=true)
+    for (let i = 0; i < 5; i += 1) {
+      await expect(consumeCode('manager@example.com', '000000', repo)).resolves.toEqual({
+        ok: false,
+        reason: 'mismatch',
+      });
+    }
+    expect(repo.rows[0].used).toBe(true);
+
+    // даже ВЕРНЫЙ код после сжигания больше не принимается → нет активного кода
+    await expect(consumeCode('manager@example.com', code, repo)).resolves.toEqual({
+      ok: false,
+      reason: 'expired',
+    });
+  });
+
   it('purges codes older than 24h when issuing a new one', async () => {
     repo.rows.push({
       id: 1,
