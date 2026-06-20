@@ -43,12 +43,14 @@ describe('request-code route', () => {
     expect(mocks.findActiveUserByEmail).not.toHaveBeenCalled();
   });
 
-  it('returns 404 and does not issue code when user is not active', async () => {
+  it('returns uniform 200 without issuing code when user is not found (anti-enumeration)', async () => {
     mocks.findActiveUserByEmail.mockResolvedValueOnce(null);
 
     const response = await POST(request({ email: 'missing@example.com' }));
 
-    expect(response.status).toBe(404);
+    // Анти-enumeration: ответ неотличим от успешного, но код НЕ выдаётся/не шлётся.
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ ok: true });
     expect(mocks.issueCode).not.toHaveBeenCalled();
     expect(mocks.sendCodeMessage).not.toHaveBeenCalled();
   });

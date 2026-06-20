@@ -1,5 +1,6 @@
 import { createKpJob, listKpJobs } from '@/lib/kp';
 import { canSeeKp } from '@/lib/kp-access';
+import { crossOriginResponse, isSameOrigin } from '@/lib/origin';
 import { isPreviewMode } from '@/lib/preview';
 import { getSession } from '@/lib/session';
 
@@ -22,6 +23,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  if (!isSameOrigin(req)) return crossOriginResponse();
   const denied = await guard();
   if (denied) return denied;
   const session = await getSession();

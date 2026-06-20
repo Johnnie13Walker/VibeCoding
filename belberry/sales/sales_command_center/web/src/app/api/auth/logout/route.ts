@@ -1,9 +1,14 @@
 import { NextResponse } from 'next/server';
+import { crossOriginResponse, isSameOrigin } from '@/lib/origin';
 import { getSession } from '@/lib/session';
 
 export const runtime = 'nodejs';
 
-export async function POST() {
+export async function POST(request: Request) {
+  if (!isSameOrigin(request)) {
+    return crossOriginResponse();
+  }
+
   const session = await getSession();
   session.destroy();
 

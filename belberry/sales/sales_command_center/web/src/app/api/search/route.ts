@@ -13,7 +13,9 @@ export async function GET(request: Request) {
     return new Response('Unauthorized', { status: 401 });
   }
 
-  const q = (new URL(request.url).searchParams.get('q') ?? '').trim().toLowerCase();
+  // Ограничиваем длину запроса: q уходит bind-параметром (инъекции нет), но без
+  // лимита гигантская строка = тяжёлый ILIKE-скан по таблицам.
+  const q = (new URL(request.url).searchParams.get('q') ?? '').trim().slice(0, 64).toLowerCase();
 
   // Дни с отчётами.
   const allDates = await availableReportDates();
