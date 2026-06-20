@@ -14,8 +14,8 @@ from src.lock import AlreadyRunning, single_instance
 from src.promises import compute_promises_loop
 from src.collect import collect_day
 from src.enrich import enrich_meetings
-from src.render import extract_rejections, render_report, _load_css
-from src.report_author import author_report, build_day_feed, build_payload, build_telegram_digest, substitute_photos, wrap_document
+from src.render import extract_rejections, render_report
+from src.report_author import build_day_feed
 from src.transform import build_db_rows, build_post_meeting_comms, compute_stale_deals, resolve_target_date
 from src.timeutil import now_msk
 from src.writer import write_day
@@ -169,22 +169,9 @@ def run(
         # Иначе теряются разбор и автозадачи по встрече при разовом сбое скачивания.
         _preserve_prior_analysis(conn, target, rows, extras)
 
-        # Архитектура B: финальный отчёт авторит LLM по данным дня (report.css —
-        # дизайн-контракт). render_report остаётся fallback-скелетом на сбой.
-        html = None
-        if llm_status == "done":
-            try:
-                client = (llm_client_factory or analyze_llm.get_client)()
-                body = author_report(build_payload(rows, extras), client=client)
-                if body:
-                    body = substitute_photos(body, extras.get("photos") or {}, extras.get("users") or {})
-                    html = wrap_document(body, _load_css(), target.isoformat())
-            except Exception as exc:
-                extras["llm_error"] = _mask(str(exc))
-        if html is None:
-            if llm_status == "done":
-                llm_status = "partial_llm_failure"
-            html = render_report(rows, extras)
+        # Дневной отчёт отключён (атавизм): HTML-отчёт больше не генерируем.
+        # Пишем только строку-якорь дня + данные дашбордов + разбор встреч.
+        html = ""
         summary = {
             "generated_at": now.isoformat(),
             "report_date": target.isoformat(),
@@ -195,21 +182,13 @@ def run(
         }
         counts = write_day(conn, target, rows, html, summary, status=llm_status)
         conn.commit()
-        # Дайджест для личной Telegram-доставки (детерминированно из payload +
-        # проза из готового HTML). Сбой дайджеста не должен валить прогон.
-        digest = None
-        if html and llm_status == "done":
-            try:
-                digest = build_telegram_digest(build_payload(rows, extras), html)
-            except Exception as exc:  # noqa: BLE001
-                print(f"[digest] build failed: {type(exc).__name__}: {str(exc)[:160]}", flush=True)
         return {
             "status": "done",
             "report_date": target.isoformat(),
             "counts": counts,
             "llm_status": llm_status,
             "html": html,
-            "digest": digest,
+            "digest": None,
         }
     finally:
         conn.close()
@@ -317,9 +296,7 @@ def cron_entry(
     force: bool = False,
     run_fn=run,
     lock_ctx=single_instance,
-    notify_link=notify.send_report_link,
     notify_alert=notify.send_alert,
-    notify_dm=notify.send_report_dm,
 ) -> int:
     try:
         with lock_ctx():
@@ -338,12 +315,11 @@ def cron_entry(
 
     report_date = result.get("report_date")
     if result.get("status") == "done" and result.get("llm_status") == "partial_llm_failure":
-        notify_alert("Отчёт сформирован частично: LLM-разбор недоступен", report_date=report_date)
+        notify_alert("LLM-разбор встреч недоступен (данные собраны)", report_date=report_date)
         return 0
 
     if result.get("status") == "done" and report_date:
-        notify_link(report_date)
-        notify_dm(report_date, result.get("digest"), result.get("html"))
+        # Дневной отчёт отключён — в Telegram больше не шлём. Остаются автозадачи.
         # Автозадачи из разбора встреч — только в боевом утреннем прогоне (SCC_CREATE_TASKS=1),
         # чтобы ручные --force/бэкафилл не создавали задачи. Идемпотентно (meeting_tasks).
         if os.environ.get("SCC_CREATE_TASKS") == "1":

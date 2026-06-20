@@ -71,16 +71,6 @@ def test_runner_orchestrates_pipeline_on_empty_db(monkeypatch):
     monkeypatch.setattr(daily_runner, "run_llm_phase", lambda *a, **k: {"analyses": {}, "narrative": {}})
     monkeypatch.setattr(
         daily_runner,
-        "author_report",
-        lambda payload, client, model=None: order.append("author") or '<div class="hero">x</div>',
-    )
-    monkeypatch.setattr(
-        daily_runner,
-        "render_report",
-        lambda rows, extras: order.append("render") or "<!DOCTYPE html>",
-    )
-    monkeypatch.setattr(
-        daily_runner,
         "write_day",
         lambda conn, target, rows, html, summary, status="done": order.append("write") or {"reports": 1},
     )
@@ -93,9 +83,9 @@ def test_runner_orchestrates_pipeline_on_empty_db(monkeypatch):
     )
 
     assert result["status"] == "done"
-    # Архитектура B: отчёт пишет LLM-автор (author), детерминированный render —
-    # только fallback, здесь не вызывается.
-    assert order == ["config", "token", "collect", "transform", "author", "write"]
+    # Дневной отчёт отключён: HTML не авторится/не рендерится — сразу запись данных.
+    assert result["html"] == ""
+    assert order == ["config", "token", "collect", "transform", "write"]
     assert conn.committed is True
 
 
@@ -121,7 +111,6 @@ def test_llm_failure_keeps_deterministic_report(monkeypatch):
     monkeypatch.setattr(daily_runner, "collect_day", lambda target, bx=None: {"report_date": target.isoformat(), "deals_open": [], "meet_day": []})
     monkeypatch.setattr(daily_runner, "build_db_rows", lambda raw, target, now: {"deals_snapshot": [], "meetings": [], "manager_activity": [], "kp_briefs": []})
     monkeypatch.setattr(daily_runner, "run_llm_phase", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom")))
-    monkeypatch.setattr(daily_runner, "render_report", lambda rows, extras: "<!DOCTYPE html>")
 
     def fake_write(conn, target, rows, html, summary, status="done"):
         captured["status"] = status
@@ -132,8 +121,9 @@ def test_llm_failure_keeps_deterministic_report(monkeypatch):
 
     daily_runner.run(date(2026, 5, 29), connect_fn=lambda: conn)
 
+    # Сбой LLM-разбора встреч → partial; данные дня всё равно пишутся (html пустой).
     assert captured["status"] == "partial_llm_failure"
-    assert captured["html"]
+    assert captured["html"] == ""
     assert conn.committed is True
 
 
@@ -152,8 +142,6 @@ def test_llm_success_marks_done_and_transcripts_written(monkeypatch):
 
     monkeypatch.setattr(daily_runner, "run_llm_phase", fake_llm)
     monkeypatch.setattr(daily_runner.analyze_llm, "get_client", lambda: object())
-    monkeypatch.setattr(daily_runner, "author_report", lambda payload, client, model=None: '<div class="hero">ok</div>')
-    monkeypatch.setattr(daily_runner, "render_report", lambda rows, extras: "<!DOCTYPE html>")
 
     def fake_write(conn, target, rows, html, summary, status="done"):
         captured["status"] = status
@@ -166,34 +154,9 @@ def test_llm_success_marks_done_and_transcripts_written(monkeypatch):
     daily_runner.run(date(2026, 5, 29), connect_fn=lambda: conn)
 
     assert captured["status"] == "done"
+    # Разбор встреч сохранён (нужен /meetings), HTML-отчёта больше нет.
     assert captured["rows"]["meetings"][0]["transcript_text"] == "текст"
-    # отчёт собран LLM-автором и обёрнут в документ с CSS
-    assert 'class="hero">ok' in captured["html"] and "<style>" in captured["html"]
-
-
-def test_author_failure_falls_back_to_render(monkeypatch):
-    conn = Conn()
-    captured = {}
-    monkeypatch.setattr(daily_runner, "load_config", lambda required: None)
-    monkeypatch.setattr(daily_runner.bx_client, "ensure_token_fresh", lambda: None)
-    monkeypatch.setattr(daily_runner, "collect_day", lambda target, bx=None: {"report_date": target.isoformat(), "deals_open": [], "meet_day": []})
-    monkeypatch.setattr(daily_runner, "build_db_rows", lambda raw, target, now: {"deals_snapshot": [], "meetings": [], "manager_activity": [], "kp_briefs": []})
-    monkeypatch.setattr(daily_runner, "run_llm_phase", lambda *a, **k: {"analyses": {}, "narrative": {}})
-    monkeypatch.setattr(daily_runner.analyze_llm, "get_client", lambda: object())
-    monkeypatch.setattr(daily_runner, "author_report", lambda payload, client, model=None: None)  # LLM-автор не дал валидный HTML
-    monkeypatch.setattr(daily_runner, "render_report", lambda rows, extras: "<!DOCTYPE html>FALLBACK")
-
-    def fake_write(conn, target, rows, html, summary, status="done"):
-        captured["status"] = status
-        captured["html"] = html
-        return {"reports": 1}
-
-    monkeypatch.setattr(daily_runner, "write_day", fake_write)
-
-    daily_runner.run(date(2026, 5, 29), connect_fn=lambda: conn)
-
-    assert captured["status"] == "partial_llm_failure"  # автор не справился → деградация
-    assert "FALLBACK" in captured["html"]  # детерминированный скелет
+    assert captured["html"] == ""
 
 
 def test_phase_llm_skips_bitrix_and_uses_db_transcript(monkeypatch):
@@ -282,8 +245,7 @@ def unlocked():
     yield
 
 
-def test_cron_entry_sends_link_on_success():
-    links = []
+def test_cron_entry_done_success_no_telegram():
     alerts = []
 
     code = daily_runner.cron_entry(
@@ -294,17 +256,15 @@ def test_cron_entry_sends_link_on_success():
             "llm_status": "done",
         },
         lock_ctx=unlocked,
-        notify_link=lambda report_date: links.append(report_date) or True,
         notify_alert=lambda message, report_date=None: alerts.append((message, report_date)) or True,
     )
 
+    # Дневной отчёт отключён — в Telegram ничего не шлём, алертов нет.
     assert code == 0
-    assert links == ["2026-05-29"]
     assert alerts == []
 
 
 def test_cron_entry_alerts_on_partial():
-    links = []
     alerts = []
 
     code = daily_runner.cron_entry(
@@ -315,13 +275,11 @@ def test_cron_entry_alerts_on_partial():
             "llm_status": "partial_llm_failure",
         },
         lock_ctx=unlocked,
-        notify_link=lambda report_date: links.append(report_date) or True,
         notify_alert=lambda message, report_date=None: alerts.append((message, report_date)) or True,
     )
 
     assert code == 0
-    assert links == []
-    assert alerts == [("Отчёт сформирован частично: LLM-разбор недоступен", "2026-05-29")]
+    assert alerts == [("LLM-разбор встреч недоступен (данные собраны)", "2026-05-29")]
 
 
 def test_cron_entry_alerts_on_exception():
@@ -334,7 +292,6 @@ def test_cron_entry_alerts_on_exception():
         date(2026, 5, 29),
         run_fn=fail,
         lock_ctx=unlocked,
-        notify_link=lambda report_date: None,
         notify_alert=lambda message, report_date=None: alerts.append((message, report_date)) or True,
     )
 
@@ -354,7 +311,6 @@ def test_cron_entry_blocked_when_running():
         date(2026, 5, 29),
         run_fn=lambda target, force=False: calls.append("run"),
         lock_ctx=locked,
-        notify_link=lambda report_date: calls.append("link"),
         notify_alert=lambda message, report_date=None: calls.append("alert"),
     )
 
@@ -372,7 +328,6 @@ def test_cron_entry_skipped_sends_nothing():
             "report_date": "2026-05-29",
         },
         lock_ctx=unlocked,
-        notify_link=lambda report_date: calls.append("link"),
         notify_alert=lambda message, report_date=None: calls.append("alert"),
     )
 
