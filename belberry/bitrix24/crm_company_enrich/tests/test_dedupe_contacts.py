@@ -158,6 +158,49 @@ def test_director_cluster_is_unresolved_instead_of_deleted():
     assert outcome.skipped_reason == "director_contact_protected"
 
 
+def test_sales_deal_contact_is_unresolved_instead_of_deleted():
+    """Контакт на сделке вне телемаркетинга ([10] Продажи) не должен удаляться."""
+    deleted: list[str] = []
+
+    class FakeBitrix:
+        def list_contact_deals(self, contact_id):
+            if contact_id == "2":
+                return [{"ID": "16268", "CATEGORY_ID": "10", "STAGE_ID": "C10:1"}]
+            return []
+
+        def list_contact_companies(self, contact_id):
+            return ["100"]
+
+        def delete_contact(self, contact_id):
+            deleted.append(str(contact_id))
+            return True
+
+    older = _contact("1", LAST_NAME="", NAME="Николай", PHONE=[{"VALUE": "+79639990913"}])
+    on_deal = _contact("2", LAST_NAME="", NAME="Николай", PHONE=[{"VALUE": "+79639990913"}])
+
+    outcome = dedupe_contacts._process_cluster(FakeBitrix(), "100", [older, on_deal], dry_run=False)
+
+    assert outcome.status == "UNRESOLVED"
+    assert outcome.skipped_reason.startswith("non_telemarketing_deal:")
+    assert deleted == []
+
+
+def test_telemarketing_only_deal_still_merges():
+    """Кластер чисто телемаркетинговых сделок [50] по-прежнему сливается."""
+
+    class FakeBitrix:
+        def list_contact_deals(self, contact_id):
+            return [{"ID": "900", "CATEGORY_ID": "50", "STAGE_ID": "C50:NEW"}]
+
+        def list_contact_companies(self, contact_id):
+            return ["100"]
+
+    reason = dedupe_contacts._non_telemarketing_deal_reason(
+        {"1": [{"ID": "900", "CATEGORY_ID": "50"}], "2": []}
+    )
+    assert reason == ""
+
+
 class FakeBitrixForRun:
     def __init__(
         self,

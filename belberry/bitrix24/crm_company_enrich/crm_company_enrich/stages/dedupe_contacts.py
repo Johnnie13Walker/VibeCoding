@@ -115,7 +115,7 @@ def _process_cluster(
     winner_id = str(winner.get("ID") or "")
     losers = [c for c in cluster if str(c.get("ID") or "") != winner_id]
     match_reasons = _cluster_match_reasons(cluster)
-    unresolved_reason = _unresolved_reason(bx, cluster)
+    unresolved_reason = _unresolved_reason(bx, cluster, contact_deals)
     if unresolved_reason:
         return ContactDedupeOutcome(
             company_id=company_id,
@@ -400,8 +400,15 @@ def _filled_score(contact: dict) -> int:
     return score
 
 
-def _unresolved_reason(bx: BitrixClient, cluster: list[dict]) -> str:
+def _unresolved_reason(
+    bx: BitrixClient,
+    cluster: list[dict],
+    contact_deals: dict[str, list[dict]] | None = None,
+) -> str:
     match_reasons = set(_cluster_match_reasons(cluster))
+    protected_deal = _non_telemarketing_deal_reason(contact_deals or {})
+    if protected_deal:
+        return protected_deal
     if any(_is_director_contact(c) for c in cluster):
         return "director_contact_protected"
     placeholder_cluster = "placeholder_dedup" in match_reasons
@@ -416,6 +423,22 @@ def _unresolved_reason(bx: BitrixClient, cluster: list[dict]) -> str:
     titles = {_clean(c.get("POST") or c.get("TITLE")) for c in cluster if _clean(c.get("POST") or c.get("TITLE"))}
     if not placeholder_cluster and len(titles) > 1:
         return "conflicting_title"
+    return ""
+
+
+def _non_telemarketing_deal_reason(contact_deals: dict[str, list[dict]]) -> str:
+    """Защита контактов на сделках вне воронки телемаркетинга.
+
+    Дедуп удаляет «проигравший» контакт. Но если хоть один контакт кластера
+    привязан к сделке другой воронки (например [10] Продажи), её ведёт менеджер
+    вручную — терять контакт и его историю нельзя. Такой кластер уходит в
+    UNRESOLVED на ручной разбор вместо авто-слияния и удаления.
+    """
+    for contact_id, deals in contact_deals.items():
+        for deal in deals or []:
+            category = str(deal.get("CATEGORY_ID") or "")
+            if category and category != str(TELEMARKETING_CATEGORY_ID):
+                return f"non_telemarketing_deal:{contact_id}:{deal.get('ID')}"
     return ""
 
 
