@@ -275,6 +275,8 @@ export interface FunnelManager {
   entered: number;
   /** reached[o] — дошли до стадии ≥ o; индексы 1..9, [0] не используется. */
   reached: number[];
+  /** lostByOrder[o] — ушли в отвал, дойдя максимум до стадии o (умерли ЗДЕСЬ). */
+  lostByOrder: number[];
   won: number;
   lost: number;
   /** Исключённых спам-входов (для подписи). */
@@ -1155,32 +1157,42 @@ export async function getDashboardData(range: Period = 'month'): Promise<Dashboa
     .where(and(gte(funnelCohort.cohortDate, start), lte(funnelCohort.cohortDate, end)));
 
   type CohortAgg = {
-    entered: number; reached: number[]; won: number; lost: number; spam: number; wonAmount: number;
+    entered: number; reached: number[]; lostByOrder: number[]; won: number; lost: number; spam: number; wonAmount: number;
   };
+  const emptyAgg = (): CohortAgg => ({
+    entered: 0, reached: new Array(FUNNEL_MAX_ORDER + 1).fill(0),
+    lostByOrder: new Array(FUNNEL_MAX_ORDER + 1).fill(0), won: 0, lost: 0, spam: 0, wonAmount: 0,
+  });
   const cohortByMgr = new Map<number, CohortAgg>();
   for (const r of cohortRows) {
     const mid = r.managerId ?? 0;
     const spam = r.reasonId === SPAM_REASON_10;
     let a = cohortByMgr.get(mid);
-    if (!a) { a = { entered: 0, reached: new Array(FUNNEL_MAX_ORDER + 1).fill(0), won: 0, lost: 0, spam: 0, wonAmount: 0 }; cohortByMgr.set(mid, a); }
+    if (!a) { a = emptyAgg(); cohortByMgr.set(mid, a); }
     if (spam) { a.spam += 1; continue; } // спам не считаем в воронку, только в подпись
     a.entered += 1;
     const ord = r.furthestOrder ?? 0;
     for (let o = 1; o <= Math.min(ord, FUNNEL_MAX_ORDER); o++) a.reached[o] += 1;
     if (r.isWon) { a.won += 1; a.wonAmount += Number(r.opportunity ?? 0); }
-    if (r.isLost) a.lost += 1;
+    if (r.isLost) {
+      a.lost += 1;
+      // Отвал засчитываем стадии, до которой сделка дошла (furthest_order) — «умерла здесь».
+      const lo = Math.max(1, Math.min(ord, FUNNEL_MAX_ORDER));
+      a.lostByOrder[lo] += 1;
+    }
   }
 
   // Сейлы (ОП, включая РОП; без телемаркетинга) с когортой в периоде — для селектора.
   const funnelManagers: FunnelManager[] = team
     .filter((m) => !isTelemarketing(m.role))
     .map((m) => {
-      const a = cohortByMgr.get(m.managerId) ?? { entered: 0, reached: new Array(FUNNEL_MAX_ORDER + 1).fill(0), won: 0, lost: 0, spam: 0, wonAmount: 0 };
+      const a = cohortByMgr.get(m.managerId) ?? emptyAgg();
       return {
         managerId: m.managerId,
         name: m.name,
         entered: a.entered,
         reached: a.reached,
+        lostByOrder: a.lostByOrder,
         won: a.won,
         lost: a.lost,
         spam: a.spam,
