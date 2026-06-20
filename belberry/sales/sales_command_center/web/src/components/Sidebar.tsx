@@ -9,7 +9,7 @@ import { LayoutDashboard, Radio, BellRing, LogOut, Search, ClipboardCheck, Phone
 const NAV = [
   { href: '/dashboard', label: 'Дашборд ОП', Icon: LayoutDashboard, tag: undefined },
   { href: '/telemarketing', label: 'Дашборд ТМ', Icon: PhoneCall, tag: undefined },
-  { href: '/today', label: 'Сегодня', Icon: Radio, tag: 'live' },
+  { href: '/today', label: 'Отчёт за день', Icon: Radio, tag: 'live' },
   { href: '/meetings', label: 'Анализ встреч', Icon: ClipboardCheck, tag: undefined },
   { href: '/kp', label: 'Сборка КП', Icon: FileText, tag: undefined },
   { href: '/alerts', label: 'Алерты', Icon: BellRing, tag: undefined },

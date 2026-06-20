@@ -169,11 +169,11 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
                 ? `День ${fmtDay(selected)}`
                 : stale
                   ? `Последний рабочий день ${fmtDay(data!.reportDate!)}`
-                  : <><span className="bb-live-dot" style={{ marginRight: 10 }} />Сегодня</>}
+                  : <><span className="bb-live-dot" style={{ marginRight: 10 }} />Отчёт за день</>}
             </h1>
             <div className="bb-hero-sub">
               {isArchive
-                ? 'сохранённый разбор за выбранный день (чаты — только в режиме «Сегодня»)'
+                ? 'сохранённый разбор за выбранный день (чаты — только в live-режиме)'
                 : stale
                   ? `сегодня (${fmtDay(todayMsk)}) сбор не идёт — нерабочий день или ещё не было прогона · снимок за ${fmtDay(data!.reportDate!)}, обновлён ${fmtMsk(data!.updatedAt)} МСК`
                   : (data?.updatedAt ? `обновлено ${fmtMsk(data.updatedAt)} МСК · каждые ~20 мин в рабочие часы` : 'данные ещё не собраны')}
