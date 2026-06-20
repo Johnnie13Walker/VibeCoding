@@ -2,7 +2,7 @@
 // Сверено с живым Bitrix 2026-06-18. Шаги воронки «Путь сделки» строятся отсюда.
 
 export const FUNNEL_STEPS_10: { order: number; stage: string; label: string; sub?: string }[] = [
-  { order: 1, stage: 'C10:NEW', label: 'Вошли в воронку', sub: 'квалификация' },
+  { order: 1, stage: 'C10:NEW', label: 'Квалификация' },
   { order: 2, stage: 'C10:PREPAYMENT_INVOIC', label: 'Подготовка БРИФа' },
   { order: 3, stage: 'C10:EXECUTING', label: 'Подготовка КП' },
   { order: 4, stage: 'C10:UC_4SJOE4', label: 'Защита КП', sub: 'презентация' },
@@ -17,8 +17,7 @@ export const FUNNEL_MAX_ORDER = 9;
 export const SPAM_REASON_10 = 8588;
 
 // Каноническое название стадии Bitrix (для снимка/прогноза/алертов) — зеркало
-// runner/src/funnel_stages.py STAGE_LABEL_10. Отличается от FUNNEL_STEPS_10 только
-// первой стадией: тут «Квалификация» (имя стадии), там «Вошли в воронку» (путь сделки).
+// runner/src/funnel_stages.py STAGE_LABEL_10. Совпадает с метками FUNNEL_STEPS_10.
 export const STAGE_LABEL_10: Record<string, string> = {
   'C10:NEW': 'Квалификация',
   'C10:PREPAYMENT_INVOIC': 'Подготовка БРИФа',
