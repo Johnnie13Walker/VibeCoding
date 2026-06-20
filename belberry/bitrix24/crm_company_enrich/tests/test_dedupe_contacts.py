@@ -360,7 +360,7 @@ def test_audit_csv_row_written_on_dry_run(tmp_path, monkeypatch):
         ],
     )
 
-    dedupe_contacts.run_company(bx, company_id="100", dry_run=True)
+    dedupe_contacts.run_company(bx, company_id="100", dry_run=True, advisory_only=False)
 
     rows = list(csv.DictReader(audit_path.open(encoding="utf-8")))
     assert rows[-1]["dry_run"] == "true"
@@ -379,7 +379,7 @@ def test_audit_csv_row_written_on_success(tmp_path, monkeypatch):
         ],
     )
 
-    dedupe_contacts.run_company(bx, company_id="100", dry_run=False)
+    dedupe_contacts.run_company(bx, company_id="100", dry_run=False, advisory_only=False)
 
     rows = list(csv.DictReader(audit_path.open(encoding="utf-8")))
     assert rows[-1]["dry_run"] == "false"
@@ -399,7 +399,7 @@ def test_timeline_comment_on_deal_when_loser_transferred(tmp_path, monkeypatch):
         deal_contacts={"22790": [{"CONTACT_ID": "1"}]},
     )
 
-    dedupe_contacts.run_company(bx, company_id="100", dry_run=False)
+    dedupe_contacts.run_company(bx, company_id="100", dry_run=False, advisory_only=False)
 
     assert bx.added_deal_contacts == [("22790", "2")]
     assert len(bx.timeline_comments) == 1
@@ -421,7 +421,32 @@ def test_no_timeline_comment_when_winner_already_attached(tmp_path, monkeypatch)
         deal_contacts={"22790": [{"CONTACT_ID": "1"}, {"CONTACT_ID": "2"}]},
     )
 
-    dedupe_contacts.run_company(bx, company_id="100", dry_run=False)
+    dedupe_contacts.run_company(bx, company_id="100", dry_run=False, advisory_only=False)
 
     assert bx.added_deal_contacts == []
     assert bx.timeline_comments == []
+
+
+def test_advisory_mode_never_merges_or_deletes(tmp_path, monkeypatch):
+    """Advisory (по умолчанию): даже чистый дубль не сливается и не удаляется."""
+    monkeypatch.setattr(dedupe_contacts, "AUDIT_CSV_PATH", tmp_path / "audit.csv")
+    monkeypatch.setattr(dedupe_contacts, "_backup_contact", lambda *a, **k: "")
+    # Не ходим в реальные Sheets — проверяем только отсутствие мутаций.
+    monkeypatch.setattr(dedupe_contacts, "_record_unresolved_if_needed", lambda *a, **k: None)
+    bx = FakeBitrixForRun(
+        contacts=[
+            _contact("1", LAST_NAME="!", NAME="Иванов Иван"),
+            _contact("2", LAST_NAME="Иванов", NAME="Иван"),
+        ],
+        contact_deals={"1": [{"ID": "22790", "CATEGORY_ID": "50"}]},
+        deal_contacts={"22790": [{"CONTACT_ID": "1"}]},
+    )
+
+    summary = dedupe_contacts.run_company(bx, company_id="100", dry_run=False)
+
+    assert summary["merged"] == 0
+    assert bx.deleted_contacts == []
+    assert bx.removed_deal_contacts == []
+    assert bx.removed_company_contacts == []
+    assert summary["outcomes"][0]["status"] == "UNRESOLVED"
+    assert summary["outcomes"][0]["skipped_reason"] == "advisory_no_auto_merge"
