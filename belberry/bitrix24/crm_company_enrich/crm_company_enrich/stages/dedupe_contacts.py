@@ -13,6 +13,7 @@ from zoneinfo import ZoneInfo
 
 from ..bitrix_client import BitrixClient
 from ..config import (
+    CONTACT_DEDUPE_ADVISORY_ONLY,
     CONTACT_DEDUPE_MIN_SIGNALS,
     CONTACT_DEDUPE_SHEET_TAB,
     CONTACT_DEDUPE_SKIP_MULTI_COMPANY,
@@ -62,8 +63,15 @@ def run_company(
     company_id: str,
     dry_run: bool = True,
     attach_unrelated_company_contacts: bool = False,
+    advisory_only: bool | None = None,
 ) -> dict:
-    """Scoped dedupe контактов одной компании."""
+    """Scoped dedupe контактов одной компании.
+
+    advisory_only=True (по умолчанию из конфига) — только находим дубли и пишем
+    их в Sheets, ничего не мёржим/не удаляем. None → значение из конфига.
+    """
+    if advisory_only is None:
+        advisory_only = CONTACT_DEDUPE_ADVISORY_ONLY
     company_id = str(company_id)
     contacts = bx.list_company_contacts_full(company_id)
     outcomes: list[ContactDedupeOutcome] = []
@@ -71,7 +79,7 @@ def run_company(
     if len(contacts) >= 2:
         clusters = [cluster for cluster in _cluster_duplicates(contacts) if len(cluster) >= 2]
         for cluster in clusters:
-            outcome = _process_cluster(bx, company_id, cluster, dry_run=dry_run)
+            outcome = _process_cluster(bx, company_id, cluster, dry_run=dry_run, advisory_only=advisory_only)
             outcomes.append(outcome)
             _record_unresolved_if_needed(outcome, cluster=cluster, dry_run=dry_run)
 
@@ -109,13 +117,14 @@ def _process_cluster(
     cluster: list[dict],
     *,
     dry_run: bool,
+    advisory_only: bool = False,
 ) -> ContactDedupeOutcome:
     contact_deals = {str(c.get("ID")): bx.list_contact_deals(str(c.get("ID"))) for c in cluster}
     winner = _pick_winner(cluster, contact_deals)
     winner_id = str(winner.get("ID") or "")
     losers = [c for c in cluster if str(c.get("ID") or "") != winner_id]
     match_reasons = _cluster_match_reasons(cluster)
-    unresolved_reason = _unresolved_reason(bx, cluster, contact_deals)
+    unresolved_reason = _unresolved_reason(bx, cluster, contact_deals, advisory_only=advisory_only)
     if unresolved_reason:
         return ContactDedupeOutcome(
             company_id=company_id,
@@ -404,6 +413,8 @@ def _unresolved_reason(
     bx: BitrixClient,
     cluster: list[dict],
     contact_deals: dict[str, list[dict]] | None = None,
+    *,
+    advisory_only: bool = False,
 ) -> str:
     match_reasons = set(_cluster_match_reasons(cluster))
     protected_deal = _non_telemarketing_deal_reason(contact_deals or {})
@@ -423,6 +434,9 @@ def _unresolved_reason(
     titles = {_clean(c.get("POST") or c.get("TITLE")) for c in cluster if _clean(c.get("POST") or c.get("TITLE"))}
     if not placeholder_cluster and len(titles) > 1:
         return "conflicting_title"
+    # Advisory: даже «чистый» кластер не сливаем автоматически — только в отчёт.
+    if advisory_only:
+        return "advisory_no_auto_merge"
     return ""
 
 
