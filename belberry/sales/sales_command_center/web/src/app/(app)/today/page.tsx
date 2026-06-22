@@ -73,6 +73,7 @@ function weekdayMsk(at: string): { wd: string; weekend: boolean } | null {
 const PILL: React.CSSProperties = { display: 'inline-block', fontSize: 11, fontWeight: 600, borderRadius: 999, padding: '3px 9px', whiteSpace: 'nowrap', lineHeight: 1.5 };
 const REV_CHIP: React.CSSProperties = { ...PILL, fontWeight: 700, background: '#fff', border: '1px solid var(--bb-line)', color: 'var(--bb-ink)' };
 const REV_CHIP_LOW: React.CSSProperties = { ...PILL, fontWeight: 700, background: '#fdeced', color: 'var(--bb-red)' };
+const MOVED_PILL: React.CSSProperties = { ...PILL, background: '#fdf1e6', color: 'var(--bb-amber)' };
 const TIMECOL: React.CSSProperties = { fontWeight: 600, fontSize: 13, color: 'var(--bb-violet)', flex: '0 0 auto' };
 
 function MeetingRow({ m, showDate }: { m: LiveMeeting; showDate: boolean }) {
@@ -80,13 +81,17 @@ function MeetingRow({ m, showDate }: { m: LiveMeeting; showDate: boolean }) {
   const ty = m.type ? MEETING_TYPE[m.type] : null;
   const showRevenue = m.type === 'briefing' && m.creatorIsTm && m.companyRevenue != null;
   const low = showRevenue && (m.companyRevenue as number) < REVENUE_LOW_THRESHOLD;
-  const wk = showDate ? weekdayMsk(m.at) : null;
+  // Перенесённую всегда показываем с новой датой (даже в левом блоке «Встречи сегодня»).
+  const dateMode = showDate || m.movedToday;
+  const wk = dateMode ? weekdayMsk(m.at) : null;
+  // Статус-бейдж: всегда, кроме «назначена» у перенесённой (там говорит бейдж «перенесена»).
+  const showStatus = !m.movedToday || m.status !== 'scheduled';
   return (
     <li className="bb-alert-row" style={{ gap: 14, alignItems: 'flex-start' }}>
-      {showDate ? (
+      {dateMode ? (
         <span style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.35, minWidth: 52, flex: '0 0 auto' }}>
           <b className="tabular" style={TIMECOL}>{fmtDate2(m.at)}</b>
-          {wk ? <span style={{ fontSize: 11, fontWeight: 600, color: wk.weekend ? 'var(--bb-red)' : 'var(--bb-faint)' }}>{wk.wd}</span> : null}
+          {wk ? <span style={{ fontSize: 11, fontWeight: 600, color: wk.weekend ? 'var(--bb-red)' : 'var(--bb-faint)' }}>{wk.wd}{m.movedToday ? ` · ${timeOnly(m.at)}` : ''}</span> : null}
         </span>
       ) : (
         <span className="tabular" style={{ ...TIMECOL, minWidth: 46 }}>{timeOnly(m.at) || '—'}</span>
@@ -96,14 +101,15 @@ function MeetingRow({ m, showDate }: { m: LiveMeeting; showDate: boolean }) {
         <p className="bb-alert-meta">
           {ty ? <span style={{ ...PILL, background: ty.bg, color: ty.color }}>{ty.label}</span> : null}
           <span>· {m.manager}</span>
+          {m.movedToday ? <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--bb-amber)' }}>перенесена на {fmtDate2(m.at)}</span> : null}
           {showRevenue ? <span style={low ? REV_CHIP_LOW : REV_CHIP}>выручка {fmtRevenue(m.companyRevenue as number)}</span> : null}
         </p>
       </div>
-      {showDate ? (
-        <span className="tabular" style={{ ...TIMECOL, paddingTop: 1, whiteSpace: 'nowrap' }}>{timeOnly(m.at)}</span>
-      ) : (
-        <span style={{ ...PILL, background: st.bg, color: st.color, flex: '0 0 auto' }}>{st.label}</span>
-      )}
+      <span style={{ display: 'flex', gap: 6, alignItems: 'center', flex: '0 0 auto', paddingTop: 1 }}>
+        {m.movedToday ? <span style={MOVED_PILL}>перенесена</span> : null}
+        {showStatus ? <span style={{ ...PILL, background: st.bg, color: st.color }}>{st.label}</span> : null}
+        {showDate && !m.movedToday ? <span className="tabular" style={{ ...TIMECOL, whiteSpace: 'nowrap' }}>{timeOnly(m.at)}</span> : null}
+      </span>
     </li>
   );
 }
@@ -143,16 +149,31 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
   const t = data?.totals;
   const connect = t && t.dials ? Math.round((t.answered / t.dials) * 100) : 0;
 
-  // Разбиение встреч: «проводятся в этот день» vs «назначены сегодня на другую дату».
+  // Разбиение встреч:
+  //  • левый блок «Встречи сегодня» = события дня (дата встречи = сегодня) + перенесённые сегодня;
+  //  • правый блок «Назначены сегодня» = только назначенные сегодня на другую дату.
   const refDay = isArchive ? (selected as string) : todayMsk;
   const meetingDay = (at: string): string => {
     if (!at) return '';
     try { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Moscow' }).format(new Date(at)); } catch { return ''; }
   };
   const allMeetings = data?.meetings ?? [];
-  const meetingsSetOther = allMeetings.filter((m) => m.setToday && meetingDay(m.at) !== refDay);
-  const meetingsHappening = allMeetings.filter((m) => !(m.setToday && meetingDay(m.at) !== refDay));
+  const happeningToday = (m: typeof allMeetings[number]) => meetingDay(m.at) === refDay;
+  const isMoved = (m: typeof allMeetings[number]) => m.movedToday && !happeningToday(m);
+  const isAssignedToday = (m: typeof allMeetings[number]) => m.setToday && !happeningToday(m) && !isMoved(m);
+  const byAtAsc = (a: typeof allMeetings[number], b: typeof allMeetings[number]) => (a.at || '').localeCompare(b.at || '');
+  // Слева: сегодняшние (по времени), затем перенесённые (по новой дате).
+  const meetingsHappening = [
+    ...allMeetings.filter(happeningToday).sort(byAtAsc),
+    ...allMeetings.filter(isMoved).sort(byAtAsc),
+  ];
+  const meetingsSetOther = allMeetings.filter(isAssignedToday).sort(byAtAsc);
   const hasSetOther = meetingsSetOther.length > 0;
+  // Подпись левого блока — по фактически показанным строкам (а не глобальный агрегат).
+  const leftHeld = meetingsHappening.filter((m) => !isMoved(m) && m.status === 'held').length;
+  const leftScheduled = meetingsHappening.filter((m) => !isMoved(m) && m.status === 'scheduled').length;
+  const leftCancelled = meetingsHappening.filter((m) => !isMoved(m) && m.status === 'cancelled').length;
+  const leftMoved = meetingsHappening.filter(isMoved).length;
 
   // «КП получено» = только ГОТОВЫЕ (status success). КП в работе и отклонённые
   // (Не актуально) сюда не входят — отклонённые видны в Ленте (фильтр КП).
@@ -233,7 +254,7 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
           {/* Ряд 1: встречи сегодня / назначены на другую дату */}
           <div className="bb-grid k2" style={{ gridTemplateColumns: hasSetOther ? '1fr 1fr' : '1fr', gap: 16 }}>
             <div className="bb-card">
-              <div className="bb-sect-head"><span className="bb-sect-ic"><CalendarClock size={17} /></span><h2>Встречи{isArchive ? '' : ' сегодня'}</h2><small>{t.meetingsHeld} провед. · {t.meetingsScheduled} назнач. · {t.meetingsCancelled} отмен.</small></div>
+              <div className="bb-sect-head"><span className="bb-sect-ic"><CalendarClock size={17} /></span><h2>Встречи{isArchive ? '' : ' сегодня'}</h2><small>{leftHeld} провед. · {leftScheduled} назнач. · {leftCancelled} отмен.{leftMoved ? ` · ${leftMoved} перенесено` : ''}</small></div>
               {meetingsHappening.length === 0 ? (
                 <p style={{ color: 'var(--bb-muted)' }}>Встреч нет.</p>
               ) : (
@@ -245,7 +266,7 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
 
             {hasSetOther ? (
               <div className="bb-card">
-                <div className="bb-sect-head"><span className="bb-sect-ic"><CalendarClock size={17} /></span><h2>Встречи назначены</h2><small>сегодня назначили на другую дату · {meetingsSetOther.length}</small></div>
+                <div className="bb-sect-head"><span className="bb-sect-ic"><CalendarClock size={17} /></span><h2>Назначены сегодня</h2><small>назначили на другую дату · {meetingsSetOther.length}</small></div>
                 <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column' }}>
                   {meetingsSetOther.map((m, i) => <MeetingRow key={`o${i}`} m={m} showDate={true} />)}
                 </ul>

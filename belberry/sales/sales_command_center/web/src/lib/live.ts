@@ -83,6 +83,8 @@ export interface LiveMeeting {
   status: 'held' | 'scheduled' | 'cancelled';
   dealId: number | null;
   setToday: boolean;
+  /** Встречу сегодня перенесли на другую дату (тронута сегодня, не создана сегодня, дата ≠ сегодня). */
+  movedToday: boolean;
   /** Тип встречи: брифинг / защита КП. */
   type: 'briefing' | 'defense' | 'other' | null;
   /** Встречу назначил телемаркетолог (по отделу создателя). */
@@ -128,7 +130,7 @@ interface RawManager {
   m_held?: number; m_scheduled?: number; m_cancelled?: number; m_set?: number;
   briefs?: number; kp?: number; deals?: number; emails?: number;
 }
-interface RawMeeting { id: number | null; title: string; manager_id: number | null; at: string; status: LiveMeeting['status']; deal_id: number | null; set_today?: boolean; type?: LiveMeeting['type']; created_by?: number | null; company_revenue?: number | null }
+interface RawMeeting { id: number | null; title: string; manager_id: number | null; at: string; status: LiveMeeting['status']; deal_id: number | null; set_today?: boolean; moved_today?: boolean; type?: LiveMeeting['type']; created_by?: number | null; company_revenue?: number | null }
 interface RawBrief { id: number | null; title: string; manager_id: number | null; deal_id: number | null; service: string; status?: LiveBrief['status'] }
 interface RawFeed { kind: LiveFeedItem['kind']; id?: number | null; manager_id: number | null; title: string; at: string }
 
@@ -205,6 +207,7 @@ export async function getLive(): Promise<LiveData> {
     .map((m) => ({
       id: m.id, title: m.title, manager: nameOf(m.manager_id), at: m.at,
       status: m.status ?? 'scheduled', dealId: m.deal_id, setToday: m.set_today ?? false,
+      movedToday: m.moved_today ?? false,
       type: m.type ?? null, creatorIsTm: isTm(m.created_by ?? null), companyRevenue: m.company_revenue ?? null,
     }));
 
@@ -361,6 +364,7 @@ export async function getDayBreakdown(date: string): Promise<LiveData | null> {
         status: meetingStatusFrom(r.status),
         dealId: r.dealId,
         setToday,
+        movedToday: false, // перенос за прошлые дни не сохраняем — только live
         type,
         creatorIsTm: isTm(r.createdBy ?? null),
         companyRevenue: r.companyRevenue != null ? Number(r.companyRevenue) : null,
