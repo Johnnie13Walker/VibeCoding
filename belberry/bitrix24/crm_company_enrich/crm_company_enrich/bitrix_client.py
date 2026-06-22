@@ -18,6 +18,7 @@ from __future__ import annotations
 import csv
 import hashlib
 import json
+import os
 import subprocess
 import sys
 import time
@@ -33,6 +34,18 @@ from zoneinfo import ZoneInfo
 from .config import ENTITY_TYPE_COMPANY, SYNC_SCRIPT
 
 MOSCOW_TZ = ZoneInfo("Europe/Moscow")
+
+# Предохранитель: физическое удаление CRM-сущностей запрещено по умолчанию.
+# Снять блок можно только явным BITRIX_ALLOW_DELETE=1. Unbind-методы
+# (crm.*.company.delete, crm.deal.contact.delete и т.п.) — это разрыв связи,
+# не удаление сущности, и под блок НЕ попадают.
+_DESTRUCTIVE_METHODS = frozenset(
+    {"crm.company.delete", "crm.contact.delete", "crm.deal.delete", "crm.lead.delete"}
+)
+
+
+def _delete_allowed() -> bool:
+    return os.environ.get("BITRIX_ALLOW_DELETE", "0") == "1"
 
 
 class BitrixError(RuntimeError):
@@ -63,6 +76,17 @@ class BitrixClient:
     def call(self, method: str, params: dict | None = None) -> dict:
         self._ensure_fresh_state()
         normalized = params or {}
+        if method in _DESTRUCTIVE_METHODS and not _delete_allowed():
+            blocked = {
+                "result": False,
+                "error": "DELETE_BLOCKED",
+                "error_description": (
+                    f"Удаление {method} заблокировано предохранителем "
+                    "(BITRIX_ALLOW_DELETE!=1) — ничего не удаляем."
+                ),
+            }
+            self._log_call(method, normalized, blocked, False, 0)
+            return blocked
         started = time.monotonic()
         body: dict[str, Any] = {}
         ok = False
