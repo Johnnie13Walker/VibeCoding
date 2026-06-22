@@ -325,6 +325,27 @@ class BitrixClient:
             )
         )
 
+    def deal_call_contact_ids(self, deal_id: str) -> set[str]:
+        """ID контактов, на которых есть звонок (phone-communication) в активностях сделки.
+
+        Нужно дедупу: контакт, которому реально звонили в рамках сделки, нельзя
+        молча удалять при авто-слиянии — это «переговорный» контакт с историей.
+        """
+        ids: set[str] = set()
+        for activity in self.paginate(
+            "crm.activity.list",
+            {
+                "filter": {"OWNER_TYPE_ID": 2, "OWNER_ID": int(deal_id)},
+                "select": ["ID", "COMMUNICATIONS"],
+            },
+        ):
+            for comm in activity.get("COMMUNICATIONS") or []:
+                if isinstance(comm, dict) and comm.get("TYPE") == "PHONE":
+                    entity = str(comm.get("ENTITY_ID") or "")
+                    if entity:
+                        ids.add(entity)
+        return ids
+
     def add_deal_contact(self, deal_id: str, contact_id: str) -> bool:
         """Привязать существующий контакт к сделке."""
         return self._bool_result(
