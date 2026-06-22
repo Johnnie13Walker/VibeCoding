@@ -437,6 +437,13 @@ def _unresolved_reason(
     # Advisory: даже «чистый» кластер не сливаем автоматически — только в отчёт.
     if advisory_only:
         return "advisory_no_auto_merge"
+    # Авто-merge включён (CCE_CONTACT_DEDUPE_ADVISORY_ONLY=0). Последний рубеж:
+    # не удалять контакт, которому реально звонили — даже в воронке ТМ. Инцидент:
+    # «переговорные» контакты (Леонов, Макаревич) сносились дедупом, т.к. сидели
+    # только на ТМ-сделке. Дорогой чек по активностям — только здесь, не в advisory.
+    call_history = _deal_with_call_history_reason(bx, contact_deals or {})
+    if call_history:
+        return call_history
     return ""
 
 
@@ -453,6 +460,27 @@ def _non_telemarketing_deal_reason(contact_deals: dict[str, list[dict]]) -> str:
             category = str(deal.get("CATEGORY_ID") or "")
             if category and category != str(TELEMARKETING_CATEGORY_ID):
                 return f"non_telemarketing_deal:{contact_id}:{deal.get('ID')}"
+    return ""
+
+
+def _deal_with_call_history_reason(
+    bx: BitrixClient, contact_deals: dict[str, list[dict]]
+) -> str:
+    """Защита контактов с реальной историей звонков — в любой воронке, включая ТМ.
+
+    `_non_telemarketing_deal_reason` спасает контакты на сделках вне ТМ. Но и в
+    самой воронке телемаркетинга [50] контакту могли звонить (брифинг, КП). Если
+    контакт кластера фигурирует как адресат звонка хотя бы в одной своей сделке —
+    кластер уходит в UNRESOLVED, не удаляем. Пустые ТМ-дубли без звонков по-прежнему
+    дедупятся.
+    """
+    for contact_id, deals in contact_deals.items():
+        for deal in deals or []:
+            deal_id = str(deal.get("ID") or "")
+            if not deal_id:
+                continue
+            if str(contact_id) in bx.deal_call_contact_ids(deal_id):
+                return f"deal_with_call_history:{contact_id}:{deal_id}"
     return ""
 
 
