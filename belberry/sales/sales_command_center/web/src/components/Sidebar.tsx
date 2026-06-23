@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { canSeeKp } from '@/lib/kp-access';
-import { LayoutDashboard, Radio, BellRing, LogOut, Search, ClipboardCheck, PhoneCall, FileText } from 'lucide-react';
+import { canSeeAudit } from '@/lib/audit-access';
+import { LayoutDashboard, Radio, BellRing, LogOut, Search, ClipboardCheck, PhoneCall, FileText, ScanSearch } from 'lucide-react';
 
 const NAV = [
   { href: '/dashboard', label: 'Дашборд ОП', Icon: LayoutDashboard, tag: undefined },
@@ -12,6 +13,7 @@ const NAV = [
   { href: '/today', label: 'Отчёт за день', Icon: Radio, tag: 'live' },
   { href: '/meetings', label: 'Анализ встреч', Icon: ClipboardCheck, tag: undefined },
   { href: '/kp', label: 'Сборка КП', Icon: FileText, tag: undefined },
+  { href: '/audit', label: 'Аудит сделок', Icon: ScanSearch, tag: undefined },
   { href: '/alerts', label: 'Алерты', Icon: BellRing, tag: undefined },
 ];
 
@@ -29,8 +31,12 @@ function initials(value: string): string {
 }
 
 export function Sidebar({ user }: { user?: { email?: string; role?: string } }) {
-  // пилот «Сборка КП»: пункт меню видят только пользователи из kp-access
-  const nav = NAV.filter((item) => item.href !== '/kp' || canSeeKp(user?.email));
+  // пилотные пункты видят только их allowlist: КП — kp-access, Аудит — audit-access
+  const nav = NAV.filter(
+    (item) =>
+      (item.href !== '/kp' || canSeeKp(user?.email)) &&
+      (item.href !== '/audit' || canSeeAudit(user?.email, user?.role)),
+  );
   const pathname = usePathname();
   const email = user?.email ?? '';
   const role = user?.role ? (ROLE_LABEL[user.role] ?? user.role) : '';

@@ -376,3 +376,29 @@ export const kpJobs = pgTable(
     index('kp_jobs_deal_idx').on(table.dealId),
   ],
 );
+
+export const dealAudits = pgTable(
+  'deal_audits',
+  {
+    id: serial('id').primaryKey(),
+    dealId: integer('deal_id').notNull(),
+    title: text('title'),
+    company: text('company'),
+    status: text('status').notNull().default('pending'),
+    stage: text('stage'),
+    error: text('error'),
+    score: integer('score'),
+    band: text('band'),
+    expectedValue: integer('expected_value'),
+    result: jsonb('result'),
+    requestedBy: integer('requested_by'),
+    returnedToWork: boolean('returned_to_work').notNull().default(false),
+    taskId: integer('task_id'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+  },
+  (table) => [
+    index('deal_audits_status_idx').on(table.status),
+    index('deal_audits_deal_idx').on(table.dealId),
+  ],
+);
