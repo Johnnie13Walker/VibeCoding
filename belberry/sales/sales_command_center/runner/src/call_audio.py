@@ -57,12 +57,19 @@ def _deal_phones(ctx: dict) -> set[str]:
     return phones
 
 
+def _phone_formats(core10: str) -> list[str]:
+    # Voximplant матчит по конкретному формату номера: на этом портале записи
+    # лежат под «+7XXXXXXXXXX». Пробуем несколько вариантов и дедуплицируем по ID.
+    return [f"+7{core10}", f"7{core10}", f"8{core10}", core10]
+
+
 def list_recordings(ctx: dict) -> list[dict[str, Any]]:
     """Записи звонков по сделке через voximplant, с URL и признаком жив/стёрт.
     Возвращает метаданные (без скачивания) — дёшево, можно показать всегда."""
     phones = _deal_phones(ctx)
     seen: dict[str, dict] = {}
-    for ph in phones:
+    formats = [fmt for core in phones for fmt in _phone_formats(core)]
+    for ph in formats:
         resp = bx_client.call("voximplant.statistic.get", {"FILTER": {"PHONE_NUMBER": ph}})
         for c in resp.get("result") or []:
             cid = str(c.get("ID"))
