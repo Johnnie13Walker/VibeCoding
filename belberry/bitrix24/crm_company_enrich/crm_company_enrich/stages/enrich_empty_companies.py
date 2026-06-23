@@ -701,6 +701,24 @@ def run_apply(*, dry_run: bool = True, limit: int | None = None, throttle_s: flo
                 )
             continue
 
+        # GUARD: не дописывать ИНН, если у компании УЖЕ есть ДРУГОЙ валидный ИНН.
+        # Контаминация: при кривом матче цели (устаревший ворклист) сюда попадала
+        # компания со своим правильным ИНН, и run_apply дописывал ей чужой —
+        # две организации в одной карточке (28 карточек / 31 событие, фев-2025 + май-2026).
+        already_valid_other = [
+            r for r in existing
+            if is_valid_inn_format(r.get("RQ_INN"))
+            and normalize_inn(r.get("RQ_INN")) != inn
+        ]
+        if already_valid_other:
+            row.apply_status = "SKIP_HAS_OTHER_INN"
+            print(
+                f"[empty-apply] company {row.company_id}: already has other valid INN "
+                f"{normalize_inn(already_valid_other[0].get('RQ_INN'))!r} → skip "
+                f"(not appending {inn})"
+            )
+            continue
+
         preset_id = CCE_PRESET_ID
         payload = {
             "ENTITY_TYPE_ID": ENTITY_TYPE_COMPANY,
