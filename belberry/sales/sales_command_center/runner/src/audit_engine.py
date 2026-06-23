@@ -261,44 +261,107 @@ def recovery_score(sig: dict[str, Any]) -> dict[str, Any]:
 
 
 # ── LLM-нарратив (балл уже посчитан, LLM его объясняет) ───────────────────────
-AUDIT_SYSTEM = """
-Ты — опытный коммерческий директор агентства Belberry (медицинский и B2B маркетинг).
-Тебе дают данные ОДНОЙ сделки: карточку, хронологию (timeline/звонки/Wazzup), брифы, КП,
-встречи (с транскриптами, если есть) и УЖЕ ПОСЧИТАННЫЙ детерминированный «шанс возврата».
+# Каталог паттернов отдела — «насмотренность» из инсайтов проекта deal-analysis.
+# Именно привязка находок к этим паттернам отличает аудит коммерческого директора
+# от общего LLM-ревью: разбор узнаёт «это снова КП мимо CRM / 5-й handover / метка
+# вместо причины», а не описывает сделку с нуля.
+PATTERNS_CATALOG = """
+КАТАЛОГ СИСТЕМНЫХ ПАТТЕРНОВ ОТДЕЛА (привязывай находки к ним по pattern_id):
 
-Твоя задача — дать ЧЕСТНЫЙ разбор. Балл возврата НЕ переписывай — он посчитан кодом.
-Объясни его словами и, если видишь сильный нюанс из разговоров, предложи поправку
-recommended_adjustment в пределах [-10..10] с обоснованием (по умолчанию 0).
-Если шансов мало — так и пиши, без приукрашивания. Опирайся на факты, цитируй дословно.
+8 столпов провала на «Подготовке КП»:
+- KP_NO_CARD: КП готовится/шлётся мимо CRM (pitch.com, Google Sheets, почта) — РОП не видит цены/состава/даты. (эталон: mpya.ru — 4 КП, 0 карточек)
+- KP_OVER_BUDGET: КП превышает озвученный бюджет клиента >20% без согласования.
+- KP_STUCK_INSIDE: готовое КП лежит внутри агентства неделями — клиент остывает. (sinai-clinic.ru — 15 дней)
+- BRIEF_SPRAY: несколько КП/брифов на один запрос — перегруз, «уйду подумать». (правило: 1 сделка = 1 КП)
+- CANT_DEFEND_PRICE: менеджер не может защитить цену («чем лучше бесплатного шаблона?»).
+
+Реальная причина ≠ метка CRM (60% отвалов — управляемые ошибки):
+- LABEL_NO_CONTACT: «Нет связи» = клиент выбрал молчанием = нет интереса (плохой дожим).
+- LABEL_CHANGED_MIND: «Передумали» = бюджет не сошёлся (не выяснили на встрече).
+- LABEL_COMPETITOR: «Ушли к конкуренту» = мы взяли слишком долгую паузу в горячий момент после КП.
+- LABEL_BUDGET: «Нехватка бюджета» = бюджет не квалифицировали на первом контакте.
+
+5 ловушек коммуникации:
+- TRAP_URGENCY: давление срочностью на B2B — не работает.
+- TRAP_FAKE_REASON: ставят «передумали» вместо реальной причины (снять ответственность).
+- TRAP_CLIENT_WILL_CALL: «я сама свяжусь» приняли как живой шаг вместо фиксации даты = дверь закрыта.
+- TRAP_NO_VALUE: не объяснили ценность (клиент слышит «менеджер сам не знает за что цена»).
+- TRAP_COLD_HANDOVER: передача от уволенного как холодный звонок («незнакомец называет имя другого незнакомца»).
+
+Сквозные антипаттерны:
+- NO_DEFENSE: защиту КП не провели — КП самотёком, не-ЛПР не «продаёт внутрь».
+- NON_DM_CONTACT: работа не с ЛПР; решение зависит от того, кого не вывели на встречу.
+- HANDOVER_NO_CONTEXT: передача между менеджерами без передаточного листа — клиент «не помнит». (5 кейсов: mpya, sinai, mitekpumps, klinikastom, drmannanov)
+- STAGE_VS_REALITY: стадия CRM рисует активную работу там, где сделка фактически встала.
+"""
+
+AUDIT_SYSTEM = """
+Ты — опытный коммерческий директор агентства Belberry (медицинский и B2B маркетинг:
+SEO, контекст, веб-разработка/Strapi, GEO/маркетплейсы, ORM/репутация, SMM). Ты разобрал
+сотни сделок и узнаёшь типовые провалы с полуслова.
+
+Тебе дают ОДНУ сделку целиком: карточку, ПОЛНУЮ хронологию (timeline/Wazzup дословно +
+журнал звонков), брифы, КП, встречи (с транскриптами, если есть), УЖЕ ПОСЧИТАННЫЙ
+детерминированный «шанс возврата» и КАТАЛОГ ПАТТЕРНОВ отдела.
+
+Дай ГЛУБОКИЙ и ЧЕСТНЫЙ разбор уровня документа для команды — как тот, что коммерческий
+директор приносит на разбор с РОПом. Требования к глубине:
+- Восстанови ХРОНОЛОГИЮ по датам (что произошло → кто), как её видно из данных.
+- Каждый провал подкрепляй ДОСЛОВНОЙ цитатой из таймлайна/транскрипта с датой. Цитаты бери
+  только дословно; если показательной нет — пиши detail без выдуманной цитаты.
+- Привязывай находки к каталогу паттернов (pattern_id) — узнавай повторяющееся, а не описывай с нуля.
+- Отдели «как было» от «как должно было быть» (секции what_would_save_it и systemic_conclusions),
+  иначе разбор станет тенденциозным.
+- Балл возврата НЕ переписывай — он посчитан кодом. Объясни его и, если видишь сильный нюанс,
+  предложи recommended_adjustment в пределах [-10..10] (по умолчанию 0).
+- Если шансов мало — так и пиши прямо, без приукрашивания.
 
 Верни строго JSON без markdown:
 {
-  "summary": "2-4 фразы: что за сделка, почему встала, реальная причина (не метка)",
+  "summary": "3-5 фраз: что за сделка, путь, почему встала, реальная причина (не метка)",
   "real_cause": "корневая причина одной фразой",
-  "verdict_band_text": "короткая характеристика шанса возврата (напр. 'низкий — но один рычаг не нажат')",
-  "failures": [{"title": "провал", "detail": "что именно, с цитатой если есть", "tag": "KP_NO_CARD|NO_DEFENSE|HANDOVER_NO_CONTEXT|NON_DM_CONTACT|STAGE_VS_REALITY|BRIEF_SPRAY|BUDGET_LABEL|COMPETITOR|OTHER"}],
-  "what_went_well": ["что сделали хорошо — честно, чтобы разбор не был тенденциозным"],
+  "verdict_band_text": "короткая характеристика шанса (напр. 'низкий — но один рычаг не нажат')",
+  "chronology": [{"date": "ДД.ММ", "event": "что произошло", "who": "кто"}],
+  "key_quotes": [{"date": "ДД.ММ", "speaker": "кто", "quote": "дословная цитата", "why": "что показывает"}],
+  "failures": [{"title": "провал", "detail": "что именно + дословная цитата с датой", "pattern_id": "KP_NO_CARD|NO_DEFENSE|HANDOVER_NO_CONTEXT|NON_DM_CONTACT|STAGE_VS_REALITY|BRIEF_SPRAY|LABEL_BUDGET|...", "severity": "high|med|low"}],
+  "pattern_matches": [{"pattern_id": "...", "note": "как именно проявился в этой сделке"}],
+  "what_went_well": ["что сделали хорошо — честно"],
+  "what_would_save_it": ["что конкретно спасло бы/спасёт сделку, по этапам"],
   "next_steps": ["конкретные шаги к возврату, по порядку"],
-  "first_task": {"title": "заголовок первой задачи ответственному", "description": "что сказать/сделать — готовый план звонка/действия, можно с под-пунктами"},
+  "first_task": {"title": "заголовок первой задачи ответственному", "description": "готовый план звонка/действия с под-пунктами и репликами"},
+  "systemic_conclusions": [{"broken": "что сломано в процессе", "fix": "как лечить (регламент/триггер)"}],
   "recovery_rationale": "почему балл именно такой и что подняло бы его",
   "recommended_adjustment": 0
 }
-"""
+""" + PATTERNS_CATALOG
 
 
 def _build_llm_payload(ctx: dict, sig: dict, score: dict) -> str:
     deal = ctx["deal"]
+    # Полный таймлайн дословно (Wazzup + заметки менеджеров) — главный источник
+    # «как было сказано». Не режем: глубина разбора рождается именно здесь.
     tl = []
     for c in ctx["timeline"]:
         t = _strip_bb(c.get("COMMENT", ""))
         if t:
-            tl.append(f"[{c.get('CREATED','')[:10]}] {t[:600]}")
+            tl.append(f"[{c.get('CREATED','')[:10]}] {t[:2500]}")
+    # Журнал звонков: дата · направление · автор · длительность — восстанавливает темп.
+    calls = []
+    for a in sorted(ctx["activities"], key=lambda x: x.get("CREATED") or ""):
+        if str(a.get("TYPE_ID")) == "2":
+            dur = (a.get("SETTINGS") or {}).get("DURATION") if isinstance(a.get("SETTINGS"), dict) else None
+            calls.append(f"[{a.get('CREATED','')[:10]}] звонок dir={a.get('DIRECTION')} автор={a.get('AUTHOR_ID')} {dur or ''}".strip())
+    # Брифы целиком (вопрос→ответ), без служебных пустот.
+    briefs = [{k: v for k, v in b.items() if isinstance(v, str) and v and len(v) > 1
+               and not k.endswith(("Time",)) and "http" not in v[:8]}
+              for b in ctx["briefs"]]
     payload = {
         "deal": {
             "id": deal.get("ID"), "title": deal.get("TITLE"),
             "stage": sig["stage_id"], "death_stage": sig["death_stage"],
             "manager_comment": deal.get(F_DEAL_MGR_COMMENT),
             "opportunity": sig["opportunity"], "company_revenue": sig["company_revenue"],
+            "created": deal.get("DATE_CREATE"), "modified": deal.get("DATE_MODIFY"),
         },
         "company": ctx["company"].get("TITLE"),
         "contact": {"name": f"{ctx['contact'].get('NAME','')} {ctx['contact'].get('LAST_NAME','')}".strip(),
@@ -306,8 +369,8 @@ def _build_llm_payload(ctx: dict, sig: dict, score: dict) -> str:
         "decision_maker": {"name": sig.get("dm_name"), "phone": sig.get("dm_phone")},
         "signals": sig,
         "recovery_score": {"score": score["score"], "factors": score["factors"]},
-        "briefs": [{k: v for k, v in b.items() if isinstance(v, str) and v and not k.startswith("ufCrm20_175")}
-                   for b in ctx["briefs"]][:3],
+        "briefs": briefs,
+        "calls_log": calls,
         "timeline": tl,
     }
     return json.dumps(payload, ensure_ascii=False, default=str)
@@ -338,7 +401,7 @@ def llm_narrative(ctx: dict, sig: dict, score: dict, client=None) -> dict[str, A
     resp = analyze_llm._call_with_retry(
         client,
         model=analyze_llm.MODEL,
-        max_tokens=4000,
+        max_tokens=8000,  # документ-уровень: хронология + цитаты + системные выводы
         temperature=0,
         system=[{"type": "text", "text": AUDIT_SYSTEM, "cache_control": {"type": "ephemeral"}}],
         messages=[{"role": "user", "content": user}],
@@ -392,16 +455,41 @@ def _pp(result: dict) -> None:
     if n.get("summary"):
         print(f"\nРЕЗЮМЕ: {n['summary']}")
         print(f"РЕАЛЬНАЯ ПРИЧИНА: {n.get('real_cause','')}")
+    if n.get("chronology"):
+        print("\nХРОНОЛОГИЯ:")
+        for e in n["chronology"]:
+            print(f"  {e.get('date',''):>8}  {e.get('event','')}  — {e.get('who','')}")
+    if n.get("key_quotes"):
+        print("\nКЛЮЧЕВЫЕ ЦИТАТЫ:")
+        for q in n["key_quotes"]:
+            print(f"  «{q.get('quote','')}» — {q.get('speaker','')}, {q.get('date','')} → {q.get('why','')}")
     print("\nПРОВАЛЫ:")
     for fl in n.get("failures", []):
-        print(f"  ✗ {fl.get('title','')} [{fl.get('tag','')}] — {fl.get('detail','')[:160]}")
+        sev = fl.get("severity", "")
+        print(f"  ✗ [{fl.get('pattern_id', fl.get('tag',''))}/{sev}] {fl.get('title','')} — {fl.get('detail','')[:220]}")
+    if n.get("pattern_matches"):
+        print("\nПАТТЕРНЫ ОТДЕЛА:")
+        for p in n["pattern_matches"]:
+            print(f"  ◆ {p.get('pattern_id','')}: {p.get('note','')}")
     print("\nТЕГИ (детерм.):", ", ".join(t["tag"] for t in result["failure_tags"]))
+    if n.get("what_went_well"):
+        print("\nЧТО ХОРОШО:")
+        for w in n["what_went_well"]:
+            print(f"  ✓ {w}")
+    if n.get("what_would_save_it"):
+        print("\nЧТО СПАСЛО БЫ СДЕЛКУ:")
+        for w in n["what_would_save_it"]:
+            print(f"  ⤷ {w}")
     print("\nСЛЕДУЮЩИЕ ШАГИ:")
     for s in n.get("next_steps", []):
         print(f"  → {s}")
     ft = n.get("first_task") or {}
     if ft:
-        print(f"\nПЕРВАЯ ЗАДАЧА: {ft.get('title','')}\n{ft.get('description','')[:400]}")
+        print(f"\nПЕРВАЯ ЗАДАЧА: {ft.get('title','')}\n{ft.get('description','')[:600]}")
+    if n.get("systemic_conclusions"):
+        print("\nСИСТЕМНЫЕ ВЫВОДЫ (сломано → лечить):")
+        for c in n["systemic_conclusions"]:
+            print(f"  • {c.get('broken','')} → {c.get('fix','')}")
     print(f"\nОБОСНОВАНИЕ БАЛЛА: {n.get('recovery_rationale','')}")
 
 
