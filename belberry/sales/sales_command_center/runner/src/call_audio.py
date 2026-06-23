@@ -23,6 +23,12 @@ from . import bx_client
 WHISPER_MODEL = os.environ.get("SCC_WHISPER_MODEL", "small")  # small=быстро, medium=точнее
 MAX_CALLS = int(os.environ.get("SCC_AUDIO_MAX_CALLS", "12"))
 MIN_DURATION = int(os.environ.get("SCC_AUDIO_MIN_SEC", "25"))  # < этого — не разговор
+# Сервис-аккаунт Google для скачивания видеозаписей встреч с Drive. Чтобы он видел
+# запись, папку записей нужно расшарить на его email (см. SA .json client_email).
+GOOGLE_SA = os.environ.get(
+    "GOOGLE_SA_JSON",
+    "/Users/pro2kuror/.config/vibecoding/assistant/secrets/finance-director-sheets-903611b799c3.json",
+)
 _MODEL = None  # ленивый кэш модели на процесс
 
 
@@ -99,6 +105,13 @@ def _download(url: str) -> bytes | None:
     return body
 
 
+def _transcribe_file(path: str) -> str | None:
+    # faster-whisper читает и аудио, и видео-контейнеры (PyAV декодирует дорожку).
+    segments, _ = _get_model().transcribe(path, language="ru", vad_filter=True)
+    parts = [s.text.strip() for s in segments if s.text.strip()]
+    return " ".join(parts) or None
+
+
 def transcribe_url(url: str) -> str | None:
     body = _download(url)
     if not body:
@@ -106,9 +119,63 @@ def transcribe_url(url: str) -> str | None:
     with tempfile.NamedTemporaryFile(suffix=".mp3", delete=True) as f:
         f.write(body)
         f.flush()
-        segments, _ = _get_model().transcribe(f.name, language="ru", vad_filter=True)
-        parts = [s.text.strip() for s in segments if s.text.strip()]
-    return " ".join(parts) or None
+        return _transcribe_file(f.name)
+
+
+# ── Видеозаписи встреч (Google Drive через сервис-аккаунт) ────────────────────
+def _drive_file_id(url: str) -> str | None:
+    if not url:
+        return None
+    m = re.search(r"/d/([\w-]{20,})", url) or re.search(r"[?&]id=([\w-]{20,})", url)
+    return m.group(1) if m else None
+
+
+def _drive_download(file_id: str, dest: str) -> tuple[bool, str]:
+    """Скачать файл Drive сервис-аккаунтом. Вернёт (ok, reason)."""
+    try:
+        from google.oauth2 import service_account
+        from googleapiclient.discovery import build
+        from googleapiclient.http import MediaIoBaseDownload
+    except Exception:
+        return False, "google libs not installed"
+    if not os.path.exists(GOOGLE_SA):
+        return False, "no SA json"
+    try:
+        cred = service_account.Credentials.from_service_account_file(
+            GOOGLE_SA, scopes=["https://www.googleapis.com/auth/drive.readonly"]
+        )
+        svc = build("drive", "v3", credentials=cred)
+        req = svc.files().get_media(fileId=file_id, supportsAllDrives=True)
+        with open(dest, "wb") as fh:
+            dl = MediaIoBaseDownload(fh, req)
+            done = False
+            while not done:
+                _, done = dl.next_chunk()
+        return True, "ok"
+    except Exception as exc:
+        msg = str(exc)
+        if "404" in msg or "notFound" in msg:
+            return False, "нет доступа (расшарить запись на сервис-аккаунт)"
+        return False, msg[:120]
+
+
+def transcribe_meeting_video(url: str) -> tuple[str | None, str]:
+    """Видеозапись встречи → текст. Вернёт (text|None, status).
+    Поддерживает Google Drive (через сервис-аккаунт) и прямые URL."""
+    fid = _drive_file_id(url)
+    with tempfile.NamedTemporaryFile(suffix=".mp4", delete=True) as f:
+        if fid:
+            ok, reason = _drive_download(fid, f.name)
+            if not ok:
+                return None, reason
+        else:
+            body = _download(url)
+            if not body:
+                return None, "download failed"
+            f.write(body)
+            f.flush()
+        text = _transcribe_file(f.name)
+    return (text, "ok") if text else (None, "empty transcript")
 
 
 def transcribe_deal_calls(ctx: dict) -> list[dict[str, Any]]:

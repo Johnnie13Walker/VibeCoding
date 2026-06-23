@@ -381,19 +381,35 @@ def _build_llm_payload(ctx: dict, sig: dict, score: dict) -> str:
     return json.dumps(payload, ensure_ascii=False, default=str)
 
 
+F_MEETING_RECORD = "ufCrm16_1751006555"  # ссылка на видеозапись встречи (Drive)
+
+
 def _meeting_transcripts(ctx: dict) -> str:
     if not ctx["meetings"]:
         return ""
     try:
         enriched = enrich_meetings({"m": ctx["meetings"]}, refresh=True)
     except Exception:
-        return ""
+        enriched = {}
     parts = []
     for m in ctx["meetings"]:
         tr = enriched.get(int(m["id"]), {})
         text = (tr.get("text") or "").strip()
+        if not text and call_audio.audio_enabled():
+            # Транскрипта нет — пробуем распознать видеозапись встречи (Drive).
+            rec = m.get(F_MEETING_RECORD)
+            url = rec[0] if isinstance(rec, list) and rec else (rec if isinstance(rec, str) else None)
+            if url:
+                vtext, status = call_audio.transcribe_meeting_video(url)
+                if vtext:
+                    text = vtext
+                    parts.append(f"### Встреча {m.get('title','')} (распознано из видеозаписи)\n{text[:12000]}")
+                    continue
+                else:
+                    parts.append(f"### Встреча {m.get('title','')}: видеозапись есть, но не распознана ({status})")
+                    continue
         if text:
-            parts.append(f"### Встреча {m.get('title','')}\n{text[:8000]}")
+            parts.append(f"### Встреча {m.get('title','')}\n{text[:12000]}")
     return "\n\n".join(parts)
 
 
