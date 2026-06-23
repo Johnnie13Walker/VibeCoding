@@ -2,6 +2,25 @@ import { desc, eq } from 'drizzle-orm';
 import { db } from '@/db';
 import { dealAudits } from '@/db/schema';
 
+/**
+ * ID сделки из ввода: ссылка Bitrix или голый номер. Важно НЕ хватать «24» из
+ * «bitrix24» — сначала ищем номер в пути /deal/details/<id>, затем голый номер.
+ */
+export function parseDealId(raw: string): number | null {
+  const s = (raw ?? '').trim();
+  const url = s.match(/details\/(\d+)/) || s.match(/\/deal\/(\d+)/);
+  let id: number;
+  if (url) id = Number(url[1]);
+  else if (/^\d+$/.test(s)) id = Number(s);
+  else {
+    // запасной вариант: самое длинное число во вводе (≥3 цифр, мимо «bitrix24»)
+    const nums = s.match(/\d{3,}/g);
+    if (!nums?.length) return null;
+    id = Number(nums.sort((a, b) => b.length - a.length || Number(b) - Number(a))[0]);
+  }
+  return Number.isInteger(id) && id > 0 ? id : null;
+}
+
 // Форма результата audit_engine.audit_deal (то, что лежит в result jsonb).
 export type RecoveryFactor = { label: string; weight: number; kind: string };
 export type AuditResult = {

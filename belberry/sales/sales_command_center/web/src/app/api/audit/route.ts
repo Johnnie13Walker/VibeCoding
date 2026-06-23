@@ -1,4 +1,4 @@
-import { createAudit, listAudits } from '@/lib/audit';
+import { createAudit, listAudits, parseDealId } from '@/lib/audit';
 import { canSeeAudit } from '@/lib/audit-access';
 import { crossOriginResponse, isSameOrigin } from '@/lib/origin';
 import { isPreviewMode } from '@/lib/preview';
@@ -28,11 +28,9 @@ export async function POST(req: Request) {
   if (denied) return denied;
   const session = await getSession();
   const body = await req.json().catch(() => null);
-  // Принимаем ID или ссылку на сделку Bitrix.
-  const raw = String(body?.deal ?? body?.dealId ?? '');
-  const m = raw.match(/(\d{2,})/);
-  const dealId = m ? Number(m[1]) : NaN;
-  if (!Number.isInteger(dealId) || dealId <= 0) {
+  // Принимаем ID или ссылку на сделку Bitrix (не путаем «24» из «bitrix24» с ID).
+  const dealId = parseDealId(String(body?.deal ?? body?.dealId ?? ''));
+  if (!dealId) {
     return Response.json({ error: 'Укажи ID или ссылку на сделку' }, { status: 400 });
   }
   const id = await createAudit(dealId, session.bitrixId ?? null);
