@@ -490,6 +490,20 @@ def test_audit_csv_written_in_live_mode(tmp_path):
     assert "company_id" in stage.AUDIT_PATH.read_text(encoding="utf-8").splitlines()[0]
 
 
+def test_find_company_by_url_no_fuzzy_fallback():
+    # Кандидат из %WEB-поиска, чей site_key НЕ совпадает точно, больше НЕ возвращается:
+    # раньше тут был fallback candidates[0] → привязка ИНН к чужой компании (контаминация).
+    bx = FakeBitrix(companies={"20": company("20", WEB=[{"VALUE": "https://other-clinic.ru"}])})
+    assert stage._find_company_by_url(bx, "https://target.ru") is None
+
+
+def test_find_company_by_url_exact_match_still_returns():
+    # Точное совпадение site_key по-прежнему резолвится в компанию.
+    bx = FakeBitrix(companies={"20": company("20", WEB=[{"VALUE": "https://target.ru"}])})
+    found = stage._find_company_by_url(bx, "https://target.ru/")
+    assert found and str(found.get("ID")) == "20"
+
+
 def _step(out, name):
     return next(s for s in out.steps if s.step == name)
 

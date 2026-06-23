@@ -600,7 +600,12 @@ def _find_company_by_url(bx: BitrixClient, url: str) -> dict | None:
     for company in candidates:
         if any(_site_key(item.get("VALUE") if isinstance(item, dict) else item) == key for item in company.get("WEB") or []):
             return company
-    return candidates[0] if candidates else None
+    # Возвращаем компанию ТОЛЬКО при точном совпадении site_key в её WEB.
+    # Раньше тут был fallback `candidates[0]`: нечёткий %WEB-поиск мог вернуть
+    # компанию, чей WEB лишь СОДЕРЖИТ ключ как подстроку, и ей привязывался
+    # чужой ИНН (корень контаминации реквизитов). При None вызывающий код
+    # создаёт новую корректную компанию, а не пишет ИНН в чужую карточку.
+    return None
 
 
 def _minimum_company_fields(context: dict[str, Any]) -> dict[str, Any]:
