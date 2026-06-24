@@ -261,7 +261,14 @@ export function AuditReport({ initialAudit, managers }: { initialAudit: DealAudi
       <Section icon="⚡" title="Действия">
         {audit.returnedToWork ? (
           <div style={{ color: 'var(--bb-green)', fontWeight: 600 }}>
-            ✓ Сделка возвращена в работу{audit.taskId ? `, задача №${audit.taskId} поставлена` : ''}.
+            ✓ Сделка возвращена в работу{audit.taskId ? (
+              <>, поставлена{' '}
+                <a href={`https://belberrycrm.bitrix24.ru/company/personal/user/0/tasks/task/view/${audit.taskId}/`}
+                  target="_blank" rel="noreferrer" style={{ color: 'var(--bb-violet)', fontWeight: 700, textDecoration: 'none' }}>
+                  задача №{audit.taskId} ↗
+                </a>
+              </>
+            ) : ''}.
           </div>
         ) : !open ? (
           <button onClick={() => setOpen(true)}
