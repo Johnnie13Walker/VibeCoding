@@ -14,6 +14,7 @@ from __future__ import annotations
 import os
 import re
 import tempfile
+import time
 from typing import Any
 
 import requests
@@ -26,6 +27,15 @@ WHISPER_MODEL = os.environ.get("SCC_WHISPER_MODEL", "small")  # small=быстр
 MAX_CALLS = int(os.environ.get("SCC_AUDIO_MAX_CALLS", "6"))
 MAX_TOTAL_SEC = int(os.environ.get("SCC_AUDIO_MAX_TOTAL_SEC", "720"))
 MIN_DURATION = int(os.environ.get("SCC_AUDIO_MIN_SEC", "25"))  # < этого — не разговор
+
+# Whisper на CPU идёт примерно в реальном времени, поэтому длинная видеозапись
+# встречи (30–45 мин) одна растягивала аудит на полчаса. transcribe() отдаёт сегменты
+# ЛЕНИВО (генератор) → рвём цикл по wall-clock дедлайну и по объёму текста, не домалывая
+# файл. Это держит интерактивный аудит в разумных минутах независимо от длины записи.
+CALLS_WALL_SEC = int(os.environ.get("SCC_AUDIO_CALLS_WALL_SEC", "150"))  # на ВСЕ звонки суммарно
+VIDEO_WALL_SEC = int(os.environ.get("SCC_AUDIO_VIDEO_WALL_SEC", "180"))  # на одну видеозапись
+CALL_MAX_CHARS = int(os.environ.get("SCC_AUDIO_CALL_MAX_CHARS", "3000"))  # потом обрежется до PER_CALL_CHARS
+VIDEO_MAX_CHARS = int(os.environ.get("SCC_AUDIO_VIDEO_MAX_CHARS", "14000"))  # ~суть встречи, потом обрезка
 # Сервис-аккаунт Google для скачивания видеозаписей встреч с Drive. Чтобы он видел
 # запись, папку записей нужно расшарить на его email (см. SA .json client_email).
 GOOGLE_SA = os.environ.get(
@@ -100,6 +110,24 @@ def _get_model():
     return _MODEL
 
 
+def _transcribe_segments(path: str, deadline: float | None, max_chars: int | None) -> str | None:
+    """Распознаёт файл, прерываясь по wall-clock дедлайну/объёму. faster-whisper отдаёт
+    сегменты лениво — ранний выход реально экономит счёт, а не только обрезает результат.
+    beam_size=1 (greedy) — на CPU в 2–4× быстрее дефолтного beam=5 при минимальной потере."""
+    segments, _ = _get_model().transcribe(path, language="ru", vad_filter=True, beam_size=1)
+    parts, total = [], 0
+    for s in segments:
+        t = s.text.strip()
+        if t:
+            parts.append(t)
+            total += len(t) + 1
+        if max_chars and total >= max_chars:
+            break
+        if deadline and time.monotonic() >= deadline:
+            break
+    return " ".join(parts) or None
+
+
 def _download(url: str) -> bytes | None:
     try:
         r = requests.get(url, timeout=60)
@@ -115,21 +143,19 @@ def _download(url: str) -> bytes | None:
     return body
 
 
-def _transcribe_file(path: str) -> str | None:
+def _transcribe_file(path: str, deadline: float | None = None, max_chars: int | None = None) -> str | None:
     # faster-whisper читает и аудио, и видео-контейнеры (PyAV декодирует дорожку).
-    segments, _ = _get_model().transcribe(path, language="ru", vad_filter=True)
-    parts = [s.text.strip() for s in segments if s.text.strip()]
-    return " ".join(parts) or None
+    return _transcribe_segments(path, deadline, max_chars)
 
 
-def transcribe_url(url: str) -> str | None:
+def transcribe_url(url: str, deadline: float | None = None) -> str | None:
     body = _download(url)
     if not body:
         return None
     with tempfile.NamedTemporaryFile(suffix=".mp3", delete=True) as f:
         f.write(body)
         f.flush()
-        return _transcribe_file(f.name)
+        return _transcribe_file(f.name, deadline=deadline, max_chars=CALL_MAX_CHARS)
 
 
 # ── Видеозаписи встреч (Google Drive через сервис-аккаунт) ────────────────────
@@ -184,7 +210,10 @@ def transcribe_meeting_video(url: str) -> tuple[str | None, str]:
                 return None, "download failed"
             f.write(body)
             f.flush()
-        text = _transcribe_file(f.name)
+        # Видео встречи — самая длинная запись: жёсткий wall-clock + лимит символов,
+        # чтобы 40-минутка не растягивала аудит на полчаса.
+        text = _transcribe_file(
+            f.name, deadline=time.monotonic() + VIDEO_WALL_SEC, max_chars=VIDEO_MAX_CHARS)
     return (text, "ok") if text else (None, "empty transcript")
 
 
@@ -196,10 +225,12 @@ def transcribe_deal_calls(ctx: dict) -> list[dict[str, Any]]:
     recs = [r for r in list_recordings(ctx) if r["duration"] >= MIN_DURATION]
     out: list[dict[str, Any]] = []
     spent = 0  # суммарная длительность уже распознанного аудио, сек
+    wall_deadline = time.monotonic() + CALLS_WALL_SEC  # общий потолок реального времени на все звонки
     for r in recs[:MAX_CALLS]:
         item = {k: r[k] for k in ("date", "duration", "direction", "user_id")}
-        if r["url"] and spent >= MAX_TOTAL_SEC:
-            item["status"] = "skipped_budget"  # бюджет аудио исчерпан — не висим
+        budget_out = spent >= MAX_TOTAL_SEC or time.monotonic() >= wall_deadline
+        if r["url"] and budget_out:
+            item["status"] = "skipped_budget"  # бюджет (аудио/время) исчерпан — не висим
             out.append(item)
             continue
         if not r["url"]:
@@ -207,7 +238,7 @@ def transcribe_deal_calls(ctx: dict) -> list[dict[str, Any]]:
         else:
             text = None
             try:
-                text = transcribe_url(r["url"])
+                text = transcribe_url(r["url"], deadline=wall_deadline)
             except Exception as exc:  # модель недоступна / битый файл — не валим аудит
                 item["status"] = f"error:{type(exc).__name__}"
             if text:
