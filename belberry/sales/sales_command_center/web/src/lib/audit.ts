@@ -130,6 +130,7 @@ export type DealAudit = {
   taskId: number | null;
   outcomeKind: string | null;          // current | transferred | telemarketing
   outcomeResponsibleId: number | null; // кому в итоге досталась сделка
+  source: string;                      // manual | auto (радар застрявших)
   createdAt: Date | string | null;
   updatedAt: Date | string | null;
   requestedByName?: string | null;     // ФИО заказчика аудита (из users по requested_by)
@@ -156,6 +157,7 @@ function map(r: typeof dealAudits.$inferSelect): DealAudit {
     result: (r.result as AuditResult | null) ?? null,
     requestedBy: r.requestedBy, returnedToWork: r.returnedToWork, taskId: r.taskId,
     outcomeKind: r.outcomeKind ?? null, outcomeResponsibleId: r.outcomeResponsibleId ?? null,
+    source: r.source ?? 'manual',
     createdAt: r.createdAt, updatedAt: r.updatedAt,
   };
 }

@@ -116,7 +116,7 @@ export function AuditView({ initialAudits }: { initialAudits: DealAudit[] }) {
                 <tr key={a.id} onClick={() => router.push(auditHref(a))} style={{ cursor: 'pointer' }}>
                   <td style={{ whiteSpace: 'nowrap' }}><b>{a.title ?? `Сделка #${a.dealId}`}</b></td>
                   <td style={{ color: 'var(--bb-muted)', whiteSpace: 'nowrap' }}>{a.stageLabel ?? '—'}</td>
-                  <td style={{ color: 'var(--bb-muted)', whiteSpace: 'nowrap' }}>{a.requestedByName ?? '—'}</td>
+                  <td style={{ color: 'var(--bb-muted)', whiteSpace: 'nowrap' }}>{a.source === 'auto' ? '🤖 Авто-радар' : (a.requestedByName ?? '—')}</td>
                   <td style={{ color: 'var(--bb-muted)', whiteSpace: 'nowrap' }}>{fmtDate(a.createdAt)}</td>
                   <td>{a.status === 'ready'
                     ? <span style={{ fontSize: 11, fontWeight: 800, borderRadius: 999, padding: '3px 10px', background: BAND_BG[a.band ?? 'low'], color: BAND_COLOR[a.band ?? 'low'] }}>{a.score}%</span>
