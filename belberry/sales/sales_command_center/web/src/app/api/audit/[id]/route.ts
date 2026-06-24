@@ -13,7 +13,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
     if (!canSeeAudit(session.email, session.role)) return new Response('Not Found', { status: 404 });
   }
   const { id } = await ctx.params;
-  const audit = await getAudit(Number(id));
+  const audit = await getAudit(parseInt(id, 10));
   if (!audit) return Response.json({ error: 'Аудит не найден' }, { status: 404 });
   return Response.json({ audit });
 }

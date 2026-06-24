@@ -18,7 +18,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   }
 
   const { id } = await ctx.params;
-  const audit = await getAudit(Number(id));
+  const audit = await getAudit(parseInt(id, 10));
   if (!audit) return Response.json({ error: 'Аудит не найден' }, { status: 404 });
   if (audit.returnedToWork) return Response.json({ error: 'Сделка уже возвращена в работу' }, { status: 409 });
 
