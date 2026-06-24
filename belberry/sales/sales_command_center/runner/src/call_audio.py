@@ -220,12 +220,19 @@ def transcribe_deal_calls(ctx: dict) -> list[dict[str, Any]]:
     return out
 
 
+# Потолок длины одной расшифровки в промпте: длинные звонки целиком раздувают
+# контекст LLM (наблюдалось — модель возвращала пустой разбор). 2500 символов
+# (~400 слов) достаточно, чтобы понять суть разговора.
+PER_CALL_CHARS = int(os.environ.get("SCC_AUDIO_CALL_CHARS", "2500"))
+
+
 def format_for_llm(calls: list[dict[str, Any]]) -> str:
     lines = []
     for c in calls:
         head = f"[{(c.get('date') or '')[:16]}] звонок {c.get('duration')}с"
         if c.get("status") == "ok":
-            lines.append(f"{head}:\n{c.get('transcript','')}")
+            text = (c.get("transcript") or "")[:PER_CALL_CHARS]
+            lines.append(f"{head}:\n{text}")
         else:
             lines.append(f"{head}: запись недоступна ({c.get('status')})")
     return "\n\n".join(lines)

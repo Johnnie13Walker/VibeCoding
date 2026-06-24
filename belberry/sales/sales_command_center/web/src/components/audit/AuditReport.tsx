@@ -149,9 +149,16 @@ export function AuditReport({ initialAudit, managers }: { initialAudit: DealAudi
 
   const rec = r.recovery;
   const kpCards = num(s.kp_cards);
+  const narrativeEmpty = !n.summary && !n.failures?.length && !n.chronology?.length;
   return (
     <div className="bb-page bb-fade">
       <div style={{ marginBottom: 14 }}>{back}</div>
+
+      {narrativeEmpty && (
+        <div style={{ background: '#fff8ef', border: '1px solid #f3e2c8', borderRadius: 14, padding: '12px 16px', marginBottom: 14, fontSize: 13.5, color: '#7a5a23' }}>
+          Текстовый разбор не сформировался (модель не вернула результат). Балл и факты по сделке ниже посчитаны. Запусти аудит заново — обычно со второго раза разбор формируется.
+        </div>
+      )}
 
       <div className="bb-card">
         <div className="bb-sect-head">

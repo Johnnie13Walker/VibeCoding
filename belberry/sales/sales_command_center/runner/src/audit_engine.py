@@ -420,16 +420,7 @@ def _meeting_transcripts(ctx: dict) -> str:
     return "\n\n".join(parts)
 
 
-def llm_narrative(ctx: dict, sig: dict, score: dict, client=None, call_transcripts=None) -> dict[str, Any]:
-    client = client or analyze_llm.get_client()
-    user = _build_llm_payload(ctx, sig, score)
-    transcripts = _meeting_transcripts(ctx)
-    if transcripts:
-        user += "\n\nТРАНСКРИПТЫ ВСТРЕЧ:\n" + transcripts
-    if call_transcripts:
-        spoken = call_audio.format_for_llm(call_transcripts)
-        if spoken:
-            user += "\n\nРАСШИФРОВКИ ЗВОНКОВ (анализируй диалоги: тон, кто что сказал, возражения, обязательства):\n" + spoken
+def _run_llm(client, user: str) -> dict[str, Any]:
     resp = analyze_llm._call_with_retry(
         client,
         model=analyze_llm.MODEL,
@@ -438,8 +429,26 @@ def llm_narrative(ctx: dict, sig: dict, score: dict, client=None, call_transcrip
         system=[{"type": "text", "text": AUDIT_SYSTEM, "cache_control": {"type": "ephemeral"}}],
         messages=[{"role": "user", "content": user}],
     )
-    parsed = analyze_llm._parse_llm_json(analyze_llm._response_text(resp))
-    return parsed or {}
+    return analyze_llm._parse_llm_json(analyze_llm._response_text(resp)) or {}
+
+
+def llm_narrative(ctx: dict, sig: dict, score: dict, client=None, call_transcripts=None) -> dict[str, Any]:
+    client = client or analyze_llm.get_client()
+    base = _build_llm_payload(ctx, sig, score)
+    extras = ""
+    meetings = _meeting_transcripts(ctx)
+    if meetings:
+        extras += "\n\nТРАНСКРИПТЫ ВСТРЕЧ:\n" + meetings
+    if call_transcripts:
+        spoken = call_audio.format_for_llm(call_transcripts)
+        if spoken:
+            extras += "\n\nРАСШИФРОВКИ ЗВОНКОВ (анализируй диалоги: тон, кто что сказал, возражения, обязательства):\n" + spoken
+    parsed = _run_llm(client, base + extras)
+    # Раздутый промпт (много расшифровок) иногда даёт пустой/неразборный ответ —
+    # повторяем на базовом payload (карточка+сигналы+таймлайн), без аудио/встреч.
+    if not parsed and extras:
+        parsed = _run_llm(client, base)
+    return parsed
 
 
 # ── Оркестрация ──────────────────────────────────────────────────────────────
