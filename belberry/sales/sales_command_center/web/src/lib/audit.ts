@@ -1,18 +1,24 @@
 import { desc, eq } from 'drizzle-orm';
 import { db } from '@/db';
 import { dealAudits, users } from '@/db/schema';
-import { isSalesDept } from '@/lib/dashboard';
+import { isSalesDept, isTelemarketing } from '@/lib/dashboard';
 
 export type SalesUser = { id: number; name: string };
 
-/** Активные сотрудники отдела продаж (МОП + РОП) — для выбора ответственного. */
+/** Активные менеджеры отдела продаж (МОП) + РОП — для выбора ответственного.
+ * Телемаркетологов исключаем: они сделки в работу не берут. */
 export async function listSalesUsers(): Promise<SalesUser[]> {
   const rows = await db
     .select({ id: users.bitrixId, name: users.name, dept: users.dept, role: users.role })
     .from(users)
     .where(eq(users.isActive, true));
   return rows
-    .filter((u) => isSalesDept(u.dept) || u.role === 'rop' || u.role === 'director')
+    .filter(
+      (u) =>
+        (isSalesDept(u.dept) && !isTelemarketing(u.dept)) ||
+        u.role === 'rop' ||
+        u.role === 'director',
+    )
     .map((u) => ({ id: u.id, name: u.name }))
     .sort((a, b) => a.name.localeCompare(b.name, 'ru'));
 }
