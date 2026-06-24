@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Filter, FileText, TrendingUp, Target, Activity, ArrowLeftRight, Users, Clock, BarChart3, CalendarDays, XCircle } from 'lucide-react';
+import { Filter, TrendingUp, Target, Activity, ArrowLeftRight, Users, Clock, BarChart3, CalendarDays, XCircle } from 'lucide-react';
 import { FunnelBars } from '@/components/dashboard/FunnelBars';
 import { SalesFunnel } from '@/components/dashboard/SalesFunnel';
 import { OperationalMatrixView } from '@/components/dashboard/OperationalMatrix';
@@ -71,9 +71,6 @@ export default async function DashboardPage({
                 <Link href="/dashboard?period=month" className={range === 'month' ? 'on' : ''}>Месяц</Link>
                 <Link href="/dashboard?period=week" className={range === 'week' ? 'on' : ''}>Неделя</Link>
               </div>
-              <Link href="/daily?open=last" className="bb-hero-btn" style={{ marginTop: 0 }}>
-                <FileText size={15} /> Открыть последний отчёт
-              </Link>
             </div>
           </div>
           <Gauge value={data.health} label="здоровье" />

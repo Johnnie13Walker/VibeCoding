@@ -83,6 +83,33 @@ def test_live_scheduled_today_credited_to_creator_not_responsible():
     assert p["meetings_list"][0]["manager_id"] == 12 and p["meetings_list"][0]["set_today"] is True
 
 
+def test_live_moved_meeting_flagged_and_not_counted_as_today():
+    """Встреча, тронутая сегодня (updatedTime), но не созданная сегодня и с датой ≠ сегодня —
+    помечается moved_today, попадает в список, но не инфлейтит провед/назнач/отмен дня."""
+    now = datetime(2026, 6, 22, 15, 0, tzinfo=MSK)
+    raw = {
+        "calls": [],
+        "meetings": [],       # на сегодня по дате — ничего
+        "meetings_set": [],   # сегодня не создавали
+        # существовала раньше, сегодня передвинута на 24.06
+        "meetings_upd": [
+            {"id": 2316, "assignedById": 10, "createdBy": 10, "title": "implantsystems.ru",
+             "ufCrm16_1751009238": "2026-06-24T13:00:00", "parentId2": 700, "stageId": "DT1048_24:NEW"},
+        ],
+        "briefs": [], "deals_created": [], "kp": [], "activities": [],
+    }
+    p = build_live_payload(date(2026, 6, 22), raw, now)
+    mids = {m["id"]: m for m in p["meetings_list"]}
+    assert 2316 in mids and mids[2316]["moved_today"] is True
+    assert mids[2316]["set_today"] is False and mids[2316]["status"] == "scheduled"
+    # не считается событием дня: ноль провед/назнач/отмен
+    assert p["totals"]["meetings_held"] == 0
+    assert p["totals"]["meetings_scheduled"] == 0
+    assert p["totals"]["meetings_cancelled"] == 0
+    by_id = {m["manager_id"]: m for m in p["managers"]}
+    assert by_id[10]["m_held"] == 0 and by_id[10]["m_scheduled"] == 0 and by_id[10]["m_cancelled"] == 0
+
+
 def test_live_excludes_spam_deals():
     """СПАМ-сделки (UF_CRM_1771495464=8588) не идут в «сделок создано»."""
     now = datetime(2026, 6, 4, 15, 0, tzinfo=MSK)

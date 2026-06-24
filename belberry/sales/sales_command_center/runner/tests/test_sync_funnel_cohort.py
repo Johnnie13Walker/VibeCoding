@@ -69,8 +69,26 @@ def test_reason_id_spam_captured():
     assert row["is_lost"] is True
 
 
-def test_skips_deal_without_entry_in_window():
-    """Переходы есть, но C10:NEW в окне нет → вошла раньше периода, не наша когорта."""
+def test_entry_without_explicit_new_stage():
+    """Сделка зашла в [10] сразу на C10:EXECUTING (без C10:NEW) — раньше выпадала,
+    теперь входит в когорту с cohort_date = самый ранний [10]-переход."""
     history = {103: [{"stage": "C10:EXECUTING", "ct": "2026-06-02T09:00:00+03:00"}]}
     deals = {103: {"ID": "103", "STAGE_ID": "C10:EXECUTING", "ASSIGNED_BY_ID": "1"}}
-    assert build_cohort_rows(deals, history) == []
+    rows = build_cohort_rows(deals, history)
+    assert len(rows) == 1
+    assert rows[0]["deal_id"] == 103
+    assert rows[0]["cohort_date"] == date(2026, 6, 2)
+    assert rows[0]["furthest_order"] == 3  # дошла до «Подготовки КП»
+
+
+def test_entry_is_earliest_across_any_stage():
+    """Вход = минимум по ВСЕМ [10]-событиям, даже если C10:NEW позже другого перехода."""
+    history = {
+        104: [
+            {"stage": "C10:EXECUTING", "ct": "2026-05-20T09:00:00+03:00"},
+            {"stage": "C10:NEW", "ct": "2026-06-01T09:00:00+03:00"},
+        ]
+    }
+    deals = {104: {"ID": "104", "STAGE_ID": "C10:EXECUTING", "ASSIGNED_BY_ID": "1"}}
+    row = build_cohort_rows(deals, history)[0]
+    assert row["cohort_date"] == date(2026, 5, 20)

@@ -5,6 +5,7 @@ import { db } from '@/db';
 import { users } from '@/db/schema';
 import { findActiveUserByEmail } from '@/lib/bitrix';
 import { markCodeUsed, verifyLoginCode } from '@/lib/loginCodes';
+import { isSameOrigin } from '@/lib/origin';
 import { checkRateLimit } from '@/lib/rateLimit';
 import { getSession, type UserRole } from '@/lib/session';
 
@@ -24,6 +25,10 @@ function normalizeRole(role: string | null | undefined): UserRole {
 }
 
 export async function POST(request: Request) {
+  if (!isSameOrigin(request)) {
+    return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+  }
+
   const parsed = schema.safeParse(await request.json().catch(() => null));
 
   if (!parsed.success) {

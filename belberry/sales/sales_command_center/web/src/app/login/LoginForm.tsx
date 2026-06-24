@@ -31,10 +31,12 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
     setLoading(false);
 
     if (!response.ok) {
-      setError(response.status === 429 ? 'Слишком много попыток. Попробуйте позже.' : 'Email не найден в Bitrix24.');
+      setError(response.status === 429 ? 'Слишком много попыток. Попробуйте позже.' : 'Не удалось отправить код. Попробуйте ещё раз.');
       return;
     }
 
+    // Ответ всегда одинаков (анти-enumeration): переходим к вводу кода. Если email
+    // зарегистрирован в Bitrix24, код придёт сообщением; иначе — не придёт.
     setStep('code');
   }
 

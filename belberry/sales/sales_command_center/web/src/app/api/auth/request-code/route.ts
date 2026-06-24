@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { findActiveUserByEmail, sendCodeMessage } from '@/lib/bitrix';
 import { issueCode } from '@/lib/loginCodes';
+import { isSameOrigin } from '@/lib/origin';
 import { checkRateLimit } from '@/lib/rateLimit';
 
 export const runtime = 'nodejs';
@@ -11,6 +12,10 @@ const schema = z.object({
 });
 
 export async function POST(request: Request) {
+  if (!isSameOrigin(request)) {
+    return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+  }
+
   const parsed = schema.safeParse(await request.json().catch(() => null));
 
   if (!parsed.success) {
@@ -24,14 +29,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'rate_limited' }, { status: 429 });
   }
 
+  // Анти-enumeration: отвечаем одинаково независимо от того, найден email или нет
+  // (иначе перебором составляется список действующих сотрудников). Код отправляем
+  // только реальному активному пользователю; ответ в обоих случаях — { ok: true }.
   const user = await findActiveUserByEmail(email);
 
-  if (!user) {
-    return NextResponse.json({ error: 'email_not_found' }, { status: 404 });
+  if (user) {
+    const code = await issueCode(email);
+    await sendCodeMessage(user.bitrixId, code);
   }
-
-  const code = await issueCode(email);
-  await sendCodeMessage(user.bitrixId, code);
 
   return NextResponse.json({ ok: true });
 }

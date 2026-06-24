@@ -190,15 +190,23 @@ export async function getTmDashboardData(
     return { ...emptyData(), monthLabel: label, periodLabel, snapshotDate, workingDays };
   }
 
-  // Событийная метрика «состоялось»: встречи (SP1048 SUCCESS), назначенные ТМ
-  // (created_by), за период — запросом по таблице meetings, не из агрегата.
+  // Событийная метрика «состоялось» для ТМ = состоявшиеся БРИФИНГИ по встречам,
+  // назначенным ТМ (created_by). Два уточнения относительно «любой встречи»:
+  //  • защита КП (meeting_type='defense') НЕ считается — это работа менеджера продаж;
+  //    непроставленный тип (NULL) считаем брифингом (встречи ТМ почти всегда брифинги).
+  //  • берём только «строку-проведение» (date(scheduled)=report_date), чтобы дубль
+  //    meet_created_day со статусом SUCCESS не удваивал счётчик (как в dashboard.ts).
   const tmIds = members.map((m) => m.managerId);
+  const notDefense = sql`(${meetings.meetingType} is distinct from 'defense')`;
+  const heldRowGuard = sql`date(${meetings.scheduledAt} at time zone 'Europe/Moscow') = ${meetings.reportDate}`;
   const heldRows = await db
     .select({ creator: meetings.createdBy, n: sql<number>`count(*)` })
     .from(meetings)
     .where(
       and(
         eq(meetings.status, MEETING_HELD_STAGE),
+        notDefense,
+        heldRowGuard,
         inArray(meetings.createdBy, tmIds),
         gte(meetings.reportDate, start),
         lte(meetings.reportDate, end),
@@ -209,25 +217,8 @@ export async function getTmDashboardData(
   for (const r of heldRows) if (r.creator != null) heldByCreator.set(r.creator, Number(r.n));
   for (const m of members) m.meetingsHeldByCreator = heldByCreator.get(m.managerId) ?? 0;
 
-  // Состоявшиеся БРИФования по ТМ-создателю (held + type=briefing) — для план/факта.
-  const briefHeldRows = tmIds.length
-    ? await db
-        .select({ creator: meetings.createdBy, n: sql<number>`count(*)` })
-        .from(meetings)
-        .where(
-          and(
-            eq(meetings.status, MEETING_HELD_STAGE),
-            eq(meetings.meetingType, 'briefing'),
-            inArray(meetings.createdBy, tmIds),
-            gte(meetings.reportDate, start),
-            lte(meetings.reportDate, end),
-          ),
-        )
-        .groupBy(meetings.createdBy)
-    : [];
-  const briefByCreator = new Map<number, number>();
-  for (const r of briefHeldRows) if (r.creator != null) briefByCreator.set(r.creator, Number(r.n));
-  for (const m of members) m.briefingsHeldByCreator = briefByCreator.get(m.managerId) ?? 0;
+  // Состоявшиеся брифинги = та же метрика (см. выше) — для план/факта брифингов.
+  for (const m of members) m.briefingsHeldByCreator = heldByCreator.get(m.managerId) ?? 0;
 
   // Причины отвала (deal_rejections) — по ВЛАДЕЛЬЦУ сделки (assigned_by, чья база),
   // как в отчёте; «Выручка <30» (автодисквал) исключаем. rejected_at — в МСК.
@@ -323,6 +314,8 @@ export async function getTmDashboardData(
     .where(
       and(
         eq(meetings.status, MEETING_HELD_STAGE),
+        notDefense,
+        heldRowGuard,
         inArray(meetings.createdBy, tmIds),
         gte(meetings.reportDate, dynStart),
       ),
@@ -396,6 +389,8 @@ export async function getTmDashboardData(
       .where(
         and(
           eq(meetings.status, MEETING_HELD_STAGE),
+          notDefense,
+          heldRowGuard,
           inArray(meetings.createdBy, tmIds),
           gte(meetings.reportDate, s),
           lte(meetings.reportDate, e),
@@ -540,7 +535,9 @@ export async function getTmDashboardData(
   };
 
   // Качество встреч, назначенных ТМ — из готового разбора (analysis_json), только
-  // состоявшиеся встречи создателя-ТМ с баллом.
+  // состоявшиеся БРИФИНГИ создателя-ТМ с баллом (защиту КП не оцениваем). Guard
+  // date(scheduled)=report_date не нужен: analysis_json висит только на строке-
+  // проведении, дубль meet_created_day его не имеет.
   const mqRows = await db
     .select({
       creator: meetings.createdBy,
@@ -553,6 +550,7 @@ export async function getTmDashboardData(
     .where(
       and(
         eq(meetings.status, MEETING_HELD_STAGE),
+        notDefense,
         inArray(meetings.createdBy, tmIds),
         sql`${meetings.analysisJson} is not null`,
         gte(meetings.reportDate, dynStart),
@@ -591,13 +589,14 @@ export async function getTmDashboardData(
   }
   const meetingQuality = buildTmMeetingQuality(qualityInputs);
 
-  // Окупаемость ТМ: из ВСЕХ встреч, назначенных ТМ (состоялись) — сколько сделок
-  // дошло до КП, открыто в Продажах [10] сейчас и выиграно (deal_wins). Накопительно
-  // (закрытия лагают → период не ограничиваем). Связка по meetings.deal_id.
+  // Окупаемость ТМ: из состоявшихся БРИФИНГОВ, назначенных ТМ (защиту КП исключаем —
+  // это уже работа продаж), — сколько сделок дошло до КП, открыто в Продажах [10]
+  // сейчас и выиграно (deal_wins). Накопительно (закрытия лагают → период не
+  // ограничиваем). Связка по meetings.deal_id; selectDistinct дедупит дубль-строки.
   const roiDealRows = await db
     .selectDistinct({ dealId: meetings.dealId })
     .from(meetings)
-    .where(and(eq(meetings.status, MEETING_HELD_STAGE), inArray(meetings.createdBy, tmIds), sql`${meetings.dealId} is not null`));
+    .where(and(eq(meetings.status, MEETING_HELD_STAGE), notDefense, inArray(meetings.createdBy, tmIds), sql`${meetings.dealId} is not null`));
   const roiDealIds = roiDealRows.map((r) => r.dealId).filter((x): x is number => x != null);
   const roi = { meetings: roiDealIds.length, withKp: 0, openCat10: 0, openSum: 0, wonDeals: 0, wonSum: 0 };
   if (roiDealIds.length) {

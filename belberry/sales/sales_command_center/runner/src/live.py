@@ -80,6 +80,14 @@ def collect_live(today: date, bx=None) -> dict[str, Any]:
         {"entityTypeId": 1048, "filter": {">=createdTime": d0, "<=createdTime": d1}, "select": SEL_1048},
         idfield="id",
     )
+    # Встречи, ТРОНУТЫЕ сегодня (по дате обновления) — ловим перенесённые: встреча
+    # существовала раньше и сегодня её передвинули на другую дату. Без этого запроса
+    # такая встреча выпадает из /today (не сегодня по дате, не создана сегодня).
+    meetings_upd = _fetch_all(
+        bx, "crm.item.list",
+        {"entityTypeId": 1048, "filter": {">=updatedTime": d0, "<=updatedTime": d1}, "select": SEL_1048},
+        idfield="id",
+    )
     deals_created = _fetch_all(
         bx, "crm.deal.list",
         {"filter": {">=DATE_CREATE": d0, "<=DATE_CREATE": d1},
@@ -104,7 +112,7 @@ def collect_live(today: date, bx=None) -> dict[str, Any]:
     )
     # Годовая выручка компании по сделкам встреч (нужна для ТМ-брифингов).
     deal_ids = sorted({
-        did for m in [*meetings, *meetings_set]
+        did for m in [*meetings, *meetings_set, *meetings_upd]
         if (did := _to_int(m.get("parentId2")))
     })
     meeting_deal_revenue: dict[int, float] = {}
@@ -119,6 +127,7 @@ def collect_live(today: date, bx=None) -> dict[str, Any]:
             if did and rev:
                 meeting_deal_revenue[did] = rev
     return {"calls": calls, "meetings": meetings, "meetings_set": meetings_set,
+            "meetings_upd": meetings_upd,
             "deals_created": deals_created, "kp": kp, "briefs": briefs, "activities": activities,
             "meeting_deal_revenue": meeting_deal_revenue}
 
@@ -146,12 +155,15 @@ def build_live_payload(today: date, raw: dict[str, Any], now: datetime) -> dict[
         slot(uid).update(dials=s.get("dials_total", 0), answered=s.get("calls_answered", 0), calls60=s.get("calls_60s_plus", 0))
 
     # meetings = встречи с датой=сегодня (проведено/отменено сегодня);
-    # meetings_set = встречи, СОЗДАННЫЕ сегодня (назначено сегодня, дата любая).
+    # meetings_set = встречи, СОЗДАННЫЕ сегодня (назначено сегодня, дата любая);
+    # meetings_upd = встречи, ОБНОВЛЁННЫЕ сегодня (ловим перенесённые).
     meetings_set = raw.get("meetings_set") or []
+    meetings_upd = raw.get("meetings_upd") or []
     today_ids = {_to_int(m.get("id")) for m in meetings}
     set_ids = {_to_int(m.get("id")) for m in meetings_set}
+    upd_ids = {_to_int(m.get("id")) for m in meetings_upd}
     merged: dict[Any, dict[str, Any]] = {}
-    for m in [*meetings, *meetings_set]:
+    for m in [*meetings, *meetings_set, *meetings_upd]:
         merged.setdefault(_to_int(m.get("id")), m)
 
     meetings_list = []
@@ -160,6 +172,9 @@ def build_live_payload(today: date, raw: dict[str, Any], now: datetime) -> dict[
         creator = _to_int(m.get("createdBy"))          # кто назначил встречу
         st = meeting_status(m.get("stageId"))  # held / scheduled / cancelled
         set_today = mid in set_ids
+        # Перенесена сегодня: тронута сегодня, но не создана сегодня и дата ≠ сегодня
+        # (эвристика — Bitrix не отдаёт историю поля даты простым REST).
+        moved_today = mid in upd_ids and mid not in set_ids and mid not in today_ids
         # «Назначено сегодня (ещё не проведено)» засчитываем СОЗДАТЕЛЮ (телемаркетолог),
         # проведено/отменено — ответственному (продавец, кто реально провёл).
         scheduled_today = set_today and st == "scheduled" and mid not in today_ids
@@ -183,7 +198,7 @@ def build_live_payload(today: date, raw: dict[str, Any], now: datetime) -> dict[
         meetings_list.append(
             {"id": mid, "title": m.get("title") or "Встреча", "manager_id": owner,
              "at": str(m.get("ufCrm16_1751009238") or ""), "status": st,
-             "deal_id": deal_id, "set_today": set_today,
+             "deal_id": deal_id, "set_today": set_today, "moved_today": moved_today,
              "type": _meeting_type(m), "created_by": creator,
              "company_revenue": revenue_map.get(deal_id)}
         )

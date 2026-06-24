@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Аудит сделок — макет (Командный центр Belberry)</title>
+<style>
+/* === подмножество globals.css (bb-*) для standalone-макета === */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+:root{
+  --bb-indigo:#2b2a5e;--bb-indigo-2:#1f1e47;--bb-violet:#5b50d6;--bb-violet-soft:#f0eefb;
+  --bb-canvas:#faf8f5;--bb-ink:#1d1d1f;--bb-muted:#6e6e73;--bb-faint:#9a9aa0;--bb-line:#ece8e3;
+  --bb-red:#d4202e;--bb-amber:#e88a3b;--bb-green:#2c7a4a;
+  --bb-shadow:0 1px 3px rgba(20,18,50,.06),0 8px 24px -12px rgba(20,18,50,.12);
+  --bb-shadow-lift:0 1px 3px rgba(20,18,50,.06),0 16px 34px -16px rgba(43,42,94,.4);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bb-canvas);color:var(--bb-ink);font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif;-webkit-font-smoothing:antialiased;letter-spacing:-.01em}
+h1,h2,h3,h4{letter-spacing:-.022em;font-weight:600;margin:0}
+.app{display:flex;min-height:100vh}
+/* rail */
+.bb-rail{position:sticky;top:0;height:100vh;width:248px;flex:0 0 248px;background:linear-gradient(180deg,var(--bb-indigo),var(--bb-indigo-2));color:#cfcce8;display:flex;flex-direction:column;padding:18px 14px;overflow:hidden}
+.bb-rail-glow{position:absolute;inset:-40% -60% auto -40%;height:420px;background:radial-gradient(closest-side,rgba(91,80,214,.55),transparent 70%);filter:blur(20px);opacity:.55;pointer-events:none}
+.bb-brand{display:flex;flex-direction:column;gap:7px;padding:8px 10px 22px;position:relative}
+.bb-brand b{font-size:20px;color:#fff;font-weight:800;letter-spacing:-.03em}
+.bb-brand small{color:#a7a2d6;font-size:11px;font-weight:500;letter-spacing:.04em}
+.bb-nav{display:flex;flex-direction:column;gap:3px;position:relative}
+.bb-nav-label{font-size:10.5px;text-transform:uppercase;letter-spacing:.12em;color:#7d79b0;padding:14px 12px 6px}
+.bb-nav-search{display:flex;align-items:center;gap:9px;width:100%;margin-bottom:6px;padding:9px 12px;border-radius:11px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.06);color:#a7a2d6;font:inherit;font-size:13.5px;cursor:pointer}
+.bb-nav-search kbd{margin-left:auto;background:rgba(255,255,255,.12);border-radius:6px;padding:1px 6px;font-size:11px}
+.bb-nav-item{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:12px;color:#cfcce8;text-decoration:none;font-size:14.5px;font-weight:500;position:relative}
+.bb-nav-item .ic{width:18px;text-align:center;opacity:.85}
+.bb-nav-item:hover{background:rgba(255,255,255,.06);color:#fff}
+.bb-nav-item.active{background:linear-gradient(90deg,rgba(91,80,214,.9),rgba(91,80,214,.45));color:#fff;font-weight:600;box-shadow:0 6px 18px -8px rgba(91,80,214,.9)}
+.bb-nav-item.active::before{content:'';position:absolute;left:-14px;top:8px;bottom:8px;width:3px;border-radius:3px;background:#fff}
+.bb-nav-tag{margin-left:auto;background:rgba(255,255,255,.12);color:#cfcce8;font-size:10px;font-weight:700;border-radius:999px;padding:1px 7px}
+.bb-nav-tag.new{background:#3ec88a;color:#06301d}
+.bb-nav-count{margin-left:auto;background:var(--bb-red);color:#fff;font-size:11px;font-weight:700;border-radius:999px;min-width:19px;height:19px;padding:0 6px;display:inline-grid;place-items:center}
+.bb-rail-foot{margin-top:auto;display:flex;align-items:center;gap:10px;padding:10px;border-radius:12px;background:rgba(255,255,255,.05)}
+.bb-ava{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#8b80ff,#5b50d6);color:#fff;display:grid;place-items:center;font-weight:700;font-size:13px}
+.bb-who b{font-size:12.5px;color:#fff;font-weight:600;display:block}
+.bb-who small{color:#a7a2d6;font-size:11px}
+/* page */
+main{flex:1;min-width:0}
+.bb-page{max-width:1080px;margin:0 auto;padding:34px 34px 70px}
+.bb-hero{position:relative;border-radius:24px;padding:26px 28px;margin-bottom:22px;background:linear-gradient(135deg,var(--bb-indigo),#3a3780);color:#fff;box-shadow:var(--bb-shadow);overflow:hidden}
+.bb-hero::before{content:'';position:absolute;inset:-60% 40% auto -10%;height:380px;background:radial-gradient(closest-side,rgba(91,80,214,.85),transparent 70%);filter:blur(10px);opacity:.7}
+.bb-hero::after{content:'';position:absolute;inset:auto -10% -60% 30%;height:380px;background:radial-gradient(closest-side,rgba(232,138,59,.5),transparent 70%);filter:blur(14px);opacity:.5}
+.bb-hero-eyebrow{color:#c9c5f0;font-size:13px;font-weight:600;position:relative}
+.bb-hero-title{font-size:30px;font-weight:800;letter-spacing:-.03em;margin-top:4px;position:relative}
+.bb-hero-sub{color:#c9c5f0;font-size:13.5px;font-weight:500;margin-top:6px;position:relative;max-width:640px}
+/* input bar */
+.audit-input{position:relative;display:flex;gap:10px;margin-top:18px;flex-wrap:wrap}
+.audit-input input{flex:1;min-width:280px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.12);color:#fff;border-radius:12px;padding:12px 15px;font-size:14.5px;outline:none}
+.audit-input input::placeholder{color:#b9b5e4}
+.audit-input button{background:#fff;color:var(--bb-indigo);border:0;border-radius:12px;padding:12px 22px;font-size:14.5px;font-weight:700;cursor:pointer;white-space:nowrap}
+.audit-input .hint{position:relative;width:100%;color:#b9b5e4;font-size:12px;margin-top:2px}
+/* cards */
+.bb-card{background:#fff;border:1px solid var(--bb-line);border-radius:18px;padding:20px;box-shadow:var(--bb-shadow);margin-bottom:16px}
+.bb-sect-head{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.bb-sect-head h2{font-size:17px;font-weight:700}
+.bb-sect-head small{color:var(--bb-faint);font-size:12.5px;font-weight:500;margin-left:auto}
+.bb-sect-ic{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;background:var(--bb-violet-soft);color:var(--bb-violet);flex:0 0 30px;font-size:16px}
+.muted{color:var(--bb-muted)}.faint{color:var(--bb-faint)}
+a.link{color:var(--bb-violet);text-decoration:none;font-weight:600}
+/* recovery score panel */
+.rec{display:grid;grid-template-columns:200px 1fr;gap:24px;align-items:center}
+@media(max-width:680px){.rec{grid-template-columns:1fr}}
+.gauge{position:relative;width:200px;height:200px;margin:0 auto}
+.gauge svg{transform:rotate(-90deg)}
+.gauge .val{position:absolute;inset:0;display:grid;place-items:center;text-align:center}
+.gauge .val b{font-size:46px;font-weight:800;line-height:1;color:var(--bb-amber)}
+.gauge .val span{display:block;font-size:12px;color:var(--bb-muted);margin-top:4px}
+.verdict-badge{display:inline-block;font-size:13px;font-weight:800;border-radius:999px;padding:5px 14px;margin-bottom:10px}
+.vb-low{background:#fdeced;color:var(--bb-red)}
+.vb-mid{background:#fdf2e7;color:#b5651d}
+.vb-hi{background:#e7f4ec;color:var(--bb-green)}
+.verdict-text{font-size:15px;line-height:1.55;color:var(--bb-ink)}
+.verdict-text b{font-weight:700}
+.factors{list-style:none;padding:0;margin:14px 0 0;display:grid;grid-template-columns:1fr 1fr;gap:8px 18px}
+@media(max-width:680px){.factors{grid-template-columns:1fr}}
+.factors li{display:flex;align-items:center;gap:8px;font-size:13px}
+.factors .f-ic{font-size:14px}
+.fp{color:var(--bb-green)}.fn{color:var(--bb-red)}.fo{color:var(--bb-amber)}
+/* stat grid */
+.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+@media(max-width:760px){.stats{grid-template-columns:repeat(2,1fr)}}
+.stat{background:var(--bb-canvas);border-radius:14px;padding:14px}
+.stat b{font-size:24px;font-weight:800;display:block}
+.stat span{font-size:11.5px;color:var(--bb-muted)}
+.stat.flag b{color:var(--bb-red)}
+.stat.flag .chip{display:inline-block;font-size:10px;font-weight:700;background:#fdeced;color:var(--bb-red);border-radius:6px;padding:1px 6px;margin-top:4px}
+/* timeline */
+.tl{list-style:none;padding:0;margin:0}
+.tl li{display:grid;grid-template-columns:88px 1fr;gap:14px;padding:9px 0;border-bottom:1px solid var(--bb-line);font-size:13.5px}
+.tl li:last-child{border-bottom:0}
+.tl .d{color:var(--bb-faint);font-weight:600;font-variant-numeric:tabular-nums}
+.tl .ev b{font-weight:600}
+.tl .who{color:var(--bb-faint);font-size:12px}
+.tl .bad{color:var(--bb-red);font-weight:600}
+/* failures */
+.fail{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--bb-line)}
+.fail:last-child{border-bottom:0}
+.fail .n{flex:0 0 26px;height:26px;border-radius:8px;background:#fdeced;color:var(--bb-red);font-weight:800;font-size:13px;display:grid;place-items:center}
+.fail .b{font-size:13.5px;line-height:1.5}
+.fail .b b{font-weight:700}
+.fail .tag{display:inline-block;font-size:10.5px;font-weight:700;background:var(--bb-violet-soft);color:var(--bb-violet);border-radius:6px;padding:1px 7px;margin-left:6px}
+/* next step */
+.next{background:linear-gradient(135deg,#f0eefb,#fbfaff);border:1px solid #d9d3f7;border-radius:18px;padding:20px;margin-bottom:16px}
+.next h2{font-size:16px;display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.next ol{margin:8px 0 0;padding-left:20px}
+.next li{font-size:13.5px;line-height:1.6;margin-bottom:4px}
+/* action bar */
+.actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:6px}
+.btn{display:inline-flex;align-items:center;gap:8px;border-radius:12px;padding:12px 18px;font-size:14px;font-weight:700;cursor:pointer;border:1px solid var(--bb-line);background:#fff;color:var(--bb-ink);text-decoration:none}
+.btn:hover{background:var(--bb-violet-soft);border-color:#d6cffb;color:var(--bb-violet)}
+.btn.primary{background:var(--bb-violet);color:#fff;border-color:var(--bb-violet)}
+.btn.primary:hover{background:#4a40c4;color:#fff}
+.btn.ghost{background:transparent}
+/* return panel */
+.ret{margin-top:14px;border:1px dashed #d9d3f7;border-radius:14px;padding:16px;background:#fbfaff}
+.ret h4{font-size:13.5px;margin-bottom:8px}
+.ret .field{display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:13px;margin-bottom:8px}
+.ret .field label{color:var(--bb-muted);flex:0 0 130px}
+.ret .field .pill{background:#fff;border:1px solid var(--bb-line);border-radius:9px;padding:7px 11px;font-size:13px}
+.ret textarea{width:100%;min-height:96px;border:1px solid var(--bb-line);border-radius:10px;padding:11px;font:inherit;font-size:13px;resize:vertical}
+/* recent table */
+.bb-table{width:100%;border-collapse:collapse;text-align:left;font-size:13.5px}
+.bb-table th{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--bb-faint);font-weight:600;padding:8px 10px;border-bottom:1px solid var(--bb-line)}
+.bb-table td{padding:11px 10px;border-bottom:1px solid var(--bb-line)}
+.bb-table tbody tr:last-child td{border-bottom:0}
+.bb-table tbody tr:hover{background:var(--bb-violet-soft)}
+.sb{font-size:11px;font-weight:800;border-radius:999px;padding:3px 10px}
+.sb.low{background:#fdeced;color:var(--bb-red)}
+.sb.mid{background:#fdf2e7;color:#b5651d}
+.sb.hi{background:#e7f4ec;color:var(--bb-green)}
+.note{background:#fff8ef;border:1px solid #f3e2c8;border-radius:12px;padding:12px 14px;font-size:12.5px;color:#7a5a23;margin:18px 0}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- ===== SIDEBAR ===== -->
+  <aside class="bb-rail">
+    <div class="bb-rail-glow"></div>
+    <div class="bb-brand"><b>Belberry</b><small>Командный центр</small></div>
+    <nav class="bb-nav">
+      <button class="bb-nav-search"><span>🔍</span> Поиск <kbd>⌘K</kbd></button>
+      <div class="bb-nav-label">Обзор</div>
+      <a class="bb-nav-item"><span class="ic">▦</span> Дашборд ОП</a>
+      <a class="bb-nav-item"><span class="ic">📞</span> Дашборд ТМ</a>
+      <a class="bb-nav-item"><span class="ic">📡</span> Сегодня <span class="bb-nav-tag">live</span></a>
+      <a class="bb-nav-item"><span class="ic">🗓️</span> Дневной отчёт</a>
+      <a class="bb-nav-item"><span class="ic">✅</span> Анализ встреч</a>
+      <a class="bb-nav-item"><span class="ic">📄</span> Сборка КП</a>
+      <a class="bb-nav-item active"><span class="ic">🔎</span> Аудит сделок <span class="bb-nav-tag new">new</span></a>
+      <a class="bb-nav-item"><span class="ic">🔔</span> Алерты <span class="bb-nav-count">16</span></a>
+    </nav>
+    <div class="bb-rail-foot">
+      <div class="bb-ava">ЕЩ</div>
+      <div class="bb-who"><b>eshchemelev@gmail.com</b><small>Руководитель</small></div>
+    </div>
+  </aside>
+
+  <!-- ===== PAGE ===== -->
+  <main>
+    <div class="bb-page">
+      <!-- HERO + INPUT -->
+      <div class="bb-hero">
+        <div class="bb-hero-eyebrow">АУДИТ СДЕЛОК</div>
+        <div class="bb-hero-title">Разобрать сделку за минуту</div>
+        <div class="bb-hero-sub">Вставьте ссылку на сделку — система соберёт встречи, транскрипты, переписку, КП и звонки, оценит реальную причину стопа и честный шанс возврата, предложит следующий шаг и поставит первую задачу.</div>
+        <div class="audit-input">
+          <input value="https://belberrycrm.bitrix24.ru/crm/deal/details/23332/" />
+          <button>Запустить аудит →</button>
+          <div class="hint">Можно вставить ссылку или просто ID. Аудит занимает ~1–2 минуты (сбор данных + LLM-разбор).</div>
+        </div>
+      </div>
+
+      <div class="note">⬇️ Ниже — пример готового аудита (drmannanov.ru #23332), как он будет выглядеть после прогона. Это статичный макет для согласования дизайна.</div>
+
+      <!-- RESULT HEADER -->
+      <div class="bb-card">
+        <div class="bb-sect-head">
+          <div class="bb-sect-ic">🔎</div>
+          <h2>drmannanov.ru <span class="faint">#23332</span></h2>
+          <small>ООО «Стоматология доктора Маннанова» · Казань · ORM · оборот 16,9 М ₽ · <a class="link" href="#">открыть в Bitrix ↗</a></small>
+        </div>
+
+        <!-- RECOVERY SCORE -->
+        <div class="rec">
+          <div class="gauge">
+            <svg width="200" height="200" viewBox="0 0 200 200">
+              <circle cx="100" cy="100" r="86" fill="none" stroke="#f0ece7" stroke-width="18"/>
+              <circle cx="100" cy="100" r="86" fill="none" stroke="#e88a3b" stroke-width="18" stroke-linecap="round"
+                      stroke-dasharray="540" stroke-dashoffset="350"/>
+            </svg>
+            <div class="val"><b>35%</b><span>шанс возврата</span></div>
+          </div>
+          <div>
+            <span class="verdict-badge vb-low">НИЗКИЙ — но один рычаг не нажат</span>
+            <div class="verdict-text">Это <b>не потеря по бюджету, а непроведённая продажа</b>: КП на ORM ни разу не презентовали ЛПР. Шанс возврата объективно низкий — контакт уволился, цена не согласована, прошло 3 месяца. Но есть <b>один неиспользованный рычаг</b>: с собственником (гендиректор Маннанов Ф.М.) ещё ни разу не говорили. Если выйти на него с нормальной защитой — шанс поднимется до ~50%. Без выхода на ЛПР — сделка мертва.</div>
+            <ul class="factors">
+              <li><span class="f-ic fn">✕</span> Контакт (маркетолог) уволился из медицины</li>
+              <li><span class="f-ic fo">◐</span> ЛПР не вовлечён — рычаг не нажат</li>
+              <li><span class="f-ic fn">✕</span> «Нет бюджета» сказал не-ЛПР</li>
+              <li><span class="f-ic fp">✓</span> Последний контакт свежий (18.06)</li>
+              <li><span class="f-ic fn">✕</span> Защита КП ни разу не проведена</li>
+              <li><span class="f-ic fo">◐</span> 2 передачи между менеджерами</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- WHAT'S IN THE SYSTEM -->
+      <div class="bb-card">
+        <div class="bb-sect-head"><div class="bb-sect-ic">📊</div><h2>Что в системе</h2></div>
+        <div class="stats">
+          <div class="stat flag"><b>0</b><span>карточек КП (СП 1106)</span><br><span class="chip">КП ушло в pitch.com</span></div>
+          <div class="stat"><b>1</b><span>встреча — только брифинг</span></div>
+          <div class="stat flag"><b>3</b><span>брифа (ORM+SEO+контекст)</span><br><span class="chip">стрельба по площадям</span></div>
+          <div class="stat flag"><b>2</b><span>передачи менеджера</span><br><span class="chip">handover без контекста</span></div>
+          <div class="stat"><b>8</b><span>звонков · посл. 18.06</span></div>
+        </div>
+      </div>
+
+      <!-- TIMELINE -->
+      <div class="bb-card">
+        <div class="bb-sect-head"><div class="bb-sect-ic">🕑</div><h2>Хронология</h2><small>16.03 → 18.06.2026</small></div>
+        <ul class="tl">
+          <li><span class="d">16–17.03</span><span class="ev"><b>Лид с сайта → брифинг-встреча.</b> Контакт — Чулпан (маркетолог, не ЛПР). <span class="who">Халин</span></span></li>
+          <li><span class="d">24.03</span><span class="ev"><b>КП на ORM отправлено файлом в Telegram через pitch.com</b> — мимо CRM. <span class="who">Халин</span></span></li>
+          <li><span class="d">26.03</span><span class="ev"><span class="bad">Клиент отказался от защиты:</span> «КП висит в Телеграме, руководителю не показывала». <span class="who">Чулпан</span></span></li>
+          <li><span class="d">16.04</span><span class="ev"><b>Handover №1</b> → Деговцова. Вердикт: «вряд ли что-то выгорит». <span class="who">РОП</span></span></li>
+          <li><span class="d">07.05</span><span class="ev"><b>Handover №2</b> → Семенихин. Клиент «уже плохо помнит, что обсуждали». <span class="who">РОП</span></span></li>
+          <li><span class="d">18.06</span><span class="ev"><span class="bad">Чулпан уволилась из медицины.</span> Поставлена задача выйти на гендиректора. <span class="who">Семенихин</span></span></li>
+        </ul>
+      </div>
+
+      <!-- FAILURES -->
+      <div class="bb-card">
+        <div class="bb-sect-head"><div class="bb-sect-ic">⚠️</div><h2>Системные провалы</h2><small>совпадают с паттернами отдела</small></div>
+        <div class="fail"><div class="n">1</div><div class="b"><b>КП без карточки в CRM</b> — ушло через pitch.com мимо системы. <span class="tag">Pillar 1 · как mpya.ru</span></div></div>
+        <div class="fail"><div class="n">2</div><div class="b"><b>Защита КП не проведена</b> — КП самотёком в мессенджер, не-ЛПР не смог «продать внутрь». <span class="tag">как klinikastom</span></div></div>
+        <div class="fail"><div class="n">3</div><div class="b"><b>Работа не с ЛПР 3 месяца</b> — собственник не вовлечён, выход на него начали только 18.06.</div></div>
+        <div class="fail"><div class="n">4</div><div class="b"><b>Двойной handover без контекста</b> — клиент каждый раз «не помнит». <span class="tag">5-й кейс паттерна</span></div></div>
+        <div class="fail"><div class="n">5</div><div class="b"><b>Стадия CRM ≠ реальность</b> — «Защита КП»/в работе при отсутствии защиты и уволившемся контакте.</div></div>
+      </div>
+
+      <!-- NEXT STEP -->
+      <div class="next">
+        <h2>🎯 Предлагаемый следующий шаг</h2>
+        <div class="muted" style="font-size:13.5px">Единственный путь к возврату — выйти на собственника и провести защиту. Конкретно:</div>
+        <ol>
+          <li><b>Позвонить лично гендиректору</b> Маннанову Ф.М. (89274135383) — не уволившемуся маркетологу.</li>
+          <li><b>Завести карточку КП в CRM</b> (СП 1106), продублировать КП на e-mail собственника.</li>
+          <li><b>Назначить и провести защиту</b>: боль → ПроДокторов-решение → кейсы стоматологий → прогноз → цена.</li>
+          <li>Только ORM под ПроДокторов; SEO/контекст — опцией, если спросит сам.</li>
+        </ol>
+      </div>
+
+      <!-- ACTIONS -->
+      <div class="bb-card">
+        <div class="bb-sect-head"><div class="bb-sect-ic">⚡</div><h2>Действия</h2></div>
+        <div class="actions">
+          <button class="btn primary">↩︎ Вернуть в работу + поставить задачу</button>
+          <a class="btn" href="#">⬇ Скачать .docx</a>
+          <a class="btn" href="#">📎 Прикрепить к карточке (UF аудита)</a>
+          <a class="btn ghost" href="#">💬 Комментарий в ленту сделки</a>
+        </div>
+
+        <!-- expanded return-to-work panel -->
+        <div class="ret">
+          <h4>↩︎ Вернуть сделку в работу</h4>
+          <div class="field"><label>Новая стадия</label><span class="pill">C10:EXECUTING — Подготовка КП ▾</span></div>
+          <div class="field"><label>Ответственный</label><span class="pill">Семенихин Егор (текущий) ▾</span></div>
+          <div class="field"><label>Первая задача · дедлайн</label><span class="pill">завтра, 24.06 18:00 ▾</span></div>
+          <label class="muted" style="font-size:12px">Текст задачи (сгенерирован из аудита, можно править):</label>
+          <textarea>Цель: впервые выйти на ЛПР (собственника) и назначить защиту КП. С директором ещё не общались — для него это первый разговор.
+Кому: Маннанов Флюр Мунирович, ген. директор, 89274135383.
+Скрипт: 1) зацепка через уволившуюся Чулпан → 2) закрыть потерянный контекст → 3) квалификация боли (первичные по хирургии/гигиене) → 4) ценность ПроДокторов/Карт → 5) назначить защиту (не отправлять файлом!). Не предлагать SEO/контекст сразу.</textarea>
+          <div class="actions" style="margin-top:12px">
+            <button class="btn primary">Подтвердить — вернуть и поставить задачу</button>
+            <button class="btn ghost">Отмена</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- RECENT -->
+      <div class="bb-card">
+        <div class="bb-sect-head"><div class="bb-sect-ic">📁</div><h2>Недавние аудиты</h2><small>команда + я</small></div>
+        <table class="bb-table">
+          <thead><tr><th>Сделка</th><th>Когда</th><th>Кто запустил</th><th>Шанс</th><th>Статус</th><th></th></tr></thead>
+          <tbody>
+            <tr><td><b>drmannanov.ru</b> <span class="faint">#23332</span></td><td>сейчас</td><td>Щемелёв</td><td><span class="sb low">35%</span></td><td>✓ готово</td><td><a class="link">открыть</a></td></tr>
+            <tr><td><b>klinikastom.ru</b> <span class="faint">#24012</span></td><td>10.06</td><td>Щемелёв</td><td><span class="sb mid">55%</span></td><td>✓ возвращена</td><td><a class="link">открыть</a></td></tr>
+            <tr><td><b>spasgan.ru</b> <span class="faint">#23916</span></td><td>22.05</td><td>Гордиенко</td><td><span class="sb hi">70%</span></td><td>✓ готово</td><td><a class="link">открыть</a></td></tr>
+            <tr><td><b>mitekpumps.ru</b> <span class="faint">#18412</span></td><td>20.05</td><td>Семенихин</td><td><span class="sb low">25%</span></td><td>✓ готово</td><td><a class="link">открыть</a></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  </main>
+</div>
+</body>
+</html>

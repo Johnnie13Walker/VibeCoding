@@ -53,32 +53,60 @@ export function SalesFunnel({ data }: { data: SalesFunnelData }) {
   const agg = useMemo(() => {
     const picked = managers.filter((m) => sel.has(m.managerId));
     const reached = new Array(FUNNEL_MAX_ORDER + 1).fill(0);
+    const lostByOrder = new Array(FUNNEL_MAX_ORDER + 1).fill(0);
     let entered = 0, won = 0, lost = 0, spam = 0, wonAmount = 0;
     for (const m of picked) {
       entered += m.entered; won += m.won; lost += m.lost; spam += m.spam; wonAmount += m.wonAmount;
-      for (let o = 1; o <= FUNNEL_MAX_ORDER; o++) reached[o] += m.reached?.[o] ?? 0;
+      for (let o = 1; o <= FUNNEL_MAX_ORDER; o++) {
+        reached[o] += m.reached?.[o] ?? 0;
+        lostByOrder[o] += m.lostByOrder?.[o] ?? 0;
+      }
     }
-    return { entered, reached, won, lost, spam, wonAmount, avgCheck: won > 0 ? Math.round(wonAmount / won) : 0 };
+    return { entered, reached, lostByOrder, won, lost, spam, wonAmount, avgCheck: won > 0 ? Math.round(wonAmount / won) : 0 };
   }, [sel, managers]);
 
   if (!managers.length) return <LegacyFunnel data={data} />;
 
   const entered = agg.entered;
-  const steps = FUNNEL_STEPS_10.map((s, i) => ({
-    ...s,
-    count: agg.reached[s.order] ?? 0,
-    prev: i === 0 ? null : (agg.reached[FUNNEL_STEPS_10[i - 1].order] ?? 0),
-  }));
+  // На каждой стадии: count = дошли сюда; advanced = двинулись ДАЛЬШЕ (дошли до
+  // следующей); lostHere = ушли в отвал, умерев на этой стадии; parked = ещё в работе.
+  const steps = FUNNEL_STEPS_10.map((s, i) => {
+    const count = agg.reached[s.order] ?? 0;
+    const next = FUNNEL_STEPS_10[i + 1];
+    const isLast = !next;
+    const advanced = isLast ? null : (agg.reached[next.order] ?? 0);
+    const lostHere = agg.lostByOrder[s.order] ?? 0;
+    const parked = isLast ? 0 : Math.max(0, count - (advanced ?? 0) - lostHere);
+    return { ...s, count, advanced, lostHere, parked, isLast };
+  });
   const denom = Math.max(entered, 1);
-  // Главная утечка — переход с максимальной абсолютной потерей сделок.
-  let leakIdx = -1, leakDrop = 0;
+  // Главная утечка — стадия, с которой НЕ двинулось дальше больше всего сделок
+  // (отвал + застрявшие), среди стадий с successor'ом и ненулевым count.
+  let leakIdx = -1, leakStuck = 0;
   steps.forEach((s, i) => {
-    if (s.prev != null) {
-      const d = s.prev - s.count;
-      if (d > leakDrop) { leakDrop = d; leakIdx = i; }
+    if (!s.isLast && s.count > 0) {
+      const stuck = s.count - (s.advanced ?? 0);
+      if (stuck > leakStuck) { leakStuck = stuck; leakIdx = i; }
     }
   });
   const pct = (n: number) => (entered > 0 ? Math.round((n / entered) * 100) : null);
+
+  // Ячейка числа потока (дальше/отвал/в работе): цвет по типу, 0 и «нет данных» — бледно.
+  const DIM = '#d3cfe0';
+  const numCell = (value: number, kind: 'go' | 'lost' | 'park', show: boolean) => {
+    const color = !show || value === 0 ? DIM
+      : kind === 'lost' ? 'var(--bb-red)'
+      : kind === 'go' ? 'var(--bb-ink)'
+      : 'var(--bb-faint)';
+    return (
+      <div style={{ width: 62, flex: '0 0 62px', textAlign: 'right' }}>
+        <span className="tabular" style={{ fontSize: 14, fontWeight: 800, color }}>{show ? value : '—'}</span>
+      </div>
+    );
+  };
+  const headCell = (text: string, width: number) => (
+    <div style={{ width, flex: `0 0 ${width}px`, textAlign: 'right' }}>{text}</div>
+  );
 
   return (
     <div>
@@ -101,12 +129,20 @@ export function SalesFunnel({ data }: { data: SalesFunnelData }) {
         </div>
       ) : (
       <>
+      {/* шапка колонок потока: % · дальше · отвал · в работе */}
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 14, marginBottom: 7, fontSize: 10.5, fontWeight: 700, letterSpacing: '.03em', textTransform: 'uppercase', color: 'var(--bb-faint)' }}>
+        <div style={{ width: 190, flex: '0 0 190px' }} />
+        <div style={{ flex: 1 }} />
+        {headCell('%', 58)}
+        {headCell('дальше', 62)}
+        {headCell('отвал', 62)}
+        {headCell('в работе', 62)}
+      </div>
       {/* воронка по стадиям (полная цепочка, событийно по входу) */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
         {steps.map((s, i) => {
           const p = pct(s.count);
-          const drop = s.prev != null ? s.prev - s.count : null;
-          const isLeak = i === leakIdx && leakDrop > 0;
+          const isLeak = i === leakIdx && leakStuck > 0;
           const w = grown ? Math.max(s.count > 0 ? 6 : 0, (s.count / denom) * 100) : 0;
           const zero = s.count === 0;
           return (
@@ -130,30 +166,32 @@ export function SalesFunnel({ data }: { data: SalesFunnelData }) {
                   {s.count}
                 </div>
               </div>
-              <div style={{ width: 150, flex: '0 0 150px', textAlign: 'right', display: 'flex', flexDirection: 'column', gap: 0, alignItems: 'flex-end' }}>
-                <span className="tabular" style={{ fontSize: 15, fontWeight: 800 }}>{p != null ? `${p}%` : '—'}</span>
-                {drop != null && drop > 0 ? (
-                  <span style={{ fontSize: 11.5, fontWeight: 600, color: isLeak ? 'var(--bb-red)' : 'var(--bb-muted)' }}>−{drop}</span>
-                ) : i === 0 ? (
-                  <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--bb-faint)' }}>вход</span>
-                ) : null}
+              {/* % от входа + чип утечки */}
+              <div style={{ width: 58, flex: '0 0 58px', textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+                <span className="tabular" style={{ fontSize: 16, fontWeight: 800, color: zero ? 'var(--bb-faint)' : 'var(--bb-ink)' }}>{p != null ? `${p}%` : '—'}</span>
                 {isLeak ? (
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: '#fdecec', color: 'var(--bb-red)', fontSize: 11, fontWeight: 700, borderRadius: 999, padding: '2px 8px', marginTop: 2 }}>
-                    ▼ главная утечка
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, background: '#fdecec', color: 'var(--bb-red)', fontSize: 10, fontWeight: 700, borderRadius: 999, padding: '1px 7px', whiteSpace: 'nowrap' }}>
+                    ▼ утечка
                   </span>
                 ) : null}
               </div>
+              {/* Поток С ЭТОЙ стадии: дальше / отвал / в работе */}
+              {numCell(s.advanced ?? 0, 'go', !s.isLast && s.count > 0)}
+              {numCell(s.lostHere, 'lost', !s.isLast && s.count > 0)}
+              {numCell(s.parked, 'park', !s.isLast && s.count > 0)}
             </div>
           );
         })}
       </div>
 
-      {leakIdx >= 0 && leakDrop > 0 ? (
+      {leakIdx >= 0 && leakStuck > 0 ? (
         <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--bb-line)', display: 'flex', alignItems: 'center', gap: 10, fontSize: 13.5, color: 'var(--bb-muted)' }}>
           <span style={{ width: 9, height: 9, borderRadius: 999, background: 'var(--bb-red)', flex: '0 0 9px' }} />
           <span>
-            Узкое место — <b style={{ color: 'var(--bb-ink)' }}>{FUNNEL_STEPS_10[leakIdx - 1]?.label} → {FUNNEL_STEPS_10[leakIdx]?.label}</b>: теряется {leakDrop}{' '}
-            {agg.won === 0 && leakIdx === FUNNEL_STEPS_10.length - 1 ? '(до оплаты не дошла ни одна)' : 'сделок'}.
+            Главное узкое место — <b style={{ color: 'var(--bb-ink)' }}>{steps[leakIdx]?.label}</b>: с этой стадии дальше прошли{' '}
+            <b style={{ color: 'var(--bb-ink)' }}>{steps[leakIdx]?.advanced}</b> из {steps[leakIdx]?.count}
+            {(steps[leakIdx]?.lostHere ?? 0) > 0 ? <> — <b style={{ color: 'var(--bb-red)' }}>{steps[leakIdx]?.lostHere} в отвал</b></> : null}
+            {(steps[leakIdx]?.parked ?? 0) > 0 ? `, ${steps[leakIdx]?.parked} ещё в работе` : ''}.
           </span>
         </div>
       ) : null}

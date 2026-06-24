@@ -2,12 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Calendar, User, Briefcase } from 'lucide-react';
+import { Search, User, Briefcase } from 'lucide-react';
 
 const PORTAL = 'https://belberrycrm.bitrix24.ru';
 
 type Result =
-  | { kind: 'day'; key: string; label: string }
   | { kind: 'manager'; key: string; label: string; meta: string; id: number }
   | { kind: 'deal'; key: string; label: string; meta: string; id: number };
 
@@ -57,7 +56,6 @@ export function CommandPalette() {
         .then((d) => {
           if (!d) return;
           const list: Result[] = [
-            ...(d.days ?? []).map((x: string) => ({ kind: 'day' as const, key: `day-${x}`, label: x })),
             ...(d.managers ?? []).map((m: { id: number; name: string; role: string }) => ({
               kind: 'manager' as const, key: `mgr-${m.id}`, label: m.name, meta: m.role, id: m.id,
             })),
@@ -76,8 +74,7 @@ export function CommandPalette() {
   const go = useCallback(
     (r: Result) => {
       setOpen(false);
-      if (r.kind === 'day') router.push(`/daily?date=${r.key.replace('day-', '')}`);
-      else if (r.kind === 'manager') router.push(`/dashboard?m=${r.id}`);
+      if (r.kind === 'manager') router.push(`/dashboard?m=${r.id}`);
       else window.open(`${PORTAL}/crm/deal/details/${r.id}/`, '_blank', 'noopener');
     },
     [router],
@@ -91,7 +88,7 @@ export function CommandPalette() {
 
   if (!open) return null;
 
-  const icon = (k: Result['kind']) => (k === 'day' ? <Calendar size={16} /> : k === 'manager' ? <User size={16} /> : <Briefcase size={16} />);
+  const icon = (k: Result['kind']) => (k === 'manager' ? <User size={16} /> : <Briefcase size={16} />);
 
   return (
     <div className="bb-cmdk-scrim" onClick={(e) => { if (e.target === e.currentTarget) setOpen(false); }}>
