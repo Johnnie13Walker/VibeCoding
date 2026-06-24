@@ -407,6 +407,7 @@ export const dealAudits = pgTable(
     outcomeKind: text('outcome_kind'), // current | transferred | telemarketing
     outcomeResponsibleId: integer('outcome_responsible_id'),
     source: text('source').notNull().default('manual'), // manual | auto (радар)
+    attempts: integer('attempts').notNull().default(0), // неудачные попытки (транзиентные сбои → повтор)
     returnedAt: timestamp('returned_at', { withTimezone: true }),
     returnStage: text('return_stage'),
     followupStatus: text('followup_status'),   // progressed | stalled | in_progress
