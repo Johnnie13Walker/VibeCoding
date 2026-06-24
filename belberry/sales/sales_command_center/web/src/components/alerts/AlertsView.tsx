@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import Link from 'next/link';
 import { Flame, Clock, BellRing, ExternalLink, VolumeX } from 'lucide-react';
 import type { AlertManager, AlertsData } from '@/lib/alerts';
 import { BURNING_TOP, SILENT_TOP, TASKS_TOP, TASK_KINDS, burnComparator, filterSection, filterTasks, sectionManagers, type BurnSort, type TaskKind } from '@/lib/alerts-filter';
@@ -253,7 +254,7 @@ export function AlertsView({ data }: { data: AlertsData }) {
                 <div style={{ textAlign: 'right', flex: '0 0 auto' }}>
                   <span className={`bb-reason ${r.severity === 'critical' ? 'critical' : ''}`}>{r.severity === 'critical' ? 'критично' : 'риск'}</span>
                   <p style={{ fontSize: 12, color: 'var(--bb-faint)', marginTop: 4 }}>
-                    <a href="/audit" style={{ color: 'var(--bb-violet)' }}>разобрать →</a>
+                    <Link href="/audit" style={{ color: 'var(--bb-violet)' }}>разобрать →</Link>
                   </p>
                 </div>
               </li>
