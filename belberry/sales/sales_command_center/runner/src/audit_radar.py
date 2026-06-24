@@ -93,7 +93,7 @@ def enqueue(conn, deals: list[dict]) -> int:
                 break
             did = int(d["ID"])
             cur.execute(
-                "SELECT 1 FROM deal_audits WHERE deal_id=%s AND created_at > now() - interval '%s days' LIMIT 1",
+                "SELECT 1 FROM deal_audits WHERE deal_id=%s AND created_at > now() - make_interval(days => %s) LIMIT 1",
                 (did, RADAR_DEDUP_DAYS),
             )
             if cur.fetchone():
