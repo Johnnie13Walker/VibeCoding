@@ -33,6 +33,7 @@ TZ=Europe/Moscow
 # Ежедневно 03:00 МСК: Postgres backup + ротация.
 0 3 * * * /path/to/runner/scripts/backup_postgres.sh
 
-# КАЖДУЮ МИНУТУ 07:00–22:00 МСК: воркер аудита сделок (страница /audit).
+# КАЖДУЮ МИНУТУ 24/7: воркер аудита сделок (страница /audit). Аудит идёт фоном
+# независимо от того, открыта ли вкладка; веб ещё и пинает воркер сразу при запуске.
 # Дёшев при отсутствии заданий (один SELECT); flock от наложения прогонов.
-* 7-22 * * * /path/to/runner/scripts/run_audit_worker.sh
+* * * * * /path/to/runner/scripts/run_audit_worker.sh
