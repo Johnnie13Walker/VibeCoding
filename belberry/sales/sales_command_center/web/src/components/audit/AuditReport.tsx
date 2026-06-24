@@ -313,6 +313,13 @@ export function AuditReport({ initialAudit, managers }: { initialAudit: DealAudi
                 </a>.
               </div>
             )}
+            {audit.followupStatus && (
+              <div style={{ marginTop: 10, padding: '8px 12px', borderRadius: 10, fontWeight: 500, fontSize: 13,
+                background: audit.followupStatus === 'progressed' ? '#e7f4ec' : audit.followupStatus === 'in_progress' ? '#fdf2e7' : '#fdeced',
+                color: audit.followupStatus === 'progressed' ? 'var(--bb-green)' : audit.followupStatus === 'in_progress' ? '#b5651d' : 'var(--bb-red)' }}>
+                📈 Проверка через неделю: <b>{audit.followupStatus === 'progressed' ? 'сработало' : audit.followupStatus === 'in_progress' ? 'в процессе' : 'зависло'}</b> — {audit.followupNote}
+              </div>
+            )}
           </div>
         ) : !open ? (
           <button onClick={() => setOpen(true)}

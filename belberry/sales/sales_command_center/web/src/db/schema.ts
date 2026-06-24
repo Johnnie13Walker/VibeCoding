@@ -397,6 +397,11 @@ export const dealAudits = pgTable(
     outcomeKind: text('outcome_kind'), // current | transferred | telemarketing
     outcomeResponsibleId: integer('outcome_responsible_id'),
     source: text('source').notNull().default('manual'), // manual | auto (радар)
+    returnedAt: timestamp('returned_at', { withTimezone: true }),
+    returnStage: text('return_stage'),
+    followupStatus: text('followup_status'),   // progressed | stalled | in_progress
+    followupNote: text('followup_note'),
+    followupAt: timestamp('followup_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
   },

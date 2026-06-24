@@ -131,6 +131,11 @@ export type DealAudit = {
   outcomeKind: string | null;          // current | transferred | telemarketing
   outcomeResponsibleId: number | null; // кому в итоге досталась сделка
   source: string;                      // manual | auto (радар застрявших)
+  returnedAt: Date | string | null;
+  returnStage: string | null;
+  followupStatus: string | null;       // progressed | stalled | in_progress
+  followupNote: string | null;
+  followupAt: Date | string | null;
   createdAt: Date | string | null;
   updatedAt: Date | string | null;
   requestedByName?: string | null;     // ФИО заказчика аудита (из users по requested_by)
@@ -158,6 +163,8 @@ function map(r: typeof dealAudits.$inferSelect): DealAudit {
     requestedBy: r.requestedBy, returnedToWork: r.returnedToWork, taskId: r.taskId,
     outcomeKind: r.outcomeKind ?? null, outcomeResponsibleId: r.outcomeResponsibleId ?? null,
     source: r.source ?? 'manual',
+    returnedAt: r.returnedAt, returnStage: r.returnStage ?? null,
+    followupStatus: r.followupStatus ?? null, followupNote: r.followupNote ?? null, followupAt: r.followupAt,
     createdAt: r.createdAt, updatedAt: r.updatedAt,
   };
 }
@@ -217,10 +224,14 @@ export async function markReturnedToWork(
   taskId: number | null,
   outcomeKind: string,
   outcomeResponsibleId: number,
+  returnStage: string,
 ): Promise<void> {
   await db
     .update(dealAudits)
-    .set({ returnedToWork: true, taskId, outcomeKind, outcomeResponsibleId, updatedAt: new Date() })
+    .set({
+      returnedToWork: true, taskId, outcomeKind, outcomeResponsibleId,
+      returnStage, returnedAt: new Date(), updatedAt: new Date(),
+    })
     .where(eq(dealAudits.id, id));
 }
 

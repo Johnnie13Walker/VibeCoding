@@ -39,14 +39,17 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   try {
     const kind = await userKind(responsibleId); // sales | rop | tm
     let outcomeKind: 'current' | 'transferred' | 'telemarketing';
+    let effectiveStage: string;
     if (kind === 'tm') {
       // Перевод в воронку Телемаркетинг на телемаркетолога (повторный обзвон).
       await transferToTelemarketing(audit.dealId, responsibleId);
       outcomeKind = 'telemarketing';
+      effectiveStage = 'C50:NEW';
     } else {
       const current = await getDealResponsible(audit.dealId);
       await reopenDeal(audit.dealId, stageId, responsibleId); // стадия + переназначение
       outcomeKind = current === responsibleId ? 'current' : 'transferred';
+      effectiveStage = stageId;
     }
     const taskId = await createDealTask({
       dealId: audit.dealId,
@@ -55,7 +58,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
       responsibleId,
       deadline,
     });
-    await markReturnedToWork(audit.id, taskId, outcomeKind, responsibleId);
+    await markReturnedToWork(audit.id, taskId, outcomeKind, responsibleId, effectiveStage);
     await recordAuditTask({ dealId: audit.dealId, taskId, responsibleId, title: taskTitle, deadline }); // видна в Алертах
     return Response.json({ ok: true, taskId, outcomeKind });
   } catch (e) {
