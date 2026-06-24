@@ -94,9 +94,8 @@ export function AuditReport({ initialAudit, managers }: { initialAudit: DealAudi
   const r = audit.result as AuditResult | null;
   const n = r?.narrative ?? {};
   const s = (r?.signals ?? {}) as Record<string, unknown>;
-  const chain = (s.responsibles_chain as string[] | undefined) ?? [];
   const [stageId, setStageId] = useState('C10:EXECUTING');
-  const [responsibleId, setResponsibleId] = useState(chain.length ? String(chain[chain.length - 1]) : '');
+  const [responsibleId, setResponsibleId] = useState(''); // явный выбор — без «умолчания»
   const [deadline] = useState(tomorrow18iso());
   const [taskTitle, setTaskTitle] = useState('');
   const [taskDesc, setTaskDesc] = useState('');

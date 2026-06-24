@@ -1,6 +1,6 @@
 import { getAudit, markReturnedToWork } from '@/lib/audit';
 import { canSeeAudit } from '@/lib/audit-access';
-import { createDealTask, updateDealStage } from '@/lib/bitrix-write';
+import { createDealTask, reopenDeal } from '@/lib/bitrix-write';
 import { crossOriginResponse, isSameOrigin } from '@/lib/origin';
 import { isPreviewMode } from '@/lib/preview';
 import { getSession } from '@/lib/session';
@@ -37,7 +37,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   }
 
   try {
-    await updateDealStage(audit.dealId, stageId);
+    await reopenDeal(audit.dealId, stageId, responsibleId); // стадия + переназначение сделки
     const taskId = await createDealTask({
       dealId: audit.dealId,
       title: taskTitle,

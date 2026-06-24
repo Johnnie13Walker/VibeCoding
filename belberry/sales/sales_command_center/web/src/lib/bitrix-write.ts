@@ -49,8 +49,11 @@ export async function bitrixWrite<T = unknown>(
   return json.result as T;
 }
 
-export async function updateDealStage(dealId: number, stageId: string): Promise<void> {
-  await bitrixWrite('crm.deal.update', { id: dealId, fields: { STAGE_ID: stageId } });
+/** Вернуть сделку в работу: сменить стадию и (если задан) переназначить ответственного. */
+export async function reopenDeal(dealId: number, stageId: string, responsibleId?: number): Promise<void> {
+  const fields: Record<string, unknown> = { STAGE_ID: stageId };
+  if (responsibleId && responsibleId > 0) fields.ASSIGNED_BY_ID = responsibleId;
+  await bitrixWrite('crm.deal.update', { id: dealId, fields });
 }
 
 export async function createDealTask(args: {
