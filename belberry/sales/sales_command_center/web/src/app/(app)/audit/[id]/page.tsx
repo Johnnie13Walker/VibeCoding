@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { getAudit, listSalesUsers } from '@/lib/audit';
+import { getAudit, listAssignableUsers } from '@/lib/audit';
 import { canSeeAudit } from '@/lib/audit-access';
 import { isPreviewMode } from '@/lib/preview';
 import { getSession } from '@/lib/session';
@@ -13,7 +13,7 @@ export default async function AuditReportPage({ params }: { params: Promise<{ id
     notFound();
   }
   const { id } = await params;
-  const [audit, managers] = await Promise.all([getAudit(Number(id)), listSalesUsers()]);
+  const [audit, managers] = await Promise.all([getAudit(Number(id)), listAssignableUsers()]);
   if (!audit) notFound();
   return <AuditReport initialAudit={audit} managers={managers} />;
 }

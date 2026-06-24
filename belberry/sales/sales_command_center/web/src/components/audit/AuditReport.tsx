@@ -33,6 +33,15 @@ const SEV_LABEL: Record<string, string> = { high: 'критично', med: 'су
 function patternLabel(id?: string): string {
   return (id && PATTERN_LABEL[id]) || 'Провал';
 }
+
+// Итог возврата в работу в человеческом виде, с фамилией.
+function outcomeHeadline(audit: DealAudit): string {
+  const name = audit.outcomeResponsibleName ?? '';
+  if (audit.outcomeKind === 'telemarketing') return `Передали в телемаркетинг${name ? ` — ${name}` : ''}`;
+  if (audit.outcomeKind === 'transferred') return `Передали сделку другому менеджеру${name ? ` — ${name}` : ''}`;
+  if (audit.outcomeKind === 'current') return `Вернули в работу текущему менеджеру${name ? ` — ${name}` : ''}`;
+  return 'Сделка возвращена в работу';
+}
 function money(n?: number | null): string {
   return n ? `${n.toLocaleString('ru-RU')} ₽` : '—';
 }
@@ -149,6 +158,7 @@ export function AuditReport({ initialAudit, managers }: { initialAudit: DealAudi
 
   const rec = r.recovery;
   const kpCards = num(s.kp_cards);
+  const selectedIsTm = managers.find((m) => String(m.id) === responsibleId)?.kind === 'tm';
   const narrativeEmpty = !n.summary && !n.failures?.length && !n.chronology?.length;
   return (
     <div className="bb-page bb-fade">
@@ -267,14 +277,19 @@ export function AuditReport({ initialAudit, managers }: { initialAudit: DealAudi
       <Section icon="⚡" title="Действия">
         {audit.returnedToWork ? (
           <div style={{ color: 'var(--bb-green)', fontWeight: 600 }}>
-            ✓ Сделка возвращена в работу{audit.taskId ? (
-              <>, поставлена{' '}
+            ✓ {outcomeHeadline(audit)}
+            {audit.outcomeKind === 'telemarketing' && (
+              <div style={{ fontWeight: 500, fontSize: 13, color: 'var(--bb-muted)', marginTop: 2 }}>Сделка переведена в воронку «Телемаркетинг».</div>
+            )}
+            {audit.taskId && (
+              <div style={{ fontWeight: 500, fontSize: 13.5, marginTop: 4 }}>
+                Поставлена{' '}
                 <a href={`https://belberrycrm.bitrix24.ru/company/personal/user/0/tasks/task/view/${audit.taskId}/`}
                   target="_blank" rel="noreferrer" style={{ color: 'var(--bb-violet)', fontWeight: 700, textDecoration: 'none' }}>
                   задача №{audit.taskId} ↗
-                </a>
-              </>
-            ) : ''}.
+                </a>.
+              </div>
+            )}
           </div>
         ) : !open ? (
           <button onClick={() => setOpen(true)}
@@ -284,17 +299,26 @@ export function AuditReport({ initialAudit, managers }: { initialAudit: DealAudi
         ) : (
           <div style={{ border: '1px dashed #d9d3f7', borderRadius: 14, padding: 16, background: '#fbfaff' }}>
             <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 10, fontSize: 13, alignItems: 'center' }}>
-              <label>Стадия:{' '}
-                <select value={stageId} onChange={(e) => setStageId(e.target.value)} style={{ border: '1px solid var(--bb-line)', borderRadius: 8, padding: '4px 8px' }}>
-                  {STAGES.map((st) => <option key={st.id} value={st.id}>{st.label}</option>)}
-                </select>
-              </label>
               <label>Ответственный:{' '}
                 <select value={responsibleId} onChange={(e) => setResponsibleId(e.target.value)} style={{ border: '1px solid var(--bb-line)', borderRadius: 8, padding: '4px 8px' }}>
                   <option value="">— выбрать —</option>
-                  {managers.map((m) => <option key={m.id} value={String(m.id)}>{m.name}</option>)}
+                  <optgroup label="Отдел продаж">
+                    {managers.filter((m) => m.kind !== 'tm').map((m) => <option key={m.id} value={String(m.id)}>{m.name}</option>)}
+                  </optgroup>
+                  <optgroup label="Телемаркетинг (перевод в воронку ТМ)">
+                    {managers.filter((m) => m.kind === 'tm').map((m) => <option key={m.id} value={String(m.id)}>{m.name}</option>)}
+                  </optgroup>
                 </select>
               </label>
+              {selectedIsTm ? (
+                <span style={{ color: 'var(--bb-violet)', fontWeight: 600 }}>→ перейдёт в воронку «Телемаркетинг» (К обзвону)</span>
+              ) : (
+                <label>Стадия:{' '}
+                  <select value={stageId} onChange={(e) => setStageId(e.target.value)} style={{ border: '1px solid var(--bb-line)', borderRadius: 8, padding: '4px 8px' }}>
+                    {STAGES.map((st) => <option key={st.id} value={st.id}>{st.label}</option>)}
+                  </select>
+                </label>
+              )}
               <span style={{ color: 'var(--bb-muted)' }}>дедлайн: завтра 18:00</span>
             </div>
             <input value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)}

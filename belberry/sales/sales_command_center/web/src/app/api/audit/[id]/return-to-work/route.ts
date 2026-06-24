@@ -1,6 +1,6 @@
-import { getAudit, markReturnedToWork, recordAuditTask } from '@/lib/audit';
+import { getAudit, markReturnedToWork, recordAuditTask, userKind } from '@/lib/audit';
 import { canSeeAudit } from '@/lib/audit-access';
-import { createDealTask, reopenDeal } from '@/lib/bitrix-write';
+import { createDealTask, getDealResponsible, reopenDeal, transferToTelemarketing } from '@/lib/bitrix-write';
 import { crossOriginResponse, isSameOrigin } from '@/lib/origin';
 import { isPreviewMode } from '@/lib/preview';
 import { getSession } from '@/lib/session';
@@ -37,7 +37,17 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   }
 
   try {
-    await reopenDeal(audit.dealId, stageId, responsibleId); // стадия + переназначение сделки
+    const kind = await userKind(responsibleId); // sales | rop | tm
+    let outcomeKind: 'current' | 'transferred' | 'telemarketing';
+    if (kind === 'tm') {
+      // Перевод в воронку Телемаркетинг на телемаркетолога (повторный обзвон).
+      await transferToTelemarketing(audit.dealId, responsibleId);
+      outcomeKind = 'telemarketing';
+    } else {
+      const current = await getDealResponsible(audit.dealId);
+      await reopenDeal(audit.dealId, stageId, responsibleId); // стадия + переназначение
+      outcomeKind = current === responsibleId ? 'current' : 'transferred';
+    }
     const taskId = await createDealTask({
       dealId: audit.dealId,
       title: taskTitle,
@@ -45,9 +55,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
       responsibleId,
       deadline,
     });
-    await markReturnedToWork(audit.id, taskId);
+    await markReturnedToWork(audit.id, taskId, outcomeKind, responsibleId);
     await recordAuditTask({ dealId: audit.dealId, taskId, responsibleId, title: taskTitle, deadline }); // видна в Алертах
-    return Response.json({ ok: true, taskId });
+    return Response.json({ ok: true, taskId, outcomeKind });
   } catch (e) {
     return Response.json({ error: (e as Error).message }, { status: 502 });
   }

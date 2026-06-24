@@ -394,6 +394,8 @@ export const dealAudits = pgTable(
     requestedBy: integer('requested_by'),
     returnedToWork: boolean('returned_to_work').notNull().default(false),
     taskId: integer('task_id'),
+    outcomeKind: text('outcome_kind'), // current | transferred | telemarketing
+    outcomeResponsibleId: integer('outcome_responsible_id'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
   },

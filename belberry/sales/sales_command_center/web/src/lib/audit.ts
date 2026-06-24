@@ -1,7 +1,7 @@
 import { desc, eq, inArray } from 'drizzle-orm';
 import { db } from '@/db';
 import { dealAudits, meetingTasks, users } from '@/db/schema';
-import { isSalesDept, isTelemarketing } from '@/lib/dashboard';
+import { isSalesDept, isSalesManager, isTelemarketing } from '@/lib/dashboard';
 
 // Названия стадий воронки «Продажи» (CATEGORY_ID=10) для показа стадии на момент аудита.
 const STAGE_NAMES: Record<string, string> = {
@@ -22,24 +22,39 @@ function stageLabelOf(result: AuditResult | null): string | null {
   return id ? (STAGE_NAMES[id] ?? id) : null;
 }
 
-export type SalesUser = { id: number; name: string };
+export type AssignKind = 'sales' | 'rop' | 'tm';
+export type SalesUser = { id: number; name: string; kind: AssignKind };
 
-/** Активные менеджеры отдела продаж (МОП) + РОП — для выбора ответственного.
- * Телемаркетологов исключаем: они сделки в работу не берут. */
-export async function listSalesUsers(): Promise<SalesUser[]> {
+/** Классификация сотрудника для назначения: продажи / РОП / телемаркетинг. */
+function classifyUser(dept: string | null, role: string | null): AssignKind | null {
+  const d = (dept || '').toLowerCase();
+  if (isTelemarketing(dept)) return 'tm';
+  if (role === 'rop' || role === 'director' || d.includes('роп') || d.includes('руководитель отдела прод')) return 'rop';
+  if (isSalesManager(dept) || isSalesDept(dept)) return 'sales';
+  return null;
+}
+
+/** Активные сотрудники, кому можно назначить сделку: МОП, РОП и телемаркетологи
+ * (для перевода в воронку Телемаркетинг). У каждого — тип kind. */
+export async function listAssignableUsers(): Promise<SalesUser[]> {
   const rows = await db
     .select({ id: users.bitrixId, name: users.name, dept: users.dept, role: users.role })
     .from(users)
     .where(eq(users.isActive, true));
   return rows
-    .filter(
-      (u) =>
-        (isSalesDept(u.dept) && !isTelemarketing(u.dept)) ||
-        u.role === 'rop' ||
-        u.role === 'director',
-    )
-    .map((u) => ({ id: u.id, name: u.name }))
+    .map((u) => ({ id: u.id, name: u.name, kind: classifyUser(u.dept, u.role) }))
+    .filter((u): u is SalesUser => u.kind !== null)
     .sort((a, b) => a.name.localeCompare(b.name, 'ru'));
+}
+
+/** Тип конкретного сотрудника по его bitrixId (для классификации исхода возврата). */
+export async function userKind(bitrixId: number): Promise<AssignKind | null> {
+  const rows = await db
+    .select({ dept: users.dept, role: users.role })
+    .from(users)
+    .where(eq(users.bitrixId, bitrixId))
+    .limit(1);
+  return rows[0] ? classifyUser(rows[0].dept, rows[0].role) : null;
 }
 
 /**
@@ -113,10 +128,13 @@ export type DealAudit = {
   requestedBy: number | null;
   returnedToWork: boolean;
   taskId: number | null;
+  outcomeKind: string | null;          // current | transferred | telemarketing
+  outcomeResponsibleId: number | null; // кому в итоге досталась сделка
   createdAt: Date | string | null;
   updatedAt: Date | string | null;
-  requestedByName?: string | null; // ФИО заказчика аудита (из users по requested_by)
-  stageLabel?: string | null;      // стадия сделки на момент аудита
+  requestedByName?: string | null;     // ФИО заказчика аудита (из users по requested_by)
+  stageLabel?: string | null;          // стадия сделки на момент аудита
+  outcomeResponsibleName?: string | null; // ФИО того, кому досталась сделка
 };
 
 function map(r: typeof dealAudits.$inferSelect): DealAudit {
@@ -126,8 +144,16 @@ function map(r: typeof dealAudits.$inferSelect): DealAudit {
     score: r.score, band: r.band, expectedValue: r.expectedValue,
     result: (r.result as AuditResult | null) ?? null,
     requestedBy: r.requestedBy, returnedToWork: r.returnedToWork, taskId: r.taskId,
+    outcomeKind: r.outcomeKind ?? null, outcomeResponsibleId: r.outcomeResponsibleId ?? null,
     createdAt: r.createdAt, updatedAt: r.updatedAt,
   };
+}
+
+/** ФИО по bitrixId (для имени того, кому досталась сделка в исходе возврата). */
+async function resolveName(bitrixId: number | null): Promise<string | null> {
+  if (!bitrixId) return null;
+  const rows = await db.select({ name: users.name }).from(users).where(eq(users.bitrixId, bitrixId)).limit(1);
+  return rows[0]?.name ?? null;
 }
 
 export async function listAudits(limit = 50): Promise<DealAudit[]> {
@@ -149,7 +175,11 @@ export async function listAudits(limit = 50): Promise<DealAudit[]> {
 
 export async function getAudit(id: number): Promise<DealAudit | null> {
   const rows = await db.select().from(dealAudits).where(eq(dealAudits.id, id)).limit(1);
-  return rows[0] ? map(rows[0]) : null;
+  if (!rows[0]) return null;
+  const a = map(rows[0]);
+  a.outcomeResponsibleName = await resolveName(a.outcomeResponsibleId);
+  a.stageLabel = stageLabelOf(a.result);
+  return a;
 }
 
 export async function createAudit(dealId: number, requestedBy: number | null): Promise<number> {
@@ -160,10 +190,15 @@ export async function createAudit(dealId: number, requestedBy: number | null): P
   return row.id;
 }
 
-export async function markReturnedToWork(id: number, taskId: number | null): Promise<void> {
+export async function markReturnedToWork(
+  id: number,
+  taskId: number | null,
+  outcomeKind: string,
+  outcomeResponsibleId: number,
+): Promise<void> {
   await db
     .update(dealAudits)
-    .set({ returnedToWork: true, taskId, updatedAt: new Date() })
+    .set({ returnedToWork: true, taskId, outcomeKind, outcomeResponsibleId, updatedAt: new Date() })
     .where(eq(dealAudits.id, id));
 }
 

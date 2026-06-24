@@ -49,11 +49,31 @@ export async function bitrixWrite<T = unknown>(
   return json.result as T;
 }
 
+// Воронка Телемаркетинг и её стартовая стадия (для перевода сделки в ТМ).
+export const TM_CATEGORY_ID = 50;
+export const TM_START_STAGE = 'C50:NEW'; // «К обзвону»
+
+/** Текущий ответственный сделки (ASSIGNED_BY_ID) — чтобы понять, вернули ли её
+ * тому же менеджеру или передали другому. */
+export async function getDealResponsible(dealId: number): Promise<number | null> {
+  const deal = await bitrixWrite<{ ASSIGNED_BY_ID?: string }>('crm.deal.get', { id: dealId });
+  const id = Number(deal?.ASSIGNED_BY_ID);
+  return Number.isInteger(id) && id > 0 ? id : null;
+}
+
 /** Вернуть сделку в работу: сменить стадию и (если задан) переназначить ответственного. */
 export async function reopenDeal(dealId: number, stageId: string, responsibleId?: number): Promise<void> {
   const fields: Record<string, unknown> = { STAGE_ID: stageId };
   if (responsibleId && responsibleId > 0) fields.ASSIGNED_BY_ID = responsibleId;
   await bitrixWrite('crm.deal.update', { id: dealId, fields });
+}
+
+/** Перевести сделку в воронку Телемаркетинг на телемаркетолога (для повторного обзвона). */
+export async function transferToTelemarketing(dealId: number, responsibleId: number): Promise<void> {
+  await bitrixWrite('crm.deal.update', {
+    id: dealId,
+    fields: { CATEGORY_ID: TM_CATEGORY_ID, STAGE_ID: TM_START_STAGE, ASSIGNED_BY_ID: responsibleId },
+  });
 }
 
 export async function createDealTask(args: {
