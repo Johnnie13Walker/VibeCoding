@@ -165,3 +165,6 @@ cache/
 * 2.html
 * 2.txt
 * 2.json
+__pycache__/
+*.pyc
+*.egg-info/
