@@ -356,6 +356,16 @@ export const meetingTasks = pgTable(
   (table) => [unique('meeting_tasks_meeting_id_step_key_unique').on(table.meetingId, table.stepKey)],
 );
 
+export const dealRiskFlags = pgTable('deal_risk_flags', {
+  dealId: integer('deal_id').primaryKey(),
+  title: text('title'),
+  stageLabel: text('stage_label'),
+  managerId: integer('manager_id'),
+  flags: jsonb('flags').notNull().default([]),
+  severity: text('severity').notNull().default('warning'),
+  checkedAt: timestamp('checked_at', { withTimezone: true }).defaultNow(),
+});
+
 export const kpJobs = pgTable(
   'kp_jobs',
   {
