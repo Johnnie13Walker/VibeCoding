@@ -225,6 +225,42 @@ export function AlertsView({ data }: { data: AlertsData }) {
           </ul>
         )}
       </div>
+
+      {/* Риск процесса — живые сделки с красными флагами (превентив) */}
+      <div className="bb-card" style={{ marginTop: 16 }}>
+        <div className="bb-sect-head">
+          <span className="bb-sect-ic" style={{ background: '#fdeced', color: '#d4202e' }}>⚠️</span>
+          <h2>Риск процесса</h2>
+          <small>живые сделки с провалами процесса · {data.processRisk.length}</small>
+        </div>
+        {data.processRisk.length === 0 ? (
+          <p style={{ color: 'var(--bb-muted)' }}>Живых сделок с процессными рисками нет.</p>
+        ) : (
+          <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column' }}>
+            {data.processRisk.map((r) => (
+              <li key={r.dealId} className="bb-alert-row">
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <a href={dealUrl(r.dealId)} target="_blank" rel="noopener noreferrer" className="bb-alert-title" style={{ fontWeight: 600 }}>
+                    {r.title} <ExternalLink size={12} />
+                  </a>
+                  <p className="bb-alert-meta">{r.stageLabel} · {r.manager}</p>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
+                    {r.flags.map((f, i) => (
+                      <span key={i} style={{ fontSize: 11, fontWeight: 600, background: 'var(--bb-violet-soft)', color: 'var(--bb-violet)', borderRadius: 6, padding: '2px 7px' }}>{f}</span>
+                    ))}
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right', flex: '0 0 auto' }}>
+                  <span className={`bb-reason ${r.severity === 'critical' ? 'critical' : ''}`}>{r.severity === 'critical' ? 'критично' : 'риск'}</span>
+                  <p style={{ fontSize: 12, color: 'var(--bb-faint)', marginTop: 4 }}>
+                    <a href="/audit" style={{ color: 'var(--bb-violet)' }}>разобрать →</a>
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }
