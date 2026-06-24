@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { listAudits, listSalesUsers } from '@/lib/audit';
+import { listAudits } from '@/lib/audit';
 import { canSeeAudit } from '@/lib/audit-access';
 import { isPreviewMode } from '@/lib/preview';
 import { getSession } from '@/lib/session';
@@ -12,6 +12,6 @@ export default async function AuditPage() {
   if (!canSeeAudit(session.email, session.role) && !isPreviewMode()) {
     notFound();
   }
-  const [audits, managers] = await Promise.all([listAudits(), listSalesUsers()]);
-  return <AuditView initialAudits={audits} managers={managers} />;
+  const audits = await listAudits();
+  return <AuditView initialAudits={audits} />;
 }
