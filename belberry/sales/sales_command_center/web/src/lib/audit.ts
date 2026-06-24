@@ -1,7 +1,26 @@
-import { desc, eq } from 'drizzle-orm';
+import { desc, eq, inArray } from 'drizzle-orm';
 import { db } from '@/db';
 import { dealAudits, users } from '@/db/schema';
 import { isSalesDept, isTelemarketing } from '@/lib/dashboard';
+
+// Названия стадий воронки «Продажи» (CATEGORY_ID=10) для показа стадии на момент аудита.
+const STAGE_NAMES: Record<string, string> = {
+  'C10:NEW': 'Квалификация',
+  'C10:PREPAYMENT_INVOIC': 'Подготовка БРИФа',
+  'C10:EXECUTING': 'Подготовка КП',
+  'C10:UC_4SJOE4': 'Защита КП',
+  'C10:FINAL_INVOICE': 'Получить решение',
+  'C10:UC_RJK0KE': 'Получить реквизиты',
+  'C10:UC_KC7195': 'Согласование договора',
+  'C10:UC_755Z64': 'Ожидаем оплату',
+  'C10:WON': 'Успех',
+  'C10:LOSE': 'Отвал',
+  'C10:1': 'Отложено',
+};
+function stageLabelOf(result: AuditResult | null): string | null {
+  const id = result?.signals?.stage_id as string | undefined;
+  return id ? (STAGE_NAMES[id] ?? id) : null;
+}
 
 export type SalesUser = { id: number; name: string };
 
@@ -96,6 +115,8 @@ export type DealAudit = {
   taskId: number | null;
   createdAt: Date | string | null;
   updatedAt: Date | string | null;
+  requestedByName?: string | null; // ФИО заказчика аудита (из users по requested_by)
+  stageLabel?: string | null;      // стадия сделки на момент аудита
 };
 
 function map(r: typeof dealAudits.$inferSelect): DealAudit {
@@ -111,7 +132,19 @@ function map(r: typeof dealAudits.$inferSelect): DealAudit {
 
 export async function listAudits(limit = 50): Promise<DealAudit[]> {
   const rows = await db.select().from(dealAudits).orderBy(desc(dealAudits.createdAt)).limit(limit);
-  return rows.map(map);
+  const audits = rows.map(map);
+  // резолвим ФИО заказчиков одним запросом
+  const ids = [...new Set(audits.map((a) => a.requestedBy).filter((v): v is number => !!v))];
+  const nameById = new Map<number, string>();
+  if (ids.length) {
+    const us = await db.select({ id: users.bitrixId, name: users.name }).from(users).where(inArray(users.bitrixId, ids));
+    us.forEach((u) => nameById.set(u.id, u.name));
+  }
+  for (const a of audits) {
+    a.requestedByName = a.requestedBy ? (nameById.get(a.requestedBy) ?? null) : null;
+    a.stageLabel = stageLabelOf(a.result);
+  }
+  return audits;
 }
 
 export async function getAudit(id: number): Promise<DealAudit | null> {

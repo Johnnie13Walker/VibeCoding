@@ -8,6 +8,13 @@ import type { DealAudit } from '@/lib/audit';
 const BAND_COLOR: Record<string, string> = { low: 'var(--bb-red)', mid: 'var(--bb-amber)', hi: 'var(--bb-green)' };
 const BAND_BG: Record<string, string> = { low: '#fdeced', mid: '#fdf2e7', hi: '#e7f4ec' };
 
+function fmtDate(v: Date | string | null): string {
+  if (!v) return '—';
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' });
+}
+
 export function AuditView({ initialAudits }: { initialAudits: DealAudit[] }) {
   const router = useRouter();
   const [audits, setAudits] = useState<DealAudit[]>(initialAudits);
@@ -62,11 +69,14 @@ export function AuditView({ initialAudits }: { initialAudits: DealAudit[] }) {
           <div style={{ color: 'var(--bb-faint)', fontSize: 13 }}>Пока пусто — запусти первый аудит.</div>
         ) : (
           <table className="bb-table">
-            <thead><tr><th>Сделка</th><th>Шанс</th><th>Статус</th><th></th></tr></thead>
+            <thead><tr><th>Сделка</th><th>Стадия при аудите</th><th>Заказал</th><th>Дата</th><th>Шанс</th><th>Статус</th><th></th></tr></thead>
             <tbody>
               {audits.map((a) => (
                 <tr key={a.id} onClick={() => router.push(`/audit/${a.id}`)} style={{ cursor: 'pointer' }}>
                   <td><b>{a.title ?? `Сделка #${a.dealId}`}</b> <span style={{ color: 'var(--bb-faint)' }}>#{a.dealId}</span></td>
+                  <td style={{ color: 'var(--bb-muted)' }}>{a.stageLabel ?? '—'}</td>
+                  <td style={{ color: 'var(--bb-muted)' }}>{a.requestedByName ?? '—'}</td>
+                  <td style={{ color: 'var(--bb-muted)', whiteSpace: 'nowrap' }}>{fmtDate(a.createdAt)}</td>
                   <td>{a.status === 'ready'
                     ? <span style={{ fontSize: 11, fontWeight: 800, borderRadius: 999, padding: '3px 10px', background: BAND_BG[a.band ?? 'low'], color: BAND_COLOR[a.band ?? 'low'] }}>{a.score}%</span>
                     : '—'}</td>
