@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import type { AuditResult, DealAudit } from '@/lib/audit';
+import type { AuditResult, DealAudit, SalesUser } from '@/lib/audit';
 
 const STAGES: { id: string; label: string }[] = [
   { id: 'C10:NEW', label: 'Квалификация' },
@@ -13,6 +13,37 @@ const STAGES: { id: string; label: string }[] = [
 
 const BAND_LABEL: Record<string, string> = { low: 'низкий', mid: 'средний', hi: 'высокий' };
 const BAND_COLOR: Record<string, string> = { low: 'var(--bb-red)', mid: 'var(--bb-amber)', hi: 'var(--bb-green)' };
+
+// Русские ярлыки паттернов провалов — в интерфейсе без латиницы и кодов.
+const PATTERN_LABEL: Record<string, string> = {
+  KP_NO_CARD: 'КП без карточки в системе',
+  KP_VIA_PITCH: 'КП через сторонний сервис',
+  KP_OVER_BUDGET: 'КП дороже бюджета',
+  KP_STUCK_INSIDE: 'КП лежит внутри неделями',
+  CANT_DEFEND_PRICE: 'Не защитили цену',
+  BRIEF_SPRAY: 'Стрельба по площадям',
+  LABEL_NO_CONTACT: 'Метка «нет связи»',
+  LABEL_CHANGED_MIND: 'Метка «передумали»',
+  LABEL_COMPETITOR: 'Долгая пауза → конкурент',
+  LABEL_BUDGET: 'Метка «нет бюджета»',
+  TRAP_URGENCY: 'Давление срочностью',
+  TRAP_FAKE_REASON: 'Ложная причина отвала',
+  TRAP_CLIENT_WILL_CALL: '«Сам перезвоню» — закрытая дверь',
+  TRAP_NO_VALUE: 'Не объяснили ценность',
+  TRAP_COLD_HANDOVER: 'Холодная передача сделки',
+  NO_DEFENSE: 'Защита КП не проведена',
+  NON_DM_CONTACT: 'Работа не с лицом, принимающим решение',
+  HANDOVER_NO_CONTEXT: 'Передача без контекста',
+  STAGE_VS_REALITY: 'Стадия не отражает реальность',
+  CONTACT_LOST: 'Контактное лицо ушло',
+  COMPETITOR: 'Ушли к конкуренту',
+  OTHER: 'Прочее',
+};
+const SEV_LABEL: Record<string, string> = { high: 'критично', med: 'существенно', low: 'умеренно' };
+const SEV_COLOR: Record<string, string> = { high: 'var(--bb-red)', med: 'var(--bb-amber)', low: 'var(--bb-faint)' };
+function patternLabel(id?: string): string {
+  return (id && PATTERN_LABEL[id]) || 'Провал';
+}
 
 function money(n?: number | null): string {
   return n ? `${n.toLocaleString('ru-RU')} ₽` : '—';
@@ -45,7 +76,7 @@ function Gauge({ score, band }: { score: number; band: string }) {
   );
 }
 
-function AuditDetail({ audit, onReturned }: { audit: DealAudit; onReturned: () => void }) {
+function AuditDetail({ audit, managers, onReturned }: { audit: DealAudit; managers: SalesUser[]; onReturned: () => void }) {
   const r = audit.result as AuditResult | null;
   const n = r?.narrative ?? {};
   const [open, setOpen] = useState(false);
@@ -136,8 +167,12 @@ function AuditDetail({ audit, onReturned }: { audit: DealAudit; onReturned: () =
         <Section icon="⚠️" title="Системные провалы">
           {n.failures.map((f, i) => (
             <div key={i} style={{ display: 'flex', gap: 12, padding: '10px 0', borderBottom: '1px solid var(--bb-line)' }}>
-              <span style={{ flex: '0 0 auto', fontSize: 10.5, fontWeight: 700, background: 'var(--bb-violet-soft)', color: 'var(--bb-violet)', borderRadius: 6, padding: '2px 7px', height: 'fit-content' }}>
-                {f.pattern_id}{f.severity ? `/${f.severity}` : ''}</span>
+              <span style={{ flex: '0 0 auto', fontSize: 10.5, fontWeight: 700, background: 'var(--bb-violet-soft)', color: 'var(--bb-violet)', borderRadius: 6, padding: '2px 7px', height: 'fit-content', whiteSpace: 'nowrap' }}>
+                {patternLabel(f.pattern_id)}</span>
+              {f.severity && SEV_LABEL[f.severity] && (
+                <span style={{ flex: '0 0 auto', fontSize: 10.5, fontWeight: 700, color: SEV_COLOR[f.severity], height: 'fit-content', paddingTop: 2 }}>
+                  {SEV_LABEL[f.severity]}</span>
+              )}
               <div style={{ fontSize: 13.5 }}><b>{f.title}</b> — <span style={{ color: 'var(--bb-muted)' }}>{f.detail}</span></div>
             </div>
           ))}
@@ -186,9 +221,12 @@ function AuditDetail({ audit, onReturned }: { audit: DealAudit; onReturned: () =
                   {STAGES.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
                 </select>
               </label>
-              <label>Ответственный (Bitrix ID):{' '}
-                <input value={responsibleId} onChange={(e) => setResponsibleId(e.target.value)}
-                  style={{ width: 90, border: '1px solid var(--bb-line)', borderRadius: 8, padding: '4px 8px' }} />
+              <label>Ответственный:{' '}
+                <select value={responsibleId} onChange={(e) => setResponsibleId(e.target.value)}
+                  style={{ border: '1px solid var(--bb-line)', borderRadius: 8, padding: '4px 8px' }}>
+                  <option value="">— выбрать —</option>
+                  {managers.map((m) => <option key={m.id} value={String(m.id)}>{m.name}</option>)}
+                </select>
               </label>
               <span style={{ color: 'var(--bb-muted)' }}>дедлайн: завтра 18:00</span>
             </div>
@@ -220,7 +258,7 @@ function Section({ icon, title, hint, children }: { icon: string; title: string;
   );
 }
 
-export function AuditView({ initialAudits }: { initialAudits: DealAudit[] }) {
+export function AuditView({ initialAudits, managers }: { initialAudits: DealAudit[]; managers: SalesUser[] }) {
   const [audits, setAudits] = useState<DealAudit[]>(initialAudits);
   const [selected, setSelected] = useState<number | null>(initialAudits[0]?.id ?? null);
   const [input, setInput] = useState('');
@@ -292,7 +330,7 @@ export function AuditView({ initialAudits }: { initialAudits: DealAudit[] }) {
           </div>
         </div>
 
-        <div>{current ? <AuditDetail audit={current} onReturned={refresh} /> : <div className="bb-card" style={{ color: 'var(--bb-faint)' }}>Выбери аудит слева или запусти новый.</div>}</div>
+        <div>{current ? <AuditDetail audit={current} managers={managers} onReturned={refresh} /> : <div className="bb-card" style={{ color: 'var(--bb-faint)' }}>Выбери аудит слева или запусти новый.</div>}</div>
       </div>
     </div>
   );
