@@ -1,4 +1,4 @@
-import { getAudit, markReturnedToWork } from '@/lib/audit';
+import { getAudit, markReturnedToWork, recordAuditTask } from '@/lib/audit';
 import { canSeeAudit } from '@/lib/audit-access';
 import { createDealTask, reopenDeal } from '@/lib/bitrix-write';
 import { crossOriginResponse, isSameOrigin } from '@/lib/origin';
@@ -46,6 +46,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
       deadline,
     });
     await markReturnedToWork(audit.id, taskId);
+    await recordAuditTask({ dealId: audit.dealId, taskId, responsibleId, title: taskTitle, deadline }); // видна в Алертах
     return Response.json({ ok: true, taskId });
   } catch (e) {
     return Response.json({ error: (e as Error).message }, { status: 502 });

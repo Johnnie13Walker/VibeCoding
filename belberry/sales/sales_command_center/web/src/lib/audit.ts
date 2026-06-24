@@ -1,6 +1,6 @@
 import { desc, eq, inArray } from 'drizzle-orm';
 import { db } from '@/db';
-import { dealAudits, users } from '@/db/schema';
+import { dealAudits, meetingTasks, users } from '@/db/schema';
 import { isSalesDept, isTelemarketing } from '@/lib/dashboard';
 
 // Названия стадий воронки «Продажи» (CATEGORY_ID=10) для показа стадии на момент аудита.
@@ -165,4 +165,31 @@ export async function markReturnedToWork(id: number, taskId: number | null): Pro
     .update(dealAudits)
     .set({ returnedToWork: true, taskId, updatedAt: new Date() })
     .where(eq(dealAudits.id, id));
+}
+
+/** Зарегистрировать задачу из аудита в общей таблице задач, чтобы она была видна
+ * в «Алертах» (тот же список и тот же sync статусов, что у задач из встреч).
+ * meetingId=0 — маркер «задача из аудита, не из встречи». */
+export async function recordAuditTask(args: {
+  dealId: number;
+  taskId: number;
+  responsibleId: number;
+  title: string;
+  deadline?: string;
+}): Promise<void> {
+  const today = new Date().toISOString().slice(0, 10);
+  await db
+    .insert(meetingTasks)
+    .values({
+      reportDate: today,
+      meetingId: 0,
+      dealId: args.dealId,
+      stepKey: `audit:${args.taskId}`,
+      taskId: args.taskId,
+      responsibleId: args.responsibleId,
+      title: args.title,
+      deadline: args.deadline ? new Date(args.deadline) : null,
+      closed: false,
+    })
+    .onConflictDoNothing();
 }
