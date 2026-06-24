@@ -57,7 +57,7 @@ def main() -> int:
             cur.execute(
                 "SELECT id, deal_id, task_id, return_stage, returned_at FROM deal_audits "
                 "WHERE returned_to_work AND followup_at IS NULL "
-                "AND returned_at IS NOT NULL AND returned_at < now() - interval '%s days' "
+                "AND returned_at IS NOT NULL AND returned_at < now() - make_interval(days => %s) "
                 "ORDER BY returned_at LIMIT 50",
                 (FOLLOWUP_DAYS,),
             )
