@@ -17,6 +17,14 @@ import sys
 
 from . import audit_engine
 
+# Застрявшие в collecting (воркер упал/убит mid-run) — освобождаем, чтобы не висели
+# вечно. 20 мин заведомо больше бюджета одного аудита (≤6 звонков + LLM).
+REAP_SQL = """
+UPDATE deal_audits SET status = 'error',
+  error = 'Аудит прервался (таймаут или сбой воркера). Запусти заново.', updated_at = now()
+WHERE status = 'collecting' AND updated_at < now() - interval '20 minutes'
+"""
+
 PICK_SQL = """
 UPDATE deal_audits SET status = 'collecting', updated_at = now()
 WHERE id = (
@@ -75,6 +83,9 @@ def main() -> int:
     from . import db  # ленивый импорт: psycopg нужен только на проде
 
     with db.connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute(REAP_SQL)
+            conn.commit()
         n = 0
         while process_one(conn):
             n += 1

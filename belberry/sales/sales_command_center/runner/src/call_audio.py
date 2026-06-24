@@ -21,7 +21,10 @@ import requests
 from . import bx_client
 
 WHISPER_MODEL = os.environ.get("SCC_WHISPER_MODEL", "small")  # small=быстро, medium=точнее
-MAX_CALLS = int(os.environ.get("SCC_AUDIO_MAX_CALLS", "12"))
+# Бюджет на распознавание: чтобы интерактивный аудит не висел минутами, берём не
+# больше N самых свежих звонков и суммарно не больше ~12 минут аудио.
+MAX_CALLS = int(os.environ.get("SCC_AUDIO_MAX_CALLS", "6"))
+MAX_TOTAL_SEC = int(os.environ.get("SCC_AUDIO_MAX_TOTAL_SEC", "720"))
 MIN_DURATION = int(os.environ.get("SCC_AUDIO_MIN_SEC", "25"))  # < этого — не разговор
 # Сервис-аккаунт Google для скачивания видеозаписей встреч с Drive. Чтобы он видел
 # запись, папку записей нужно расшарить на его email (см. SA .json client_email).
@@ -192,8 +195,13 @@ def transcribe_deal_calls(ctx: dict) -> list[dict[str, Any]]:
         return []
     recs = [r for r in list_recordings(ctx) if r["duration"] >= MIN_DURATION]
     out: list[dict[str, Any]] = []
+    spent = 0  # суммарная длительность уже распознанного аудио, сек
     for r in recs[:MAX_CALLS]:
         item = {k: r[k] for k in ("date", "duration", "direction", "user_id")}
+        if r["url"] and spent >= MAX_TOTAL_SEC:
+            item["status"] = "skipped_budget"  # бюджет аудио исчерпан — не висим
+            out.append(item)
+            continue
         if not r["url"]:
             item["status"] = "no_url"
         else:
@@ -205,6 +213,7 @@ def transcribe_deal_calls(ctx: dict) -> list[dict[str, Any]]:
             if text:
                 item["status"] = "ok"
                 item["transcript"] = text
+                spent += int(r["duration"] or 0)  # учёт бюджета аудио
             elif "status" not in item:
                 item["status"] = "expired"  # 404/нет аудио — стёрта по ретенции
         out.append(item)
