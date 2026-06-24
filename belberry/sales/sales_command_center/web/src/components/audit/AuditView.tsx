@@ -8,6 +8,25 @@ import type { DealAudit } from '@/lib/audit';
 const BAND_COLOR: Record<string, string> = { low: 'var(--bb-red)', mid: 'var(--bb-amber)', hi: 'var(--bb-green)' };
 const BAND_BG: Record<string, string> = { low: '#fdeced', mid: '#fdf2e7', hi: '#e7f4ec' };
 
+// Транслитерация кириллицы для slug в URL.
+const TRANSLIT: Record<string, string> = {
+  а:'a',б:'b',в:'v',г:'g',д:'d',е:'e',ё:'e',ж:'zh',з:'z',и:'i',й:'y',к:'k',л:'l',м:'m',н:'n',о:'o',п:'p',
+  р:'r',с:'s',т:'t',у:'u',ф:'f',х:'h',ц:'ts',ч:'ch',ш:'sh',щ:'sch',ъ:'',ы:'y',ь:'',э:'e',ю:'yu',я:'ya',
+};
+function slugify(s: string): string {
+  return s.toLowerCase().split('').map((c) => TRANSLIT[c] ?? c).join('')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'deal';
+}
+// URL аудита: /audit/<id>-<название>-<дата>. id-префикс — для поиска, остальное для читаемости.
+export function auditHref(a: { id: number; title: string | null; dealId: number; createdAt: Date | string | null }): string {
+  const name = slugify(a.title ?? `deal-${a.dealId}`);
+  const d = a.createdAt ? new Date(a.createdAt) : null;
+  const date = d && !Number.isNaN(d.getTime())
+    ? new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Moscow', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d)
+    : '';
+  return `/audit/${a.id}-${name}${date ? `-${date}` : ''}`;
+}
+
 function fmtDate(v: Date | string | null): string {
   if (!v) return '—';
   const d = new Date(v);
@@ -89,11 +108,12 @@ export function AuditView({ initialAudits }: { initialAudits: DealAudit[] }) {
         {audits.length === 0 ? (
           <div style={{ color: 'var(--bb-faint)', fontSize: 13 }}>Пока пусто — запусти первый аудит.</div>
         ) : (
-          <table className="bb-table" style={{ fontSize: 12.5 }}>
-            <thead><tr><th>Сделка</th><th>Стадия при аудите</th><th>Заказал</th><th>Дата</th><th>Шанс</th><th>Итог</th><th></th></tr></thead>
+          <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+          <table className="bb-table" style={{ fontSize: 12.5, minWidth: 980 }}>
+            <thead><tr><th>Сделка</th><th>Стадия при аудите</th><th>Заказал</th><th>Дата</th><th>Шанс</th><th>Менеджер на начало аудита</th><th>Новый менеджер</th><th>Итог</th><th></th></tr></thead>
             <tbody>
               {audits.map((a) => (
-                <tr key={a.id} onClick={() => router.push(`/audit/${a.id}`)} style={{ cursor: 'pointer' }}>
+                <tr key={a.id} onClick={() => router.push(auditHref(a))} style={{ cursor: 'pointer' }}>
                   <td style={{ whiteSpace: 'nowrap' }}><b>{a.title ?? `Сделка #${a.dealId}`}</b></td>
                   <td style={{ color: 'var(--bb-muted)', whiteSpace: 'nowrap' }}>{a.stageLabel ?? '—'}</td>
                   <td style={{ color: 'var(--bb-muted)', whiteSpace: 'nowrap' }}>{a.requestedByName ?? '—'}</td>
@@ -101,12 +121,15 @@ export function AuditView({ initialAudits }: { initialAudits: DealAudit[] }) {
                   <td>{a.status === 'ready'
                     ? <span style={{ fontSize: 11, fontWeight: 800, borderRadius: 999, padding: '3px 10px', background: BAND_BG[a.band ?? 'low'], color: BAND_COLOR[a.band ?? 'low'] }}>{a.score}%</span>
                     : '—'}</td>
+                  <td style={{ color: 'var(--bb-muted)', whiteSpace: 'nowrap' }}>{a.responsibleAtAuditName ?? '—'}</td>
+                  <td style={{ whiteSpace: 'nowrap', fontWeight: a.outcomeResponsibleName && a.outcomeResponsibleName !== a.responsibleAtAuditName ? 600 : 400, color: a.outcomeResponsibleName && a.outcomeResponsibleName !== a.responsibleAtAuditName ? 'var(--bb-violet)' : 'var(--bb-muted)' }}>{a.returnedToWork ? (a.outcomeResponsibleName ?? '—') : '—'}</td>
                   <td><OutcomeCell a={a} /></td>
-                  <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }}><Link href={`/audit/${a.id}`} onClick={(e) => e.stopPropagation()} style={{ color: 'var(--bb-violet)', fontWeight: 600, textDecoration: 'none' }}>открыть →</Link></td>
+                  <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }}><Link href={auditHref(a)} onClick={(e) => e.stopPropagation()} style={{ color: 'var(--bb-violet)', fontWeight: 600, textDecoration: 'none' }}>открыть →</Link></td>
                 </tr>
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
     </div>

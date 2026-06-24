@@ -134,8 +134,19 @@ export type DealAudit = {
   updatedAt: Date | string | null;
   requestedByName?: string | null;     // ФИО заказчика аудита (из users по requested_by)
   stageLabel?: string | null;          // стадия сделки на момент аудита
-  outcomeResponsibleName?: string | null; // ФИО того, кому досталась сделка
+  outcomeResponsibleName?: string | null; // ФИО того, кому досталась сделка (новый менеджер)
+  responsibleAtAuditId?: number | null;   // ответственный на момент аудита (последний в цепочке)
+  responsibleAtAuditName?: string | null; // ФИО менеджера на начало аудита
 };
+
+// Менеджер на момент аудита: последний ответственный в цепочке активностей.
+function responsibleAtAuditOf(result: AuditResult | null): number | null {
+  const chain = (result?.signals as { responsibles_chain?: unknown })?.responsibles_chain;
+  if (!Array.isArray(chain) || chain.length === 0) return null;
+  const last = chain[chain.length - 1];
+  const id = typeof last === 'number' ? last : Number(last);
+  return Number.isFinite(id) && id > 0 ? id : null;
+}
 
 function map(r: typeof dealAudits.$inferSelect): DealAudit {
   return {
@@ -160,10 +171,11 @@ export async function listAudits(limit = 50): Promise<DealAudit[]> {
   const rows = await db.select().from(dealAudits).orderBy(desc(dealAudits.createdAt)).limit(limit);
   const audits = rows.map(map);
   // резолвим ФИО заказчиков и получателей сделки одним запросом
+  for (const a of audits) a.responsibleAtAuditId = responsibleAtAuditOf(a.result);
   const ids = [
     ...new Set(
       audits
-        .flatMap((a) => [a.requestedBy, a.outcomeResponsibleId])
+        .flatMap((a) => [a.requestedBy, a.outcomeResponsibleId, a.responsibleAtAuditId])
         .filter((v): v is number => !!v),
     ),
   ];
@@ -175,6 +187,7 @@ export async function listAudits(limit = 50): Promise<DealAudit[]> {
   for (const a of audits) {
     a.requestedByName = a.requestedBy ? (nameById.get(a.requestedBy) ?? null) : null;
     a.outcomeResponsibleName = a.outcomeResponsibleId ? (nameById.get(a.outcomeResponsibleId) ?? null) : null;
+    a.responsibleAtAuditName = a.responsibleAtAuditId ? (nameById.get(a.responsibleAtAuditId) ?? null) : null;
     a.stageLabel = stageLabelOf(a.result);
   }
   return audits;

@@ -13,7 +13,7 @@ export default async function AuditReportPage({ params }: { params: Promise<{ id
     notFound();
   }
   const { id } = await params;
-  const [audit, managers] = await Promise.all([getAudit(Number(id)), listAssignableUsers()]);
+  const [audit, managers] = await Promise.all([getAudit(parseInt(id, 10)), listAssignableUsers()]);
   if (!audit) notFound();
   return <AuditReport initialAudit={audit} managers={managers} />;
 }
