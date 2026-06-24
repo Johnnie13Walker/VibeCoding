@@ -34,6 +34,24 @@ function patternLabel(id?: string): string {
   return (id && PATTERN_LABEL[id]) || 'Провал';
 }
 
+// Задача для телемаркетинга при переводе в воронку ТМ — иная по смыслу: прозвон/
+// реактивация, а не выход на ЛПР силами ОП.
+function tmTask(dealTitle: string, n: AuditResult['narrative']): { title: string; description: string } {
+  const ctx = n?.real_cause || (n?.summary ? n.summary.slice(0, 180) : '');
+  return {
+    title: `Прозвонить ${dealTitle} — реактивация сделки из отдела продаж`,
+    description: [
+      'Сделка возвращена из отдела продаж в телемаркетинг для повторного обзвона.',
+      ctx ? `Контекст: ${ctx}` : '',
+      'Цель звонка — дозвониться, освежить интерес, квалифицировать актуальность и при интересе назначить встречу для менеджера ОП.',
+      '1. Представиться, напомнить про прошлое обращение по проекту.',
+      '2. Выяснить: актуальна ли задача сейчас, кто принимает решение, есть ли бюджет.',
+      '3. Если интерес есть — назначить встречу/созвон с менеджером отдела продаж.',
+      '4. Если нет — зафиксировать причину и поставить дату следующего касания.',
+    ].filter(Boolean).join('\n'),
+  };
+}
+
 // Итог возврата в работу в человеческом виде, с фамилией.
 function outcomeHeadline(audit: DealAudit): string {
   const name = audit.outcomeResponsibleName ?? '';
@@ -108,6 +126,8 @@ export function AuditReport({ initialAudit, managers }: { initialAudit: DealAudi
   const [deadline] = useState(tomorrow18iso());
   const [taskTitle, setTaskTitle] = useState('');
   const [taskDesc, setTaskDesc] = useState('');
+  const [taskTouched, setTaskTouched] = useState(false); // правил ли пользователь текст вручную
+  const selectedIsTm = managers.find((m) => String(m.id) === responsibleId)?.kind === 'tm';
 
   // самоопрос статуса, пока аудит выполняется
   const poll = useCallback(async () => {
@@ -121,13 +141,18 @@ export function AuditReport({ initialAudit, managers }: { initialAudit: DealAudi
     const t = setInterval(poll, 4000);
     return () => clearInterval(t);
   }, [audit.status, poll]);
-  // подставить текст задачи из разбора, когда он появится
+  // текст задачи: для телемаркетинга — ТМ-шаблон (прозвон), для ОП — план из аудита.
+  // Меняем, пока пользователь не правил вручную.
   useEffect(() => {
-    if (n.first_task && !taskTitle) {
+    if (taskTouched) return;
+    if (selectedIsTm) {
+      const t = tmTask(audit.title ?? `сделку #${audit.dealId}`, n);
+      setTaskTitle(t.title); setTaskDesc(t.description);
+    } else if (n.first_task) {
       setTaskTitle(n.first_task.title ?? 'Связаться по сделке');
       setTaskDesc(n.first_task.description ?? '');
     }
-  }, [n.first_task, taskTitle]);
+  }, [selectedIsTm, n.first_task, taskTouched, audit.title, audit.dealId]);
 
   const back = (
     <Link href="/audit" style={{ color: 'var(--bb-violet)', fontWeight: 600, textDecoration: 'none', fontSize: 13.5 }}>← к списку аудитов</Link>
@@ -158,7 +183,6 @@ export function AuditReport({ initialAudit, managers }: { initialAudit: DealAudi
 
   const rec = r.recovery;
   const kpCards = num(s.kp_cards);
-  const selectedIsTm = managers.find((m) => String(m.id) === responsibleId)?.kind === 'tm';
   const narrativeEmpty = !n.summary && !n.failures?.length && !n.chronology?.length;
   return (
     <div className="bb-page bb-fade">
@@ -321,9 +345,9 @@ export function AuditReport({ initialAudit, managers }: { initialAudit: DealAudi
               )}
               <span style={{ color: 'var(--bb-muted)' }}>дедлайн: завтра 18:00</span>
             </div>
-            <input value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)}
+            <input value={taskTitle} onChange={(e) => { setTaskTouched(true); setTaskTitle(e.target.value); }}
               style={{ width: '100%', border: '1px solid var(--bb-line)', borderRadius: 8, padding: '8px 10px', marginBottom: 8, fontSize: 13.5 }} />
-            <textarea value={taskDesc} onChange={(e) => setTaskDesc(e.target.value)}
+            <textarea value={taskDesc} onChange={(e) => { setTaskTouched(true); setTaskDesc(e.target.value); }}
               style={{ width: '100%', minHeight: 120, border: '1px solid var(--bb-line)', borderRadius: 8, padding: 10, fontSize: 13, resize: 'vertical' }} />
             {err && <div style={{ color: 'var(--bb-red)', fontSize: 13, marginTop: 8 }}>{err}</div>}
             <div style={{ marginTop: 12, display: 'flex', gap: 10 }}>
