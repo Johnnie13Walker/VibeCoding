@@ -172,3 +172,7 @@ dist/
 .playwright-cli/
 .playwright-mcp/
 .pytest_cache/
+.next/
+.next.clean-build/
+**/.next/
+**/.next.clean-build/
