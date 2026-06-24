@@ -102,7 +102,7 @@ export function AuditView({ initialAudits }: { initialAudits: DealAudit[] }) {
                     ? <span style={{ fontSize: 11, fontWeight: 800, borderRadius: 999, padding: '3px 10px', background: BAND_BG[a.band ?? 'low'], color: BAND_COLOR[a.band ?? 'low'] }}>{a.score}%</span>
                     : '—'}</td>
                   <td><OutcomeCell a={a} /></td>
-                  <td><Link href={`/audit/${a.id}`} onClick={(e) => e.stopPropagation()} style={{ color: 'var(--bb-violet)', fontWeight: 600, textDecoration: 'none' }}>открыть →</Link></td>
+                  <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }}><Link href={`/audit/${a.id}`} onClick={(e) => e.stopPropagation()} style={{ color: 'var(--bb-violet)', fontWeight: 600, textDecoration: 'none' }}>открыть →</Link></td>
                 </tr>
               ))}
             </tbody>
