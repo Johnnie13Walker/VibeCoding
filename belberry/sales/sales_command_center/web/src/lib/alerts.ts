@@ -274,10 +274,11 @@ export async function getAlerts(): Promise<AlertsData> {
     }))
     .sort((a, b) => (b.severity === a.severity ? b.flags.length - a.flags.length : a.severity === 'critical' ? -1 : 1));
 
+  // processRisk пока скрыт в UI (превентив шумит) — не вливаем его в бейдж Алертов,
+  // иначе ~46 фантомных «критичных». Вернуть вместе с SHOW_PROCESS_RISK в AlertsView.
   const count =
     burning.filter((b) => b.severity === 'critical').length +
     silent.filter((s) => s.severity === 'critical').length +
-    tasks.filter((t) => t.overdue).length +
-    processRisk.filter((r) => r.severity === 'critical').length;
+    tasks.filter((t) => t.overdue).length;
   return { snapshotDate, burning, silent, tasks, processRisk, managers, count };
 }

@@ -58,6 +58,11 @@ function SectionPicker({ managers, selected, onChange }: { managers: AlertManage
   return <ManagerPicker managers={managers} selected={selected} onChange={onChange} allWord="менеджеры" />;
 }
 
+// Превентив (#5) пока шумит — handover-флаг частит (RESPONSIBLE_ID звонков
+// варьируется), на пилоте набегает ~46 «критичных». Прячем блок до доработки
+// чувствительности флагов. Данные (deal_risk_flags) продолжают собираться cron'ом.
+const SHOW_PROCESS_RISK = false;
+
 export function AlertsView({ data }: { data: AlertsData }) {
   const lookup = useMemo(() => new Map(data.managers.map((m) => [m.managerId, m])), [data.managers]);
 
@@ -227,7 +232,8 @@ export function AlertsView({ data }: { data: AlertsData }) {
         )}
       </div>
 
-      {/* Риск процесса — живые сделки с красными флагами (превентив) */}
+      {/* Риск процесса — живые сделки с красными флагами (превентив). Скрыто до доработки флагов. */}
+      {SHOW_PROCESS_RISK && (
       <div className="bb-card" style={{ marginTop: 16 }}>
         <div className="bb-sect-head">
           <span className="bb-sect-ic" style={{ background: '#fdeced', color: '#d4202e' }}>⚠️</span>
@@ -262,6 +268,7 @@ export function AlertsView({ data }: { data: AlertsData }) {
           </ul>
         )}
       </div>
+      )}
     </div>
   );
 }
