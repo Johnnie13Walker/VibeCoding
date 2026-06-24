@@ -159,8 +159,14 @@ async function resolveName(bitrixId: number | null): Promise<string | null> {
 export async function listAudits(limit = 50): Promise<DealAudit[]> {
   const rows = await db.select().from(dealAudits).orderBy(desc(dealAudits.createdAt)).limit(limit);
   const audits = rows.map(map);
-  // резолвим ФИО заказчиков одним запросом
-  const ids = [...new Set(audits.map((a) => a.requestedBy).filter((v): v is number => !!v))];
+  // резолвим ФИО заказчиков и получателей сделки одним запросом
+  const ids = [
+    ...new Set(
+      audits
+        .flatMap((a) => [a.requestedBy, a.outcomeResponsibleId])
+        .filter((v): v is number => !!v),
+    ),
+  ];
   const nameById = new Map<number, string>();
   if (ids.length) {
     const us = await db.select({ id: users.bitrixId, name: users.name }).from(users).where(inArray(users.bitrixId, ids));
@@ -168,6 +174,7 @@ export async function listAudits(limit = 50): Promise<DealAudit[]> {
   }
   for (const a of audits) {
     a.requestedByName = a.requestedBy ? (nameById.get(a.requestedBy) ?? null) : null;
+    a.outcomeResponsibleName = a.outcomeResponsibleId ? (nameById.get(a.outcomeResponsibleId) ?? null) : null;
     a.stageLabel = stageLabelOf(a.result);
   }
   return audits;

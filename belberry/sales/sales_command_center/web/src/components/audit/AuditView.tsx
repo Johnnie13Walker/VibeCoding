@@ -15,6 +15,27 @@ function fmtDate(v: Date | string | null): string {
   return d.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' });
 }
 
+// Стили плашки «Итог» (мягкая заливка по смыслу).
+const OUTCOME_STYLE: Record<string, { bg: string; color: string; label: string }> = {
+  current: { bg: '#e7f4ec', color: 'var(--bb-green)', label: '↩︎ Вернули текущему' },
+  transferred: { bg: 'var(--bb-violet-soft)', color: 'var(--bb-violet)', label: '→ Передали другому' },
+  telemarketing: { bg: '#fdf2e7', color: '#b5651d', label: '📞 В телемаркетинг' },
+};
+
+function OutcomeCell({ a }: { a: DealAudit }) {
+  if (a.status === 'error') return <span style={{ color: 'var(--bb-faint)' }}>ошибка аудита</span>;
+  if (a.status !== 'ready') return <span style={{ color: 'var(--bb-faint)' }}>⏳ выполняется…</span>;
+  if (!a.returnedToWork) return <span style={{ color: 'var(--bb-faint)' }}>— не возвращена</span>;
+  const s = a.outcomeKind ? OUTCOME_STYLE[a.outcomeKind] : null;
+  if (!s) return <span style={{ color: 'var(--bb-green)', fontWeight: 600 }}>✓ в работе</span>;
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: s.bg, color: s.color, borderRadius: 11, padding: '5px 11px', fontSize: 12.5, fontWeight: 600, whiteSpace: 'nowrap' }}>
+      {s.label}
+      {a.outcomeResponsibleName && <span style={{ fontWeight: 500, opacity: 0.85 }}>· {a.outcomeResponsibleName}</span>}
+    </span>
+  );
+}
+
 export function AuditView({ initialAudits }: { initialAudits: DealAudit[] }) {
   const router = useRouter();
   const [audits, setAudits] = useState<DealAudit[]>(initialAudits);
@@ -69,7 +90,7 @@ export function AuditView({ initialAudits }: { initialAudits: DealAudit[] }) {
           <div style={{ color: 'var(--bb-faint)', fontSize: 13 }}>Пока пусто — запусти первый аудит.</div>
         ) : (
           <table className="bb-table">
-            <thead><tr><th>Сделка</th><th>Стадия при аудите</th><th>Заказал</th><th>Дата</th><th>Шанс</th><th>Статус</th><th></th></tr></thead>
+            <thead><tr><th>Сделка</th><th>Стадия при аудите</th><th>Заказал</th><th>Дата</th><th>Шанс</th><th>Итог</th><th></th></tr></thead>
             <tbody>
               {audits.map((a) => (
                 <tr key={a.id} onClick={() => router.push(`/audit/${a.id}`)} style={{ cursor: 'pointer' }}>
@@ -80,7 +101,7 @@ export function AuditView({ initialAudits }: { initialAudits: DealAudit[] }) {
                   <td>{a.status === 'ready'
                     ? <span style={{ fontSize: 11, fontWeight: 800, borderRadius: 999, padding: '3px 10px', background: BAND_BG[a.band ?? 'low'], color: BAND_COLOR[a.band ?? 'low'] }}>{a.score}%</span>
                     : '—'}</td>
-                  <td style={{ color: 'var(--bb-muted)' }}>{a.status === 'ready' ? (a.returnedToWork ? '✓ в работе' : 'готов') : a.status === 'error' ? 'ошибка' : '⏳ …'}</td>
+                  <td><OutcomeCell a={a} /></td>
                   <td><Link href={`/audit/${a.id}`} onClick={(e) => e.stopPropagation()} style={{ color: 'var(--bb-violet)', fontWeight: 600, textDecoration: 'none' }}>открыть →</Link></td>
                 </tr>
               ))}
