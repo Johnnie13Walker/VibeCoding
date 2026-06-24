@@ -29,7 +29,7 @@ function OutcomeCell({ a }: { a: DealAudit }) {
   const s = a.outcomeKind ? OUTCOME_STYLE[a.outcomeKind] : null;
   if (!s) return <span style={{ color: 'var(--bb-green)', fontWeight: 600 }}>✓ в работе</span>;
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: s.bg, color: s.color, borderRadius: 11, padding: '5px 11px', fontSize: 12.5, fontWeight: 600, whiteSpace: 'nowrap' }}>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: s.bg, color: s.color, borderRadius: 9, padding: '4px 9px', fontSize: 11.5, fontWeight: 600, whiteSpace: 'nowrap' }}>
       {s.label}
       {a.outcomeResponsibleName && <span style={{ fontWeight: 500, opacity: 0.85 }}>· {a.outcomeResponsibleName}</span>}
     </span>
@@ -89,14 +89,14 @@ export function AuditView({ initialAudits }: { initialAudits: DealAudit[] }) {
         {audits.length === 0 ? (
           <div style={{ color: 'var(--bb-faint)', fontSize: 13 }}>Пока пусто — запусти первый аудит.</div>
         ) : (
-          <table className="bb-table">
+          <table className="bb-table" style={{ fontSize: 12.5 }}>
             <thead><tr><th>Сделка</th><th>Стадия при аудите</th><th>Заказал</th><th>Дата</th><th>Шанс</th><th>Итог</th><th></th></tr></thead>
             <tbody>
               {audits.map((a) => (
                 <tr key={a.id} onClick={() => router.push(`/audit/${a.id}`)} style={{ cursor: 'pointer' }}>
-                  <td><b>{a.title ?? `Сделка #${a.dealId}`}</b> <span style={{ color: 'var(--bb-faint)' }}>#{a.dealId}</span></td>
-                  <td style={{ color: 'var(--bb-muted)' }}>{a.stageLabel ?? '—'}</td>
-                  <td style={{ color: 'var(--bb-muted)' }}>{a.requestedByName ?? '—'}</td>
+                  <td style={{ whiteSpace: 'nowrap' }}><b>{a.title ?? `Сделка #${a.dealId}`}</b> <span style={{ color: 'var(--bb-faint)' }}>#{a.dealId}</span></td>
+                  <td style={{ color: 'var(--bb-muted)', whiteSpace: 'nowrap' }}>{a.stageLabel ?? '—'}</td>
+                  <td style={{ color: 'var(--bb-muted)', whiteSpace: 'nowrap' }}>{a.requestedByName ?? '—'}</td>
                   <td style={{ color: 'var(--bb-muted)', whiteSpace: 'nowrap' }}>{fmtDate(a.createdAt)}</td>
                   <td>{a.status === 'ready'
                     ? <span style={{ fontSize: 11, fontWeight: 800, borderRadius: 999, padding: '3px 10px', background: BAND_BG[a.band ?? 'low'], color: BAND_COLOR[a.band ?? 'low'] }}>{a.score}%</span>
