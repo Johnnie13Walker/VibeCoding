@@ -1,0 +1,11 @@
+{
+  "_comment": "Снимок ТОЛЬКО наших хуков для ~/.claude/settings.json. install.sh мерджит их идемпотентно, не трогая прочие (GSD-фреймворк) хуки. Здесь — для ручной сверки/восстановления.",
+  "hooks": {
+    "SessionStart": [
+      { "hooks": [ { "type": "command", "command": "bash \"$HOME/.claude/hooks/state-drift-check.sh\"", "timeout": 10 } ] }
+    ],
+    "SessionEnd": [
+      { "hooks": [ { "type": "command", "command": "bash \"$HOME/.claude/hooks/wrap-guard.sh\"", "timeout": 15 } ] }
+    ]
+  }
+}
