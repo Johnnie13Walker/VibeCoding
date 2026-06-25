@@ -70,6 +70,23 @@ function tomorrow18iso(): string {
   d.setDate(d.getDate() + 1);
   return `${d.toISOString().slice(0, 10)}T18:00:00+03:00`;
 }
+// Ключ сортировки из даты ДД.ММ.ГГГГ → число ГГГГММДД. null, если года нет.
+function chronoSortKey(date?: string): number | null {
+  if (!date) return null;
+  const m = date.match(/(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})/);
+  if (!m) return null;
+  const dd = +m[1], mm = +m[2];
+  let yy = +m[3];
+  if (yy < 100) yy += 2000;
+  return yy * 10000 + mm * 100 + dd;
+}
+// Сортировка хронологии от раннего к позднему. Если хотя бы у одного события
+// дата без года (старые аудиты) — не трогаем порядок, чтобы не сломать межгодовую логику.
+function sortChronology<T extends { date?: string }>(items: T[]): T[] {
+  const keyed = items.map((e) => ({ e, k: chronoSortKey(e.date) }));
+  if (keyed.some((x) => x.k === null)) return items;
+  return keyed.sort((a, b) => (a.k as number) - (b.k as number)).map((x) => x.e);
+}
 
 function Gauge({ score, band }: { score: number; band: string }) {
   const r = 78;
@@ -232,8 +249,8 @@ export function AuditReport({ initialAudit, managers }: { initialAudit: DealAudi
 
       {!!n.chronology?.length && (
         <Section icon="🕑" title="Хронология">
-          {n.chronology.map((e, i) => (
-            <div key={i} style={{ display: 'grid', gridTemplateColumns: '80px 1fr', gap: 12, padding: '7px 0', borderBottom: '1px solid var(--bb-line)', fontSize: 13.5 }}>
+          {sortChronology(n.chronology).map((e, i) => (
+            <div key={i} style={{ display: 'grid', gridTemplateColumns: '92px 1fr', gap: 12, padding: '7px 0', borderBottom: '1px solid var(--bb-line)', fontSize: 13.5 }}>
               <span style={{ color: 'var(--bb-faint)', fontWeight: 600 }}>{e.date}</span>
               <span>{e.event} {e.who && <i style={{ color: 'var(--bb-faint)' }}>— {e.who}</i>}</span>
             </div>
