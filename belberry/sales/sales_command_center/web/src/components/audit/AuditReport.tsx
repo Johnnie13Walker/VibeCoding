@@ -139,7 +139,7 @@ export function AuditReport({ initialAudit, managers }: { initialAudit: DealAudi
   const s = (r?.signals ?? {}) as Record<string, unknown>;
   const [stageId, setStageId] = useState('C10:EXECUTING');
   const [responsibleId, setResponsibleId] = useState(''); // явный выбор — без «умолчания»
-  const [deadline] = useState(tomorrow18iso());
+  const [deadline, setDeadline] = useState(tomorrow18iso());
   const [taskTitle, setTaskTitle] = useState('');
   const [taskDesc, setTaskDesc] = useState('');
   const [taskTouched, setTaskTouched] = useState(false); // правил ли пользователь текст вручную
@@ -369,7 +369,11 @@ export function AuditReport({ initialAudit, managers }: { initialAudit: DealAudi
                   </select>
                 </label>
               )}
-              <span style={{ color: 'var(--bb-muted)' }}>дедлайн: завтра 18:00</span>
+              <label style={{ color: 'var(--bb-muted)' }}>дедлайн:{' '}
+                <input type="datetime-local" value={deadline.slice(0, 16)}
+                  onChange={(e) => setDeadline(e.target.value ? `${e.target.value}:00+03:00` : '')}
+                  style={{ border: '1px solid var(--bb-line)', borderRadius: 8, padding: '4px 8px', fontSize: 13 }} />
+              </label>
             </div>
             <input value={taskTitle} onChange={(e) => { setTaskTouched(true); setTaskTitle(e.target.value); }}
               style={{ width: '100%', border: '1px solid var(--bb-line)', borderRadius: 8, padding: '8px 10px', marginBottom: 8, fontSize: 13.5 }} />
