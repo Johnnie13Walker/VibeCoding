@@ -1,0 +1,161 @@
+{
+  "deal_id": 648,
+  "domain": "reclinic.ru",
+  "brand": "Acoola Team",
+  "facts": [
+    {
+      "key": "deal_title",
+      "value": "reclinic.ru",
+      "source": "bitrix.json:deal",
+      "status": "факт"
+    },
+    {
+      "key": "company_revenue",
+      "value": "48163000",
+      "source": "bitrix.json:deal",
+      "status": "факт"
+    },
+    {
+      "key": "brief:Приоритетные товары/услуги, которые нужно продвигать",
+      "value": "Малоинвазивные спинальные операции: Холодноплазменная нуклеопластика, Нуклеотомия DISC-FX, Вертебропластика, Радиочастотная денервация, Межостистая декомпрессия, Эпидуральная блокада",
+      "source": "bitrix.json:бриф СП1056",
+      "status": "факт"
+    },
+    {
+      "key": "brief:УТП и офферы",
+      "value": "https://www.reclinic.ru/operatsii/maloinvazivnye-spinalnye-operatsii/. Говорит в рф кроме них никто не делает, + этот топовый врач https://www.reclinic.ru/vrachi/strahov-maksim-alekseevich/",
+      "source": "bitrix.json:бриф СП1056",
+      "status": "факт"
+    },
+    {
+      "key": "brief:Опишите вашу целевую аудиторию",
+      "value": "40-45+ и до 60, а также дети и внуки пенсионеров, которые ведут их на процедуру ",
+      "source": "bitrix.json:бриф СП1056",
+      "status": "факт"
+    },
+    {
+      "key": "brief:Регион продвижения",
+      "value": "москва + другие регионы, они по всей россии из-за того что монополисты работают ",
+      "source": "bitrix.json:бриф СП1056",
+      "status": "факт"
+    },
+    {
+      "key": "sqi",
+      "value": 140,
+      "source": "audit.json:pr-cy",
+      "status": "факт"
+    },
+    {
+      "key": "yandex_index",
+      "value": 123,
+      "source": "audit.json:pr-cy",
+      "status": "факт"
+    },
+    {
+      "key": "google_index",
+      "value": 158,
+      "source": "audit.json:pr-cy",
+      "status": "факт"
+    },
+    {
+      "key": "load_time",
+      "value": 1.274238109588623,
+      "source": "audit.json:pr-cy",
+      "status": "факт"
+    },
+    {
+      "key": "schema_org",
+      "value": false,
+      "source": "audit.json:pr-cy",
+      "status": "факт"
+    },
+    {
+      "key": "metrika:visits",
+      "value": 24701,
+      "source": "metrika.json",
+      "status": "факт"
+    },
+    {
+      "key": "metrika:users",
+      "value": 21679,
+      "source": "metrika.json",
+      "status": "факт"
+    },
+    {
+      "key": "metrika:bounce_rate",
+      "value": 57.9,
+      "source": "metrika.json",
+      "status": "факт"
+    },
+    {
+      "key": "metrika:goals",
+      "value": [
+        {
+          "id": 97201507,
+          "name": "(+) Запись на приём (стр. спасибо)",
+          "reaches": 141,
+          "conversion": 0.48
+        },
+        {
+          "id": 52595896,
+          "name": "2020 Заход в Контакты",
+          "reaches": 818,
+          "conversion": 2.73
+        },
+        {
+          "id": 60498418,
+          "name": "Вопрос-Ответ + Запись к любому врачу",
+          "reaches": 0,
+          "conversion": 0
+        },
+        {
+          "id": 97201585,
+          "name": "2020-03 pismo-ok",
+          "reaches": 0,
+          "conversion": 0
+        },
+        {
+          "id": 230596816,
+          "name": "Автоцель: клик по номеру телефона",
+          "reaches": 172,
+          "conversion": 0.58
+        },
+        {
+          "id": 230749635,
+          "name": "Автоцель: отправка формы",
+          "reaches": 495,
+          "conversion": 1.1
+        },
+        {
+          "id": 231075961,
+          "name": "Автоцель: клик по email",
+          "reaches": 158,
+          "conversion": 0.44
+        },
+        {
+          "id": 249085283,
+          "name": "Автоцель: заполнил контактные данные",
+          "reaches": 126,
+          "conversion": 0.51
+        }
+      ],
+      "source": "metrika.json",
+      "status": "факт"
+    },
+    {
+      "key": "metrika:organic_trend",
+      "value": "2944 (2026-04) → 2078 (2026-05), -29.4% — падение",
+      "source": "metrika.json:trend",
+      "status": "факт"
+    }
+  ],
+  "hypotheses": [],
+  "manual_checklist": [
+    "Цены — только из сметы сметчика (Google Sheets по матрице), не выдумывать",
+    "Титул: клиент, домен, дата, дедлайн подарка/скидки",
+    "Каскад скидок: 10% логотип / 5% оперативность с датой (по правилам матрицы)",
+    "Прогнозы — диапазоны + дисклеймер «оценка на текущий момент» (LEGAL-MED-2026 §2)",
+    "Никаких гарантий результата и «случаев излечения» (ст. 24 ФЗ-38)",
+    "Перед отправкой: в папке только клиентские файлы (без внутренних калькуляторов)"
+  ]
+}

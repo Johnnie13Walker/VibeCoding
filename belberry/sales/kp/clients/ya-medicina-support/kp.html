@@ -1,0 +1,1024 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Belberry · Яндекс.Медицина + техническая поддержка · КП</title>
+<style>
+  @page { size: 1280px 800px; margin: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  html, body { background: #ffffff; }
+  body {
+    font-family: -apple-system, "Helvetica Neue", "Inter", "Segoe UI", Arial, sans-serif;
+    color: #1a1f3a;
+    font-feature-settings: "tnum" 1, "lnum" 1;
+  }
+  .slide {
+    width: 1280px;
+    height: 800px;
+    page-break-after: always;
+    position: relative;
+    padding: 44px 64px 26px 64px;
+    overflow: hidden;
+    background: #faf8f5;
+    display: flex;
+    flex-direction: column;
+  }
+  .slide:last-child { page-break-after: auto; }
+  .slide-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+
+  /* TITLE SLIDE */
+  .slide.title {
+    background: linear-gradient(135deg, #1f1547 0%, #2b1f5e 45%, #3a2a7a 100%);
+    color: #fff;
+    padding: 80px 96px;
+  }
+  .title .eyebrow {
+    font-size: 14px;
+    letter-spacing: 0.32em;
+    color: #cdc5ee;
+    text-transform: uppercase;
+    font-weight: 500;
+    margin-bottom: 96px;
+  }
+  .title h1 {
+    font-size: 60px;
+    line-height: 1.06;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: 28px;
+    max-width: 1040px;
+  }
+  .title .lead {
+    font-size: 22px;
+    color: #d9d3ee;
+    font-weight: 400;
+    max-width: 940px;
+    line-height: 1.45;
+    margin-bottom: 96px;
+  }
+  .title .divider {
+    height: 1px;
+    background: rgba(255,255,255,0.18);
+    margin-bottom: 36px;
+  }
+  .title-meta {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 32px;
+  }
+  .title-meta .cell .label {
+    font-size: 11px;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: #b6abe6;
+    font-weight: 500;
+    margin-bottom: 12px;
+  }
+  .title-meta .cell .value {
+    font-size: 19px;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 4px;
+  }
+  .title-meta .cell .note {
+    font-size: 13px;
+    color: #cdc5ee;
+  }
+
+  /* CONTENT SLIDE — HEADER */
+  .slide-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 8px;
+  }
+  .slide-header h2 {
+    font-size: 34px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: #1a1f3a;
+    line-height: 1.1;
+  }
+  .slide-header .pagenum {
+    font-size: 12px;
+    letter-spacing: 0.18em;
+    color: #5b50d6;
+    font-weight: 700;
+    margin-top: 14px;
+  }
+  .slide-subheader {
+    font-size: 14px;
+    color: #6b6f88;
+    margin-bottom: 16px;
+  }
+  .slide-rule {
+    height: 3px;
+    background: #1a1f3a;
+    margin-bottom: 20px;
+    width: 100%;
+  }
+
+  /* CARDS GRID */
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+
+  .card {
+    background: #ffffff;
+    border-radius: 8px;
+    padding: 18px 20px;
+    position: relative;
+    box-shadow: 0 1px 0 rgba(26,31,58,0.04);
+  }
+  .card .bar {
+    position: absolute; top: 0; left: 0;
+    width: 56px; height: 3px;
+    background: #5b50d6;
+    border-radius: 2px;
+  }
+  .card .tag {
+    display: inline-block;
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    background: #ece9f9;
+    color: #5b50d6;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    margin-bottom: 9px;
+  }
+  .card h3 {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1a1f3a;
+    margin-bottom: 8px;
+    line-height: 1.2;
+  }
+  .card .kpi-label {
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    color: #6b6f88;
+    text-transform: uppercase;
+    font-weight: 500;
+    margin-top: 8px;
+    margin-bottom: 2px;
+  }
+  .card .kpi-value {
+    font-size: 21px;
+    font-weight: 700;
+    color: #1a1f3a;
+    line-height: 1.1;
+  }
+  .card .kpi-value.purple { color: #5b50d6; }
+  .card .desc {
+    font-size: 11.5px;
+    line-height: 1.5;
+    color: #4a4f6a;
+    margin-top: 9px;
+    border-top: 1px dashed #d8d3e6;
+    padding-top: 9px;
+  }
+  .card .body-text { font-size: 11.5px; line-height: 1.55; color: #4a4f6a; margin-top: 6px; }
+  .card .body-text strong { color: #1a1f3a; }
+
+  /* HIGHLIGHT BLOCK */
+  .highlight {
+    background: linear-gradient(135deg, #5b50d6 0%, #4a3fc5 100%);
+    color: #fff;
+    border-radius: 8px;
+    padding: 18px 24px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .highlight .cell .label {
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #d9d3ee;
+    font-weight: 600;
+    margin-bottom: 5px;
+  }
+  .highlight .cell .value {
+    font-size: 26px;
+    font-weight: 700;
+    line-height: 1.05;
+  }
+  .highlight .cell .note {
+    font-size: 11px;
+    color: #d9d3ee;
+    margin-top: 3px;
+  }
+
+  /* TABLE */
+  table.belb {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+  }
+  table.belb th {
+    text-align: left;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #6b6f88;
+    font-weight: 600;
+    padding: 7px 10px;
+    border-bottom: 1px solid #d8d3e6;
+  }
+  table.belb th.right, table.belb td.right { text-align: right; }
+  table.belb td {
+    padding: 7px 10px;
+    border-bottom: 1px solid #ece9f3;
+    color: #1a1f3a;
+  }
+  table.belb td.metric { color: #4a4f6a; }
+  table.belb td.num { font-variant-numeric: tabular-nums; font-weight: 600; }
+  table.belb tr.totalrow td { font-weight: 700; background: #f3effc; border-bottom: none; }
+  table.belb tr.totalrow td:first-child { color: #5b50d6; }
+  table.belb .now { color: #6b6f88; }
+  table.belb .future { color: #5b50d6; font-weight: 700; }
+
+  /* DISCLAIMER */
+  .disclaimer {
+    background: #fff4ec;
+    border-left: 4px solid #e88a3b;
+    border-radius: 4px;
+    padding: 10px 14px;
+    font-size: 10.5px;
+    line-height: 1.45;
+    color: #5b3a1a;
+    flex-shrink: 0;
+  }
+  .disclaimer .d-title {
+    font-weight: 700;
+    color: #b86420;
+    font-size: 9.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin-bottom: 3px;
+  }
+
+  /* FOOTER */
+  .slide-footer {
+    margin-top: auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid #e7e3d8;
+    padding-top: 12px;
+    font-size: 10.5px;
+    color: #6b6f88;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+  }
+  .slide-footer .belb-mark {
+    font-weight: 700;
+    color: #1a1f3a;
+    letter-spacing: 0.04em;
+  }
+
+  /* ROADMAP */
+  .roadmap-list { display: flex; flex-direction: column; gap: 12px; }
+  .roadmap-step { display: flex; gap: 18px; align-items: flex-start; }
+  .roadmap-num {
+    background: #5b50d6;
+    color: #fff;
+    font-weight: 700;
+    width: 32px; height: 32px;
+    border-radius: 16px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    font-size: 14px;
+  }
+  .roadmap-step .body { flex: 1; }
+  .roadmap-step .body .title-line { font-weight: 700; color: #1a1f3a; font-size: 14px; margin-bottom: 4px; }
+  .roadmap-step .body .desc-line { font-size: 13px; color: #4a4f6a; line-height: 1.5; }
+  .roadmap-divider { height: 1px; background: #e3dfee; margin-left: 50px; }
+
+  /* SMALL UTILITY */
+  .pill {
+    display: inline-block;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    padding: 4px 9px;
+    border-radius: 4px;
+    background: #ece9f9;
+    color: #5b50d6;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  .pill.warn { background: #fde3d2; color: #b86420; }
+  .pill.ok { background: #d8efe0; color: #2c7a4a; }
+  .pill.bad { background: #fadcde; color: #a13442; }
+
+  .two-col-block { display: grid; grid-template-columns: 1.4fr 1fr; gap: 22px; }
+  .megalarge { font-size: 60px; font-weight: 700; color: #fff; line-height: 1; letter-spacing: -0.02em; }
+  .megalarge-sub { font-size: 13px; color: #d9d3ee; margin-top: 6px; }
+
+  .checkmark {
+    display: inline-block;
+    width: 16px; height: 16px;
+    background: #5b50d6;
+    color: #fff;
+    border-radius: 8px;
+    font-size: 10px;
+    text-align: center;
+    line-height: 16px;
+    margin-right: 8px;
+    vertical-align: middle;
+  }
+  .xmark {
+    display: inline-block;
+    width: 16px; height: 16px;
+    background: #c9ccd9;
+    color: #fff;
+    border-radius: 8px;
+    font-size: 10px;
+    text-align: center;
+    line-height: 16px;
+    margin-right: 8px;
+    vertical-align: middle;
+  }
+
+  /* CLOSING SLIDE */
+  .slide.closing {
+    background: linear-gradient(135deg, #1f1547 0%, #2b1f5e 48%, #3a2a7a 100%);
+    color: #fff;
+    padding: 56px 72px 40px 72px;
+    justify-content: space-between;
+  }
+  .closing-eyebrow {
+    font-size: 13px;
+    letter-spacing: 0.3em;
+    color: #b6abe6;
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+  .closing-quote {
+    font-size: 42px;
+    font-weight: 700;
+    line-height: 1.12;
+    letter-spacing: -0.015em;
+    color: #fff;
+    margin: 8px 0 4px;
+    max-width: 1050px;
+  }
+  .rr-title {
+    font-size: 12px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #cdc5ee;
+    font-weight: 600;
+    margin-bottom: 12px;
+  }
+  .rr-certs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; align-items: stretch; margin-bottom: 16px; }
+  .rr-cert {
+    background: linear-gradient(160deg, #d4202e 0%, #a8121d 100%);
+    border-radius: 16px;
+    padding: 22px 22px 18px;
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 8px 24px rgba(168,18,29,0.4);
+  }
+  .rr-cert-top { display: flex; align-items: center; gap: 11px; margin-bottom: 16px; }
+  .rr-mark {
+    width: 34px; height: 34px;
+    display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr;
+    gap: 3px;
+  }
+  .rr-mark span { background: #fff; border-radius: 2px; }
+  .rr-mark span:nth-child(2) { border-radius: 2px 8px 2px 2px; }
+  .rr-mark-text {
+    font-size: 11px; font-weight: 700; line-height: 1.05;
+    letter-spacing: 0.12em; color: #fff;
+  }
+  .rr-cert-place { font-size: 34px; font-weight: 800; line-height: 1; margin-bottom: 14px; }
+  .rr-cert-cap { font-size: 10.5px; color: rgba(255,255,255,0.7); margin-bottom: 3px; }
+  .rr-cert-cat { font-size: 13px; font-weight: 700; line-height: 1.3; margin-bottom: 12px; }
+  .rr-cert-brand { font-size: 17px; font-weight: 700; margin-bottom: auto; }
+  .rr-cert-foot {
+    display: flex; justify-content: space-between; align-items: flex-end;
+    margin-top: 16px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.2);
+  }
+  .rr-sign { font-size: 8px; color: rgba(255,255,255,0.65); line-height: 1.5; font-style: italic; }
+  .rr-year { font-size: 22px; font-weight: 800; }
+  .closing-strip {
+    display: flex; flex-wrap: wrap; gap: 24px;
+    padding: 14px 0;
+    border-top: 1px solid rgba(255,255,255,0.14);
+    border-bottom: 1px solid rgba(255,255,255,0.14);
+    align-items: center;
+  }
+  .cs-item { font-size: 12.5px; color: #d9d3ee; display: flex; align-items: center; gap: 8px; }
+  .cs-num { font-size: 20px; font-weight: 700; color: #fff; }
+  .cs-badge {
+    width: 22px; height: 22px; border-radius: 6px;
+    background: rgba(255,255,255,0.14); color: #ffd96b;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700;
+  }
+  .closing-contacts {
+    display: flex; flex-wrap: wrap; gap: 24px; align-items: baseline;
+    font-size: 13px; color: #cdc5ee;
+  }
+  .closing-contacts .cc-brand {
+    font-size: 24px; font-weight: 700; color: #fff; letter-spacing: -0.01em;
+    margin-right: 8px;
+  }
+</style>
+</head>
+<body>
+
+<!-- SLIDE 1: TITLE -->
+<section class="slide title">
+  <div class="eyebrow">BELBERRY · МЕДИЦИНСКИЙ DIGITAL С 2015 ГОДА</div>
+  <h1>Попадание в Яндекс.Медицину<br>+ техническая поддержка сайта</h1>
+  <div class="lead">Заводим врачей клиники в медицинский блок Яндекса через фид. Оплата — разовый выкуп запаса часов (депозит), которые расходуются в течение года на любые задачи. Без переплаты за полноценное продвижение.</div>
+  <div class="divider"></div>
+  <div class="title-meta">
+    <div class="cell">
+      <div class="label">ДЛЯ</div>
+      <div class="value">[Название клиники]</div>
+      <div class="note">сайт в разработке</div>
+    </div>
+    <div class="cell">
+      <div class="label">РЕШЕНИЕ</div>
+      <div class="value">Я.Медицина (фид) + техподдержка</div>
+      <div class="note">запуск + поддержка из депозита</div>
+    </div>
+    <div class="cell">
+      <div class="label">ПОДГОТОВЛЕНО</div>
+      <div class="value">03.06.2026</div>
+      <div class="note">Семенихин Егор · отдел продаж</div>
+    </div>
+    <div class="cell">
+      <div class="label">МОДЕЛЬ ОПЛАТЫ</div>
+      <div class="value">Депозит часов</div>
+      <div class="note">ДЕПОЗИТ MAX · от 110 250 ₽ с НДС</div>
+    </div>
+  </div>
+</section>
+
+<!-- SLIDE 2: КАК ПОПАСТЬ В Я.МЕДИЦИНУ -->
+<section class="slide">
+  <div class="slide-header">
+    <h2>Как клиника попадает в Яндекс.Медицину</h2>
+    <div class="pagenum">02 / 08</div>
+  </div>
+  <div class="slide-subheader">Главное, что снимает вопрос «продавать полноценное SEO или нет»</div>
+  <div class="slide-rule"></div>
+
+  <div class="grid-3" style="margin-bottom: 16px;">
+    <div class="card">
+      <div class="bar"></div>
+      <span class="tag">ЧТО ЭТО</span>
+      <h3>Медблок Яндекса</h3>
+      <div class="body-text">Сервис <strong>yandex.ru/medicine</strong>: более <strong>800 тыс. врачей</strong> и <strong>60 тыс. клиник</strong>, 10 млн отзывов. В Поиске показываются карточки врачей с онлайн-записью. Запись пациента происходит <strong>на вашем сайте</strong>, а не на стороннем сервисе.</div>
+    </div>
+    <div class="card">
+      <div class="bar"></div>
+      <span class="tag">КАК ПОПАСТЬ</span>
+      <h3>Через фид, а не через позиции</h3>
+      <div class="body-text">Клиника передаёт данные о врачах <strong>фидом в формате YML</strong> (или XLSX) и загружает его в <strong>Яндекс.Вебмастер</strong>. Карточки начинают показываться после приёма фида. Размещение фида у Яндекса — <strong>бесплатное</strong>.</div>
+    </div>
+    <div class="card" style="background:#f3effc;">
+      <div class="bar"></div>
+      <span class="tag">КЛЮЧЕВОЙ ВЫВОД</span>
+      <h3>SEO для попадания не нужно</h3>
+      <div class="body-text">Расширенный блок формируется <strong>из корректного фида независимо от позиций сайта</strong> в поиске. «Грузануть фид» — по сути верно. Но «грузануть» ≠ пять минут: фид должен быть технически точным, иначе врачи не покажутся.</div>
+    </div>
+  </div>
+
+  <div class="highlight">
+    <div class="cell">
+      <div class="label">РАЗМЕЩЕНИЕ ФИДА</div>
+      <div class="value">0 ₽</div>
+      <div class="note">бесплатно на стороне Яндекса</div>
+    </div>
+    <div class="cell">
+      <div class="label">ЧТО РЕАЛЬНО НУЖНО</div>
+      <div class="value">Корректный фид + сайт под требования</div>
+      <div class="note">это и есть оплачиваемая работа</div>
+    </div>
+    <div class="cell">
+      <div class="label">ПОЛНОЦЕННОЕ SEO</div>
+      <div class="value">Не требуется для блока</div>
+      <div class="note">органический трафик — отдельная задача</div>
+    </div>
+  </div>
+
+  <div class="disclaimer" style="margin-top:14px;">
+    <div class="d-title">ИСТОЧНИК</div>
+    Требования и механика — официальная справка Яндекс.Вебмастер (раздел «Врачи») и страница yandex.ru/medicine/clinics. Сверено 03.06.2026.
+  </div>
+
+  <div class="slide-footer">
+    <span class="belb-mark">BELBERRY</span>
+    <span>КП · Яндекс.Медицина + техническая поддержка</span>
+    <span>03.06.2026</span>
+  </div>
+</section>
+
+<!-- SLIDE 3: ТРЕБОВАНИЯ ЯНДЕКСА -->
+<section class="slide">
+  <div class="slide-header">
+    <h2>Требования Яндекса · чек-лист</h2>
+    <div class="pagenum">03 / 08</div>
+  </div>
+  <div class="slide-subheader">Сайт только делается — закладываем эти требования в разработку сразу, а не переделываем потом</div>
+  <div class="slide-rule"></div>
+
+  <div class="grid-3" style="margin-bottom: 14px;">
+    <div class="card">
+      <div class="bar"></div>
+      <span class="tag">К САЙТУ</span>
+      <h3>Что должно быть на сайте</h3>
+      <div class="body-text">
+        · <strong>Онлайн-запись на самом сайте</strong> — не редирект на сторонний сервис (без неё в блок не пускают)<br>
+        · Страницы / карточки врачей и услуг<br>
+        · Лицензии и сертификаты выложены на сайте<br>
+        · Защищённое соединение (HTTPS), постоянно доступный адрес фида<br>
+        · Подтверждённая экспертиза врачей: опыт, лицензии, сертификаты
+      </div>
+    </div>
+    <div class="card">
+      <div class="bar"></div>
+      <span class="tag">К ФИДУ (YML/XLSX)</span>
+      <h3>Что внутри фида</h3>
+      <div class="body-text">
+        · Специальности строго <strong>из классификатора Яндекса</strong><br>
+        · Врачи: ФИО, специальность, опыт, образование, фото<br>
+        · Связки <strong>врач — услуга — филиал</strong> с ценами и расписанием<br>
+        · Расписание приёма в строгом машинном формате<br>
+        · Доступные ссылки на фото<br>
+        · Авто-обновление при любых изменениях
+      </div>
+    </div>
+    <div class="card">
+      <div class="bar"></div>
+      <span class="tag">ЮР · 152-ФЗ</span>
+      <h3>Персональные данные</h3>
+      <div class="body-text">
+        · <strong>Письменное согласие каждого врача</strong> на публикацию ФИО, фото, стажа и образования<br>
+        · Врачи — только с высшим медицинским образованием<br>
+        · Подтверждение прав на сайт в Вебмастере<br>
+        · Готовим шаблон согласия и организуем сбор
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="background:#fff4ec; border-left:4px solid #e88a3b; padding:14px 18px;">
+    <span class="pill warn">САЙТ В РАЗРАБОТКЕ</span>
+    <span style="font-size:13px; color:#5b3a1a; margin-left:10px; line-height:1.5;">Главная засада: онлайн-запись и карточки врачей должны жить <strong>на самом сайте</strong>. Если заложить требования Я.Медицины в ТЗ на разработку сейчас — запуск пройдёт без переделок. Если нет — потом дороже и дольше.</span>
+  </div>
+
+  <div class="disclaimer" style="margin-top:14px;">
+    <div class="d-title">ПОЧЕМУ ВРАЧИ НЕ ПОКАЗЫВАЮТСЯ</div>
+    Типовые причины отказа Яндекса: отсутствие обязательных полей, ошибки структуры фида, недоступные фото, неверные связки врач — услуга, нарушение формата расписания. Поэтому в смете заложен этап отладки до приёма фида.
+  </div>
+
+  <div class="slide-footer">
+    <span class="belb-mark">BELBERRY</span>
+    <span>КП · Яндекс.Медицина + техническая поддержка</span>
+    <span>03.06.2026</span>
+  </div>
+</section>
+
+<!-- SLIDE 4: ОБЪЁМ РАБОТ НА ЗАПУСК (ЧАСЫ) -->
+<section class="slide">
+  <div class="slide-header">
+    <h2>Объём работ на запуск · оценка в часах</h2>
+    <div class="pagenum">04 / 08</div>
+  </div>
+  <div class="slide-subheader">Разовый старт «под ключ» — от аудита сайта до приёма фида Яндексом и показа карточек · ориентировочно 3–4 недели</div>
+  <div class="slide-rule"></div>
+
+  <div class="two-col-block" style="margin-bottom: 14px;">
+    <div class="card">
+      <div class="bar"></div>
+      <h3 style="margin-bottom:12px;">Состав запуска</h3>
+      <table class="belb">
+        <thead>
+          <tr><th>Этап работ</th><th class="right">Часы</th><th>Роль</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="metric">1. Аудит сайта на соответствие требованиям Я.Медицины</td><td class="right num">3</td><td class="metric">SEO / менеджер</td></tr>
+          <tr><td class="metric">2. Сбор и нормализация данных о врачах (ФИО, спец., опыт, образование, фото, цены)</td><td class="right num">5</td><td class="metric">Контент-менеджер</td></tr>
+          <tr><td class="metric">3. Мэппинг специальностей и услуг по классификаторам Яндекса</td><td class="right num">3</td><td class="metric">SEO-специалист</td></tr>
+          <tr><td class="metric">4. Настройка выгрузки фида (структура, цены, расписание, связки врач — услуга)</td><td class="right num">8</td><td class="metric">Программист</td></tr>
+          <tr><td class="metric">5. Верификация сайта в Вебмастере + загрузка фида</td><td class="right num">2</td><td class="metric">SEO-специалист</td></tr>
+          <tr><td class="metric">6. Отладка фида до приёма + контроль показа карточек</td><td class="right num">5</td><td class="metric">Программист / SEO</td></tr>
+          <tr><td class="metric">7. Менеджмент проекта, согласования, отчёт</td><td class="right num">2</td><td class="metric">Менеджер проекта</td></tr>
+          <tr><td class="metric" style="color:#a6a3b8;">Онлайн-запись на сайте — силами разработчика сайта, в нашу смету не входит</td><td class="right num" style="color:#a6a3b8;">0</td><td class="metric" style="color:#a6a3b8;">—</td></tr>
+          <tr class="totalrow"><td>Итого на запуск</td><td class="right num">28 ч</td><td></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div style="display:flex; flex-direction:column; gap:16px;">
+      <div class="card">
+        <div class="bar"></div>
+        <h3 style="font-size:15px; margin-bottom:6px;">Почему ~28 часов, а не «фид за вечер»</h3>
+        <div class="body-text">Большая часть — это <strong>подготовка данных и доведение сайта</strong> до требований Яндекса: классификаторы, структура фида, отладка до приёма. Онлайн-запись и сбор согласий врачей — на стороне клиники, мы их <strong>не дублируем в смете</strong>.</div>
+      </div>
+      <div class="card" style="background:#fff4ec; border-left:4px solid #e88a3b;">
+        <h3 style="font-size:15px; margin-bottom:6px; color:#b86420;">Оценка ориентировочная</h3>
+        <div class="body-text">Считали приблизительно: <strong>пока не видим ваш сайт</strong> и не знаем всех его возможностей. Под клинику с 10–15 врачами. Точную смету зафиксируем после доступа к сайту и списку врачей.</div>
+      </div>
+      <div class="card" style="background:#f3effc;">
+        <div class="bar"></div>
+        <h3 style="font-size:15px; margin-bottom:6px;">Часы не пропадают</h3>
+        <div class="body-text">Если фактически уйдёт <strong>меньше 28 часов</strong> — оставшиеся часы депозита потратите на другие задачи: доработки сайта, посадочные страницы, обновление данных в фиде.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="highlight">
+    <div class="cell">
+      <div class="label">ОБЪЁМ ЗАПУСКА</div>
+      <div class="value">28 часов</div>
+      <div class="note">укладывается в ДЕПОЗИТ MAX 30 ч</div>
+    </div>
+    <div class="cell">
+      <div class="label">СТАВКА</div>
+      <div class="value">3 500 ₽/час</div>
+      <div class="note">без НДС · ДЕПОЗИТ MAX</div>
+    </div>
+    <div class="cell">
+      <div class="label">СТОИМОСТЬ ЗАПУСКА</div>
+      <div class="value">110 250 ₽</div>
+      <div class="note">с НДС 5% · детали на стр. 06</div>
+    </div>
+  </div>
+
+  <div class="slide-footer">
+    <span class="belb-mark">BELBERRY</span>
+    <span>КП · Яндекс.Медицина + техническая поддержка</span>
+    <span>03.06.2026</span>
+  </div>
+</section>
+
+<!-- SLIDE 5: ПОЧЕМУ ДЕПОЗИТ, А НЕ РАЗОВОЕ SEO -->
+<section class="slide">
+  <div class="slide-header">
+    <h2>Почему техподдержка на депозите, а не разовое SEO</h2>
+    <div class="pagenum">05 / 08</div>
+  </div>
+  <div class="slide-subheader">Сайт ещё в разработке — нужна гибкая рука под фид и доработки, а не жёстко зафиксированный набор работ</div>
+  <div class="slide-rule"></div>
+
+  <div class="grid-3" style="margin-bottom: 16px;">
+    <div class="card">
+      <div class="bar"></div>
+      <span class="tag">ГИБКОСТЬ</span>
+      <h3>Запас часов под любые задачи</h3>
+      <div class="body-text">Депозит — это <strong>оплаченные часы</strong>, которые тратятся на то, что нужно прямо сейчас: фид, карточки врачей, правки строящегося сайта, посадочные страницы. Разовое продвижение такой свободы не даёт.</div>
+    </div>
+    <div class="card">
+      <div class="bar"></div>
+      <span class="tag">ФИД ЖИВОЙ</span>
+      <h3>Сопровождение обязательно</h3>
+      <div class="body-text">Врачи, цены, расписание, филиалы меняются — фид <strong>обязан обновляться</strong>, иначе карточки слетают или показывают неактуальное. «Грузануть один раз и забыть» не сработает. Часы депозита тратятся на поддержку фида по мере изменений.</div>
+    </div>
+    <div class="card">
+      <div class="bar"></div>
+      <span class="tag">ПРОЗРАЧНОСТЬ</span>
+      <h3>Платите за часы один раз</h3>
+      <div class="body-text">Выкупаете запас часов и видите списания по задачам. Часы <strong>не сгорают помесячно</strong> — расходуются в течение года. Закончились — докупаете по той же ставке; срочные задачи (старт ≤ 3 ч) — +50%.</div>
+    </div>
+  </div>
+
+  <div class="two-col-block">
+    <div class="card">
+      <div class="bar"></div>
+      <h3 style="font-size:15px; margin-bottom:10px;">Разовое SEO — не наш сценарий здесь</h3>
+      <div style="font-size:13px;line-height:1.7;color:#4a4f6a;">
+        <div><span class="xmark">×</span> Не решает попадание в Я.Медицину (это фид, а не позиции)</div>
+        <div><span class="xmark">×</span> Жёсткий набор работ, только под новый сайт</div>
+        <div><span class="xmark">×</span> Не покрывает живое сопровождение фида и доработки</div>
+      </div>
+    </div>
+    <div class="card" style="background:#f3effc;">
+      <div class="bar"></div>
+      <h3 style="font-size:15px; margin-bottom:10px;">Депозит-техподдержка — решает всё</h3>
+      <div style="font-size:13px;line-height:1.7;color:#4a4f6a;">
+        <div><span class="checkmark">✓</span> Запуск Я.Медицины под ключ</div>
+        <div><span class="checkmark">✓</span> Доработки строящегося сайта под требования</div>
+        <div><span class="checkmark">✓</span> Поддержка фида и контроль показа карточек</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide-footer">
+    <span class="belb-mark">BELBERRY</span>
+    <span>КП · Яндекс.Медицина + техническая поддержка</span>
+    <span>03.06.2026</span>
+  </div>
+</section>
+
+<!-- SLIDE 6: ТАРИФЫ И ДЕПОЗИТ -->
+<section class="slide">
+  <div class="slide-header">
+    <h2>Тарифы · депозитная модель</h2>
+    <div class="pagenum">06 / 08</div>
+  </div>
+  <div class="slide-subheader">ДЕПОЗИТ MAX — разовый выкуп часов. Действует 12 месяцев, расходуется по мере задач. Договор — ООО «НКТ», НДС 5%</div>
+  <div class="slide-rule"></div>
+
+  <div class="two-col-block" style="margin-bottom: 14px;">
+    <div class="card">
+      <div class="bar"></div>
+      <h3 style="margin-bottom:12px;">ДЕПОЗИТ MAX — разовый выкуп часов</h3>
+      <table class="belb">
+        <thead>
+          <tr><th>Пакет</th><th class="right">Часы</th><th class="right">Без НДС</th><th class="right">С НДС 5%</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>ДЕПОЗИТ MAX — запуск Я.Медицины под ключ <span class="pill">рекоменд.</span></td><td class="right num">30 ч</td><td class="right num">105 000 ₽</td><td class="right num future">110 250 ₽</td></tr>
+          <tr><td>Докупка часов в любой момент</td><td class="right num">от 10 ч</td><td class="right num">3 500 ₽/ч</td><td class="right num">3 675 ₽/ч</td></tr>
+          <tr class="totalrow"><td>Скидка 5% за оплату в 10 дней</td><td class="right num" colspan="3">30 ч → 104 738 ₽ (с НДС)</td></tr>
+        </tbody>
+      </table>
+      <div style="font-size:10.5px;color:#6b6f88;margin-top:10px;line-height:1.5;">
+        Депозит оплачивается <strong>один раз</strong>, не ежемесячно. Часы действуют 12 месяцев и не сгорают помесячно. Ставка часа — 3 500 ₽ без НДС. Срочные задачи (старт ≤ 3 ч) — +50% к ставке.
+      </div>
+    </div>
+
+    <div style="display:flex; flex-direction:column; gap:14px;">
+      <div class="card">
+        <div class="bar"></div>
+        <h3 style="font-size:15px; margin-bottom:8px;">На что расходуется депозит</h3>
+        <div class="body-text">
+          · Запуск Я.Медицины (≈ 28 ч)<br>
+          · Поддержка фида: новые врачи, цены, расписание<br>
+          · Контроль показа карточек в Яндексе<br>
+          · Доработки строящегося сайта, посадочные страницы<br>
+          · 7 специалистов по единой ставке: дизайнер, контент-менеджер, верстальщик, программист, SEO-специалист, копирайтер, менеджер проекта
+        </div>
+      </div>
+      <div class="card" style="background:#f3effc;">
+        <div class="bar"></div>
+        <div class="kpi-label">ВХОД В Я.МЕДИЦИНУ — РАЗОВО</div>
+        <div class="kpi-value purple">от 110 250 ₽</div>
+        <div class="body-text" style="margin-top:4px;">ДЕПОЗИТ MAX, 30 ч, с НДС 5%</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="highlight">
+    <div class="cell">
+      <div class="label">ВХОД (РАЗОВО)</div>
+      <div class="value">от 110 250 ₽</div>
+      <div class="note">ДЕПОЗИТ MAX · 30 ч · с НДС</div>
+    </div>
+    <div class="cell">
+      <div class="label">ДЕЙСТВУЕТ</div>
+      <div class="value">12 месяцев</div>
+      <div class="note">часы не сгорают помесячно</div>
+    </div>
+    <div class="cell">
+      <div class="label">ДАЛЬШЕ</div>
+      <div class="value">Докупка 3 675 ₽/ч</div>
+      <div class="note">по мере новых задач</div>
+    </div>
+  </div>
+
+  <div class="slide-footer">
+    <span class="belb-mark">BELBERRY</span>
+    <span>КП · Яндекс.Медицина + техническая поддержка</span>
+    <span>03.06.2026</span>
+  </div>
+</section>
+
+<!-- SLIDE 7: ЧАСТЫЕ ОПАСЕНИЯ -->
+<section class="slide">
+  <div class="slide-header">
+    <h2>Частые опасения — и как на деле</h2>
+    <div class="pagenum">07 / 08</div>
+  </div>
+  <div class="slide-subheader">Честно отвечаем на вопросы, которые обычно возникают у клиники</div>
+  <div class="slide-rule"></div>
+
+  <div class="grid-2" style="margin-bottom: 18px;">
+    <div class="card">
+      <div class="bar"></div>
+      <span class="tag warn" style="background:#fde3d2;color:#b86420;">ОПАСЕНИЕ</span>
+      <h3>«Спишете часы быстро и непонятно за что»</h3>
+      <div class="body-text" style="border-top:1px dashed #d8d3e6; padding-top:9px; margin-top:9px;"><strong>Как на деле:</strong> учёт каждого часа по конкретным задачам, ежемесячный отчёт по списаниям, остаток депозита всегда виден. Спорные работы согласуем заранее.</div>
+    </div>
+    <div class="card">
+      <div class="bar"></div>
+      <span class="tag warn" style="background:#fde3d2;color:#b86420;">ОПАСЕНИЕ</span>
+      <h3>«А вдруг не попадём в Яндекс.Медицину»</h3>
+      <div class="body-text" style="border-top:1px dashed #d8d3e6; padding-top:9px; margin-top:9px;"><strong>Как на деле:</strong> готовим фид строго по требованиям Яндекса и доводим до технического приёма. Сам показ карточек и сроки решает модерация Яндекса — этого не гарантирует никто; наша задача — снять все технические причины отказа.</div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="bar"></div>
+      <span class="tag warn" style="background:#fde3d2;color:#b86420;">ОПАСЕНИЕ</span>
+      <h3>«Сайт ещё не готов — рано платить»</h3>
+      <div class="body-text" style="border-top:1px dashed #d8d3e6; padding-top:9px; margin-top:9px;"><strong>Как на деле:</strong> данные и фид готовим параллельно со сборкой сайта. Требования закладываем в задание разработчику сразу — переделок не будет, время не теряется.</div>
+    </div>
+    <div class="card">
+      <div class="bar"></div>
+      <span class="tag warn" style="background:#fde3d2;color:#b86420;">ОПАСЕНИЕ</span>
+      <h3>«Это разовая трата или подписка навсегда?»</h3>
+      <div class="body-text" style="border-top:1px dashed #d8d3e6; padding-top:9px; margin-top:9px;"><strong>Как на деле:</strong> депозит выкупается один раз, обязательных ежемесячных платежей нет. Ставка фиксированная — 3 500 ₽/час. Дальше — только если сами захотите докупить часы.</div>
+    </div>
+  </div>
+
+  <div class="slide-footer">
+    <span class="belb-mark">BELBERRY</span>
+    <span>КП · Яндекс.Медицина + техническая поддержка</span>
+    <span>03.06.2026</span>
+  </div>
+</section>
+
+<!-- SLIDE 8: ДОРОЖНАЯ КАРТА -->
+<section class="slide">
+  <div class="slide-header">
+    <h2>Дорожная карта и что дальше</h2>
+    <div class="pagenum">08 / 08</div>
+  </div>
+  <div class="slide-subheader">5 шагов до показа карточек врачей в Яндексе</div>
+  <div class="slide-rule"></div>
+
+  <div class="two-col-block" style="margin-bottom: 12px;">
+    <div class="card">
+      <div class="bar"></div>
+      <h3 style="margin-bottom: 14px;">Шаги до запуска</h3>
+      <div class="roadmap-list">
+        <div class="roadmap-step">
+          <div class="roadmap-num">1</div>
+          <div class="body">
+            <div class="title-line">Согласование</div>
+            <div class="desc-line">Подтверждаете состав запуска и тариф ДЕПОЗИТ MAX. Уточняем число врачей и филиалов.</div>
+          </div>
+        </div>
+        <div class="roadmap-divider"></div>
+        <div class="roadmap-step">
+          <div class="roadmap-num">2</div>
+          <div class="body">
+            <div class="title-line">Договор и выкуп депозита</div>
+            <div class="desc-line">Договор на техподдержку с ООО «НКТ» + приложение с тарифом. Разовый выкуп ДЕПОЗИТ MAX (от 30 ч). Скидка 5% при оплате в 10 дней.</div>
+          </div>
+        </div>
+        <div class="roadmap-divider"></div>
+        <div class="roadmap-step">
+          <div class="roadmap-num">3</div>
+          <div class="body">
+            <div class="title-line">Старт и доступы</div>
+            <div class="desc-line">Доступ к сайту (админка), Вебмастеру, список врачей. Подключаем вашего разработчика сайта.</div>
+          </div>
+        </div>
+        <div class="roadmap-divider"></div>
+        <div class="roadmap-step">
+          <div class="roadmap-num">4</div>
+          <div class="body">
+            <div class="title-line">Запуск Я.Медицины · 3–4 недели</div>
+            <div class="desc-line">Фид, онлайн-запись на сайте, согласия врачей, верификация, загрузка и отладка до приёма Яндексом.</div>
+          </div>
+        </div>
+        <div class="roadmap-divider"></div>
+        <div class="roadmap-step">
+          <div class="roadmap-num">5</div>
+          <div class="body">
+            <div class="title-line">Сопровождение</div>
+            <div class="desc-line">Контроль показа карточек, поддержка фида, доработки сайта. Ежемесячный отчёт по списанию часов.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 16px;">
+      <div class="card">
+        <div class="bar"></div>
+        <h3 style="font-size:16px;margin-bottom:12px;">Что от вас</h3>
+        <div style="font-size:13px;line-height:1.75;color:#4a4f6a;">
+          <div><span class="checkmark">✓</span> Список врачей: ФИО, специальность, опыт, образование, фото</div>
+          <div><span class="checkmark">✓</span> Письменные согласия врачей (поможем шаблоном)</div>
+          <div><span class="checkmark">✓</span> Доступ к сайту (админка) и Яндекс.Вебмастеру</div>
+          <div><span class="checkmark">✓</span> Контакт разработчика сайта</div>
+          <div><span class="checkmark">✓</span> Реквизиты лицензий для размещения на сайте</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="bar"></div>
+        <h3 style="font-size:16px;margin-bottom:12px;">Что от нас</h3>
+        <div style="font-size:13px;line-height:1.75;color:#4a4f6a;">
+          <div><span class="checkmark">✓</span> Настройка YML-фида и выгрузки</div>
+          <div><span class="checkmark">✓</span> Доведение сайта до требований Я.Медицины</div>
+          <div><span class="checkmark">✓</span> Контроль приёма фида и показа карточек</div>
+          <div><span class="checkmark">✓</span> Ежемесячная поддержка и отчёт по часам</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="highlight">
+    <div class="cell">
+      <div class="label">КОНТАКТ</div>
+      <div class="value" style="font-size:22px">Семенихин Егор</div>
+      <div class="note">Отдел продаж Belberry</div>
+    </div>
+    <div class="cell">
+      <div class="label">EMAIL · ТЕЛЕФОН</div>
+      <div class="value" style="font-size:18px">hello@belberry.net</div>
+      <div class="note">+7 (495) 845-37-89</div>
+    </div>
+    <div class="cell">
+      <div class="label">АДРЕС</div>
+      <div class="value" style="font-size:16px">belberry.net</div>
+      <div class="note">Москва, Варшавское ш. 118, к. 1, эт. 13, оф. 22</div>
+    </div>
+  </div>
+
+  <div class="slide-footer">
+    <span class="belb-mark">BELBERRY</span>
+    <span>КП · Яндекс.Медицина + техническая поддержка</span>
+    <span>Семенихин Егор · отдел продаж · belberry.net</span>
+  </div>
+</section>
+
+<!-- SLIDE 9: ФИНАЛЬНЫЙ — О BELBERRY -->
+<section class="slide closing">
+  <div class="closing-eyebrow">BELBERRY · МЕДИЦИНСКИЙ DIGITAL С 2015 ГОДА</div>
+
+  <div class="closing-quote">
+    «Мы заботимся о вашем&nbsp;маркетинге —<br>а вы о&nbsp;пациентах»
+  </div>
+
+  <div class="rr-title">Победитель Рейтинга Рунета 2025</div>
+  <div class="rr-certs">
+    <div class="rr-cert">
+      <div class="rr-cert-top">
+        <div class="rr-mark"><span></span><span></span><span></span><span></span></div>
+        <div class="rr-mark-text">РЕЙТИНГ<br>РУНЕТА</div>
+      </div>
+      <div class="rr-cert-place">1 место</div>
+      <div class="rr-cert-cap">В рейтинге:</div>
+      <div class="rr-cert-cat">Поддержка и развитие сайтов / Медицина, здоровье: поликлиники, больницы и т.п.</div>
+      <div class="rr-cert-cap">Поздравляем:</div>
+      <div class="rr-cert-brand">Belberry</div>
+      <div class="rr-cert-foot">
+        <div class="rr-sign">Рук. проекта: Сергей Бесшабашнов<br>Гл. редактор: Анатолий Денисов</div>
+        <div class="rr-year">2025</div>
+      </div>
+    </div>
+    <div class="rr-cert">
+      <div class="rr-cert-top">
+        <div class="rr-mark"><span></span><span></span><span></span><span></span></div>
+        <div class="rr-mark-text">РЕЙТИНГ<br>РУНЕТА</div>
+      </div>
+      <div class="rr-cert-place">3 место</div>
+      <div class="rr-cert-cap">В рейтинге:</div>
+      <div class="rr-cert-cat">Репутация / Медицина, здоровье: Услуги</div>
+      <div class="rr-cert-cap">Поздравляем:</div>
+      <div class="rr-cert-brand">Belberry</div>
+      <div class="rr-cert-foot">
+        <div class="rr-sign">Рук. проекта: Сергей Бесшабашнов<br>Гл. редактор: Анатолий Денисов</div>
+        <div class="rr-year">2025</div>
+      </div>
+    </div>
+    <div class="rr-cert">
+      <div class="rr-cert-top">
+        <div class="rr-mark"><span></span><span></span><span></span><span></span></div>
+        <div class="rr-mark-text">РЕЙТИНГ<br>РУНЕТА</div>
+      </div>
+      <div class="rr-cert-place">1 место</div>
+      <div class="rr-cert-cap">В рейтинге:</div>
+      <div class="rr-cert-cat">Комплексные разработчики / Красота, парфюмерия, уход: Косметология</div>
+      <div class="rr-cert-cap">Поздравляем:</div>
+      <div class="rr-cert-brand">Belberry</div>
+      <div class="rr-cert-foot">
+        <div class="rr-sign">Рук. проекта: Сергей Бесшабашнов<br>Гл. редактор: Анатолий Денисов</div>
+        <div class="rr-year">2025</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="closing-strip">
+    <div class="cs-item"><span class="cs-num">11</span> лет в медицинском digital (с 2015)</div>
+    <div class="cs-item"><span class="cs-num">700+</span> реализованных проектов в медицине</div>
+    <div class="cs-item"><span class="cs-num">5,0</span> рейтинг по отзывам клиентов</div>
+    <div class="cs-item"><span class="cs-badge">★</span> Золотой партнёр Битрикс</div>
+    <div class="cs-item"><span class="cs-badge">+</span> 1С-Битрикс: Решения для медицины</div>
+  </div>
+
+  <div class="closing-contacts">
+    <span class="cc-brand">Belberry</span>
+    <span>belberry.net</span>
+    <span>hello@belberry.net</span>
+    <span>+7 (495) 845-37-89</span>
+    <span>Москва, Варшавское ш. 118, к. 1, эт. 13, оф. 22</span>
+  </div>
+</section>
+
+</body>
+</html>

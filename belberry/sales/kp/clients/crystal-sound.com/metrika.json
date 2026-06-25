@@ -1,0 +1,392 @@
+{
+  "counter_id": 48507893,
+  "period": "2026-03-13..2026-06-11",
+  "days": 90,
+  "visits": 21200,
+  "users": 14200,
+  "bounce_rate": 22.7,
+  "avg_duration_s": 112,
+  "sources": [
+    {
+      "source": "Переходы по рекламе",
+      "visits": 8598
+    },
+    {
+      "source": "Переходы из поисковых систем",
+      "visits": 4745
+    },
+    {
+      "source": "Внутренние переходы",
+      "visits": 2732
+    },
+    {
+      "source": "Прямые заходы",
+      "visits": 2538
+    },
+    {
+      "source": "Переходы из рекомендательных систем",
+      "visits": 1797
+    },
+    {
+      "source": "Переходы по ссылкам на сайтах",
+      "visits": 609
+    },
+    {
+      "source": "Переходы из социальных сетей",
+      "visits": 91
+    },
+    {
+      "source": "Переходы из мессенджеров",
+      "visits": 20
+    },
+    {
+      "source": "Переходы с сохранённых страниц",
+      "visits": 2
+    }
+  ],
+  "organic_visits": 4745,
+  "organic_pct": 22,
+  "top_phrases": [
+    {
+      "phrase": "crystal sound",
+      "visits": 120
+    },
+    {
+      "phrase": "кристалл саунд",
+      "visits": 67
+    },
+    {
+      "phrase": "как жили люди в блокадном ленинграде почему каждый день блокады был подвигом народа",
+      "visits": 59
+    },
+    {
+      "phrase": "crystalsound",
+      "visits": 22
+    },
+    {
+      "phrase": "кристал саунд радиогиды",
+      "visits": 22
+    },
+    {
+      "phrase": "кристал саунд",
+      "visits": 19
+    },
+    {
+      "phrase": "crystal sound радиогид",
+      "visits": 14
+    },
+    {
+      "phrase": "как жили люди в блокадном ленинграде почему каждый день блокады был подвигом",
+      "visits": 11
+    },
+    {
+      "phrase": "как жили люди в блокадном ленинграде почему каждый день блокады был подвигом народа 4 класс",
+      "visits": 9
+    },
+    {
+      "phrase": "кристалл саунд аудиогид спб",
+      "visits": 7
+    }
+  ],
+  "goals": [
+    {
+      "id": 326412208,
+      "name": "Уникально-целевой звонок",
+      "reaches": 172,
+      "conversion": 0.81
+    },
+    {
+      "id": 275448717,
+      "name": "Отправка любой формы",
+      "reaches": 179,
+      "conversion": 0.76
+    },
+    {
+      "id": 351718373,
+      "name": "Покупка из калькулятора",
+      "reaches": 31,
+      "conversion": 0.14
+    },
+    {
+      "id": 355959284,
+      "name": "Ecommerce: покупка",
+      "reaches": 2,
+      "conversion": 0.0
+    },
+    {
+      "id": 357467062,
+      "name": "Email",
+      "reaches": 98,
+      "conversion": 0.43
+    },
+    {
+      "id": 419136224,
+      "name": "Отправка любой формы (JS)",
+      "reaches": 0,
+      "conversion": 0
+    },
+    {
+      "id": 40232950,
+      "name": "Калькулятор покупка - радиогид",
+      "reaches": 27,
+      "conversion": 0.12
+    },
+    {
+      "id": 326412207,
+      "name": "Уникальный звонок",
+      "reaches": 172,
+      "conversion": 0.81
+    }
+  ],
+  "trend": {
+    "total": {
+      "months": [
+        {
+          "month": "2026-03",
+          "visits": 4776,
+          "partial": true
+        },
+        {
+          "month": "2026-04",
+          "visits": 7703,
+          "partial": false
+        },
+        {
+          "month": "2026-05",
+          "visits": 5482,
+          "partial": false
+        },
+        {
+          "month": "2026-06",
+          "visits": 3239,
+          "partial": true
+        }
+      ],
+      "peak": 7703,
+      "peak_month": "2026-04",
+      "current": 5482,
+      "current_month": "2026-05",
+      "change_pct": -28.8,
+      "direction": "падение"
+    },
+    "organic": {
+      "months": [
+        {
+          "month": "2026-03",
+          "visits": 918,
+          "partial": true
+        },
+        {
+          "month": "2026-04",
+          "visits": 1721,
+          "partial": false
+        },
+        {
+          "month": "2026-05",
+          "visits": 1589,
+          "partial": false
+        },
+        {
+          "month": "2026-06",
+          "visits": 517,
+          "partial": true
+        }
+      ],
+      "peak": 1721,
+      "peak_month": "2026-04",
+      "current": 1589,
+      "current_month": "2026-05",
+      "change_pct": -7.7,
+      "direction": "стабильно"
+    }
+  },
+  "entry_pages": [
+    {
+      "page": "/",
+      "visits": 6796,
+      "bounce_rate": 18.3,
+      "traffic_share_pct": 32.1,
+      "problem": false
+    },
+    {
+      "page": "/radioguide",
+      "visits": 2844,
+      "bounce_rate": 1.8,
+      "traffic_share_pct": 13.4,
+      "problem": false
+    },
+    {
+      "page": "/rent",
+      "visits": 2134,
+      "bounce_rate": 40.9,
+      "traffic_share_pct": 10.1,
+      "problem": true
+    },
+    {
+      "page": "/audioguide",
+      "visits": 1355,
+      "bounce_rate": 11.2,
+      "traffic_share_pct": 6.4,
+      "problem": false
+    },
+    {
+      "page": "/media/pochemu-ia-ne-beru-bolshie-ekskursii-bez-radiogidov-6a1d38f50349f943668e8820_1_1",
+      "visits": 745,
+      "bounce_rate": 14.5,
+      "traffic_share_pct": 3.5,
+      "problem": false
+    },
+    {
+      "page": "/a/aBoX1uO1fzgGDKyb",
+      "visits": 737,
+      "bounce_rate": 21.8,
+      "traffic_share_pct": 3.5,
+      "problem": false
+    },
+    {
+      "page": "/contacts",
+      "visits": 415,
+      "bounce_rate": 23.4,
+      "traffic_share_pct": 2.0,
+      "problem": false
+    },
+    {
+      "page": "/a/Z8m7c6frl19MZlyr",
+      "visits": 391,
+      "bounce_rate": 29.9,
+      "traffic_share_pct": 1.8,
+      "problem": false
+    },
+    {
+      "page": "/accessories",
+      "visits": 385,
+      "bounce_rate": 13.8,
+      "traffic_share_pct": 1.8,
+      "problem": false
+    },
+    {
+      "page": "/sale-radioguide",
+      "visits": 343,
+      "bounce_rate": 44.9,
+      "traffic_share_pct": 1.6,
+      "problem": false
+    }
+  ],
+  "main_goal": {
+    "id": 275448717,
+    "name": "Отправка любой формы"
+  },
+  "devices": {
+    "desktop": {
+      "visits": 14984,
+      "bounce_rate": 23.1,
+      "conversion": 0.73
+    },
+    "mobile": {
+      "visits": 5932,
+      "bounce_rate": 21.1,
+      "conversion": 0.84
+    },
+    "tablet": {
+      "visits": 279,
+      "bounce_rate": 34.8,
+      "conversion": 0.36
+    },
+    "tv": {
+      "visits": 5,
+      "bounce_rate": 60.0,
+      "conversion": 0
+    }
+  },
+  "search_engines": {
+    "yandex": 1767,
+    "google": 2920,
+    "other": 58,
+    "yandex_pct": 37,
+    "google_pct": 62
+  },
+  "source_conversion": [
+    {
+      "source": "Переходы по рекламе",
+      "visits": 8598,
+      "conversion": 0.65
+    },
+    {
+      "source": "Переходы из поисковых систем",
+      "visits": 4745,
+      "conversion": 1.41
+    },
+    {
+      "source": "Внутренние переходы",
+      "visits": 2732,
+      "conversion": 0.44
+    },
+    {
+      "source": "Прямые заходы",
+      "visits": 2538,
+      "conversion": 0.91
+    },
+    {
+      "source": "Переходы из рекомендательных систем",
+      "visits": 1797,
+      "conversion": 0
+    },
+    {
+      "source": "Переходы по ссылкам на сайтах",
+      "visits": 609,
+      "conversion": 0.49
+    },
+    {
+      "source": "Переходы из социальных сетей",
+      "visits": 91,
+      "conversion": 0
+    },
+    {
+      "source": "Переходы из мессенджеров",
+      "visits": 20,
+      "conversion": 0
+    },
+    {
+      "source": "Переходы с сохранённых страниц",
+      "visits": 2,
+      "conversion": 0
+    }
+  ],
+  "geo": [
+    {
+      "region": "Москва и Московская область",
+      "visits": 4470
+    },
+    {
+      "region": "Санкт-Петербург и Ленинградская область",
+      "visits": 3169
+    },
+    {
+      "region": "Калининградская область",
+      "visits": 2702
+    },
+    {
+      "region": "Не определено",
+      "visits": 1726
+    },
+    {
+      "region": "Свердловская область",
+      "visits": 444
+    }
+  ],
+  "target_region": null,
+  "problems": [
+    {
+      "fact": "Страница /rent собирает 10.1% трафика, но отказы 40.9% против 22.7% в среднем по сайту",
+      "evidence": {
+        "page": "/rent",
+        "traffic_share_pct": 10.1,
+        "page_bounce": 40.9,
+        "site_bounce": 22.7
+      },
+      "so_what": "Заметная часть посетителей уходит с этой страницы, не сделав ни одного действия",
+      "action": "Переработка страницы: первый экран, скорость загрузки, содержание под запрос, призыв к действию"
+    }
+  ],
+  "site": "crystal-sound.com"
+}

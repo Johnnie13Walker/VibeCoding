@@ -1,0 +1,94 @@
+{
+  "deal_id": 18484,
+  "domain": "evromedika.ru",
+  "brand": "Belberry",
+  "facts": [
+    {
+      "key": "deal_title",
+      "value": "evromedika.ru",
+      "source": "bitrix.json:deal",
+      "status": "факт"
+    },
+    {
+      "key": "brief:Регион продвижения",
+      "value": "Санкт-Петербург (по районам нужно уточнить)",
+      "source": "bitrix.json:бриф СП1056",
+      "status": "факт"
+    },
+    {
+      "key": "brief:Опишите вашу целевую аудиторию",
+      "value": "Нет информации",
+      "source": "bitrix.json:бриф СП1056",
+      "status": "факт"
+    },
+    {
+      "key": "sqi",
+      "value": 120,
+      "source": "audit.json:pr-cy",
+      "status": "факт"
+    },
+    {
+      "key": "yandex_index",
+      "value": 656,
+      "source": "audit.json:pr-cy",
+      "status": "факт"
+    },
+    {
+      "key": "google_index",
+      "value": 253,
+      "source": "audit.json:pr-cy",
+      "status": "факт"
+    },
+    {
+      "key": "organic_pct",
+      "value": 54,
+      "source": "audit.json:pr-cy",
+      "status": "факт"
+    },
+    {
+      "key": "bounce_rate",
+      "value": 40,
+      "source": "audit.json:pr-cy",
+      "status": "факт"
+    },
+    {
+      "key": "visits_monthly",
+      "value": 2500,
+      "source": "audit.json:pr-cy",
+      "status": "факт"
+    },
+    {
+      "key": "load_time",
+      "value": 0.37662386894226074,
+      "source": "audit.json:pr-cy",
+      "status": "факт"
+    },
+    {
+      "key": "schema_org",
+      "value": false,
+      "source": "audit.json:pr-cy",
+      "status": "факт"
+    },
+    {
+      "key": "traffic_drop",
+      "value": "пик 52500 (08.2018) → сейчас 2500 = -95%",
+      "source": "audit.json:pr-cy:visits_history",
+      "status": "факт"
+    }
+  ],
+  "hypotheses": [
+    {
+      "key": "посещаемость",
+      "status": "гипотеза",
+      "note": "Метрика недоступна — только оценка PR-CY; запросить гостевой доступ"
+    }
+  ],
+  "manual_checklist": [
+    "Цены — только из сметы сметчика (Google Sheets по матрице), не выдумывать",
+    "Титул: клиент, домен, дата, дедлайн подарка/скидки",
+    "Каскад скидок: 10% логотип / 5% оперативность с датой (по правилам матрицы)",
+    "Прогнозы — диапазоны + дисклеймер «оценка на текущий момент» (LEGAL-MED-2026 §2)",
+    "Никаких гарантий результата и «случаев излечения» (ст. 24 ФЗ-38)",
+    "Перед отправкой: в папке только клиентские файлы (без внутренних калькуляторов)"
+  ]
+}

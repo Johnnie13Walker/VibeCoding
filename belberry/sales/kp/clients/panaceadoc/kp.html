@@ -1,0 +1,687 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Belberry × Панацея · Аудит продвижения и стратегия</title>
+<style>
+  @page { size: 1280px 800px; margin: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  html, body { background: #ffffff; }
+  body {
+    font-family: -apple-system, "Helvetica Neue", "Inter", "Segoe UI", Arial, sans-serif;
+    color: #1a1f3a;
+    font-feature-settings: "tnum" 1, "lnum" 1;
+  }
+  .slide {
+    width: 1280px;
+    height: 800px;
+    page-break-after: always;
+    position: relative;
+    padding: 44px 64px 26px 64px;
+    overflow: hidden;
+    background: #faf8f5;
+    display: flex;
+    flex-direction: column;
+  }
+  .slide:last-child { page-break-after: auto; }
+  .slide-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+
+  /* TITLE SLIDE */
+  .slide.title {
+    background: linear-gradient(135deg, #1f1547 0%, #2b1f5e 45%, #3a2a7a 100%);
+    color: #fff;
+    padding: 80px 96px;
+  }
+  .title .eyebrow {
+    font-size: 14px;
+    letter-spacing: 0.32em;
+    color: #cdc5ee;
+    text-transform: uppercase;
+    font-weight: 500;
+    margin-bottom: 96px;
+  }
+  .title h1 {
+    font-size: 64px;
+    line-height: 1.05;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: 28px;
+    max-width: 1000px;
+  }
+  .title .lead {
+    font-size: 22px;
+    color: #d9d3ee;
+    font-weight: 400;
+    max-width: 900px;
+    line-height: 1.45;
+    margin-bottom: 96px;
+  }
+  .title .divider {
+    height: 1px;
+    background: rgba(255,255,255,0.18);
+    margin-bottom: 36px;
+  }
+  .title-meta {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 32px;
+  }
+  .title-meta .cell .label {
+    font-size: 11px;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: #b6abe6;
+    font-weight: 500;
+    margin-bottom: 12px;
+  }
+  .title-meta .cell .value {
+    font-size: 20px;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 4px;
+  }
+  .title-meta .cell .note {
+    font-size: 13px;
+    color: #cdc5ee;
+  }
+
+  /* CONTENT SLIDE — HEADER */
+  .slide-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 8px;
+  }
+  .slide-header h2 {
+    font-size: 34px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: #1a1f3a;
+    line-height: 1.1;
+  }
+  .slide-header .pagenum {
+    font-size: 12px;
+    letter-spacing: 0.18em;
+    color: #5b50d6;
+    font-weight: 700;
+    margin-top: 14px;
+  }
+  .slide-subheader {
+    font-size: 14px;
+    color: #6b6f88;
+    margin-bottom: 16px;
+  }
+  .slide-rule {
+    height: 3px;
+    background: #1a1f3a;
+    margin-bottom: 20px;
+    width: 100%;
+  }
+
+  /* CARDS GRID */
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+
+  .card {
+    background: #ffffff;
+    border-radius: 8px;
+    padding: 18px 20px;
+    position: relative;
+    box-shadow: 0 1px 0 rgba(26,31,58,0.04);
+  }
+  .card .bar {
+    position: absolute; top: 0; left: 0;
+    width: 56px; height: 3px;
+    background: #5b50d6;
+    border-radius: 2px;
+  }
+  .card .tag {
+    display: inline-block;
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    background: #ece9f9;
+    color: #5b50d6;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    margin-bottom: 9px;
+  }
+  .card h3 {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1a1f3a;
+    margin-bottom: 8px;
+    line-height: 1.2;
+  }
+  .card .kpi-label {
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    color: #6b6f88;
+    text-transform: uppercase;
+    font-weight: 500;
+    margin-top: 8px;
+    margin-bottom: 2px;
+  }
+  .card .kpi-value {
+    font-size: 21px;
+    font-weight: 700;
+    color: #1a1f3a;
+    line-height: 1.1;
+  }
+  .card .kpi-value.purple { color: #5b50d6; }
+  .card .desc {
+    font-size: 11.5px;
+    line-height: 1.5;
+    color: #4a4f6a;
+    margin-top: 9px;
+    border-top: 1px dashed #d8d3e6;
+    padding-top: 9px;
+  }
+  .card .desc-tight {
+    font-size: 11.5px;
+    line-height: 1.55;
+    color: #4a4f6a;
+    margin-top: 6px;
+  }
+  .card .price-line {
+    margin-top: 10px;
+    font-size: 14px;
+    color: #4a4f6a;
+  }
+  .card .price-line strong { color: #1a1f3a; }
+  .card .price-line .strike { color: #b8bccd; text-decoration: line-through; margin-right: 8px; }
+
+  /* HIGHLIGHT BLOCK */
+  .highlight {
+    background: linear-gradient(135deg, #5b50d6 0%, #4a3fc5 100%);
+    color: #fff;
+    border-radius: 8px;
+    padding: 18px 24px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .highlight .cell .label {
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #d9d3ee;
+    font-weight: 600;
+    margin-bottom: 5px;
+  }
+  .highlight .cell .value {
+    font-size: 26px;
+    font-weight: 700;
+    line-height: 1.05;
+  }
+  .highlight .cell .note {
+    font-size: 11px;
+    color: #d9d3ee;
+    margin-top: 3px;
+  }
+
+  /* TABLE */
+  table.belb {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+  }
+  table.belb th {
+    text-align: left;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #6b6f88;
+    font-weight: 600;
+    padding: 7px 10px;
+    border-bottom: 1px solid #d8d3e6;
+  }
+  table.belb th.right, table.belb td.right { text-align: right; }
+  table.belb td {
+    padding: 7px 10px;
+    border-bottom: 1px solid #ece9f3;
+    color: #1a1f3a;
+  }
+  table.belb td.metric { color: #4a4f6a; }
+  table.belb td.num { font-variant-numeric: tabular-nums; font-weight: 600; }
+  table.belb tr.totalrow td { font-weight: 700; background: #f3effc; border-bottom: none; }
+  table.belb tr.totalrow td:first-child { color: #5b50d6; }
+  table.belb .now { color: #6b6f88; }
+  table.belb .future { color: #5b50d6; font-weight: 700; }
+
+  /* DISCLAIMER */
+  .disclaimer {
+    background: #fff4ec;
+    border-left: 4px solid #e88a3b;
+    border-radius: 4px;
+    padding: 10px 14px;
+    font-size: 10.5px;
+    line-height: 1.45;
+    color: #5b3a1a;
+    flex-shrink: 0;
+  }
+  .disclaimer .d-title {
+    font-weight: 700;
+    color: #b86420;
+    font-size: 9.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin-bottom: 3px;
+  }
+
+  /* QUOTES */
+  .quote-card {
+    background: #fff;
+    border-radius: 8px;
+    padding: 26px 28px;
+    position: relative;
+    border-left: 4px solid #5b50d6;
+  }
+  .quote-card .qmark {
+    font-size: 56px;
+    color: #ece9f9;
+    line-height: 0.6;
+    position: absolute;
+    top: 22px;
+    right: 22px;
+    font-weight: 700;
+  }
+  .quote-card .qtext {
+    font-size: 16px;
+    line-height: 1.5;
+    color: #1a1f3a;
+    font-weight: 500;
+    margin-bottom: 12px;
+    font-style: italic;
+  }
+  .quote-card .qauth {
+    font-size: 12px;
+    color: #6b6f88;
+    letter-spacing: 0.04em;
+  }
+
+  /* FOOTER */
+  .slide-footer {
+    margin-top: auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid #e7e3d8;
+    padding-top: 12px;
+    font-size: 10.5px;
+    color: #6b6f88;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+  }
+  .slide-footer .belb-mark {
+    font-weight: 700;
+    color: #1a1f3a;
+    letter-spacing: 0.04em;
+  }
+
+  /* ROADMAP */
+  .roadmap-list { display: flex; flex-direction: column; gap: 14px; }
+  .roadmap-step { display: flex; gap: 18px; align-items: flex-start; }
+  .roadmap-num {
+    background: #5b50d6;
+    color: #fff;
+    font-weight: 700;
+    width: 32px; height: 32px;
+    border-radius: 16px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    font-size: 14px;
+  }
+  .roadmap-step .body { flex: 1; }
+  .roadmap-step .body .title-line { font-weight: 700; color: #1a1f3a; font-size: 14px; margin-bottom: 4px; }
+  .roadmap-step .body .desc-line { font-size: 13px; color: #4a4f6a; line-height: 1.5; }
+  .roadmap-divider { height: 1px; background: #e3dfee; margin-left: 50px; }
+
+  /* SMALL UTILITY */
+  .pill {
+    display: inline-block;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    padding: 4px 9px;
+    border-radius: 4px;
+    background: #ece9f9;
+    color: #5b50d6;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  .pill.warn { background: #fde3d2; color: #b86420; }
+  .pill.ok { background: #d8efe0; color: #2c7a4a; }
+  .pill.bad { background: #fadcde; color: #a13442; }
+
+  .two-col-block { display: grid; grid-template-columns: 1.4fr 1fr; gap: 22px; }
+
+  /* large number */
+  .megalarge { font-size: 64px; font-weight: 700; color: #fff; line-height: 1; letter-spacing: -0.02em; }
+  .megalarge-sub { font-size: 13px; color: #d9d3ee; margin-top: 6px; }
+
+  .checkmark {
+    display: inline-block;
+    width: 16px; height: 16px;
+    background: #5b50d6;
+    color: #fff;
+    border-radius: 8px;
+    font-size: 10px;
+    text-align: center;
+    line-height: 16px;
+    margin-right: 8px;
+    vertical-align: middle;
+  }
+
+  .footer-line-section {
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    color: #6b6f88;
+    text-transform: uppercase;
+    font-weight: 600;
+    margin-bottom: 10px;
+  }
+
+  /* CLOSING SLIDE */
+  .slide.closing {
+    background: linear-gradient(135deg, #1f1547 0%, #2b1f5e 48%, #3a2a7a 100%);
+    color: #fff;
+    padding: 56px 72px 40px 72px;
+    justify-content: space-between;
+  }
+  .closing-eyebrow {
+    font-size: 13px;
+    letter-spacing: 0.3em;
+    color: #b6abe6;
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+  .closing-quote {
+    font-size: 42px;
+    font-weight: 700;
+    line-height: 1.12;
+    letter-spacing: -0.015em;
+    color: #fff;
+    margin: 8px 0 4px;
+    max-width: 1050px;
+  }
+  .rr-title {
+    font-size: 12px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #cdc5ee;
+    font-weight: 600;
+    margin-bottom: 12px;
+  }
+  .rr-certs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; align-items: stretch; margin-bottom: 16px; }
+
+  /* Карточка-сертификат Рейтинга Рунета — красная */
+  .rr-cert {
+    background: linear-gradient(160deg, #d4202e 0%, #a8121d 100%);
+    border-radius: 16px;
+    padding: 22px 22px 18px;
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 8px 24px rgba(168,18,29,0.4);
+  }
+  .rr-cert-top { display: flex; align-items: center; gap: 11px; margin-bottom: 16px; }
+  .rr-mark {
+    width: 34px; height: 34px;
+    display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr;
+    gap: 3px;
+  }
+  .rr-mark span { background: #fff; border-radius: 2px; }
+  .rr-mark span:nth-child(2) { border-radius: 2px 8px 2px 2px; }
+  .rr-mark-text {
+    font-size: 11px; font-weight: 700; line-height: 1.05;
+    letter-spacing: 0.12em; color: #fff;
+  }
+  .rr-cert-place { font-size: 34px; font-weight: 800; line-height: 1; margin-bottom: 14px; }
+  .rr-cert-cap { font-size: 10.5px; color: rgba(255,255,255,0.7); margin-bottom: 3px; }
+  .rr-cert-cat { font-size: 13px; font-weight: 700; line-height: 1.3; margin-bottom: 12px; }
+  .rr-cert-brand { font-size: 17px; font-weight: 700; margin-bottom: auto; }
+  .rr-cert-foot {
+    display: flex; justify-content: space-between; align-items: flex-end;
+    margin-top: 16px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.2);
+  }
+  .rr-sign { font-size: 8px; color: rgba(255,255,255,0.65); line-height: 1.5; font-style: italic; }
+  .rr-year { font-size: 22px; font-weight: 800; }
+
+  /* Горизонтальная полоса фактов */
+  .closing-strip {
+    display: flex; flex-wrap: wrap; gap: 24px;
+    padding: 14px 0;
+    border-top: 1px solid rgba(255,255,255,0.14);
+    border-bottom: 1px solid rgba(255,255,255,0.14);
+    align-items: center;
+  }
+  .cs-item { font-size: 12.5px; color: #d9d3ee; display: flex; align-items: center; gap: 8px; }
+  .cs-num { font-size: 20px; font-weight: 700; color: #fff; }
+  .cs-badge {
+    width: 22px; height: 22px; border-radius: 6px;
+    background: rgba(255,255,255,0.14); color: #ffd96b;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700;
+  }
+  .closing-contacts {
+    display: flex; flex-wrap: wrap; gap: 24px; align-items: baseline;
+    font-size: 13px; color: #cdc5ee;
+  }
+  .closing-contacts .cc-brand {
+    font-size: 24px; font-weight: 700; color: #fff; letter-spacing: -0.01em;
+    margin-right: 8px;
+  }
+</style>
+</head>
+<body>
+<section class="slide title">
+  <div class="eyebrow">BELBERRY · СТРАТЕГИЧЕСКИЙ ОТДЕЛ</div>
+  <h1>Продвижение panaceadoc.ru:<br>аудит и стратегия роста</h1>
+  <div class="lead">Что показывают реальные данные за год, что сделал прошлый подрядчик, и куда расти дальше — для медтех-продукта «Панацея».</div>
+  <div class="divider"></div>
+  <div class="title-meta">
+    <div class="cell"><div class="label">ДЛЯ</div><div class="value">Панацея</div><div class="note">panaceadoc.ru · ООО «Ариадна»</div></div>
+    <div class="cell"><div class="label">ПРЕДМЕТ</div><div class="value">Аудит SEO + данные</div><div class="note">Яндекс.Метрика, счётчик 100600199</div></div>
+    <div class="cell"><div class="label">ПЕРИОД ДАННЫХ</div><div class="value">12 месяцев</div><div class="note">май 2025 — апрель 2026</div></div>
+    <div class="cell"><div class="label">ПОДГОТОВЛЕНО</div><div class="value">27.05.2026</div><div class="note">Belberry · медицинский digital</div></div>
+  </div>
+</section>
+<section class="slide">
+  <div class="slide-header"><h2>Что мы проанализировали</h2><div class="pagenum">02 / 10</div></div>
+  <div class="slide-subheader">Выводы — не на ощущениях, а на фактических данных из четырёх источников</div>
+  <div class="slide-rule"></div>
+  <div class="grid-4" style="margin-bottom:14px;">
+    <div class="card"><div class="bar"></div><span class="tag">ИСТОЧНИК 1</span><h3>Яндекс.Метрика</h3><div class="desc-tight">Счётчик 100600199. Трафик, источники, цели, поисковые фразы и страницы входа за 12 месяцев.</div></div>
+    <div class="card"><div class="bar"></div><span class="tag">ИСТОЧНИК 2</span><h3>Сайт</h3><div class="desc-tight">Платформа Tilda. Структура, заголовки, посадочные /sppvr, /panaceaofai, robots, sitemap, скорость.</div></div>
+    <div class="card"><div class="bar"></div><span class="tag">ИСТОЧНИК 3</span><h3>Ссылочный профиль</h3><div class="desc-tight">Бэклинки, ссылающиеся домены, показатели траста — наследие прошлого подрядчика.</div></div>
+    <div class="card"><div class="bar"></div><span class="tag">ИСТОЧНИК 4</span><h3>Семантика</h3><div class="desc-tight">363 ключа в видимости, разложены по типу интента: бренд / информация / коммерция.</div></div>
+  </div>
+  <div class="highlight">
+    <div class="cell"><div class="label">ВИЗИТОВ ЗА ГОД</div><div class="value">15 578</div><div class="note">средний рост из месяца в месяц</div></div>
+    <div class="cell"><div class="label">ДОЛЯ ОРГАНИКИ</div><div class="value">46%</div><div class="note">поиск — крупнейший канал</div></div>
+    <div class="cell"><div class="label">ОТПРАВОК ФОРМЫ</div><div class="value">276</div><div class="note">~23 заявки в месяц</div></div>
+  </div>
+  <div class="slide-footer"><span class="belb-mark">BELBERRY</span><span>Аудит продвижения · Панацея · panaceadoc.ru</span><span>27.05.2026</span></div>
+</section>
+<section class="slide">
+  <div class="slide-header"><h2>Год в цифрах: рост есть</h2><div class="pagenum">03 / 10</div></div>
+  <div class="slide-subheader">За 12 месяцев трафик, органика и заявки выросли примерно втрое — это честный результат</div>
+  <div class="slide-rule"></div>
+  <div class="two-col-block">
+    <table class="belb">
+      <thead><tr><th>Месяц</th><th class="right">Визиты</th><th class="right">Органика</th><th class="right">Формы</th></tr></thead>
+      <tbody><tr><td>Май '25</td><td class="num right">624</td><td class="num right future">233</td><td class="num right">10</td></tr>
+<tr><td>Июнь</td><td class="num right">754</td><td class="num right future">272</td><td class="num right">10</td></tr>
+<tr><td>Июль</td><td class="num right">1120</td><td class="num right future">374</td><td class="num right">23</td></tr>
+<tr><td>Авг</td><td class="num right">1175</td><td class="num right future">459</td><td class="num right">27</td></tr>
+<tr><td>Сен</td><td class="num right">1174</td><td class="num right future">560</td><td class="num right">23</td></tr>
+<tr><td>Окт</td><td class="num right">1527</td><td class="num right future">728</td><td class="num right">31</td></tr>
+<tr><td>Ноя</td><td class="num right">1344</td><td class="num right future">638</td><td class="num right">14</td></tr>
+<tr><td>Дек</td><td class="num right">1712</td><td class="num right future">746</td><td class="num right">22</td></tr>
+<tr><td>Янв '26</td><td class="num right">1226</td><td class="num right future">630</td><td class="num right">22</td></tr>
+<tr><td>Фев</td><td class="num right">1427</td><td class="num right future">758</td><td class="num right">25</td></tr>
+<tr><td>Март</td><td class="num right">1693</td><td class="num right future">893</td><td class="num right">33</td></tr>
+<tr><td>Апр '26</td><td class="num right">1802</td><td class="num right future">825</td><td class="num right">36</td></tr>
+<tr class="totalrow"><td>Год</td><td class="num right">15 578</td><td class="num right">7 116</td><td class="num right">276</td></tr></tbody>
+    </table>
+    <div>
+      <div class="card" style="margin-bottom:14px;"><div class="bar"></div><div class="kpi-label">ТРАФИК</div><div class="kpi-value">624 → 1 802 <span style="color:#5b50d6;">×2,9</span></div><div class="desc">визитов в месяц: май 2025 → апрель 2026</div></div>
+      <div class="card" style="margin-bottom:14px;"><div class="bar"></div><div class="kpi-label">ОРГАНИКА</div><div class="kpi-value">233 → 825 <span style="color:#5b50d6;">×3,5</span></div><div class="desc">визитов из поиска в месяц</div></div>
+      <div class="card"><div class="bar"></div><div class="kpi-label">ЗАЯВКИ (ФОРМА)</div><div class="kpi-value">10 → 36 <span style="color:#5b50d6;">×3,6</span></div><div class="desc">отправок формы в месяц · отказы 20,7% (вовлечённость хорошая)</div></div>
+    </div>
+  </div>
+  <div class="slide-footer"><span class="belb-mark">BELBERRY</span><span>Источник: Яндекс.Метрика 100600199</span><span>27.05.2026</span></div>
+</section>
+<section class="slide">
+  <div class="slide-header"><h2>Но платящих почти нет</h2><div class="pagenum">04 / 10</div></div>
+  <div class="slide-subheader">Трафик и заявки растут, а в договор доходят единицы — проблема не в объёме, а в типе спроса</div>
+  <div class="slide-rule"></div>
+  <div class="two-col-block" style="margin-bottom:14px;">
+    <div>
+      <div class="quote-card" style="margin-bottom:14px;"><div class="qmark">”</div>
+        <div class="qtext">Посещаемость выросла, но в основном по брендовым запросам. Статьи в блоге дали трафик, но не приносят лидов.</div>
+        <div class="qauth">— из брифа клиента</div></div>
+      <table class="belb">
+        <thead><tr><th>Топ органических фраз</th><th class="right">Тип</th></tr></thead>
+        <tbody>
+        <tr><td>организация кэр в лпу</td><td class="right now">информация</td></tr>
+        <tr><td>панацея · панацея ии</td><td class="right now">бренд</td></tr>
+        <tr><td>зам главврача по кэр что это</td><td class="right now">информация</td></tr>
+        <tr><td>панацея система контроля качества</td><td class="right future">коммерция</td></tr>
+        <tr><td>панацея программа для врачей</td><td class="right future">коммерция</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div>
+      <div class="highlight" style="grid-template-columns:1fr;text-align:center;padding:28px 24px;margin-bottom:14px;">
+        <div class="cell"><div class="label">КОНВЕРСИЯ ЗАЯВКИ В ДОГОВОР</div><div class="megalarge">2&nbsp;из&nbsp;35</div><div class="megalarge-sub">≈ 6% · по словам клиента</div></div>
+      </div>
+      <div class="card"><div class="bar"></div><h3>Почему так</h3>
+        <div class="desc-tight">Трафик — это <strong>бренд</strong> (уже знают компанию) и <strong>информационка про КЭР</strong> (вторая страница сайта по трафику — блоговая статья про клинико-экспертную работу). Это не ЛПР, готовые купить софт. Нового небрендового коммерческого спроса почти нет.</div>
+      </div>
+    </div>
+  </div>
+  <div class="slide-footer"><span class="belb-mark">BELBERRY</span><span>Аудит продвижения · Панацея</span><span>27.05.2026</span></div>
+</section>
+<section class="slide">
+  <div class="slide-header"><h2>Что делал прошлый подрядчик</h2><div class="pagenum">05 / 10</div></div>
+  <div class="slide-subheader">Год работы дал трафик, но оптимизация шла под посещаемость, а не под платящих клиентов</div>
+  <div class="slide-rule"></div>
+  <div class="grid-3" style="margin-bottom:14px;">
+    <div class="card"><div class="bar"></div><span class="tag">КОНТЕНТ</span><h3>Блог под трафик</h3><div class="desc-tight">Статьи про определения (КЭР, МИС) собирают заходы студентов и исполнителей. Вовлекаются, но не покупают: лиды из блога клиент не фиксирует.</div></div>
+    <div class="card"><div class="bar"></div><span class="tag">ССЫЛКИ</span><h3>Бюджет без отдачи</h3><div class="desc-tight">«Закупали ссылки», но итог — <strong>40 бэклинков с 11 доменов</strong>, траст низкий. Часть может быть арендной → риск просадки после ухода. Профиль не в собственности клиента.</div></div>
+    <div class="card"><div class="bar"></div><span class="tag">ИЗМЕРЕНИЕ</span><h3>Нет аналитики качества</h3><div class="desc-tight">За год не настроены <strong>GA4, коллтрекинг, сквозная аналитика</strong>. Какой запрос привёл платящего клиента — не видно. Оптимизировать не на что.</div></div>
+  </div>
+  <div class="disclaimer">
+    <div class="d-title">ЧЕСТНО</div>
+    Рост трафика и заявок реальный — это видно в Метрике. Претензия не «ничего не сделали», а «оптимизировали под отчётную посещаемость (бренд + статьи), а не под платящих ЛПР». Поэтому добавлять ещё такого же трафика смысла нет — нужен разворот на коммерческий спрос и наведение порядка в ссылках и аналитике.
+  </div>
+  <div class="slide-footer"><span class="belb-mark">BELBERRY</span><span>Аудит продвижения · Панацея</span><span>27.05.2026</span></div>
+</section>
+<section class="slide">
+  <div class="slide-header"><h2>Почему Tilda тормозит маркетинг</h2><div class="pagenum">06 / 10</div></div>
+  <div class="slide-subheader">Tilda — отличный конструктор лендингов, но как фундамент для системного SEO упирается в потолок</div>
+  <div class="slide-rule"></div>
+  <table class="belb" style="margin-bottom:14px;">
+    <thead><tr><th>Что нужно для маркетинга и SEO</th><th>На Tilda</th><th>Последствие</th></tr></thead>
+    <tbody>
+    <tr><td>Контроль заголовков и структуры</td><td class="now">ограничен</td><td>На /panaceaofai заголовок H1 = «ИИ» — поиск не понимает страницу</td></tr>
+    <tr><td>Микроразметка (Schema, FAQ, Product)</td><td class="now">хрупко, вручную</td><td>Нет расширенных сниппетов и видимости в ИИ-выдаче</td></tr>
+    <tr><td>Программные посадочные под сегменты/регионы</td><td class="now">невозможно</td><td>Нельзя охватить «продукт × сегмент × регион» (вся РФ)</td></tr>
+    <tr><td>Масштабирование контента и перелинковки</td><td class="now">примитивно</td><td>Не растёт тематический авторитет (E-E-A-T)</td></tr>
+    <tr><td>Личный кабинет, триал, выставление счёта</td><td class="now">нет</td><td>Сценарий «сформировать счёт» (как у клиента в планах) не построить</td></tr>
+    <tr><td>Владение активом</td><td class="now">vendor lock-in</td><td>Контент заперт в Tilda: уход = потеря всего</td></tr>
+    </tbody>
+  </table>
+  <div class="disclaimer"><div class="d-title">ВЫВОД</div>Часть проблем из аудита <strong>в принципе не лечится на Tilda</strong>. Для быстрого теста спроса лендинг на Tilda годится. Но как постоянная маркетинговая основа — это расходник с потолком, а не актив.</div>
+  <div class="slide-footer"><span class="belb-mark">BELBERRY</span><span>Аудит продвижения · Панацея</span><span>27.05.2026</span></div>
+</section>
+<section class="slide">
+  <div class="slide-header"><h2>Спрос: есть ли рынок?</h2><div class="pagenum">07 / 10</div></div>
+  <div class="slide-subheader">Главный вопрос перед любым бюджетом — какой ёмкости аудитория и где она</div>
+  <div class="slide-rule"></div>
+  <div class="grid-2" style="margin-bottom:14px;">
+    <div class="card"><div class="bar"></div><span class="tag">СЕГМЕНТ B2B</span><h3>ЛПР клиник</h3><div class="desc-tight">Главврачи, гендиры, замы по КЭР. Чек 300–400 тыс ₽, но аудитория крошечная и спрос редкий. Риск: «3 продажи за полгода». В чистом поиске спрос почти не сформирован.</div></div>
+    <div class="card"><div class="bar"></div><span class="tag">СЕГМЕНТ B2C</span><h3>Врачи · «Справочник»</h3><div class="desc-tight">Обычные врачи, «Справочник» по подписке. Аудитория на порядки больше и активнее. Требует переупаковки продукта (тариф для физлиц) и отдельного лендинга.</div></div>
+  </div>
+  <div class="quote-card" style="margin-bottom:14px;"><div class="qmark">”</div>
+    <div class="qtext">Нам бы понять объём этих тёплых людей, которые что-то ищут. Есть ли рыбка в аквариуме — прежде чем заряжать бюджет.</div>
+    <div class="qauth">— клиент, встреча 26.05</div></div>
+  <div class="disclaimer"><div class="d-title">ПЕРВЫЙ ШАГ</div>До бюджета — <strong>исследование ёмкости рынка по Wordstat и прогнозатору</strong> в двух разрезах (B2B ЛПР vs B2C врачи) с маркером «идти / не идти». Это снимает риск слить деньги вслепую и отвечает на прямой вопрос клиента.</div>
+  <div class="slide-footer"><span class="belb-mark">BELBERRY</span><span>Аудит продвижения · Панацея</span><span>27.05.2026</span></div>
+</section>
+<section class="slide">
+  <div class="slide-header"><h2>Рекомендация: этапность</h2><div class="pagenum">08 / 10</div></div>
+  <div class="slide-subheader">Не вкладывать в дорогой сайт вслепую — но и не строить долгий маркетинг на платформе с потолком</div>
+  <div class="slide-rule"></div>
+  <div class="two-col-block">
+    <div class="roadmap-list">
+      <div class="roadmap-step"><div class="roadmap-num">1</div><div class="body"><div class="title-line">Измерение + аудит наследия</div><div class="desc-line">GA4, коллтрекинг, сквозная аналитика. Разбор ссылок прошлого подрядчика, карта рисков просадки.</div></div></div>
+      <div class="roadmap-step"><div class="roadmap-num">2</div><div class="body"><div class="title-line">Тест спроса</div><div class="desc-line">Исследование Wordstat + контекст (РСЯ) и изолированный лендинг под «Справочник». Дёшево проверить, есть ли рынок.</div></div></div>
+      <div class="roadmap-step"><div class="roadmap-num">3</div><div class="body"><div class="title-line">Полноценный сайт на 1С-Битрикс</div><div class="desc-line">При подтверждённом спросе — постоянный маркетинговый фундамент: масштабируемое SEO, личный кабинет, биллинг. Вложение вдолгую.</div></div></div>
+      <div class="roadmap-step"><div class="roadmap-num">4</div><div class="body"><div class="title-line">Системное SEO + GEO</div><div class="desc-line">Только на полноценной платформе раскрывается полностью: коммерческое ядро, программные посадочные, видимость в нейровыдаче.</div></div></div>
+    </div>
+    <div>
+      <table class="belb">
+        <thead><tr><th>Критерий</th><th>Tilda</th><th>1С-Битрикс</th></tr></thead>
+        <tbody>
+        <tr><td>Техническое SEO</td><td class="now">потолок</td><td class="future">полный контроль</td></tr>
+        <tr><td>Посадочные под сегменты</td><td class="now">нет</td><td class="future">да</td></tr>
+        <tr><td>Личный кабинет / счёт</td><td class="now">нет</td><td class="future">да</td></tr>
+        <tr><td>Владение активом</td><td class="now">lock-in</td><td class="future">у клиента</td></tr>
+        <tr><td>Горизонт</td><td class="now">расходник</td><td class="future">инвестиция</td></tr>
+        </tbody>
+      </table>
+      <div style="margin-top:12px;font-size:11.5px;color:#4a4f6a;line-height:1.5;">Belberry — золотой партнёр 1С-Битрикс и разработчик решения «1С-Битрикс: Решения для медицины». Сайт и продвижение делает одна команда.</div>
+    </div>
+  </div>
+  <div class="slide-footer"><span class="belb-mark">BELBERRY</span><span>Аудит продвижения · Панацея</span><span>27.05.2026</span></div>
+</section>
+<section class="slide">
+  <div class="slide-header"><h2>Что дальше — по шагам</h2><div class="pagenum">09 / 10</div></div>
+  <div class="slide-subheader">Ближайшие действия, чтобы принять решение на данных, а не на ощущениях</div>
+  <div class="slide-rule"></div>
+  <div class="grid-2" style="margin-bottom:14px;">
+    <div class="card"><div class="bar"></div><h3>Что от вас</h3>
+      <div style="font-size:12px;line-height:1.7;color:#4a4f6a;margin-top:8px;">
+      <span class="checkmark">✓</span>Гостевой доступ к Яндекс.Метрике и Вебмастеру<br>
+      <span class="checkmark">✓</span>Контакт прошлого подрядчика / список закупленных ссылок<br>
+      <span class="checkmark">✓</span>Портрет ЛПР и приоритетных сегментов клиник<br>
+      <span class="checkmark">✓</span>Референсы дизайна (ваша презентация продаж)</div></div>
+    <div class="card"><div class="bar"></div><h3>Что от нас</h3>
+      <div style="font-size:12px;line-height:1.7;color:#4a4f6a;margin-top:8px;">
+      <span class="checkmark">✓</span>Исследование ёмкости рынка (Wordstat, B2B vs B2C)<br>
+      <span class="checkmark">✓</span>Аудит ссылочного наследия + карта рисков просадки<br>
+      <span class="checkmark">✓</span>Настройка измерения качества лида (GA4, коллтрекинг)<br>
+      <span class="checkmark">✓</span>Рекомендация по платформе и плану продвижения</div></div>
+  </div>
+  <div class="highlight">
+    <div class="cell"><div class="label">ШАГ СЕЙЧАС</div><div class="value">Исследование спроса</div><div class="note">маркер «идти / не идти» до бюджета</div></div>
+    <div class="cell"><div class="label">ЗАТЕМ</div><div class="value">Тест: контекст + лендинг</div><div class="note">дёшево проверить рынок</div></div>
+    <div class="cell"><div class="label">ВДОЛГУЮ</div><div class="value">Сайт на 1С-Битрикс</div><div class="note">постоянный маркетинговый актив</div></div>
+  </div>
+  <div class="slide-footer"><span class="belb-mark">BELBERRY</span><span>Аудит продвижения · Панацея</span><span>Belberry · belberry.net</span></div>
+</section>
+<section class="slide closing">
+  <div class="closing-eyebrow">BELBERRY · МЕДИЦИНСКИЙ DIGITAL С 2015 ГОДА</div>
+  <div class="closing-quote">«Вы создаёте технологии&nbsp;для&nbsp;врачей —<br>а мы приведём к&nbsp;ним&nbsp;клиники»</div>
+  <div class="rr-title">Победитель Рейтинга Рунета 2025</div>
+  <div class="rr-certs">
+    <div class="rr-cert"><div class="rr-cert-top"><div class="rr-mark"><span></span><span></span><span></span><span></span></div><div class="rr-mark-text">РЕЙТИНГ<br>РУНЕТА</div></div><div class="rr-cert-place">1 место</div><div class="rr-cert-cap">В рейтинге:</div><div class="rr-cert-cat">Поддержка и развитие сайтов / Медицина: поликлиники, больницы</div><div class="rr-cert-cap">Поздравляем:</div><div class="rr-cert-brand">Belberry</div><div class="rr-cert-foot"><div class="rr-sign">Рук. проекта: Сергей Бесшабашнов<br>Гл. редактор: Анатолий Денисов</div><div class="rr-year">2025</div></div></div>
+    <div class="rr-cert"><div class="rr-cert-top"><div class="rr-mark"><span></span><span></span><span></span><span></span></div><div class="rr-mark-text">РЕЙТИНГ<br>РУНЕТА</div></div><div class="rr-cert-place">3 место</div><div class="rr-cert-cap">В рейтинге:</div><div class="rr-cert-cat">Репутация / Медицина, здоровье: Услуги</div><div class="rr-cert-cap">Поздравляем:</div><div class="rr-cert-brand">Belberry</div><div class="rr-cert-foot"><div class="rr-sign">Рук. проекта: Сергей Бесшабашнов<br>Гл. редактор: Анатолий Денисов</div><div class="rr-year">2025</div></div></div>
+    <div class="rr-cert"><div class="rr-cert-top"><div class="rr-mark"><span></span><span></span><span></span><span></span></div><div class="rr-mark-text">РЕЙТИНГ<br>РУНЕТА</div></div><div class="rr-cert-place">1 место</div><div class="rr-cert-cap">В рейтинге:</div><div class="rr-cert-cat">Комплексные разработчики / Красота, уход: Косметология</div><div class="rr-cert-cap">Поздравляем:</div><div class="rr-cert-brand">Belberry</div><div class="rr-cert-foot"><div class="rr-sign">Рук. проекта: Сергей Бесшабашнов<br>Гл. редактор: Анатолий Денисов</div><div class="rr-year">2025</div></div></div>
+  </div>
+  <div class="closing-strip">
+    <div class="cs-item"><span class="cs-num">11</span> лет в медицинском digital</div>
+    <div class="cs-item"><span class="cs-num">700+</span> проектов в медицине</div>
+    <div class="cs-item"><span class="cs-num">5,0</span> рейтинг по отзывам</div>
+    <div class="cs-item"><span class="cs-badge">★</span> Золотой партнёр Битрикс</div>
+    <div class="cs-item"><span class="cs-badge">+</span> 1С-Битрикс: Решения для медицины</div>
+  </div>
+  <div class="closing-contacts"><span class="cc-brand">Belberry</span><span>belberry.net</span><span>hello@belberry.net</span><span>+7 (495) 845-37-89</span><span>Москва, Варшавское ш. 118, к. 1</span></div>
+</section>
+</body>
+</html>

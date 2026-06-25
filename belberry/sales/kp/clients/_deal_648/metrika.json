@@ -1,0 +1,383 @@
+{
+  "counter_id": 54098755,
+  "period": "2026-03-19..2026-06-17",
+  "days": 90,
+  "visits": 24701,
+  "users": 21679,
+  "bounce_rate": 57.9,
+  "avg_duration_s": 65,
+  "sources": [
+    {
+      "source": "Прямые заходы",
+      "visits": 13648
+    },
+    {
+      "source": "Переходы из поисковых систем",
+      "visits": 7314
+    },
+    {
+      "source": "Переходы по рекламе",
+      "visits": 2961
+    },
+    {
+      "source": "Внутренние переходы",
+      "visits": 364
+    },
+    {
+      "source": "Переходы по ссылкам на сайтах",
+      "visits": 192
+    },
+    {
+      "source": "Переходы из рекомендательных систем",
+      "visits": 104
+    },
+    {
+      "source": "Переходы из социальных сетей",
+      "visits": 31
+    },
+    {
+      "source": "Переходы из мессенджеров",
+      "visits": 2
+    }
+  ],
+  "organic_visits": 7314,
+  "organic_pct": 30,
+  "top_phrases": [
+    {
+      "phrase": "ре-клиник москва официальный сайт",
+      "visits": 81
+    },
+    {
+      "phrase": "реклиник",
+      "visits": 52
+    },
+    {
+      "phrase": "https://reclinic.ru/faq/66",
+      "visits": 43
+    },
+    {
+      "phrase": "реклиник.ру официальный сайт",
+      "visits": 32
+    },
+    {
+      "phrase": "re clinic официальный сайт",
+      "visits": 30
+    },
+    {
+      "phrase": "доктор сарычев лечение позвоночника цены москва клиника",
+      "visits": 28
+    },
+    {
+      "phrase": "ре клиник",
+      "visits": 28
+    },
+    {
+      "phrase": "что такое перемежающаяся хромота симптомы лечение",
+      "visits": 28
+    },
+    {
+      "phrase": "перемежающаяся хромота что это такое симптомы",
+      "visits": 26
+    },
+    {
+      "phrase": "центр лечения позвоночника и суставов",
+      "visits": 24
+    }
+  ],
+  "goals": [
+    {
+      "id": 97201507,
+      "name": "(+) Запись на приём (стр. спасибо)",
+      "reaches": 141,
+      "conversion": 0.48
+    },
+    {
+      "id": 52595896,
+      "name": "2020 Заход в Контакты",
+      "reaches": 818,
+      "conversion": 2.73
+    },
+    {
+      "id": 60498418,
+      "name": "Вопрос-Ответ + Запись к любому врачу",
+      "reaches": 0,
+      "conversion": 0
+    },
+    {
+      "id": 97201585,
+      "name": "2020-03 pismo-ok",
+      "reaches": 0,
+      "conversion": 0
+    },
+    {
+      "id": 230596816,
+      "name": "Автоцель: клик по номеру телефона",
+      "reaches": 172,
+      "conversion": 0.58
+    },
+    {
+      "id": 230749635,
+      "name": "Автоцель: отправка формы",
+      "reaches": 495,
+      "conversion": 1.1
+    },
+    {
+      "id": 231075961,
+      "name": "Автоцель: клик по email",
+      "reaches": 158,
+      "conversion": 0.44
+    },
+    {
+      "id": 249085283,
+      "name": "Автоцель: заполнил контактные данные",
+      "reaches": 126,
+      "conversion": 0.51
+    }
+  ],
+  "trend": {
+    "total": {
+      "months": [
+        {
+          "month": "2026-03",
+          "visits": 2949,
+          "partial": true
+        },
+        {
+          "month": "2026-04",
+          "visits": 7123,
+          "partial": false
+        },
+        {
+          "month": "2026-05",
+          "visits": 9815,
+          "partial": false
+        },
+        {
+          "month": "2026-06",
+          "visits": 4814,
+          "partial": true
+        }
+      ],
+      "peak": 9815,
+      "peak_month": "2026-05",
+      "current": 9815,
+      "current_month": "2026-05",
+      "change_pct": 0.0,
+      "direction": "рост"
+    },
+    "organic": {
+      "months": [
+        {
+          "month": "2026-03",
+          "visits": 1084,
+          "partial": true
+        },
+        {
+          "month": "2026-04",
+          "visits": 2944,
+          "partial": false
+        },
+        {
+          "month": "2026-05",
+          "visits": 2078,
+          "partial": false
+        },
+        {
+          "month": "2026-06",
+          "visits": 1208,
+          "partial": true
+        }
+      ],
+      "peak": 2944,
+      "peak_month": "2026-04",
+      "current": 2078,
+      "current_month": "2026-05",
+      "change_pct": -29.4,
+      "direction": "падение"
+    }
+  },
+  "entry_pages": [
+    {
+      "page": "/faq/66/",
+      "visits": 8958,
+      "bounce_rate": 94.6,
+      "traffic_share_pct": 36.3,
+      "problem": true
+    },
+    {
+      "page": "/",
+      "visits": 8448,
+      "bounce_rate": 48.5,
+      "traffic_share_pct": 34.2,
+      "problem": false
+    },
+    {
+      "page": "/vrachi/sarychev-sergej-leonidovich/",
+      "visits": 1394,
+      "bounce_rate": 19.4,
+      "traffic_share_pct": 5.6,
+      "problem": false
+    },
+    {
+      "page": "/operatsii/maloinvazivnye-spinalnye-operatsii/holodnoplazmennaya-nukleoplastika/",
+      "visits": 1082,
+      "bounce_rate": 23.8,
+      "traffic_share_pct": 4.4,
+      "problem": false
+    },
+    {
+      "page": "/operatsii/maloinvazivnye-spinalnye-operatsii/radiochastotnaya-denervacija/",
+      "visits": 680,
+      "bounce_rate": 17.2,
+      "traffic_share_pct": 2.8,
+      "problem": false
+    },
+    {
+      "page": "/operatsii/maloinvazivnye-spinalnye-operatsii/maloinvazivnoe-konservativnoe-lechenie-gryzhi-pozvonochnika-nukleotomiya-disc-fx/",
+      "visits": 430,
+      "bounce_rate": 22.8,
+      "traffic_share_pct": 1.7,
+      "problem": false
+    },
+    {
+      "page": "/tseny/",
+      "visits": 299,
+      "bounce_rate": 22.1,
+      "traffic_share_pct": 1.2,
+      "problem": false
+    },
+    {
+      "page": "/about/otzyvy/",
+      "visits": 218,
+      "bounce_rate": 16.5,
+      "traffic_share_pct": 0.9,
+      "problem": false
+    },
+    {
+      "page": "/operatsii/ortopediya/revizionnoe-povtornoe-endoprotezirovanie-tazobedrennogo-i-kolennogo-sustavov/",
+      "visits": 202,
+      "bounce_rate": 16.3,
+      "traffic_share_pct": 0.8,
+      "problem": false
+    },
+    {
+      "page": "/simptomy/sindrom-peremezhayuschejsya-hromoty/",
+      "visits": 202,
+      "bounce_rate": 30.7,
+      "traffic_share_pct": 0.8,
+      "problem": false
+    }
+  ],
+  "main_goal": {
+    "id": 52595896,
+    "name": "2020 Заход в Контакты"
+  },
+  "devices": {
+    "mobile": {
+      "visits": 17792,
+      "bounce_rate": 55.2,
+      "conversion": 2.11
+    },
+    "desktop": {
+      "visits": 6696,
+      "bounce_rate": 66.2,
+      "conversion": 4.17
+    },
+    "tablet": {
+      "visits": 204,
+      "bounce_rate": 22.1,
+      "conversion": 9.31
+    },
+    "tv": {
+      "visits": 9,
+      "bounce_rate": 0.0,
+      "conversion": 11.11
+    }
+  },
+  "search_engines": {
+    "yandex": 4486,
+    "google": 2787,
+    "other": 41,
+    "yandex_pct": 61,
+    "google_pct": 38
+  },
+  "source_conversion": [
+    {
+      "source": "Прямые заходы",
+      "visits": 13648,
+      "conversion": 0.62
+    },
+    {
+      "source": "Переходы из поисковых систем",
+      "visits": 7314,
+      "conversion": 5.33
+    },
+    {
+      "source": "Переходы по рекламе",
+      "visits": 2961,
+      "conversion": 4.96
+    },
+    {
+      "source": "Внутренние переходы",
+      "visits": 364,
+      "conversion": 10.71
+    },
+    {
+      "source": "Переходы по ссылкам на сайтах",
+      "visits": 192,
+      "conversion": 4.69
+    },
+    {
+      "source": "Переходы из рекомендательных систем",
+      "visits": 104,
+      "conversion": 3.85
+    },
+    {
+      "source": "Переходы из социальных сетей",
+      "visits": 31,
+      "conversion": 3.23
+    },
+    {
+      "source": "Переходы из мессенджеров",
+      "visits": 2,
+      "conversion": 0
+    }
+  ],
+  "geo": [
+    {
+      "region": "Не определено",
+      "visits": 11288
+    },
+    {
+      "region": "Москва и Московская область",
+      "visits": 8154
+    },
+    {
+      "region": "Санкт-Петербург и Ленинградская область",
+      "visits": 1329
+    },
+    {
+      "region": "Краснодарский край",
+      "visits": 198
+    },
+    {
+      "region": "Нижегородская область",
+      "visits": 196
+    }
+  ],
+  "target_region": "москва + другие регионы, они по всей россии из-за того что монополисты работают ",
+  "problems": [
+    {
+      "fact": "Страница /faq/66/ собирает 36.3% трафика, но отказы 94.6% против 57.9% в среднем по сайту",
+      "evidence": {
+        "page": "/faq/66/",
+        "traffic_share_pct": 36.3,
+        "page_bounce": 94.6,
+        "site_bounce": 57.9
+      },
+      "so_what": "Заметная часть посетителей уходит с этой страницы, не сделав ни одного действия",
+      "action": "Переработка страницы: первый экран, скорость загрузки, содержание под запрос, призыв к действию"
+    }
+  ],
+  "site": "reclinic.ru"
+}

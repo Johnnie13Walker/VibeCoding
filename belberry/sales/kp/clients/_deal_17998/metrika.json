@@ -1,0 +1,387 @@
+{
+  "counter_id": 48632717,
+  "period": "2026-03-19..2026-06-17",
+  "days": 90,
+  "visits": 23751,
+  "users": 21792,
+  "bounce_rate": 9.5,
+  "avg_duration_s": 121,
+  "sources": [
+    {
+      "source": "Переходы из поисковых систем",
+      "visits": 16972
+    },
+    {
+      "source": "Прямые заходы",
+      "visits": 2365
+    },
+    {
+      "source": "Переходы по ссылкам на сайтах",
+      "visits": 1987
+    },
+    {
+      "source": "Переходы из рекомендательных систем",
+      "visits": 1596
+    },
+    {
+      "source": "Внутренние переходы",
+      "visits": 352
+    },
+    {
+      "source": "Переходы по рекламе",
+      "visits": 326
+    },
+    {
+      "source": "Переходы из социальных сетей",
+      "visits": 34
+    },
+    {
+      "source": "Переходы из мессенджеров",
+      "visits": 4
+    },
+    {
+      "source": "Переходы с сохранённых страниц",
+      "visits": 1
+    }
+  ],
+  "organic_visits": 16972,
+  "organic_pct": 71,
+  "top_phrases": [
+    {
+      "phrase": "коллагеностимуляция",
+      "visits": 215
+    },
+    {
+      "phrase": "безинъекционная биоревитализация лица",
+      "visits": 66
+    },
+    {
+      "phrase": "bbl hero москва",
+      "visits": 59
+    },
+    {
+      "phrase": "плазмотерапия цена",
+      "visits": 59
+    },
+    {
+      "phrase": "иммунохелс анализ москва",
+      "visits": 58
+    },
+    {
+      "phrase": "bbl hero цена процедуры в москве",
+      "visits": 57
+    },
+    {
+      "phrase": "массаж брестская",
+      "visits": 57
+    },
+    {
+      "phrase": "без инъекционная косметология",
+      "visits": 56
+    },
+    {
+      "phrase": "bbl hero цена процедуры",
+      "visits": 55
+    },
+    {
+      "phrase": "hydrafacial цена москва",
+      "visits": 55
+    }
+  ],
+  "goals": [
+    {
+      "id": 38613530,
+      "name": "Запись на прием",
+      "reaches": 0,
+      "conversion": 0
+    },
+    {
+      "id": 406213657,
+      "name": "Уникальный звонок",
+      "reaches": 27,
+      "conversion": 0.11
+    },
+    {
+      "id": 406213658,
+      "name": "Уникально-целевой звонок",
+      "reaches": 15,
+      "conversion": 0.06
+    },
+    {
+      "id": 406213659,
+      "name": "Целевой звонок",
+      "reaches": 26,
+      "conversion": 0.09
+    },
+    {
+      "id": 38675915,
+      "name": "Запись на прием 1 (стар.)",
+      "reaches": 0,
+      "conversion": 0
+    },
+    {
+      "id": 38675921,
+      "name": "Запись на прием 2 (стар.)",
+      "reaches": 0,
+      "conversion": 0
+    },
+    {
+      "id": 38675930,
+      "name": "Звонок (стар.)",
+      "reaches": 0,
+      "conversion": 0
+    },
+    {
+      "id": 38675942,
+      "name": "Звонок 2 (стар.)",
+      "reaches": 0,
+      "conversion": 0
+    }
+  ],
+  "trend": {
+    "total": {
+      "months": [
+        {
+          "month": "2026-03",
+          "visits": 2720,
+          "partial": true
+        },
+        {
+          "month": "2026-04",
+          "visits": 7345,
+          "partial": false
+        },
+        {
+          "month": "2026-05",
+          "visits": 8771,
+          "partial": false
+        },
+        {
+          "month": "2026-06",
+          "visits": 4915,
+          "partial": true
+        }
+      ],
+      "peak": 8771,
+      "peak_month": "2026-05",
+      "current": 8771,
+      "current_month": "2026-05",
+      "change_pct": 0.0,
+      "direction": "рост"
+    },
+    "organic": {
+      "months": [
+        {
+          "month": "2026-03",
+          "visits": 1627,
+          "partial": true
+        },
+        {
+          "month": "2026-04",
+          "visits": 5387,
+          "partial": false
+        },
+        {
+          "month": "2026-05",
+          "visits": 6341,
+          "partial": false
+        },
+        {
+          "month": "2026-06",
+          "visits": 3617,
+          "partial": true
+        }
+      ],
+      "peak": 6341,
+      "peak_month": "2026-05",
+      "current": 6341,
+      "current_month": "2026-05",
+      "change_pct": 0.0,
+      "direction": "рост"
+    }
+  },
+  "entry_pages": [
+    {
+      "page": "/about/news/",
+      "visits": 7554,
+      "bounce_rate": 0.6,
+      "traffic_share_pct": 31.8,
+      "problem": false
+    },
+    {
+      "page": "/",
+      "visits": 2424,
+      "bounce_rate": 17.9,
+      "traffic_share_pct": 10.2,
+      "problem": true
+    },
+    {
+      "page": "/about/blog/uvelichenie-gub-protivopokazaniya/",
+      "visits": 640,
+      "bounce_rate": 25.0,
+      "traffic_share_pct": 2.7,
+      "problem": false
+    },
+    {
+      "page": "/services/analizy/analiz-immunokhels/",
+      "visits": 574,
+      "bounce_rate": 2.1,
+      "traffic_share_pct": 2.4,
+      "problem": false
+    },
+    {
+      "page": "/about/blog/chto-takoe-bezinektsionnaya-biorevitalizatsiya-litsa/",
+      "visits": 526,
+      "bounce_rate": 12.2,
+      "traffic_share_pct": 2.2,
+      "problem": false
+    },
+    {
+      "page": "/services/apparatnaya-kosmetologiya/bbl-hero/",
+      "visits": 497,
+      "bounce_rate": 3.2,
+      "traffic_share_pct": 2.1,
+      "problem": false
+    },
+    {
+      "page": "/services/apparatnaya-kosmetologiya/hydrafacial/",
+      "visits": 481,
+      "bounce_rate": 2.3,
+      "traffic_share_pct": 2.0,
+      "problem": false
+    },
+    {
+      "page": "/services/inektsionnaya-kosmetologiya/kollagenostimulyatsiya/",
+      "visits": 480,
+      "bounce_rate": 42.7,
+      "traffic_share_pct": 2.0,
+      "problem": false
+    },
+    {
+      "page": "/about/blog/botoks-v-nos-vozmozhnost-ispravit-nedostatki/",
+      "visits": 466,
+      "bounce_rate": 32.8,
+      "traffic_share_pct": 2.0,
+      "problem": false
+    },
+    {
+      "page": "/services/apparatnaya-kosmetologiya/udalenie-rastyazhek/",
+      "visits": 412,
+      "bounce_rate": 5.8,
+      "traffic_share_pct": 1.7,
+      "problem": false
+    }
+  ],
+  "main_goal": {
+    "id": 406213657,
+    "name": "Уникальный звонок"
+  },
+  "devices": {
+    "mobile": {
+      "visits": 21590,
+      "bounce_rate": 8.7,
+      "conversion": 0.06
+    },
+    "desktop": {
+      "visits": 2124,
+      "bounce_rate": 17.0,
+      "conversion": 0.61
+    },
+    "tablet": {
+      "visits": 37,
+      "bounce_rate": 13.5,
+      "conversion": 0
+    }
+  },
+  "search_engines": {
+    "yandex": 11656,
+    "google": 5288,
+    "other": 28,
+    "yandex_pct": 69,
+    "google_pct": 31
+  },
+  "source_conversion": [
+    {
+      "source": "Переходы из поисковых систем",
+      "visits": 16972,
+      "conversion": 0.08
+    },
+    {
+      "source": "Прямые заходы",
+      "visits": 2365,
+      "conversion": 0.25
+    },
+    {
+      "source": "Переходы по ссылкам на сайтах",
+      "visits": 1987,
+      "conversion": 0.2
+    },
+    {
+      "source": "Переходы из рекомендательных систем",
+      "visits": 1596,
+      "conversion": 0.06
+    },
+    {
+      "source": "Внутренние переходы",
+      "visits": 352,
+      "conversion": 0.57
+    },
+    {
+      "source": "Переходы по рекламе",
+      "visits": 326,
+      "conversion": 0
+    },
+    {
+      "source": "Переходы из социальных сетей",
+      "visits": 34,
+      "conversion": 0
+    },
+    {
+      "source": "Переходы из мессенджеров",
+      "visits": 4,
+      "conversion": 0
+    },
+    {
+      "source": "Переходы с сохранённых страниц",
+      "visits": 1,
+      "conversion": 0
+    }
+  ],
+  "geo": [
+    {
+      "region": "Москва и Московская область",
+      "visits": 13822
+    },
+    {
+      "region": "Не определено",
+      "visits": 2282
+    },
+    {
+      "region": "Гонконг (Сянган)",
+      "visits": 1723
+    },
+    {
+      "region": "Санкт-Петербург и Ленинградская область",
+      "visits": 1153
+    },
+    {
+      "region": "Красноярский край",
+      "visits": 553
+    }
+  ],
+  "target_region": null,
+  "problems": [
+    {
+      "fact": "Страница / собирает 10.2% трафика, но отказы 17.9% против 9.5% в среднем по сайту",
+      "evidence": {
+        "page": "/",
+        "traffic_share_pct": 10.2,
+        "page_bounce": 17.9,
+        "site_bounce": 9.5
+      },
+      "so_what": "Заметная часть посетителей уходит с этой страницы, не сделав ни одного действия",
+      "action": "Переработка страницы: первый экран, скорость загрузки, содержание под запрос, призыв к действию"
+    }
+  ],
+  "site": "www.biospaclinic.ru"
+}

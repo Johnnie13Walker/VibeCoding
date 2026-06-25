@@ -1,0 +1,20 @@
+{
+  "client": "biospaclinic.ru",
+  "brand": "Belberry",
+  "deadline": "",
+  "flags": {
+    "logo_discount": false,
+    "fast_pay": true
+  },
+  "service": "ppc",
+  "items": [
+    {
+      "name": "Ведение контекстной рекламы (фикс, бюджет 150–300 тыс)",
+      "monthly": 65000
+    },
+    {
+      "name": "Рекламный бюджет Яндекса — оплачивается напрямую, в смету не входит",
+      "monthly": 0
+    }
+  ]
+}

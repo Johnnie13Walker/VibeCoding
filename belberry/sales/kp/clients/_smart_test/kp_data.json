@@ -1,0 +1,149 @@
+{
+  "deal_id": 16076,
+  "domain": "crystal-sound.com",
+  "brand": "Acoola Team",
+  "facts": [
+    {
+      "key": "deal_title",
+      "value": "crystal-sound.com",
+      "source": "bitrix.json:deal",
+      "status": "факт"
+    },
+    {
+      "key": "company_revenue",
+      "value": "162",
+      "source": "bitrix.json:deal",
+      "status": "факт"
+    },
+    {
+      "key": "brief:Приоритетные услуги или направления",
+      "value": "Основной продукт - радиогид, но в целом ",
+      "source": "bitrix.json:бриф СП1056",
+      "status": "факт"
+    },
+    {
+      "key": "brief:Сильные стороны и отличия от конкурентов",
+      "value": "Российское производство, все инженеры здесь, могут настроить под ключ под конкретные задачи, закастомить, 2 года гарантии",
+      "source": "bitrix.json:бриф СП1056",
+      "status": "факт"
+    },
+    {
+      "key": "sqi",
+      "value": 270,
+      "source": "audit.json:pr-cy",
+      "status": "факт"
+    },
+    {
+      "key": "yandex_index",
+      "value": 309,
+      "source": "audit.json:pr-cy",
+      "status": "факт"
+    },
+    {
+      "key": "google_index",
+      "value": 301,
+      "source": "audit.json:pr-cy",
+      "status": "факт"
+    },
+    {
+      "key": "load_time",
+      "value": 0.47490596771240234,
+      "source": "audit.json:pr-cy",
+      "status": "факт"
+    },
+    {
+      "key": "schema_org",
+      "value": true,
+      "source": "audit.json:pr-cy",
+      "status": "факт"
+    },
+    {
+      "key": "metrika:visits",
+      "value": 21456,
+      "source": "metrika.json",
+      "status": "факт"
+    },
+    {
+      "key": "metrika:users",
+      "value": 14386,
+      "source": "metrika.json",
+      "status": "факт"
+    },
+    {
+      "key": "metrika:bounce_rate",
+      "value": 22.8,
+      "source": "metrika.json",
+      "status": "факт"
+    },
+    {
+      "key": "metrika:goals",
+      "value": [
+        {
+          "id": 326412208,
+          "name": "Уникально-целевой звонок",
+          "reaches": 172,
+          "conversion": 0.8
+        },
+        {
+          "id": 275448717,
+          "name": "Отправка любой формы",
+          "reaches": 181,
+          "conversion": 0.76
+        },
+        {
+          "id": 351718373,
+          "name": "Покупка из калькулятора",
+          "reaches": 31,
+          "conversion": 0.14
+        },
+        {
+          "id": 355959284,
+          "name": "Ecommerce: покупка",
+          "reaches": 2,
+          "conversion": 0.0
+        },
+        {
+          "id": 357467062,
+          "name": "Email",
+          "reaches": 98,
+          "conversion": 0.42
+        },
+        {
+          "id": 419136224,
+          "name": "Отправка любой формы (JS)",
+          "reaches": 0,
+          "conversion": 0
+        },
+        {
+          "id": 40232950,
+          "name": "Калькулятор покупка - радиогид",
+          "reaches": 27,
+          "conversion": 0.12
+        },
+        {
+          "id": 326412207,
+          "name": "Уникальный звонок",
+          "reaches": 172,
+          "conversion": 0.8
+        }
+      ],
+      "source": "metrika.json",
+      "status": "факт"
+    },
+    {
+      "key": "metrika:organic_trend",
+      "value": "1721 (2026-04) → 1589 (2026-05), -7.7% — стабильно",
+      "source": "metrika.json:trend",
+      "status": "факт"
+    }
+  ],
+  "hypotheses": [],
+  "manual_checklist": [
+    "Цены — только из сметы сметчика (Google Sheets по матрице), не выдумывать",
+    "Титул: клиент, домен, дата, дедлайн подарка/скидки",
+    "Каскад скидок: 10% логотип / 5% оперативность с датой (по правилам матрицы)",
+    "Прогнозы — диапазоны + дисклеймер «оценка на текущий момент» (LEGAL-MED-2026 §2)",
+    "Никаких гарантий результата и «случаев излечения» (ст. 24 ФЗ-38)",
+    "Перед отправкой: в папке только клиентские файлы (без внутренних калькуляторов)"
+  ]
+}

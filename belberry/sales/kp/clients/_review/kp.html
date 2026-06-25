@@ -1,0 +1,1319 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>КП Acoola Team — SEO-шаблон</title>
+<style>
+  @page { size: 1280px 800px; margin: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  html, body { background: #ffffff; }
+  body {
+    font-family: -apple-system, "Helvetica Neue", "Inter", "Segoe UI", Arial, sans-serif;
+    color: #313131;
+    font-feature-settings: "tnum" 1, "lnum" 1;
+  }
+  .slide {
+    width: 1280px;
+    height: 800px;
+    page-break-after: always;
+    position: relative;
+    padding: 44px 64px 26px 64px;
+    overflow: hidden;
+    background: #F2F2F4;
+    display: flex;
+    flex-direction: column;
+  }
+  .slide:last-child { page-break-after: auto; }
+  .slide-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+
+  /* TITLE SLIDE */
+  .slide.title {
+    background: linear-gradient(135deg, #10202F 0%, #16314B 45%, #1D4368 100%);
+    color: #fff;
+    padding: 80px 96px;
+  }
+  .title .eyebrow {
+    font-size: 14px;
+    letter-spacing: 0.32em;
+    color: #BFD9FD;
+    text-transform: uppercase;
+    font-weight: 500;
+    margin-bottom: 96px;
+  }
+  .title h1 {
+    font-size: 64px;
+    line-height: 1.05;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: 28px;
+    max-width: 1000px;
+  }
+  .title .lead {
+    font-size: 22px;
+    color: #CCE0FD;
+    font-weight: 400;
+    max-width: 900px;
+    line-height: 1.45;
+    margin-bottom: 96px;
+  }
+  .title .divider {
+    height: 1px;
+    background: rgba(255,255,255,0.18);
+    margin-bottom: 36px;
+  }
+  .title-meta {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 32px;
+  }
+  .title-meta .cell .label {
+    font-size: 11px;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: #9DC4FA;
+    font-weight: 500;
+    margin-bottom: 12px;
+  }
+  .title-meta .cell .value {
+    font-size: 20px;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 4px;
+  }
+  .title-meta .cell .note {
+    font-size: 13px;
+    color: #BFD9FD;
+  }
+
+  /* CONTENT SLIDE — HEADER */
+  .slide-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 8px;
+  }
+  .slide-header h2 {
+    font-size: 34px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: #313131;
+    line-height: 1.1;
+  }
+  .slide-header .pagenum {
+    font-size: 12px;
+    letter-spacing: 0.18em;
+    color: #3086FB;
+    font-weight: 700;
+    margin-top: 14px;
+  }
+  .slide-subheader {
+    font-size: 14px;
+    color: #6C737D;
+    margin-bottom: 16px;
+  }
+  .slide-rule {
+    height: 3px;
+    background: #313131;
+    margin-bottom: 20px;
+    width: 100%;
+  }
+
+  /* CARDS GRID */
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+
+  .card {
+    background: #ffffff;
+    border-radius: 8px;
+    padding: 18px 20px;
+    position: relative;
+    box-shadow: 0 1px 0 rgba(20,32,46,0.04);
+  }
+  .card .bar {
+    position: absolute; top: 0; left: 0;
+    width: 56px; height: 3px;
+    background: #3086FB;
+    border-radius: 2px;
+  }
+  .card .tag {
+    display: inline-block;
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    background: #E3EEFE;
+    color: #3086FB;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    margin-bottom: 9px;
+  }
+  .card h3 {
+    font-size: 16px;
+    font-weight: 700;
+    color: #313131;
+    margin-bottom: 8px;
+    line-height: 1.2;
+  }
+  .card .kpi-label {
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    color: #6C737D;
+    text-transform: uppercase;
+    font-weight: 500;
+    margin-top: 8px;
+    margin-bottom: 2px;
+  }
+  .card .kpi-value {
+    font-size: 21px;
+    font-weight: 700;
+    color: #313131;
+    line-height: 1.1;
+  }
+  .card .kpi-value.purple { color: #3086FB; }
+  .card .desc {
+    font-size: 11.5px;
+    line-height: 1.5;
+    color: #4A5058;
+    margin-top: 9px;
+    border-top: 1px dashed #D4DDE9;
+    padding-top: 9px;
+  }
+  .card .desc-tight {
+    font-size: 11.5px;
+    line-height: 1.55;
+    color: #4A5058;
+    margin-top: 6px;
+  }
+  .card .price-line {
+    margin-top: 10px;
+    font-size: 14px;
+    color: #4A5058;
+  }
+  .card .price-line strong { color: #313131; }
+  .card .price-line .strike { color: #B7BDC6; text-decoration: line-through; margin-right: 8px; }
+
+  /* PROOF / CASE TILES (градиентный вариант) */
+  .proof-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 13px; }
+  .tile {
+    display: flex; flex-direction: column;
+    border-radius: 14px;
+    padding: 16px 18px 15px;
+    position: relative; overflow: hidden;
+    text-decoration: none; color: inherit;
+    background: #ffffff; border: 1px solid #E2E9F3;
+    box-shadow: 0 1px 2px rgba(20,32,46,0.04);
+    transition: box-shadow .15s ease, transform .15s ease;
+  }
+  .tile:hover { transform: translateY(-2px); box-shadow: 0 10px 26px rgba(48,134,251,0.16); }
+  .tile.fill {
+    background: linear-gradient(145deg, #3086FB 0%, #1B64CC 100%);
+    border: none; color: #fff;
+    box-shadow: 0 6px 18px rgba(48,134,251,0.22);
+  }
+  .tile .tt { font-size: 9.5px; font-weight: 700; letter-spacing: 0.07em; }
+  .tile.fill .tt { color: #DFEDFE; }
+  .tile:not(.fill) .tt { color: #3086FB; }
+  .tile .tn { font-size: 15.5px; font-weight: 700; margin-top: 3px; line-height: 1.15; }
+  .tile .tnum { font-size: 36px; font-weight: 800; line-height: 1.0; margin-top: 14px; letter-spacing: -0.02em; }
+  .tile:not(.fill) .tnum { color: #3086FB; }
+  .tile .tnum .arrow { font-weight: 700; opacity: .5; margin: 0 1px; }
+  .tile .tm { font-size: 10.5px; margin-top: 6px; opacity: .85; }
+  .tile .tcap { font-size: 10px; margin-top: auto; padding-top: 12px; }
+  .tile.fill .tcap { border-top: 1px solid rgba(255,255,255,0.22); opacity: .82; }
+  .tile:not(.fill) .tcap { border-top: 1px solid #E7EFFB; color: #7B828C; }
+
+  /* PROBLEM / SOLUTION GROUPS */
+  .pgroup { background:#fff; border:1px solid #E2E9F3; border-radius:12px; padding:14px 16px 13px; display:flex; flex-direction:column; }
+  .pgroup .ph { font-size:10px; font-weight:800; letter-spacing:0.05em; text-transform:uppercase;
+       padding:5px 11px; border-radius:100px; align-self:flex-start; margin-bottom:11px; }
+  .ph.red { background:#fdecea; color:#c8483d; }
+  .ph.amber { background:#fbf1e2; color:#b5751a; }
+  .ph.blue { background:#e9f0fc; color:#2d6cdf; }
+  .pgroup ul { list-style:none; display:flex; flex-direction:column; gap:9px; margin:0; padding:0; }
+  .pgroup li { font-size:11.5px; line-height:1.38; color:#4A5058; padding-left:19px; position:relative; }
+  .pgroup li b { color:#313131; font-weight:700; }
+  .pgroup.bad li::before { content:'✕'; position:absolute; left:0; top:0; color:#dd5b4f; font-weight:800; font-size:11px; }
+  .pgroup.good li::before { content:'✓'; position:absolute; left:0; top:0; color:#12a273; font-weight:800; font-size:11px; }
+  .pgroup .src { font-size:9px; color:#A5ABB4; margin-top:11px; letter-spacing:0.03em; }
+  .pgroup .outcome { margin-top:auto; padding-top:11px; margin-top:13px; border-top:1px dashed #cfe7dc;
+       font-size:11px; line-height:1.38; color:#0a8f5f; font-weight:600; }
+  .pgroup .outcome b { color:#077a51; }
+  .pain-banner { background:linear-gradient(135deg,#e0564f 0%,#c8483d 100%); color:#fff; border-radius:12px;
+       padding:12px 20px; display:flex; align-items:center; gap:20px; margin-bottom:13px; box-shadow:0 4px 14px rgba(200,72,61,0.25); }
+  .pain-banner .pb-num { font-size:40px; font-weight:900; line-height:1; flex:none; letter-spacing:-0.02em; }
+  .pain-banner .pb-txt { font-size:12.5px; line-height:1.42; }
+  .pain-banner .pb-txt b { font-weight:800; }
+  .win-banner { background:linear-gradient(135deg,#12a273 0%,#0a8f5f 100%); color:#fff; border-radius:12px;
+       padding:12px 20px; display:flex; align-items:center; gap:20px; margin-bottom:13px; box-shadow:0 4px 14px rgba(10,143,95,0.25); }
+  .win-banner .wb-ic { font-size:30px; flex:none; }
+  .win-banner .wb-txt { font-size:12.5px; line-height:1.42; }
+  .win-banner .wb-txt b { font-weight:800; }
+
+  /* HIGHLIGHT BLOCK */
+  .highlight {
+    background: linear-gradient(135deg, #3086FB 0%, #1F6FDE 100%);
+    color: #fff;
+    border-radius: 8px;
+    padding: 18px 24px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .highlight .cell .label {
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #CCE0FD;
+    font-weight: 600;
+    margin-bottom: 5px;
+  }
+  .highlight .cell .value {
+    font-size: 26px;
+    font-weight: 700;
+    line-height: 1.05;
+  }
+  .highlight .cell .note {
+    font-size: 11px;
+    color: #CCE0FD;
+    margin-top: 3px;
+  }
+
+  /* TABLE */
+  table.belb {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+  }
+  table.belb th {
+    text-align: left;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #6C737D;
+    font-weight: 600;
+    padding: 7px 10px;
+    border-bottom: 1px solid #D4DDE9;
+  }
+  table.belb th.right, table.belb td.right { text-align: right; }
+  table.belb td {
+    padding: 7px 10px;
+    border-bottom: 1px solid #E8EDF4;
+    color: #313131;
+  }
+  table.belb td.metric { color: #4A5058; }
+  table.belb td.num { font-variant-numeric: tabular-nums; font-weight: 600; }
+  table.belb tr.totalrow td { font-weight: 700; background: #EAF3FE; border-bottom: none; }
+  table.belb tr.totalrow td:first-child { color: #3086FB; }
+  table.belb .now { color: #6C737D; }
+  table.belb .future { color: #3086FB; font-weight: 700; }
+
+  /* DISCLAIMER */
+  .disclaimer {
+    background: #fff4ec;
+    border-left: 4px solid #e88a3b;
+    border-radius: 4px;
+    padding: 10px 14px;
+    font-size: 10.5px;
+    line-height: 1.45;
+    color: #5b3a1a;
+    flex-shrink: 0;
+  }
+  .disclaimer .d-title {
+    font-weight: 700;
+    color: #b86420;
+    font-size: 9.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin-bottom: 3px;
+  }
+
+  /* QUOTES */
+  .quote-card {
+    background: #fff;
+    border-radius: 8px;
+    padding: 26px 28px;
+    position: relative;
+    border-left: 4px solid #3086FB;
+  }
+  .quote-card .qmark {
+    font-size: 56px;
+    color: #E3EEFE;
+    line-height: 0.6;
+    position: absolute;
+    top: 22px;
+    right: 22px;
+    font-weight: 700;
+  }
+  .quote-card .qtext {
+    font-size: 16px;
+    line-height: 1.5;
+    color: #313131;
+    font-weight: 500;
+    margin-bottom: 12px;
+    font-style: italic;
+  }
+  .quote-card .qauth {
+    font-size: 12px;
+    color: #6C737D;
+    letter-spacing: 0.04em;
+  }
+
+  /* FOOTER */
+  .slide-footer {
+    margin-top: auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid #E2E4E8;
+    padding-top: 12px;
+    font-size: 10.5px;
+    color: #6C737D;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+  }
+  .slide-footer .belb-mark {
+    font-weight: 700;
+    color: #313131;
+    letter-spacing: 0.04em;
+  }
+  .contact-bar {
+    margin-top: auto; flex-shrink: 0;
+    display: grid; grid-template-columns: 1.25fr 1fr 1.1fr;
+    background: linear-gradient(135deg, #3086FB 0%, #1F6FDE 100%);
+    color: #fff; border-radius: 10px; padding: 10px 22px;
+    box-shadow: 0 3px 12px rgba(48,134,251,0.20);
+  }
+  .contact-bar .cb-cell { padding-right: 18px; }
+  .contact-bar .cb-cell + .cb-cell { border-left: 1px solid rgba(255,255,255,0.18); padding-left: 20px; }
+  .contact-bar .cb-k { display: block; font-size: 8px; letter-spacing: 0.12em; color: #BAD6FC; font-weight: 700; }
+  .contact-bar .cb-v { display: block; font-size: 14.5px; font-weight: 800; margin-top: 2px; line-height: 1.1; }
+  .contact-bar .cb-s { display: block; font-size: 9.5px; color: #CFE2FD; margin-top: 1px; }
+
+  /* ROADMAP */
+  .roadmap-list { display: flex; flex-direction: column; gap: 14px; }
+  .roadmap-step { display: flex; gap: 18px; align-items: flex-start; }
+  .roadmap-num {
+    background: #3086FB;
+    color: #fff;
+    font-weight: 700;
+    width: 32px; height: 32px;
+    border-radius: 16px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    font-size: 14px;
+  }
+  .roadmap-step .body { flex: 1; }
+  .roadmap-step .body .title-line { font-weight: 700; color: #313131; font-size: 14px; margin-bottom: 4px; }
+  .roadmap-step .body .desc-line { font-size: 13px; color: #4A5058; line-height: 1.5; }
+  .roadmap-divider { height: 1px; background: #DEE5EF; margin-left: 50px; }
+
+  /* SMALL UTILITY */
+  .pill {
+    display: inline-block;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    padding: 4px 9px;
+    border-radius: 4px;
+    background: #E3EEFE;
+    color: #3086FB;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  .pill.warn { background: #fde3d2; color: #b86420; }
+  .pill.ok { background: #d8efe0; color: #2c7a4a; }
+  .pill.bad { background: #fadcde; color: #a13442; }
+
+  .two-col-block { display: grid; grid-template-columns: 1.4fr 1fr; gap: 22px; }
+
+  /* large number */
+  .megalarge { font-size: 64px; font-weight: 700; color: #fff; line-height: 1; letter-spacing: -0.02em; }
+  .megalarge-sub { font-size: 13px; color: #CCE0FD; margin-top: 6px; }
+
+  .checkmark {
+    display: inline-block;
+    width: 16px; height: 16px;
+    background: #3086FB;
+    color: #fff;
+    border-radius: 8px;
+    font-size: 10px;
+    text-align: center;
+    line-height: 16px;
+    margin-right: 8px;
+    vertical-align: middle;
+  }
+
+  .footer-line-section {
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    color: #6C737D;
+    text-transform: uppercase;
+    font-weight: 600;
+    margin-bottom: 10px;
+  }
+
+  /* CLOSING SLIDE */
+  .slide.closing {
+    background: linear-gradient(135deg, #10202F 0%, #16314B 48%, #1D4368 100%);
+    color: #fff;
+    padding: 56px 72px 40px 72px;
+    justify-content: space-between;
+  }
+  .closing-eyebrow {
+    font-size: 13px;
+    letter-spacing: 0.3em;
+    color: #9DC4FA;
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+  .closing-quote {
+    font-size: 42px;
+    font-weight: 700;
+    line-height: 1.12;
+    letter-spacing: -0.015em;
+    color: #fff;
+    margin: 8px 0 4px;
+    max-width: 1050px;
+  }
+  .rr-title {
+    font-size: 12px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #BFD9FD;
+    font-weight: 600;
+    margin-bottom: 12px;
+  }
+  .facts-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; align-items: stretch; margin-bottom: 16px; }
+  .fact-card {
+    background: linear-gradient(160deg, #3086FB 0%, #1B64CC 100%);
+    border-radius: 16px;
+    padding: 26px 24px 20px;
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    min-height: 170px;
+    box-shadow: 0 8px 24px rgba(27,100,204,0.35);
+  }
+  .fact-num { font-size: 46px; font-weight: 800; line-height: 1; letter-spacing: -0.02em; margin-bottom: 14px; }
+  .fact-cap { font-size: 13px; line-height: 1.4; color: rgba(255,255,255,0.88); margin-top: auto; }
+
+  /* Горизонтальная полоса фактов */
+  .closing-strip {
+    display: flex; flex-wrap: wrap; gap: 24px;
+    padding: 14px 0;
+    border-top: 1px solid rgba(255,255,255,0.14);
+    border-bottom: 1px solid rgba(255,255,255,0.14);
+    align-items: center;
+  }
+  .cs-item { font-size: 12.5px; color: #CCE0FD; display: flex; align-items: center; gap: 8px; }
+  .cs-num { font-size: 20px; font-weight: 700; color: #fff; }
+  .cs-badge {
+    width: 22px; height: 22px; border-radius: 6px;
+    background: rgba(255,255,255,0.14); color: #ffd96b;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700;
+  }
+  .closing-contacts {
+    display: flex; flex-wrap: wrap; gap: 24px; align-items: baseline;
+    font-size: 13px; color: #BFD9FD;
+  }
+  .closing-contacts .cc-brand {
+    font-size: 24px; font-weight: 700; color: #fff; letter-spacing: -0.01em;
+    margin-right: 8px;
+  }
+</style>
+</head>
+<body>
+
+
+
+
+
+
+
+
+
+<section class="slide title">
+  <div class="eyebrow">ACOOLA TEAM · СТРАТЕГИЧЕСКИЙ ОТДЕЛ</div>
+  <h1>Коммерческое предложение<br>для сайта crystal-sound.com</h1>
+  <div class="lead">SEO-продвижение для радиогидов, аудиогидов и аренды оборудования: фокус на Google, коммерческие запросы и исправление ошибок сайта.</div>
+  <div class="divider"></div>
+  <div class="title-meta">
+    <div class="cell">
+      <div class="label">ДЛЯ</div>
+      <div class="value">crystal-sound.com</div>
+      <div class="note">CrystalSound</div>
+    </div>
+    <div class="cell">
+      <div class="label">УСЛУГА</div>
+      <div class="value">SEO-продвижение</div>
+      <div class="note">с учётом сайта на Тильде</div>
+    </div>
+    <div class="cell">
+      <div class="label">ПОДГОТОВЛЕНО</div>
+      <div class="value">11.06.2026</div>
+      <div class="note">Acoola Team · менеджер проекта</div>
+    </div>
+    <div class="cell">
+      <div class="label">ПОДАРОК</div>
+      <div class="value">Короткий аудит</div>
+      <div class="note">приоритетных страниц услуг</div>
+    </div>
+  </div>
+</section>
+
+
+<section class="slide">
+  <div class="slide-header">
+    <h2>Что сейчас мешает заявкам на радиогиды</h2>
+    <div class="pagenum">02 / 12</div>
+  </div>
+  <div class="slide-subheader">Диагноз по предварительному аудиту crystal-sound.com на 11.06.2026 · только проверяемые данные</div>
+  <div class="slide-rule"></div>
+
+  <div class="pain-banner">
+<div class="pb-num">×2.2</div>
+<div class="pb-txt"><b>Поиск приводит заявки чаще рекламы.</b> Поисковый трафик даёт цель «Отправка любой формы» с 1.41% визитов против 0.65% у рекламы. 62% поискового трафика приходит из Google — именно этот канал для вас приоритетен. <span style="opacity:.7">[Яндекс.Метрика]</span></div>
+  </div>
+
+  <div class="grid-3">
+<div class="pgroup bad"><span class="ph red">Видимость в Google</span><ul><li>Google уже даёт <b>2929</b> визитов из поиска, но продвижение раньше велось только внутри сайта: «SEO мы не занимались особо, то есть только в рамках того, что можно сделать на сайте.»</li></ul><div class="src">🔍 аудит сайта · 🗣 встреча</div></div>
+<div class="pgroup bad"><span class="ph amber">Сайт и заявки</span><ul><li>На странице виден технический код формы, это снижает доверие и может мешать заявке на покупку или аренду радиогидов <span style='opacity:.65'>([{&quot;lid&quot;:&quot;1727177698265&quot;,&quot;ls&quot;:&quot;10&quot;,&quot;loff&quot;:&quot;&quot;,&quot;li_parent_id&quot;:&quot;)</span></li><li>Меню и разделы дублируются: покупка, аренда, поддержка и консультация по оборудованию теряются среди повторов <span style='opacity:.65'>(CrystalSound АРЕНДА СУПЕР АКЦИИ КОНТАКТЫ ПОДДЕРЖКА ПРИЛОЖЕНИ)</span></li></ul><div class="src">🔍 аудит + текст страниц</div></div>
+<div class="pgroup bad"><span class="ph blue">Поток и аренда</span><ul><li>Страница /rent собирает 10.1% трафика, но отказы 41.0% против 22.7% в среднем по сайту</li><li>Поиск даёт 4756 визитов и <b>1.41%</b> по цели «Отправка любой формы»; реклама даёт <b>8663</b> визитов и <b>0.65%</b> — поисковые страницы стоит усилить</li><li>Клиентский приоритет: «SEO интереснее больше в плане Google, потому что сейчас в России рекламы нет, Рекламироваться мы не можем.» <span style='opacity:.65'>— из разбора встречи</span></li></ul><div class="src">📊 Яндекс.Метрика · 🗣 встреча</div></div>
+</div>
+
+  <div style="font-size:10.5px;color:#6C737D;margin-top:12px;line-height:1.4;">🔍 — данные из автоматического аудита сайта (ИКС, индексация, трафик, на 11.06.2026). 🗣 — из разбора встречи с вами. Цифры не выдуманы.</div>
+
+  <div class="contact-bar">
+    <div class="cb-cell"><span class="cb-k">КОНТАКТ</span><span class="cb-v"></span><span class="cb-s">менеджер проекта · Acoola Team</span></div>
+    <div class="cb-cell"><span class="cb-k">ПОЧТА · ТЕЛЕФОН</span><span class="cb-v">hello@acoola.team</span><span class="cb-s">+7 (495) 796-66-90</span></div>
+    <div class="cb-cell"><span class="cb-k">САЙТ · ПРИМЕРЫ</span><span class="cb-v">acoola.team</span><span class="cb-s">примеры — acoola.team</span></div>
+  </div>
+</section>
+
+<section class="slide">
+  <div class="slide-header">
+    <h2>Как мы это чиним — по каждой проблеме</h2>
+    <div class="pagenum">03 / 12</div>
+  </div>
+  <div class="slide-subheader">Каждой проблеме из аудита — конкретное действие и измеримый результат</div>
+  <div class="slide-rule"></div>
+
+  <div class="grid-3">
+    <div class="pgroup good">
+      <span class="ph red">Видимость в поиске</span>
+      <ul>
+        <li>Открываем сайт для Google: <b>robots, карта сайта</b>, технический порядок, ускоряем переобход</li>
+        <li>Наращиваем <b>ИКС</b>: проработка страниц, внутренняя перелинковка, поведенческие факторы</li>
+        <li>Ссылочная масса: <b>тематические доноры вашей отрасли</b> и каталоги</li>
+      </ul>
+      <div class="outcome">→ Индекс и авторитет <b>к уровню лидеров ниши</b>, разворот трафика вверх</div>
+    </div>
+    <div class="pgroup good">
+      <span class="ph amber">Техническая база и разметка</span>
+      <ul>
+        <li>Внедряем <b>Schema-разметку</b>: <b>Organization</b> на компанию, <b>Product/Service</b> и отзывы на услуги → расширенные карточки компании и услуг в выдаче</li>
+        <li>Усиливаем <b>экспертность контента</b>: авторы, опыт, кейсы и доказательства — сигналы доверия E-E-A-T</li>
+        <li>Добираем <b>семантику</b>: коммерческие и проблемные запросы ниши + перелинковка существующих страниц услуг</li>
+      </ul>
+      <div class="outcome">→ Расширенные сниппеты и <b>больше точек входа</b> из поиска при той же базе сайта</div>
+    </div>
+    <div class="pgroup good">
+      <span class="ph blue">Аналитика и контроль</span>
+      <ul>
+        <li>Сквозная аналитика: считаем <b>обращения и заявки</b> с сайта, а не «позиции»</li>
+        <li>Ежемесячный отчёт <b>«сколько обращений принёс поиск»</b> + понятный план работ</li>
+        <li>SEO как <b>собственный актив</b> — поток клиентов без оплаты за каждого лида</li>
+      </ul>
+      <div class="outcome">→ <b>Предсказуемый поток</b> и независимость от рекламы и порталов</div>
+    </div>
+  </div>
+
+  <div style="display:flex;align-items:baseline;gap:10px;margin-top:15px;margin-bottom:9px;">
+    <span style="font-size:13px;font-weight:800;color:#313131;">Дорожная карта работ</span>
+    <span style="font-size:11px;color:#6C737D;">прозрачный план на полгода — процесс, а не «магия»</span>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;">
+    <div style="background:#fff;border:1px solid #E2E9F3;border-radius:10px;padding:12px 14px;position:relative;">
+      <div style="position:absolute;top:0;left:14px;width:40px;height:3px;background:#3086FB;border-radius:2px;"></div>
+      <div style="font-size:9.5px;font-weight:800;letter-spacing:0.06em;color:#3086FB;">МЕСЯЦ 1</div>
+      <div style="font-size:12.5px;font-weight:700;color:#313131;margin:3px 0 6px;">Аудит и фундамент</div>
+      <div style="font-size:10.5px;line-height:1.45;color:#6C737D;">Углублённый техаудит (60+ параметров), robots/sitemap/Schema, открываем сайт для Google, план семантики</div>
+    </div>
+    <div style="background:#fff;border:1px solid #E2E9F3;border-radius:10px;padding:12px 14px;position:relative;">
+      <div style="position:absolute;top:0;left:14px;width:40px;height:3px;background:#5C9FFC;border-radius:2px;"></div>
+      <div style="font-size:9.5px;font-weight:800;letter-spacing:0.06em;color:#3086FB;">МЕСЯЦ 2–3</div>
+      <div style="font-size:12.5px;font-weight:700;color:#313131;margin:3px 0 6px;">Контент и структура</div>
+      <div style="font-size:10.5px;line-height:1.45;color:#6C737D;">Страницы услуг и посадочные под спрос, Schema-разметка, метаданные, внутренняя перелинковка</div>
+    </div>
+    <div style="background:#fff;border:1px solid #E2E9F3;border-radius:10px;padding:12px 14px;position:relative;">
+      <div style="position:absolute;top:0;left:14px;width:40px;height:3px;background:#82B5FD;border-radius:2px;"></div>
+      <div style="font-size:9.5px;font-weight:800;letter-spacing:0.06em;color:#3086FB;">МЕСЯЦ 3–5</div>
+      <div style="font-size:12.5px;font-weight:700;color:#313131;margin:3px 0 6px;">Авторитет и ссылки</div>
+      <div style="font-size:10.5px;line-height:1.45;color:#6C737D;">Тематические доноры отрасли, Яндекс.Бизнес и Карты, рост ИКС и поведенческих факторов</div>
+    </div>
+    <div style="background:#fff;border:1px solid #E2E9F3;border-radius:10px;padding:12px 14px;position:relative;">
+      <div style="position:absolute;top:0;left:14px;width:40px;height:3px;background:#12a273;border-radius:2px;"></div>
+      <div style="font-size:9.5px;font-weight:800;letter-spacing:0.06em;color:#0a8f5f;">МЕСЯЦ 4–6</div>
+      <div style="font-size:12.5px;font-weight:700;color:#313131;margin:3px 0 6px;">Рост и аналитика</div>
+      <div style="font-size:10.5px;line-height:1.45;color:#6C737D;">Вывод запросов в топ, сквозная аналитика обращений, ежемесячные отчёты «факт vs план», корректировка</div>
+    </div>
+  </div>
+
+  <div style="font-size:13px;font-weight:800;color:#313131;margin:14px 0 8px;">Над проектом — выделенная команда</div>
+  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:9px;">
+    <div style="background:#fff;border:1px solid #E2E9F3;border-radius:10px;padding:11px 10px;display:flex;align-items:center;gap:11px;">
+      <div style="width:34px;height:34px;border-radius:9px;background:linear-gradient(140deg,#5C9FFC,#3086FB);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;flex:none;">SEO</div>
+      <div><div style="font-size:11.5px;font-weight:700;line-height:1.2;color:#313131;">SEO-специалист</div><div style="font-size:9.5px;color:#99A0A9;">по вашей отрасли</div></div>
+    </div>
+    <div style="background:#fff;border:1px solid #E2E9F3;border-radius:10px;padding:11px 10px;display:flex;align-items:center;gap:11px;">
+      <div style="width:34px;height:34px;border-radius:9px;background:linear-gradient(140deg,#5C9FFC,#3086FB);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex:none;">К</div>
+      <div><div style="font-size:11.5px;font-weight:700;line-height:1.2;color:#313131;">Копирайтер</div><div style="font-size:9.5px;color:#99A0A9;">по вашей тематике</div></div>
+    </div>
+    <div style="background:#fff;border:1px solid #E2E9F3;border-radius:10px;padding:11px 10px;display:flex;align-items:center;gap:11px;">
+      <div style="width:34px;height:34px;border-radius:9px;background:linear-gradient(140deg,#5C9FFC,#3086FB);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex:none;">Т</div>
+      <div><div style="font-size:11.5px;font-weight:700;line-height:1.2;color:#313131;">Технический спец</div><div style="font-size:9.5px;color:#99A0A9;">правки по ТЗ</div></div>
+    </div>
+    <div style="background:#fff;border:1px solid #E2E9F3;border-radius:10px;padding:11px 10px;display:flex;align-items:center;gap:11px;">
+      <div style="width:34px;height:34px;border-radius:9px;background:linear-gradient(140deg,#5C9FFC,#3086FB);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex:none;">А</div>
+      <div><div style="font-size:11.5px;font-weight:700;line-height:1.2;color:#313131;">Аналитик</div><div style="font-size:9.5px;color:#99A0A9;">метрики и отчёты</div></div>
+    </div>
+    <div style="background:#fff;border:1px solid #E2E9F3;border-radius:10px;padding:11px 10px;display:flex;align-items:center;gap:11px;">
+      <div style="width:34px;height:34px;border-radius:9px;background:linear-gradient(140deg,#5C9FFC,#3086FB);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px;flex:none;">PM</div>
+      <div><div style="font-size:11.5px;font-weight:700;line-height:1.2;color:#313131;">Проджект</div><div style="font-size:9.5px;color:#99A0A9;">ведёт проект</div></div>
+    </div>
+  </div>
+</section>
+
+<section class="slide">
+  <div class="slide-header">
+    <h2>Поисковое продвижение · что делаем для CrystalSound</h2>
+    <div class="pagenum">04 / 12</div>
+  </div>
+  <div class="slide-subheader">85 000 ₽ в месяц · 42 ч/мес · приоритет — радиогид, покупка и аренда · Google</div>
+  <div class="slide-rule"></div>
+
+  <div class="grid-3" style="margin-bottom: 12px;">
+    <div class="card">
+      <div class="bar"></div>
+      <span class="tag">БЛОК 1 · СТАРТ</span>
+      <h3>Аудит и техническая база</h3>
+      <div style="font-size:11px;line-height:1.5;color:#4A5058;margin-top:6px;">
+        · Проверка сайта на Тильде и ключевых страниц услуг<br>
+        · Индексация в Яндексе и Google: 309 и 301 страниц<br>
+        · Скорость загрузки и стабильность форм заявки<br>
+        · robots, карта сайта, корректные ответы сервера<br>
+        · Проверка целей Метрики: формы, звонки, калькулятор
+      </div>
+    </div>
+    <div class="card">
+      <div class="bar"></div>
+      <span class="tag">БЛОК 2 · ЗАПРОСЫ</span>
+      <h3>Семантика и страницы</h3>
+      <div style="font-size:11px;line-height:1.5;color:#4A5058;margin-top:6px;">
+        · Поиск развивался точечно — <strong>главный резерв роста</strong><br>
+        · Добор коммерческих запросов: радиогид, аренда, покупка<br>
+        · Доработка страниц услуг (Schema-разметка) под спрос<br>
+        · Блоки доверия: производство в России, инженеры, настройка<br>
+        · Сниппеты услуг в выдаче Яндекса и Google
+      </div>
+    </div>
+    <div class="card">
+      <div class="bar"></div>
+      <span class="tag">БЛОК 3 · АВТОРИТЕТ</span>
+      <h3>Упоминания и география</h3>
+      <div style="font-size:11px;line-height:1.5;color:#4A5058;margin-top:6px;">
+        · Аккуратное расширение внешних упоминаний сайта<br>
+        · Замена слабых ссылок на тематические площадки<br>
+        · Яндекс.Карты, геосервисы, отраслевые каталоги<br>
+        · Учет спроса: Москва, Санкт-Петербург, Калининград<br>
+        · Карточки компании — проверим и приведём в порядок
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:12px;padding:12px 18px;">
+    <div class="bar"></div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <span style="font-size:11px;font-weight:700;color:#3086FB;letter-spacing:0.04em;text-transform:uppercase;margin-right:6px;">Логика семантики</span>
+      <span class="pill">Спрос</span><span style="color:#B7BDC6;">→</span>
+      <span class="pill">Запрос</span><span style="color:#B7BDC6;">→</span>
+      <span class="pill">Страница</span><span style="color:#B7BDC6;">→</span>
+      <span class="pill" style="background:#3086FB;color:#fff;">Заявка</span>
+      <span style="font-size:11px;color:#6C737D;margin-left:auto;">каждый приоритетный продукт закрыт своей страницей</span>
+    </div>
+  </div>
+
+  <div class="two-col-block">
+    <div class="card">
+      <div class="bar"></div>
+      <h3 style="font-size:14px;margin-bottom:9px;">Инструменты, которыми работаем</h3>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;">
+        <span class="pill">Яндекс.Вебмастер</span>
+        <span class="pill">Яндекс.Метрика</span>
+        <span class="pill">Google Search Console</span>
+        <span class="pill">съём позиций</span>
+        <span class="pill">анализ ссылочного</span>
+        <span class="pill">валидатор Schema.org</span>
+        <span class="pill">PageSpeed</span>
+        <span class="pill">анализ конкурентов</span>
+      </div>
+      <div style="font-size:10.5px;color:#6C737D;margin-top:9px;line-height:1.45;">Работа не вслепую: опираемся на Метрику, цели, выдачу и состояние сайта, а изменения проверяем по данным.</div>
+    </div>
+    <div class="card" style="background:#EAF3FE;">
+      <div class="bar"></div>
+      <h3 style="font-size:14px;margin-bottom:7px;">Качество контента и доверие</h3>
+      <div style="font-size:11.5px;line-height:1.5;color:#4A5058;">Тексты про <strong style="color:#313131;">радиогиды и оборудование</strong> готовим с учетом ваших сильных сторон: российское производство, инженеры здесь, настройка под задачи. Правки — <strong>по нашим ТЗ</strong> в связке с вашей командой. Отчёт — по работам и данным.</div>
+    </div>
+  </div>
+
+  <div class="contact-bar">
+    <div class="cb-cell"><span class="cb-k">КОНТАКТ</span><span class="cb-v"></span><span class="cb-s">менеджер проекта · Acoola Team</span></div>
+    <div class="cb-cell"><span class="cb-k">EMAIL · ТЕЛЕФОН</span><span class="cb-v">hello@acoola.team</span><span class="cb-s">+7 (495) 796-66-90</span></div>
+    <div class="cb-cell"><span class="cb-k">САЙТ · КЕЙСЫ</span><span class="cb-v">acoola.team</span><span class="cb-s">кейсы — acoola.team</span></div>
+  </div>
+</section>
+
+
+<!-- ДАТА-СЛАЙД: строки генерит build_kp.py (problem_solution.html). Лишний — удалить. -->
+<section class="slide">
+  <div class="slide-header">
+    <h2>Аудит crystal-sound.com: проблема → решение</h2>
+    <div class="pagenum">NN / NN</div>
+  </div>
+  <div class="slide-subheader">Проверяемые данные аудита и Метрики · без оценок на глаз</div>
+  <div class="slide-rule"></div>
+  <table class="belb">
+    <thead><tr><th>Что мешает сейчас</th><th>Что делаем</th></tr></thead>
+    <tbody>
+        <tr><td class="metric">Есть 21 300 визитов за 90 дней, но отправок любой формы — 180 при конверсии 0.76%</td><td>Убираем помехи в заявке: формы, цены, первый экран и коммерческие блоки</td></tr>
+        <tr><td class="metric">SEO развивали ограниченно, а клиенту важен Google: «SEO мы не занимались особо, то есть только в рамках того, что можно сделать на сайте.»</td><td>Собираем коммерческие запросы по радиогидам, аренде и приоритетным услугам</td></tr>
+        <tr><td class="metric">Страница /rent собирает 10.1% трафика, но отказы 41.0% против 22.7% в среднем по сайту — заметная часть посетителей уходит с этой страницы, не сделав ни одного действия</td><td>Переработка страницы: первый экран, скорость загрузки, содержание под запрос, призыв к действию</td></tr>
+        <tr><td class="metric">На странице виден технический код формы, это снижает доверие и может мешать заявке — [{&quot;lid&quot;:&quot;1727177698265&quot;,&quot;ls&quot;:&quot;10&quot;,&quot;loff&quot;:&quot;&quot;,&quot;li_parent_id&quot;:&quot;&quot;,&quot;li_type&quot;:&quot;ph&quot;,&quot;li_ph&quot;:&quot;+7(999) 999-99-99&quot;,&quot;li_masktype&quot;:&quot;a&quot;,&quot;li_maskcountry&quot;:&quot;RU&quot;,&quot;li_req&quot;:&quot;y&quot;,&quot;li_nm&quot;:&quot;Phone&quot;}]</td><td>Проверить публикацию блоков и формы на Тильде, убрать вывод служебного кода, протестировать отправку заявок.</td></tr>
+        <tr><td class="metric">Меню и разделы дублируются, из-за этого первый экран перегружен и сложнее выбрать нужное действие — CrystalSound АРЕНДА СУПЕР АКЦИИ КОНТАКТЫ ПОДДЕРЖКА ПРИЛОЖЕНИЯ ПРОДУКЦИЯ О НАС ПОРТФОЛИО О компании Отзывы Новости Медиацентр Радиогид Аудиогид Трансляция GPS Гид Синхронный перевод Аксессуары и наушники О нас О компании Отзывы Новости Медиацентр</td><td>Упростить навигацию: оставить основные коммерческие разделы, убрать повторы, выделить покупку, аренду и консультацию.</td></tr>
+        <tr><td class="metric">Главный заголовок выглядит разорванным и не сразу объясняет предложение — радио ОБОРУДОВАНИЕ для экскурсий КАЛЬКУЛЯТОР</td><td>Переписать первый экран: чётко указать радиогид, покупку или аренду, ключевое отличие и основную кнопку заявки.</td></tr>
+        <tr><td class="metric">В карточках пакетов есть некорректное отображение цены — ТЕСТ-ДРАЙВ ₽ ₽</td><td>Исправить шаблон цен и проверить все карточки комплектов, чтобы стоимость и условия выглядели однозначно.</td></tr>
+    </tbody>
+  </table>
+  <div style="font-size:10.5px;color:#6C737D;margin-top:12px;">🔍 данные автоматического аудита: ИКС 270, индексация 309 / 301, скорость 0.47490596771240234. Цифры не выдуманы.</div>
+  <div class="slide-footer">Acoola Team — цифровое агентство</div>
+</section>
+
+<!-- ДАТА-СЛАЙД: заполняется смысловым слоем (kp_insights, маркер AUTO:PAINS). Пустой — удалить. -->
+<section class="slide">
+  <div class="slide-header">
+    <h2>Что болит — вашими словами</h2>
+    <div class="pagenum">NN / NN</div>
+  </div>
+  <div class="slide-subheader">Из брифа и встречи — дословные цитаты, ничего не придумано</div>
+  <div class="slide-rule"></div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div style="background:#fff;border:1px solid #eceaf3;border-radius:12px;padding:14px 16px;"><div style="font-size:13.5px;font-weight:700;margin-bottom:6px;">Поисковое продвижение раньше не развивали системно</div><div style="font-size:12px;color:#555;font-style:italic;border-left:3px solid #9aa6ff;padding-left:9px;">«SEO мы не занимались особо, то есть только в рамках того, что можно сделать на сайте.»<span style="color:#9a9aa0;font-style:normal;"> — со встречи</span></div></div><div style="background:#fff;border:1px solid #eceaf3;border-radius:12px;padding:14px 16px;"><div style="font-size:13.5px;font-weight:700;margin-bottom:6px;">Сайт на Тильде, переезд не планируется</div><div style="font-size:12px;color:#555;font-style:italic;border-left:3px solid #9aa6ff;padding-left:9px;">«Сайт на тильде.»<span style="color:#9a9aa0;font-style:normal;"> — со встречи</span></div></div><div style="background:#fff;border:1px solid #eceaf3;border-radius:12px;padding:14px 16px;"><div style="font-size:13.5px;font-weight:700;margin-bottom:6px;">Нужен рост именно в Google, потому что реклама недоступна</div><div style="font-size:12px;color:#555;font-style:italic;border-left:3px solid #9aa6ff;padding-left:9px;">«SEO интереснее больше в плане Google, потому что сейчас в России рекламы нет, Рекламироваться мы не можем.»<span style="color:#9a9aa0;font-style:normal;"> — со встречи</span></div></div><div style="background:#fff;border:1px solid #eceaf3;border-radius:12px;padding:14px 16px;"><div style="font-size:13.5px;font-weight:700;margin-bottom:6px;">Важны коммерческие запросы по приоритетным направлениям</div><div style="font-size:12px;color:#555;font-style:italic;border-left:3px solid #9aa6ff;padding-left:9px;">«понятно, что в первую очередь интересуют коммерческие по приоритетным напривлениям»<span style="color:#9a9aa0;font-style:normal;"> — из брифа</span></div></div></div><div style="margin-top:14px;font-size:13px;"><b>Главный аргумент:</b> У crystal-sound.com уже есть спрос и сильные продуктовые преимущества, но поисковое продвижение развивалось ограниченно, а сайт содержит видимые ошибки, которые могут снижать доверие и заявки. Предлагаем начать с исправления проблем на страницах услуг и аккуратного усиления видимости в Google.</div>
+  <div class="slide-footer">Acoola Team — интернет-агентство</div>
+</section>
+
+
+<section class="slide">
+  <div class="slide-header">
+    <h2>По авторитету вы впереди — закрепляем отрыв</h2>
+    <div class="pagenum">05 / 12</div>
+  </div>
+  <div class="slide-subheader">Репутация — отзывы площадок · видимость — индекс Яндекса · только проверяемые данные</div>
+  <div class="slide-rule"></div>
+
+  <div class="card" style="margin-bottom:12px;background:#eaf7f0;padding:11px 18px;border-left:3px solid #12a273;">
+    <div style="font-size:13.5px;line-height:1.45;color:#313131;">По <strong>авторитету сайта (ИКС 270)</strong> вы впереди конкурентов (лучший — cromi.ru, ИКС 170). <strong style="color:#0a8f5f;">Авторитет уже есть — задача конвертировать его в позиции и заявки, пока конкуренты не догнали.</strong></div>
+  </div>
+
+  <div class="two-col-block" style="margin-bottom:12px;">
+    <div class="card">
+      <div class="bar"></div>
+      <h3 style="margin-bottom:10px;">Отзывы и рейтинги площадок <span class="pill">репутация</span></h3>
+      <table class="belb">
+        <thead>
+          <tr><th>Площадка</th><th class="right">Отзывы</th><th class="right">Рейтинг</th></tr>
+        </thead>
+        <tbody>
+          <tr class="totalrow"><td></td><td class="right num"></td><td class="right num"></td></tr>
+          <tr><td></td><td class="right num now"></td><td class="right num now"></td></tr>
+          <tr><td></td><td class="right num now"></td><td class="right num now"></td></tr>
+          <tr><td></td><td class="right num now"></td><td class="right num now"></td></tr>
+        </tbody>
+      </table>
+      <div style="font-size:10px;color:#6C737D;margin-top:8px;line-height:1.5;">Площадки: Яндекс.Карты, Отзовик, отраслевые каталоги. Данные заполняются вручную по публичным карточкам компании.</div>
+    </div>
+    <div class="card">
+      <div class="bar"></div>
+      <h3 style="margin-bottom:10px;">Видимость — вы отстаёте <span class="pill">индекс Яндекса</span></h3>
+      <table class="belb">
+        <thead>
+          <tr>
+            <th>Компания</th>
+            <th class="right">ИКС<br><span style="font-weight:400;text-transform:none;letter-spacing:0;">авторитет в Яндексе</span></th>
+            <th class="right">Стр. в<br>Яндексе</th>
+            <th class="right">Стр. в<br>Google</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="totalrow"><td>crystal-sound.com <span class="pill">вы</span></td><td class="right num">270</td><td class="right num">309</td><td class="right num">301</td></tr>
+          <tr><td><strong>cromi.ru</strong></td><td class="right num">170</td><td class="right num">246</td><td class="right num">249</td></tr>
+          <tr><td><strong>radio-guide.ru</strong></td><td class="right num">130</td><td class="right num">364</td><td class="right num">92</td></tr>
+          <tr><td><strong>retekess.com.ru</strong></td><td class="right num">—</td><td class="right num">—</td><td class="right num">—</td></tr>
+        </tbody>
+      </table>
+      <div style="font-size:10px;color:#6C737D;margin-top:8px;line-height:1.5;">ИКС — официальный индекс качества от Яндекса. <span style="color:#a13442;">Красным</span> — где отстаёте вы.</div>
+    </div>
+  </div>
+
+  <div class="card" style="background:#EAF3FE;">
+    <div class="bar"></div>
+    <div style="font-size:12px;line-height:1.48;color:#4A5058;">Если страниц в индексе у вас не меньше, чем у конкурентов, а авторитет ниже — дело в <strong style="color:#313131;">проработке и ссылках, а не в объёме</strong>. Это чинится быстрее, чем строить с нуля. Плюс сильная репутация — новый трафик из поиска у вас <strong>конвертится выше среднего</strong>.</div>
+  </div>
+
+  <div class="disclaimer">
+    <div class="d-title">ИСТОЧНИКИ И КОНТРОЛЬ ДОСТОВЕРНОСТИ</div>
+    Отзывы и рейтинги — с публичных карточек площадок на дату подготовки КП (заполняются вручную). ИКС и индексация — данные Яндекса/Google через PR-CY, сверяются с нашим пресейл-аудитом. Трафик и заявки конкурентов снаружи не измеряются — их не приводим.
+  </div>
+
+  <div class="contact-bar">
+    <div class="cb-cell"><span class="cb-k">КОНТАКТ</span><span class="cb-v"></span><span class="cb-s">менеджер проекта · Acoola Team</span></div>
+    <div class="cb-cell"><span class="cb-k">EMAIL · ТЕЛЕФОН</span><span class="cb-v">hello@acoola.team</span><span class="cb-s">+7 (495) 796-66-90</span></div>
+    <div class="cb-cell"><span class="cb-k">САЙТ · КЕЙСЫ</span><span class="cb-v">acoola.team</span><span class="cb-s">кейсы — acoola.team</span></div>
+  </div>
+</section>
+
+<section class="slide">
+  <div class="slide-header">
+    <h2>Прогноз: поисковый трафик и обращения</h2>
+    <div class="pagenum">06 / 12</div>
+  </div>
+  <div class="slide-subheader">Оценка на текущий момент · база — ваша Метрика за 90 дней и май 2026</div>
+  <div class="slide-rule"></div>
+
+  <div class="two-col-block" style="margin-bottom: 12px;">
+    <div class="card">
+      <div class="bar"></div>
+      <h3 style="margin-bottom: 12px;">Воронка из поиска</h3>
+      <table class="belb">
+        <thead>
+          <tr>
+            <th>Показатель</th>
+            <th class="right">Сейчас</th>
+            <th class="right">6 мес</th>
+            <th class="right">12 мес</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Визиты из поиска / мес</td>
+            <td class="right num now">~1 589</td>
+            <td class="right num">2 383</td>
+            <td class="right num future">3 178</td></tr>
+          <tr><td>Конверсия в заявку — цель «Отправка любой формы» из поиска</td>
+            <td class="right num">1.41%</td>
+            <td class="right num">1.41%</td>
+            <td class="right num">1.41%</td></tr>
+          <tr class="totalrow"><td>Обращений из поиска / мес</td>
+            <td class="right num">~22</td>
+            <td class="right num">34 <span style="font-weight:400">(+12)</span></td>
+            <td class="right num">45 <span style="font-weight:400">(+23)</span></td></tr>
+        </tbody>
+      </table>
+      <div style="font-size:10px;color:#6C737D;margin-top:8px;line-height:1.5;">* база — 1 589 визитов из поиска в мае 2026 и конверсия 1.41% по источнику «Переходы из поисковых систем»; <strong>без учёта исправления ошибок на /rent и формах</strong>.</div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+      <div class="card" style="background:#fff4ec;border-left:4px solid #e88a3b;">
+        <h3 style="font-size:14px;margin-bottom:6px">Сначала &mdash; убрать барьеры на сайте</h3>
+        <div style="font-size:12px;line-height:1.5;color:#5b3a1a;">Поиск держится стабильно: 1 721 → 1 589 в апреле–мае, -7.7%. Но /rent даёт 10.1% трафика при отказах 41.0% против 22.7% по сайту — начинаем с этой страницы и форм.</div>
+      </div>
+      <div class="card">
+        <div class="bar"></div>
+        <h3 style="font-size:14px;margin-bottom:6px">Фокус &mdash; Google и коммерческие запросы</h3>
+        <div style="font-size:12px;line-height:1.5;color:#4A5058;">Учитываем ваш приоритет: <strong style="color:#313131;">«SEO интереснее больше в плане Google, потому что сейчас в России рекламы нет, Рекламироваться мы не можем.»</strong> В поиске уже 62% визитов из Google.</div>
+      </div>
+      <div class="card" style="background:#EAF3FE;">
+        <div class="bar"></div>
+        <h3 style="font-size:13px;margin-bottom:5px">Откуда цифры</h3>
+        <div style="font-size:10.5px;line-height:1.5;color:#4A5058;">«Сейчас» &mdash; Метрика crystal-sound.com за 90 дней: 21 300 визитов, 4 756 из поиска, 180 отправок форм. Прогноз &mdash; расчёт Acoola Team для поискового продвижения.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="disclaimer">
+    <div class="d-title">ВАЖНО — ОЦЕНКА НА ТЕКУЩИЙ МОМЕНТ</div>
+    Расчёт на <strong>11.06.2026</strong> по Метрике crystal-sound.com и аудиту сайта. Диапазоны уточняем после короткого аудита приоритетных страниц: радиогид, аренда, покупка из калькулятора. Поисковое продвижение зависит от правок на Тильде, индексации и конкурентов; факт и прогноз сверяем каждый месяц.
+  </div>
+
+  <div class="contact-bar">
+    <div class="cb-cell"><span class="cb-k">КОНТАКТ</span><span class="cb-v"></span><span class="cb-s">менеджер проекта · Acoola Team</span></div>
+    <div class="cb-cell"><span class="cb-k">ПОЧТА · ТЕЛЕФОН</span><span class="cb-v">hello@acoola.team</span><span class="cb-s">+7 (495) 796-66-90</span></div>
+    <div class="cb-cell"><span class="cb-k">САЙТ · ПРИМЕРЫ</span><span class="cb-v">acoola.team</span><span class="cb-s">примеры — acoola.team</span></div>
+  </div>
+</section>
+
+<section class="slide">
+  <div class="slide-header">
+    <h2>Сколько стоит пауза для crystal-sound.com</h2>
+    <div class="pagenum">07 / 12</div>
+  </div>
+  <div class="slide-subheader">Поиск уже даёт 4756 визитов за 90 дней, но Google критичен: «Рекламироваться мы не можем.»</div>
+  <div class="slide-rule"></div>
+
+  <div class="two-col-block" style="margin-bottom: 12px;">
+    <div class="card" style="border-left:3px solid #e88a3b;">
+      <h3 style="margin-bottom: 12px;">Что происходит, пока не трогать сайт и поиск</h3>
+      <div style="font-size:12.5px;line-height:1.7;color:#4A5058;">
+        <div><span style="display:inline-block;width:7px;height:7px;border-radius:2px;background:#a13442;margin-right:10px;vertical-align:middle;"></span>Поисковый трафик в мае ниже апреля: 1721 → 1589, −7.7%</div>
+        <div><span style="display:inline-block;width:7px;height:7px;border-radius:2px;background:#e88a3b;margin-right:10px;vertical-align:middle;"></span>Google даёт 62% поисковых визитов — важный канал без рекламы</div>
+        <div><span style="display:inline-block;width:7px;height:7px;border-radius:2px;background:#e88a3b;margin-right:10px;vertical-align:middle;"></span>Коммерческие запросы по радиогидам уходят к тем, кого нашли первыми</div>
+        <div><span style="display:inline-block;width:7px;height:7px;border-radius:2px;background:#a13442;margin-right:10px;vertical-align:middle;"></span>Ошибки на Тильде остаются видимыми: код формы, дубли меню, цена «₽ ₽»</div>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 14px;">
+      <div class="card">
+        <div class="bar"></div>
+        <h3 style="font-size:14px;margin-bottom:8px">Цена отсрочки — без новых прогнозов</h3>
+        <table class="belb">
+          <thead><tr><th>Отложить старт на</th><th class="right">Что копится*</th></tr></thead>
+          <tbody>
+            <tr><td class="metric">3 месяца</td><td class="right num">ошибки на /rent</td></tr>
+            <tr><td class="metric">6 месяцев</td><td class="right num future">разрыв в Google</td></tr>
+          </tbody>
+        </table>
+        <div style="font-size:10px;color:#6C737D;margin-top:8px;line-height:1.5;">* без расчёта недополученных обращений: нет подтверждённых продаж из поиска. Считаем только факты Метрики и аудита.</div>
+      </div>
+      <div class="card" style="background:#EAF3FE;">
+        <div class="bar"></div>
+        <div style="font-size:13px;line-height:1.5;color:#313131;">Поисковое продвижение — отложенная работа: сначала правим страницы, структуру и запросы. <strong style="color:#3086FB;">Лучше начинать с радиогида, аренды и форм заявок.</strong></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="disclaimer">
+    <div class="d-title">ЧЕСТНО ПРО ОЦЕНКУ</div>
+    Здесь не считаем недополученные обращения: для этого нужны подтверждённые продажи и маржинальность. Факт на сейчас: 21300 визитов за 90 дней, 4756 из поиска, Google — 2929 визитов, /rent имеет 41.0% отказов против 22.7% по сайту.
+  </div>
+
+  <div class="contact-bar">
+    <div class="cb-cell"><span class="cb-k">КОНТАКТ</span><span class="cb-v"></span><span class="cb-s">менеджер проекта · Acoola Team</span></div>
+    <div class="cb-cell"><span class="cb-k">EMAIL · ТЕЛЕФОН</span><span class="cb-v">hello@acoola.team</span><span class="cb-s">+7 (495) 796-66-90</span></div>
+    <div class="cb-cell"><span class="cb-k">САЙТ · КЕЙСЫ</span><span class="cb-v">acoola.team</span><span class="cb-s">кейсы — acoola.team</span></div>
+  </div>
+</section>
+
+<section class="slide">
+  <div class="slide-header">
+    <h2>Почему Acoola Team для crystal-sound.com</h2>
+    <div class="pagenum">08 / 12</div>
+  </div>
+  <div class="slide-subheader">Сравнение по тому, что влияет на заявки на радиогиды, аренду и покупку</div>
+  <div class="slide-rule"></div>
+
+  <div class="card" style="margin-bottom:12px;">
+    <div class="bar"></div>
+    <table class="belb">
+      <thead>
+        <tr>
+          <th style="width:30%;">Что важно</th>
+          <th>Как сейчас<br><span style="font-weight:400;text-transform:none;letter-spacing:0;">работы в рамках сайта</span></th>
+          <th>Свой специалист<br><span style="font-weight:400;text-transform:none;letter-spacing:0;">нанимать и вести самим</span></th>
+          <th class="right">Acoola Team</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="metric">Техника Тильды + контент + упоминания</td><td><span class="pill bad">точечно</span></td><td><span class="pill warn">зависит от людей</span></td><td class="right"><span class="pill ok">42 ч/мес в смете</span></td></tr>
+        <tr><td class="metric">Коммерческие запросы: радиогид, аренда, покупка</td><td>—</td><td>редко</td><td class="right"><span class="pill ok">приоритет в Google</span></td></tr>
+        <tr><td class="metric">Отчёт в заявках, звонках и формах</td><td><span class="pill bad">нет системы</span></td><td>редко</td><td class="right"><span class="pill ok">каждый месяц</span></td></tr>
+        <tr><td class="metric">Исправление ошибок на страницах услуг</td><td class="metric">—</td><td class="metric">низкий</td><td class="right"><span class="pill ok">50+ специалистов</span></td></tr>
+        <tr><td class="metric">Обязательства в договоре: объём работ и отчётность</td><td>—</td><td>—</td><td class="right"><span class="pill ok">фиксируем</span></td></tr>
+        <tr class="totalrow"><td>Стоимость в месяц</td><td>не указана<br><span style="font-size:10px;color:#a13442;">поиск не развивали системно</span></td><td>150–250 тыс ₽<br><span style="font-size:10px;color:#6C737D;">ФОТ штата</span></td><td class="right">85 000 ₽<br><span style="font-size:10px;color:#3086FB;">42 ч/мес</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="disclaimer">
+    <div class="d-title">СУТЬ</div>
+    У crystal-sound.com уже есть 21 300 визитов за 90 дней и 4 756 переходов из поиска; Google даёт 62% поискового трафика. Задача — не начинать с нуля, а убрать ошибки на страницах услуг и системно усилить коммерческие запросы.
+  </div>
+
+  <div class="contact-bar">
+    <div class="cb-cell"><span class="cb-k">КОНТАКТ</span><span class="cb-v"></span><span class="cb-s">менеджер проекта · Acoola Team</span></div>
+    <div class="cb-cell"><span class="cb-k">ПОЧТА · ТЕЛЕФОН</span><span class="cb-v">hello@acoola.team</span><span class="cb-s">+7 (495) 796-66-90</span></div>
+    <div class="cb-cell"><span class="cb-k">САЙТ · ПРИМЕРЫ</span><span class="cb-v">acoola.team</span><span class="cb-s">примеры — acoola.team</span></div>
+  </div>
+</section>
+
+<section class="slide">
+  <div class="slide-header">
+    <h2>Как начинаем работу</h2>
+    <div class="pagenum">09 / 12</div>
+  </div>
+  <div class="slide-subheader">5 шагов до старта · фокус на Google, радиогиде и коммерческих запросах</div>
+  <div class="slide-rule"></div>
+
+  <div class="two-col-block" style="margin-bottom: 12px;">
+    <div class="card">
+      <div class="bar"></div>
+      <h3 style="margin-bottom: 16px;">Шаги до запуска</h3>
+      <div class="roadmap-list">
+        <div class="roadmap-step">
+          <div class="roadmap-num">1</div>
+          <div class="body">
+            <div class="title-line">До · решение</div>
+            <div class="desc-line">Согласуете состав работ по SEO для crystal-sound.com и выход на договор.</div>
+          </div>
+        </div>
+        <div class="roadmap-divider"></div>
+        <div class="roadmap-step">
+          <div class="roadmap-num">2</div>
+          <div class="body">
+            <div class="title-line">До · договор и оплата</div>
+            <div class="desc-line">Фиксируем работы по Тильде, страницам услуг и коммерческим запросам. Договор готовим за 24 часа.</div>
+          </div>
+        </div>
+        <div class="roadmap-divider"></div>
+        <div class="roadmap-step">
+          <div class="roadmap-num">3</div>
+          <div class="body">
+            <div class="title-line">48 часов · знакомство и доступы</div>
+            <div class="desc-line">Гостевой доступ к Метрике, доступы к сайту и вебмастерам, знакомство с командой (30 мин онлайн).</div>
+          </div>
+        </div>
+        <div class="roadmap-divider"></div>
+        <div class="roadmap-step">
+          <div class="roadmap-num">4</div>
+          <div class="body">
+            <div class="title-line">1-й месяц · аудит + быстрые правки</div>
+            <div class="desc-line">Проверяем /rent, формы, меню, карточки цен и начинаем работу по радиогидам и приоритетным услугам.</div>
+          </div>
+        </div>
+        <div class="roadmap-divider"></div>
+        <div class="roadmap-step">
+          <div class="roadmap-num">5</div>
+          <div class="body">
+            <div class="title-line">Через 30 дней · первый отчёт</div>
+            <div class="desc-line">Отчёт по Google, заявкам, звонкам и покупкам из калькулятора, а не только по «позициям».</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 16px;">
+      <div class="card">
+        <div class="bar"></div>
+        <h3 style="font-size:16px;margin-bottom:12px;">Что от вас</h3>
+        <div style="font-size:13px;line-height:1.7;color:#4A5058;">
+          <div><span class="checkmark">✓</span> Гостевой доступ к Яндекс.Метрике</div>
+          <div><span class="checkmark">✓</span> Доступы к сайту на Тильде и вебмастерам</div>
+          <div><span class="checkmark">✓</span> Приоритеты: радиогид и другие направления CrystalSound</div>
+          <div><span class="checkmark">✓</span> Контакт вашего технаря / разработчика сайта</div>
+          <div><span class="checkmark">✓</span> 30 минут на старте на знакомство</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="bar"></div>
+        <h3 style="font-size:16px;margin-bottom:12px;">Что от нас</h3>
+        <div style="font-size:13px;line-height:1.7;color:#4A5058;">
+          <div><span class="checkmark">✓</span> Ведущий SEO-специалист + профильный редактор</div>
+          <div><span class="checkmark">✓</span> Специалист по ссылкам и контент-менеджер</div>
+          <div><span class="checkmark">✓</span> Проверка аналитики и целей в Метрике</div>
+          <div><span class="checkmark">✓</span> Аккаунт-менеджер на связи 5/7</div>
+          <div><span class="checkmark">✓</span> Ежемесячный отчёт в заявках, звонках и покупках</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="highlight">
+    <div class="cell">
+      <div class="label">КОНТАКТ</div>
+      <div class="value" style="font-size:22px"></div>
+      <div class="note">Менеджер проекта · Acoola Team</div>
+    </div>
+    <div class="cell">
+      <div class="label">EMAIL · ТЕЛЕФОН</div>
+      <div class="value" style="font-size:18px">hello@acoola.team</div>
+      <div class="note">+7 (495) 796-66-90</div>
+    </div>
+    <div class="cell">
+      <div class="label">САЙТ · КЕЙСЫ</div>
+      <div class="value" style="font-size:16px">acoola.team</div>
+      <div class="note">SEO-кейсы — acoola.team</div>
+    </div>
+  </div>
+
+  <div class="contact-bar">
+    <div class="cb-cell"><span class="cb-k">КОНТАКТ</span><span class="cb-v"></span><span class="cb-s">менеджер проекта · Acoola Team</span></div>
+    <div class="cb-cell"><span class="cb-k">EMAIL · ТЕЛЕФОН</span><span class="cb-v">hello@acoola.team</span><span class="cb-s">+7 (495) 796-66-90</span></div>
+    <div class="cb-cell"><span class="cb-k">САЙТ · КЕЙСЫ</span><span class="cb-v">acoola.team</span><span class="cb-s">кейсы — acoola.team</span></div>
+  </div>
+</section>
+
+<section class="slide">
+  <div class="slide-header">
+    <h2>Почему Acoola Team — и доказательства</h2>
+    <div class="pagenum">10 / 12</div>
+  </div>
+  <div class="slide-subheader">Команда и цифры агентства · кейсы кликабельны — подставляются под нишу клиента</div>
+  <div class="slide-rule"></div>
+
+  <div class="card" style="margin-bottom:12px;">
+    <div class="bar"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 26px;">
+      <div style="font-size:12.5px;line-height:1.6;color:#4A5058;">
+        <div><span class="checkmark">✓</span> <strong>50+ digital-специалистов</strong> в команде агентства</div>
+        <div><span class="checkmark">✓</span> <strong>70+ проектов</strong> ведём на ежемесячной основе</div>
+        <div><span class="checkmark">✓</span> Сертифицированное агентство: Яндекс Директ · Битрикс</div>
+      </div>
+      <div style="font-size:12.5px;line-height:1.6;color:#4A5058;">
+        <div><span class="checkmark">✓</span> Отчёт в обращениях и заявках, а не в «позициях»</div>
+        <div><span class="checkmark">✓</span> <strong>3,5+ года</strong> — среднее сотрудничество с клиентом</div>
+        <div><span class="checkmark">✓</span> <strong>NPS 95%</strong> — клиенты готовы рекомендовать нас</div>
+      </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="proof-grid">
+      <a class="tile fill" href="https://acoola.team/projects/golfstrim/" target="_blank">
+        <div class="tt">УСЛУГИ УСТАНОВКИ И ОБСЛУЖИВАНИЯ ОХРАННЫХ… ↗</div>
+        <div class="tn">Гольфстрим</div>
+        <div class="tnum">Лид за 10 рублей</div>
+        <div class="tm">Проведённые работы по всесторонней оптимизации сайта и улучшению юзабилити позволили за 3 года сотрудничества…</div>
+        <div class="tcap">Кейс Гольфстрим: увеличение видимости и конверсий через SEO-оптимизацию</div>
+      </a>
+      <a class="tile" href="https://acoola.team/projects/titan/" target="_blank">
+        <div class="tt">ПРОИЗВОДСТВО ФУРНИТУРЫ ДЛЯ СТЕКЛА. ↗</div>
+        <div class="tn">Титан</div>
+        <div class="tnum">Конверсия 8,64%</div>
+        <div class="tm">Благодаря модулю расчёта стоимости сразу после запуска сайта клиент запустил на него платную рекламу из…</div>
+        <div class="tcap">Производство фурнитуры для стекла.</div>
+      </a>
+      <a class="tile fill" href="https://acoola.team/projects/chasovaya-birzha/" target="_blank">
+        <div class="tt">E-COMMERCE, РОЗНИЧНЫЕ ПРОДАЖИ, ВЫКУП, УСЛУГИ… ↗</div>
+        <div class="tn">wwerb.com</div>
+        <div class="tnum">с 18 400 рублей</div>
+        <div class="tm">Снизилась с 18 400 рублей (март 2020) до 582 рублей (март 2022)</div>
+        <div class="tcap">Кейс wwerb.com: как вывести часовой магазин в лидеры рынка</div>
+      </a>
+  </div>
+
+  <a href="" target="_blank" style="display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:13px;text-decoration:none;background:linear-gradient(135deg,#3086FB 0%,#1F6FDE 100%);color:#fff;border-radius:12px;padding:15px 22px;box-shadow:0 6px 18px rgba(48,134,251,0.22);">
+    <div style="display:flex;align-items:center;gap:16px;">
+      <div style="font-size:30px;font-weight:900;line-height:1;letter-spacing:-0.02em;">70+</div>
+      <div>
+        <div style="font-size:14.5px;font-weight:700;line-height:1.2;">проектов ведём на ежемесячной основе</div>
+        <div style="font-size:11.5px;color:#CFE2FD;margin-top:2px;">B2B, электронная торговля, ритейл, услуги — с цифрами роста</div>
+      </div>
+    </div>
+    <div style="flex:none;display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,0.16);padding:9px 16px;border-radius:100px;font-size:12.5px;font-weight:700;white-space:nowrap;">Смотреть все кейсы агентства ↗</div>
+  </a>
+
+  <div class="slide-footer">
+    <span class="belb-mark">ACOOLA TEAM</span>
+    <span>КП · crystal-sound.com · crystal-sound.com</span>
+    <span>11.06.2026</span>
+  </div>
+</section>
+
+<section class="slide">
+  <div class="slide-header">
+    <h2>Стоимость и состав</h2>
+    <div class="pagenum">11 / 12</div>
+  </div>
+  <div class="slide-subheader">Все цены с НДС 5% · Поисковое продвижение — актив, который остаётся на вашем сайте</div>
+  <div class="slide-rule"></div>
+
+  <div class="card" style="margin-bottom: 14px;">
+    <div class="bar"></div>
+    <span class="tag">ЕЖЕМЕСЯЧНО</span>
+    <h3>Поисковое продвижение crystal-sound.com</h3>
+    <div class="desc" style="border-top: none; padding-top: 0; margin-top: 0;">42 ч/мес работы команды. Фокус — Google и коммерческие запросы по радиогидам, аренде, аудиогидам и синхронному переводу: технический порядок на Тильде, страницы услуг, ссылки, аналитика и отчёт по звонкам и формам.</div>
+    <div style="display:flex;gap:36px;margin-top:10px;">
+      <div><div class="kpi-label">ЦЕНА С НДС 5% / МЕС</div><div class="kpi-value purple">89 250 ₽</div></div>
+      <div><div class="kpi-label">БАЗА БЕЗ НДС</div><div class="kpi-value" style="color:#6C737D;">85 000 ₽</div></div>
+    </div>
+  </div>
+
+  <div class="highlight" style="margin-bottom:12px;">
+    <div class="cell">
+      <div class="label">ЦЕНА С НДС 5% / МЕС</div>
+      <div class="value">89 250 ₽</div>
+      <div class="note">база 85 000 ₽ + НДС 5%</div>
+    </div>
+    <div class="cell">
+      <div class="label">В 1-Й МЕСЯЦ</div>
+      <div class="value">Аудит + правки Тильды</div>
+      <div class="note">углублённый старт без доплат</div>
+    </div>
+    <div class="cell">
+      <div class="label">БЕЗ ДОПЛАТ</div>
+      <div class="value">Всё в смете</div>
+      <div class="note">ссылки и контент внутри</div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:12px;background:#EAF3FE;border-left:3px solid #3086FB;padding:12px 18px;">
+    <div style="font-size:12.5px;line-height:1.5;color:#313131;"><strong>Экономика поиска.</strong> У сайта уже есть 4 756 переходов из поиска за 90 дней, а Google даёт <strong>62% поискового трафика</strong>. Задача — убрать ошибки страниц, усилить коммерческие разделы и <strong style="color:#3086FB;">сделать поиск стабильным источником обращений</strong> без зависимости только от рекламы.</div>
+  </div>
+
+  <div style="background:linear-gradient(135deg,#12a273 0%,#0a8f5f 100%);color:#fff;border-radius:10px;padding:13px 18px;display:flex;align-items:center;gap:16px;box-shadow:0 4px 14px rgba(10,143,95,0.28);">
+    <div style="flex:0 0 auto;text-align:center;background:rgba(255,255,255,0.18);border-radius:8px;padding:7px 13px;">
+      <div style="font-size:12.5px;font-weight:800;letter-spacing:0.12em;">ПОДАРОК</div>
+      <div style="font-size:10px;color:#d6f5e9;margin-top:2px;font-weight:700;">при</div>
+    </div>
+    <div style="min-width:0;">
+      <div style="font-size:15.5px;font-weight:700;line-height:1.2;">Внедрение поисковых правок на Тильде — без доплаты</div>
+      <div style="font-size:11.5px;color:#d6f5e9;margin-top:3px;line-height:1.4;">Обычно правки внедряет ваш специалист или это отдельная статья сметы. Берём внедрение на себя — <strong style="color:#fff;">при оперативном старте.</strong> Успеваем зафиксировать условия в этом месяце.</div>
+    </div>
+  </div>
+
+  <div class="slide-footer">
+    <span class="belb-mark">ACOOLA TEAM</span>
+    <span>КП · crystal-sound.com · crystal-sound.com</span>
+    <span>11.06.2026</span>
+  </div>
+</section>
+
+<section class="slide closing">
+  <div class="closing-eyebrow">ACOOLA TEAM · ПОИСКОВОЕ ПРОДВИЖЕНИЕ ДЛЯ CRYSTAL-SOUND.COM</div>
+
+  <div class="closing-quote">
+    Фокус работ для crystal-sound.com:<br>Google, радиогиды и страницы услуг
+  </div>
+
+  <div class="rr-title">Что видим по crystal-sound.com</div>
+  <div class="facts-grid">
+    <div class="fact-card">
+      <div class="fact-num">21 300</div>
+      <div class="fact-cap">визитов за 90 дней: спрос на сайт уже есть</div>
+    </div>
+    <div class="fact-card">
+      <div class="fact-num">4 756</div>
+      <div class="fact-cap">переходов из поисковых систем за период</div>
+    </div>
+    <div class="fact-card">
+      <div class="fact-num">62%</div>
+      <div class="fact-cap">поисковых визитов приходит из Google</div>
+    </div>
+    <div class="fact-card">
+      <div class="fact-num">41,0%</div>
+      <div class="fact-cap">отказов на /rent: страницу стоит доработать</div>
+    </div>
+  </div>
+
+  <div class="closing-strip">
+    <div class="cs-item"><span class="cs-badge">★</span> Ближайшие шаги: правки на Тильде · коммерческие запросы · внешние упоминания</div>
+  </div>
+
+  <div class="closing-contacts">
+    <span class="cc-brand">Acoola Team</span>
+    <span>acoola.team</span>
+    <span>hello@acoola.team</span>
+    <span>+7 (495) 796-66-90</span>
+    <span>Москва, Варшавское ш. 118, к. 1, эт. 13, оф. 22</span>
+  </div>
+</section>
+</body>
+</html>

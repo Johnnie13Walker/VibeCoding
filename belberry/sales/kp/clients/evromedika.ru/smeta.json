@@ -1,0 +1,20 @@
+{
+  "client": "evromedika.ru",
+  "brand": "Belberry",
+  "deadline": "25.06.2026",
+  "flags": {
+    "logo_discount": false,
+    "fast_pay": true
+  },
+  "service": "seo",
+  "items": [
+    {
+      "name": "SEO-продвижение: техника, контент, ссылки (42 ч/мес)",
+      "monthly": 95000
+    },
+    {
+      "name": "GEO: карточки Яндекс.Карт и геосервисов (3 точки)",
+      "monthly": 25000
+    }
+  ]
+}

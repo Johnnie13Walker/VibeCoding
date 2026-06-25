@@ -1,0 +1,161 @@
+{
+  "deal_id": 17998,
+  "domain": "biospaclinic.ru",
+  "brand": "Belberry",
+  "facts": [
+    {
+      "key": "deal_title",
+      "value": "biospaclinic.ru",
+      "source": "bitrix.json:deal",
+      "status": "факт"
+    },
+    {
+      "key": "company_revenue",
+      "value": "51149000",
+      "source": "bitrix.json:deal",
+      "status": "факт"
+    },
+    {
+      "key": "brief:Приоритетные товары/услуги, которые нужно продвигать. Может планируются новые?",
+      "value": "Аппаратную косметологию хотелось бы больше продавать. Это BodyLab. Это BBL всякого рода чистки, RF-лифтинги, там Hydrofessional, вот в таком формате. По коррекции фигуры тоже. Поэтому больше акцент, конечно, на аппаратную хотелось бы сделать, потому что аппараты все оригинальные, все очень дорогущие. И хотелось бы, чтобы, конечно, людей больше ходило на эти процедуры",
+      "source": "bitrix.json:бриф СП1056",
+      "status": "факт"
+    },
+    {
+      "key": "brief:Опишите вашу целевую аудиторию - возраст, пол, мотивация, страхи, типичные возражения",
+      "value": "Пришлют список",
+      "source": "bitrix.json:бриф СП1056",
+      "status": "факт"
+    },
+    {
+      "key": "brief:Опишите вашу целевую аудиторию",
+      "value": "Пришлют информацию",
+      "source": "bitrix.json:бриф СП1056",
+      "status": "факт"
+    },
+    {
+      "key": "brief:Регион продвижения",
+      "value": "Пришлют информацию",
+      "source": "bitrix.json:бриф СП1056",
+      "status": "факт"
+    },
+    {
+      "key": "sqi",
+      "value": 90,
+      "source": "audit.json:pr-cy",
+      "status": "факт"
+    },
+    {
+      "key": "yandex_index",
+      "value": 241,
+      "source": "audit.json:pr-cy",
+      "status": "факт"
+    },
+    {
+      "key": "google_index",
+      "value": 353,
+      "source": "audit.json:pr-cy",
+      "status": "факт"
+    },
+    {
+      "key": "load_time",
+      "value": 0.6786279678344727,
+      "source": "audit.json:pr-cy",
+      "status": "факт"
+    },
+    {
+      "key": "schema_org",
+      "value": false,
+      "source": "audit.json:pr-cy",
+      "status": "факт"
+    },
+    {
+      "key": "metrika:visits",
+      "value": 23751,
+      "source": "metrika.json",
+      "status": "факт"
+    },
+    {
+      "key": "metrika:users",
+      "value": 21792,
+      "source": "metrika.json",
+      "status": "факт"
+    },
+    {
+      "key": "metrika:bounce_rate",
+      "value": 9.5,
+      "source": "metrika.json",
+      "status": "факт"
+    },
+    {
+      "key": "metrika:goals",
+      "value": [
+        {
+          "id": 38613530,
+          "name": "Запись на прием",
+          "reaches": 0,
+          "conversion": 0
+        },
+        {
+          "id": 406213657,
+          "name": "Уникальный звонок",
+          "reaches": 27,
+          "conversion": 0.11
+        },
+        {
+          "id": 406213658,
+          "name": "Уникально-целевой звонок",
+          "reaches": 15,
+          "conversion": 0.06
+        },
+        {
+          "id": 406213659,
+          "name": "Целевой звонок",
+          "reaches": 26,
+          "conversion": 0.09
+        },
+        {
+          "id": 38675915,
+          "name": "Запись на прием 1 (стар.)",
+          "reaches": 0,
+          "conversion": 0
+        },
+        {
+          "id": 38675921,
+          "name": "Запись на прием 2 (стар.)",
+          "reaches": 0,
+          "conversion": 0
+        },
+        {
+          "id": 38675930,
+          "name": "Звонок (стар.)",
+          "reaches": 0,
+          "conversion": 0
+        },
+        {
+          "id": 38675942,
+          "name": "Звонок 2 (стар.)",
+          "reaches": 0,
+          "conversion": 0
+        }
+      ],
+      "source": "metrika.json",
+      "status": "факт"
+    },
+    {
+      "key": "metrika:organic_trend",
+      "value": "6341 (2026-05) → 6341 (2026-05), 0.0% — рост",
+      "source": "metrika.json:trend",
+      "status": "факт"
+    }
+  ],
+  "hypotheses": [],
+  "manual_checklist": [
+    "Цены — только из сметы сметчика (Google Sheets по матрице), не выдумывать",
+    "Титул: клиент, домен, дата, дедлайн подарка/скидки",
+    "Каскад скидок: 10% логотип / 5% оперативность с датой (по правилам матрицы)",
+    "Прогнозы — диапазоны + дисклеймер «оценка на текущий момент» (LEGAL-MED-2026 §2)",
+    "Никаких гарантий результата и «случаев излечения» (ст. 24 ФЗ-38)",
+    "Перед отправкой: в папке только клиентские файлы (без внутренних калькуляторов)"
+  ]
+}

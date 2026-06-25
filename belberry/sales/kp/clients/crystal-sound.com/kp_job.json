@@ -1,0 +1,45 @@
+{
+  "deal_id": 16076,
+  "stages": {
+    "bitrix": {
+      "status": "done",
+      "at": "2026-06-11T19:10:05+03:00"
+    },
+    "audit": {
+      "status": "done",
+      "at": "2026-06-11T19:10:11+03:00"
+    },
+    "webmaster": {
+      "status": "done",
+      "at": "2026-06-11T19:10:13+03:00"
+    },
+    "insights": {
+      "status": "skipped",
+      "at": "2026-06-11T19:10:13+03:00"
+    },
+    "screenshot": {
+      "status": "done",
+      "at": "2026-06-11T19:10:30+03:00"
+    },
+    "assemble": {
+      "status": "done",
+      "at": "2026-06-11T19:10:30+03:00"
+    },
+    "smeta": {
+      "status": "done",
+      "at": "2026-06-11T19:10:30+03:00"
+    },
+    "scaffold": {
+      "status": "done",
+      "at": "2026-06-11T21:58:54+03:00"
+    },
+    "polish": {
+      "status": "skipped",
+      "at": "2026-06-11T19:10:32+03:00"
+    },
+    "pdf": {
+      "status": "done",
+      "at": "2026-06-11T21:58:59+03:00"
+    }
+  }
+}

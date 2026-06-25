@@ -1,0 +1,59 @@
+{
+  "client": {
+    "domain": "reclinic.ru",
+    "sqi": 140,
+    "yandex_index": 123,
+    "google_index": 158,
+    "donors": 1,
+    "prcy_rank": 46,
+    "links_factor": "high",
+    "trust_factor": "high",
+    "organic_pct": 65,
+    "bounce_rate": 38,
+    "avg_duration": 60,
+    "https": true,
+    "robots": true,
+    "sitemap": true,
+    "schema_org": false,
+    "load_time": 1.274238109588623,
+    "status_code": 200,
+    "title": "Клиника Reclinic: лечение заболеваний суставов и позвоночника в Москве",
+    "visits_monthly": 3610,
+    "visits_history": {
+      "202307": 3200,
+      "202403": 6870,
+      "202404": 5680,
+      "202405": 3120,
+      "202407": 66500,
+      "202408": 38100,
+      "202409": 29000,
+      "202412": 1350,
+      "202501": 1280,
+      "202502": 2290,
+      "202503": 1860,
+      "202504": 2150,
+      "202505": 2260,
+      "202601": 4370,
+      "202602": 2770,
+      "202603": 3610
+    },
+    "visits_source": "prcy",
+    "commercial": {
+      "online_booking": true,
+      "prices": false,
+      "reviews": true,
+      "doctors": true,
+      "phone": true,
+      "schema": false
+    }
+  },
+  "competitors": [],
+  "trend": {
+    "peak": 66500,
+    "peak_month": "июл 24",
+    "current": 3610,
+    "current_month": "мар 26",
+    "change_pct": -95,
+    "source": "prcy"
+  }
+}

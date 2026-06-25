@@ -1,0 +1,20 @@
+{
+  "client": "crystal-sound.com",
+  "brand": "Acoola Team",
+  "deadline": "",
+  "flags": {
+    "logo_discount": false,
+    "fast_pay": true
+  },
+  "service": "seo",
+  "items": [
+    {
+      "name": "SEO-продвижение: техника, контент, ссылки (42 ч/мес)",
+      "monthly": 85000
+    },
+    {
+      "name": "GEO: карточки Яндекс.Карт и геосервисов",
+      "monthly": 0
+    }
+  ]
+}

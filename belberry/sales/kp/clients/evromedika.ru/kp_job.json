@@ -1,0 +1,33 @@
+{
+  "deal_id": 18484,
+  "stages": {
+    "bitrix": {
+      "status": "done",
+      "at": "2026-06-11T09:12:37+03:00"
+    },
+    "audit": {
+      "status": "done",
+      "at": "2026-06-11T09:12:38+03:00"
+    },
+    "metrika": {
+      "status": "skipped",
+      "at": "2026-06-11T00:08:35+03:00"
+    },
+    "assemble": {
+      "status": "done",
+      "at": "2026-06-11T09:12:38+03:00"
+    },
+    "scaffold": {
+      "status": "done",
+      "at": "2026-06-11T12:50:36+03:00"
+    },
+    "smeta": {
+      "status": "done",
+      "at": "2026-06-11T12:50:35+03:00"
+    },
+    "insights": {
+      "status": "skipped",
+      "at": "2026-06-11T12:50:35+03:00"
+    }
+  }
+}
