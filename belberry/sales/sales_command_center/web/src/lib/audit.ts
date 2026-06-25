@@ -3,7 +3,8 @@ import { db } from '@/db';
 import { dealAudits, meetingTasks, users } from '@/db/schema';
 import { isSalesDept, isSalesManager, isTelemarketing } from '@/lib/dashboard';
 
-// Названия стадий воронки «Продажи» (CATEGORY_ID=10) для показа стадии на момент аудита.
+// Названия стадий для показа стадии на момент аудита. Воронка «Продажи» (C10) и
+// «Телемаркетинг» (C50) — сделку могли аудитить в любой из них.
 const STAGE_NAMES: Record<string, string> = {
   'C10:NEW': 'Квалификация',
   'C10:PREPAYMENT_INVOIC': 'Подготовка БРИФа',
@@ -16,6 +17,14 @@ const STAGE_NAMES: Record<string, string> = {
   'C10:WON': 'Успех',
   'C10:LOSE': 'Отвал',
   'C10:1': 'Отложено',
+  // Воронка «Телемаркетинг» (CATEGORY_ID=50).
+  'C50:UC_1S1KIU': 'База',
+  'C50:NEW': 'К обзвону',
+  'C50:PREPARATION': 'Взято в работу',
+  'C50:UC_WZ4KQE': 'Встреча назначена',
+  'C50:WON': 'Успех',
+  'C50:LOSE': 'Отложено',
+  'C50:APOLOGY': 'Отвал',
 };
 function stageLabelOf(result: AuditResult | null): string | null {
   const id = result?.signals?.stage_id as string | undefined;
