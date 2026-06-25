@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type { DealAudit } from '@/lib/audit';
@@ -63,6 +63,37 @@ function OutcomeCell({ a }: { a: DealAudit }) {
   );
 }
 
+// Колонки таблицы аудитов и ключ сортировки каждой. Любую можно сортировать кликом по
+// заголовку (по возрастанию/убыванию). Последняя колонка (ссылка «открыть») — без сортировки.
+type SortKey =
+  | 'title' | 'stage' | 'requester' | 'auditDate' | 'lastContact'
+  | 'score' | 'managerStart' | 'managerNew' | 'outcome';
+
+const COLS: { key: SortKey; label: string }[] = [
+  { key: 'title', label: 'Сделка' },
+  { key: 'stage', label: 'Стадия при аудите' },
+  { key: 'requester', label: 'Заказал' },
+  { key: 'auditDate', label: 'Дата аудита' },
+  { key: 'lastContact', label: 'Последняя коммуникация' },
+  { key: 'score', label: 'Шанс' },
+  { key: 'managerStart', label: 'Менеджер на начало аудита' },
+  { key: 'managerNew', label: 'Новый менеджер' },
+  { key: 'outcome', label: 'Итог' },
+];
+
+// Значение ячейки для сравнения: число (дата/шанс) — числом, текст — строкой.
+const SORT_VALUE: Record<SortKey, (a: DealAudit) => number | string> = {
+  title: (a) => (a.title ?? `Сделка #${a.dealId}`).toLowerCase(),
+  stage: (a) => a.stageLabel ?? '',
+  requester: (a) => (a.source === 'auto' ? 'Авто-радар' : (a.requestedByName ?? '')),
+  auditDate: (a) => (a.createdAt ? new Date(a.createdAt).getTime() : 0),
+  lastContact: (a) => (a.lastContactAt ? new Date(a.lastContactAt).getTime() : 0),
+  score: (a) => (a.status === 'ready' && a.score != null ? a.score : -1),
+  managerStart: (a) => a.responsibleAtAuditName ?? '',
+  managerNew: (a) => (a.returnedToWork ? (a.outcomeResponsibleName ?? '') : ''),
+  outcome: (a) => a.outcomeKind ?? '',
+};
+
 export function AuditView({ initialAudits }: { initialAudits: DealAudit[] }) {
   const router = useRouter();
   const [audits, setAudits] = useState<DealAudit[]>(initialAudits);
@@ -73,6 +104,25 @@ export function AuditView({ initialAudits }: { initialAudits: DealAudit[] }) {
   const [notice, setNotice] = useState<
     { reason: 'cooldown' | 'in_progress'; existingId: number; lastAuditAt: string | null; nextAvailableAt: string | null } | null
   >(null);
+  // Сортировка таблицы: по умолчанию — свежие аудиты сверху.
+  const [sortKey, setSortKey] = useState<SortKey>('auditDate');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+
+  function toggleSort(k: SortKey) {
+    if (k === sortKey) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    else { setSortKey(k); setSortDir('desc'); }
+  }
+
+  const sortedAudits = useMemo(() => {
+    const get = SORT_VALUE[sortKey];
+    return [...audits].sort((a, b) => {
+      const va = get(a), vb = get(b);
+      const cmp = typeof va === 'number' && typeof vb === 'number'
+        ? va - vb
+        : String(va).localeCompare(String(vb), 'ru');
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+  }, [audits, sortKey, sortDir]);
 
   const refresh = useCallback(async () => {
     try {
@@ -142,9 +192,16 @@ export function AuditView({ initialAudits }: { initialAudits: DealAudit[] }) {
         ) : (
           <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
           <table className="bb-table" style={{ fontSize: 12.5, minWidth: 1120 }}>
-            <thead><tr><th>Сделка</th><th>Стадия при аудите</th><th>Заказал</th><th>Дата аудита</th><th>Последняя коммуникация</th><th>Шанс</th><th>Менеджер на начало аудита</th><th>Новый менеджер</th><th>Итог</th><th></th></tr></thead>
+            <thead><tr>
+              {COLS.map((c) => (
+                <th key={c.key} onClick={() => toggleSort(c.key)} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }} title="Сортировать">
+                  {c.label}<span style={{ color: sortKey === c.key ? 'var(--bb-violet)' : 'var(--bb-faint)', marginLeft: 4 }}>{sortKey === c.key ? (sortDir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+                </th>
+              ))}
+              <th></th>
+            </tr></thead>
             <tbody>
-              {audits.map((a) => (
+              {sortedAudits.map((a) => (
                 <tr key={a.id} onClick={() => router.push(auditHref(a))} style={{ cursor: 'pointer' }}>
                   <td style={{ whiteSpace: 'nowrap' }}><b>{a.title ?? `Сделка #${a.dealId}`}</b></td>
                   <td style={{ color: 'var(--bb-muted)', whiteSpace: 'nowrap' }}>{a.stageLabel ?? '—'}</td>
