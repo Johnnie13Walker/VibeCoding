@@ -180,3 +180,7 @@ dist/
 belberry/sales/kp/*.json
 belberry/sales/kp/problem_solution.html
 belberry/sales/kp/seo_benchmark.html
+belberry/sales/kp/clients/**/*.pptx
+belberry/sales/kp/clients/**/*.pdf
+belberry/sales/kp/clients/**/*.docx
+belberry/sales/kp/clients/**/slides_png/
