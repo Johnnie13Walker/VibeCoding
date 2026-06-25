@@ -34,6 +34,14 @@ function fmtDate(v: Date | string | null): string {
   return d.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' });
 }
 
+// Только дата (для «следующий анализ не ранее …»).
+function fmtDay(v: string | null): string {
+  if (!v) return '—';
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Europe/Moscow' });
+}
+
 // Стили плашки «Итог» (мягкая заливка по смыслу).
 const OUTCOME_STYLE: Record<string, { bg: string; color: string; label: string }> = {
   current: { bg: '#e7f4ec', color: 'var(--bb-green)', label: '↩︎ Вернули текущему' },
@@ -61,6 +69,10 @@ export function AuditView({ initialAudits }: { initialAudits: DealAudit[] }) {
   const [input, setInput] = useState('');
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Уведомление о запрете повтора (анализ свежее 45 дней / уже идёт).
+  const [notice, setNotice] = useState<
+    { reason: 'cooldown' | 'in_progress'; existingId: number; lastAuditAt: string | null; nextAvailableAt: string | null } | null
+  >(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -77,14 +89,19 @@ export function AuditView({ initialAudits }: { initialAudits: DealAudit[] }) {
   }, [audits, refresh]);
 
   async function submit(e: React.FormEvent) {
-    e.preventDefault(); setErr(null); setBusy(true);
+    e.preventDefault(); setErr(null); setNotice(null); setBusy(true);
     const r = await fetch('/api/audit', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ deal: input }),
     });
     setBusy(false);
-    if (!r.ok) { setErr((await r.json().catch(() => null))?.error ?? `Ошибка ${r.status}`); return; }
-    const { id } = await r.json();
-    router.push(`/audit/${id}`); // переход на страницу отчёта (она сама опрашивает статус)
+    const data = await r.json().catch(() => null);
+    if (!r.ok) { setErr(data?.error ?? `Ошибка ${r.status}`); return; }
+    if (data && data.ok === false) {
+      // Запрет повтора — показываем уведомление со ссылкой на готовый анализ.
+      setNotice({ reason: data.reason, existingId: data.existingId, lastAuditAt: data.lastAuditAt, nextAvailableAt: data.nextAvailableAt });
+      return;
+    }
+    router.push(`/audit/${data.id}`); // переход на страницу отчёта (она сама опрашивает статус)
   }
 
   return (
@@ -101,6 +118,21 @@ export function AuditView({ initialAudits }: { initialAudits: DealAudit[] }) {
           </button>
         </form>
         {err && <div style={{ color: '#ffd2d2', fontSize: 13, marginTop: 8, position: 'relative' }}>{err}</div>}
+        {notice && (
+          <div style={{ position: 'relative', marginTop: 12, background: 'rgba(255,255,255,.14)', border: '1px solid rgba(255,255,255,.28)', borderRadius: 12, padding: '12px 15px', color: '#fff', fontSize: 13.5, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 18 }}>🔁</span>
+            <span style={{ flex: 1, minWidth: 220 }}>
+              {notice.reason === 'cooldown' ? (
+                <>Сделка уже проанализирована <b>{fmtDate(notice.lastAuditAt)}</b>. Повторный анализ доступен не ранее <b>{fmtDay(notice.nextAvailableAt)}</b> — анализ обновляется не чаще раза в 45 дней.</>
+              ) : (
+                <>Анализ этой сделки уже идёт — дождись завершения.</>
+              )}
+            </span>
+            <Link href={`/audit/${notice.existingId}`} style={{ background: '#fff', color: 'var(--bb-indigo)', borderRadius: 10, padding: '8px 16px', fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap' }}>
+              Открыть анализ →
+            </Link>
+          </div>
+        )}
       </div>
 
       <div className="bb-card">
