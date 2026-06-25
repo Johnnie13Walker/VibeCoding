@@ -51,10 +51,16 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
       outcomeKind = current === responsibleId ? 'current' : 'transferred';
       effectiveStage = stageId;
     }
+    // В начало каждой задачи — ссылка на полный аудит сделки (открывается в командном
+    // центре). Абсолютный URL: SCC_BASE_URL, иначе Origin запроса. id-префикс достаточно
+    // для /audit/[id] (route парсит ведущее число).
+    const base = (process.env.SCC_BASE_URL || req.headers.get('origin') || '').replace(/\/$/, '');
+    const auditUrl = `${base}/audit/${audit.id}`;
+    const fullDescription = `🔍 Полный аудит сделки: ${auditUrl}\n\n${taskDescription}`;
     const taskId = await createDealTask({
       dealId: audit.dealId,
       title: taskTitle,
-      description: taskDescription,
+      description: fullDescription,
       responsibleId,
       deadline,
     });

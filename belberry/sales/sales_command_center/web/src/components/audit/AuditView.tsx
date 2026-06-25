@@ -194,7 +194,7 @@ export function AuditView({ initialAudits }: { initialAudits: DealAudit[] }) {
           <table className="bb-table" style={{ fontSize: 12.5, minWidth: 980 }}>
             <thead><tr>
               {COLS.map((c) => (
-                <th key={c.key} onClick={() => toggleSort(c.key)} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }} title="Сортировать">
+                <th key={c.key} onClick={() => toggleSort(c.key)} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'normal', lineHeight: 1.15, verticalAlign: 'bottom' }} title="Сортировать">
                   {c.label}{sortKey === c.key && <span style={{ color: 'var(--bb-violet)', marginLeft: 3, fontSize: 9 }}>{sortDir === 'asc' ? '▲' : '▼'}</span>}
                 </th>
               ))}
