@@ -1,4 +1,4 @@
-import { desc, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray } from 'drizzle-orm';
 import { db } from '@/db';
 import { dealAudits, meetingTasks, users } from '@/db/schema';
 import { isSalesDept, isSalesManager, isTelemarketing } from '@/lib/dashboard';
@@ -211,12 +211,68 @@ export async function getAudit(id: number): Promise<DealAudit | null> {
   return a;
 }
 
-export async function createAudit(dealId: number, requestedBy: number | null): Promise<number> {
+/** Сделку нельзя анализировать чаще, чем раз в столько дней. Свежий готовый аудит
+ * блокирует повтор — и ручной, и авто-радар. */
+export const AUDIT_COOLDOWN_DAYS = 45;
+
+/** Когда сделку снова можно анализировать после готового аудита от lastReadyAt. */
+export function nextAuditAvailableAt(lastReadyAt: Date): Date {
+  return new Date(lastReadyAt.getTime() + AUDIT_COOLDOWN_DAYS * 86_400_000);
+}
+
+/** Активен ли запрет повтора: готовый аудит ещё моложе 45 дней. */
+export function isAuditOnCooldown(lastReadyAt: Date, now: Date = new Date()): boolean {
+  return now.getTime() < nextAuditAvailableAt(lastReadyAt).getTime();
+}
+
+export type CreateAuditResult =
+  | { ok: true; id: number }
+  | {
+      ok: false;
+      reason: 'cooldown' | 'in_progress';
+      existingId: number;
+      lastAuditAt: string | null; // ISO — когда сделана последняя готовая версия
+      nextAvailableAt: string | null; // ISO — когда снова можно (last + 45 дней)
+    };
+
+export async function createAudit(
+  dealId: number,
+  requestedBy: number | null,
+): Promise<CreateAuditResult> {
+  // Запрет повтора: если есть готовый аудит этой сделки моложе 45 дней — не создаём
+  // новый, отдаём ссылку на существующий и дату, когда анализ снова станет доступен.
+  const cutoff = new Date(Date.now() - AUDIT_COOLDOWN_DAYS * 86_400_000);
+  const recent = await db
+    .select({ id: dealAudits.id, updatedAt: dealAudits.updatedAt })
+    .from(dealAudits)
+    .where(and(eq(dealAudits.dealId, dealId), eq(dealAudits.status, 'ready'), gte(dealAudits.updatedAt, cutoff)))
+    .orderBy(desc(dealAudits.updatedAt))
+    .limit(1);
+  if (recent[0]?.updatedAt) {
+    const last = recent[0].updatedAt;
+    return {
+      ok: false,
+      reason: 'cooldown',
+      existingId: recent[0].id,
+      lastAuditAt: last.toISOString(),
+      nextAvailableAt: nextAuditAvailableAt(last).toISOString(),
+    };
+  }
+  // Разбор этой сделки уже в очереди/идёт — не плодим дубликат.
+  const inflight = await db
+    .select({ id: dealAudits.id })
+    .from(dealAudits)
+    .where(and(eq(dealAudits.dealId, dealId), inArray(dealAudits.status, ['pending', 'collecting'])))
+    .orderBy(desc(dealAudits.id))
+    .limit(1);
+  if (inflight[0]) {
+    return { ok: false, reason: 'in_progress', existingId: inflight[0].id, lastAuditAt: null, nextAvailableAt: null };
+  }
   const [row] = await db
     .insert(dealAudits)
     .values({ dealId, requestedBy })
     .returning({ id: dealAudits.id });
-  return row.id;
+  return { ok: true, id: row.id };
 }
 
 export async function markReturnedToWork(

@@ -17,7 +17,9 @@ import sys
 from . import bx_client
 
 CATEGORY = 10  # воронка «Продажи»
-RADAR_DEDUP_DAYS = int(os.environ.get("RADAR_DEDUP_DAYS", "30"))
+# Сделку не аудируем чаще раза в 45 дней (как и ручной запрос, см. AUDIT_COOLDOWN_DAYS
+# в web/lib/audit.ts) — свежий готовый аудит блокирует авто-постановку.
+RADAR_DEDUP_DAYS = int(os.environ.get("RADAR_DEDUP_DAYS", "45"))
 RADAR_MAX_PER_RUN = int(os.environ.get("RADAR_MAX_PER_RUN", "10"))
 
 
@@ -93,11 +95,13 @@ def enqueue(conn, deals: list[dict]) -> int:
                 break
             did = int(d["ID"])
             cur.execute(
-                "SELECT 1 FROM deal_audits WHERE deal_id=%s AND created_at > now() - make_interval(days => %s) LIMIT 1",
+                "SELECT 1 FROM deal_audits WHERE deal_id=%s AND ("
+                "(status='ready' AND updated_at > now() - make_interval(days => %s)) "
+                "OR status IN ('pending','collecting')) LIMIT 1",
                 (did, RADAR_DEDUP_DAYS),
             )
             if cur.fetchone():
-                continue  # недавно уже аудитили
+                continue  # свежий аудит (<45д) или разбор уже в очереди
             cur.execute(
                 "INSERT INTO deal_audits (deal_id, source, requested_by) VALUES (%s, 'auto', NULL)",
                 (did,),
