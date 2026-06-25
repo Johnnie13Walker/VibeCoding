@@ -144,14 +144,17 @@ export function AuditReport({ initialAudit, managers }: { initialAudit: DealAudi
   // Меняем, пока пользователь не правил вручную.
   useEffect(() => {
     if (taskTouched) return;
+    // В начало описания — ссылка на полный аудит сделки (видна и в задаче, и здесь).
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const withLink = (d: string) => `🔍 Полный аудит сделки: ${origin}/audit/${audit.id}\n\n${d}`;
     if (selectedIsTm) {
       const t = tmTask(audit.title ?? `сделку #${audit.dealId}`, n);
-      setTaskTitle(t.title); setTaskDesc(t.description);
+      setTaskTitle(t.title); setTaskDesc(withLink(t.description));
     } else if (n.first_task) {
       setTaskTitle(n.first_task.title ?? 'Связаться по сделке');
-      setTaskDesc(n.first_task.description ?? '');
+      setTaskDesc(withLink(n.first_task.description ?? ''));
     }
-  }, [selectedIsTm, n.first_task, taskTouched, audit.title, audit.dealId]);
+  }, [selectedIsTm, n.first_task, taskTouched, audit.title, audit.dealId, audit.id]);
 
   const back = (
     <Link href="/audit" style={{ color: 'var(--bb-violet)', fontWeight: 600, textDecoration: 'none', fontSize: 13.5 }}>← к списку аудитов</Link>
