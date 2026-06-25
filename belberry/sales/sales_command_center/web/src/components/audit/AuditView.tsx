@@ -34,8 +34,8 @@ function fmtDate(v: Date | string | null): string {
   return d.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' });
 }
 
-// Только дата (для «следующий анализ не ранее …»).
-function fmtDay(v: string | null): string {
+// Только дата (для «дата аудита», «последняя коммуникация», «не ранее …»).
+function fmtDay(v: Date | string | null): string {
   if (!v) return '—';
   const d = new Date(v);
   if (Number.isNaN(d.getTime())) return '—';
@@ -141,15 +141,16 @@ export function AuditView({ initialAudits }: { initialAudits: DealAudit[] }) {
           <div style={{ color: 'var(--bb-faint)', fontSize: 13 }}>Пока пусто — запусти первый аудит.</div>
         ) : (
           <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-          <table className="bb-table" style={{ fontSize: 12.5, minWidth: 980 }}>
-            <thead><tr><th>Сделка</th><th>Стадия при аудите</th><th>Заказал</th><th>Дата</th><th>Шанс</th><th>Менеджер на начало аудита</th><th>Новый менеджер</th><th>Итог</th><th></th></tr></thead>
+          <table className="bb-table" style={{ fontSize: 12.5, minWidth: 1120 }}>
+            <thead><tr><th>Сделка</th><th>Стадия при аудите</th><th>Заказал</th><th>Дата аудита</th><th>Последняя коммуникация</th><th>Шанс</th><th>Менеджер на начало аудита</th><th>Новый менеджер</th><th>Итог</th><th></th></tr></thead>
             <tbody>
               {audits.map((a) => (
                 <tr key={a.id} onClick={() => router.push(auditHref(a))} style={{ cursor: 'pointer' }}>
                   <td style={{ whiteSpace: 'nowrap' }}><b>{a.title ?? `Сделка #${a.dealId}`}</b></td>
                   <td style={{ color: 'var(--bb-muted)', whiteSpace: 'nowrap' }}>{a.stageLabel ?? '—'}</td>
                   <td style={{ color: 'var(--bb-muted)', whiteSpace: 'nowrap' }}>{a.source === 'auto' ? '🤖 Авто-радар' : (a.requestedByName ?? '—')}</td>
-                  <td style={{ color: 'var(--bb-muted)', whiteSpace: 'nowrap' }}>{fmtDate(a.createdAt)}</td>
+                  <td style={{ color: 'var(--bb-muted)', whiteSpace: 'nowrap' }}>{fmtDay(a.createdAt)}</td>
+                  <td style={{ color: 'var(--bb-muted)', whiteSpace: 'nowrap' }}>{fmtDay(a.lastContactAt ?? null)}</td>
                   <td>{a.status === 'ready'
                     ? <span style={{ fontSize: 11, fontWeight: 800, borderRadius: 999, padding: '3px 10px', background: BAND_BG[a.band ?? 'low'], color: BAND_COLOR[a.band ?? 'low'] }}>{a.score}%</span>
                     : '—'}</td>
