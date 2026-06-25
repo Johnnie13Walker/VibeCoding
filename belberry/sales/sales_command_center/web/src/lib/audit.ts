@@ -143,7 +143,14 @@ export type DealAudit = {
   outcomeResponsibleName?: string | null; // ФИО того, кому досталась сделка (новый менеджер)
   responsibleAtAuditId?: number | null;   // ответственный на момент аудита (последний в цепочке)
   responsibleAtAuditName?: string | null; // ФИО менеджера на начало аудита
+  lastContactAt?: string | null;          // дата последней коммуникации с клиентом (signals.last_contact)
 };
+
+// Дата последней коммуникации с клиентом — из сигналов аудита (ISO или null).
+function lastContactOf(result: AuditResult | null): string | null {
+  const v = (result?.signals as { last_contact?: unknown })?.last_contact;
+  return typeof v === 'string' && v ? v : null;
+}
 
 // Менеджер на момент аудита: последний ответственный в цепочке активностей.
 function responsibleAtAuditOf(result: AuditResult | null): number | null {
@@ -166,6 +173,7 @@ function map(r: typeof dealAudits.$inferSelect): DealAudit {
     returnedAt: r.returnedAt, returnStage: r.returnStage ?? null,
     followupStatus: r.followupStatus ?? null, followupNote: r.followupNote ?? null, followupAt: r.followupAt,
     createdAt: r.createdAt, updatedAt: r.updatedAt,
+    lastContactAt: lastContactOf((r.result as AuditResult | null) ?? null),
   };
 }
 
