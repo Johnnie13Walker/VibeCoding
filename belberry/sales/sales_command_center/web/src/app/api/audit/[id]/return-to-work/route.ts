@@ -52,11 +52,13 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
       effectiveStage = stageId;
     }
     // В начало каждой задачи — ссылка на полный аудит сделки (открывается в командном
-    // центре). Абсолютный URL: SCC_BASE_URL, иначе Origin запроса. id-префикс достаточно
-    // для /audit/[id] (route парсит ведущее число).
+    // центре). Фронт обычно уже подставил её в текст; если нет (или вызвали API напрямую) —
+    // добавляем здесь. Идемпотентно: не дублируем, если ссылка на /audit/<id> уже есть.
     const base = (process.env.SCC_BASE_URL || req.headers.get('origin') || '').replace(/\/$/, '');
     const auditUrl = `${base}/audit/${audit.id}`;
-    const fullDescription = `🔍 Полный аудит сделки: ${auditUrl}\n\n${taskDescription}`;
+    const fullDescription = taskDescription.includes(`/audit/${audit.id}`)
+      ? taskDescription
+      : `🔍 Полный аудит сделки: ${auditUrl}\n\n${taskDescription}`;
     const taskId = await createDealTask({
       dealId: audit.dealId,
       title: taskTitle,
