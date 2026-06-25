@@ -1,0 +1,728 @@
+<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Отдел продаж — вчера, понедельник 1 июня 2026</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --card: #ffffff;
+    --text: #14171c;
+    --text-secondary: #525a6b;
+    --text-muted: #8a93a3;
+    --border: #e7eaf0;
+    --green: #15803d;
+    --green-soft: #dcfce7;
+    --green-bg: #f0fdf4;
+    --amber: #b45309;
+    --amber-soft: #fef3c7;
+    --amber-bg: #fffbeb;
+    --red: #b91c1c;
+    --red-soft: #fee2e2;
+    --red-bg: #fef2f2;
+    --blue: #1d4ed8;
+    --blue-light: #2563eb;
+    --blue-soft: #dbeafe;
+    --blue-bg: #eff6ff;
+    --purple: #6d28d9;
+    --purple-soft: #ede9fe;
+    --shadow-sm: 0 1px 2px rgba(15,23,42,0.04), 0 1px 3px rgba(15,23,42,0.06);
+    --shadow-md: 0 4px 6px -1px rgba(15,23,42,0.07), 0 2px 4px -2px rgba(15,23,42,0.05);
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    margin: 0;
+    padding: 0;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 0 20px; }
+
+  .hero {
+    background: linear-gradient(120deg, #eef4ff 0%, #fdf2fb 50%, #ecfdf5 100%);
+    color: var(--text);
+    padding: 52px 0 56px;
+    margin-bottom: 32px;
+    position: relative;
+    overflow: hidden;
+    border-bottom: 1px solid var(--border);
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -140px; right: -100px;
+    width: 420px; height: 420px;
+    background: radial-gradient(circle, rgba(99,102,241,0.16) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .hero::after {
+    content: '';
+    position: absolute;
+    bottom: -160px; left: -80px;
+    width: 380px; height: 380px;
+    background: radial-gradient(circle, rgba(16,185,129,0.12) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .hero .wrap { position: relative; z-index: 1; }
+  .hero-label {
+    display: inline-block;
+    padding: 6px 14px;
+    background: #fff;
+    color: var(--blue);
+    box-shadow: var(--shadow-sm);
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+  .hero h1 {
+    font-size: 44px;
+    font-weight: 800;
+    letter-spacing: -1.5px;
+    margin: 0 0 12px;
+    line-height: 1.1;
+    color: var(--text);
+  }
+  .hero-subtitle {
+    font-size: 18px;
+    color: var(--text-secondary);
+    max-width: 820px;
+    line-height: 1.5;
+  }
+  .hero-meta {
+    margin-top: 24px;
+    display: flex;
+    gap: 32px;
+    flex-wrap: wrap;
+    font-size: 14px;
+    color: var(--text-secondary);
+  }
+  .hero-meta strong { color: var(--text); font-weight: 700; }
+
+  section {
+    background: var(--card);
+    border-radius: 20px;
+    padding: 32px 36px;
+    margin-bottom: 24px;
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--border);
+  }
+  section.tinted-green { background: var(--green-bg); border-color: #bbf7d0; }
+  section.tinted-amber { background: var(--amber-bg); border-color: #fde68a; }
+  section.tinted-red { background: var(--red-bg); border-color: #fecaca; }
+
+  .section-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .section-icon {
+    width: 36px; height: 36px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 10px;
+    font-size: 18px;
+    flex-shrink: 0;
+    font-weight: 800;
+  }
+  .section-icon.blue { background: var(--blue-soft); color: var(--blue); }
+  .section-icon.green { background: var(--green-soft); color: var(--green); }
+  .section-icon.amber { background: var(--amber-soft); color: var(--amber); }
+  .section-icon.red { background: var(--red-soft); color: var(--red); }
+  .section-icon.purple { background: var(--purple-soft); color: var(--purple); }
+
+  h2 {
+    font-size: 22px;
+    font-weight: 700;
+    margin: 0;
+    letter-spacing: -0.4px;
+  }
+  h3 {
+    font-size: 17px;
+    font-weight: 700;
+    margin: 28px 0 12px;
+    letter-spacing: -0.2px;
+  }
+  h3:first-child { margin-top: 0; }
+  h4 {
+    font-size: 14px;
+    font-weight: 700;
+    margin: 16px 0 8px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  p { margin: 0 0 12px; color: var(--text-secondary); }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+  }
+  .stat {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 22px 24px;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .stat:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+  .stat.accent-green { background: linear-gradient(135deg, #dcfce7 0%, #f0fdf4 100%); border-color: #bbf7d0; }
+  .stat.accent-amber { background: linear-gradient(135deg, #fef3c7 0%, #fffbeb 100%); border-color: #fde68a; }
+  .stat.accent-red { background: linear-gradient(135deg, #fee2e2 0%, #fef2f2 100%); border-color: #fecaca; }
+  .stat.accent-blue { background: linear-gradient(135deg, #dbeafe 0%, #eff6ff 100%); border-color: #bfdbfe; }
+  .stat-value {
+    font-size: 36px;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -1.5px;
+  }
+  .stat-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    margin-top: 8px;
+  }
+  .stat-sub {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 4px;
+  }
+
+  .managers {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 16px;
+  }
+  .mgr {
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px 22px;
+    background: var(--card);
+    transition: box-shadow 0.15s ease;
+  }
+  .mgr.away { background: linear-gradient(135deg, #f1f5f9 0%, #ffffff 100%); }
+  .mgr.hero-mgr { border-left: 4px solid var(--green); background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%); }
+  .mgr:hover { box-shadow: var(--shadow-md); }
+  .mgr-name {
+    font-weight: 700;
+    font-size: 16px;
+    letter-spacing: -0.2px;
+  }
+  .mgr-role {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 14px;
+  }
+  .mgr-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    font-size: 13px;
+    border-bottom: 1px dashed var(--border);
+  }
+  .mgr-row:last-child { border-bottom: none; }
+  .mgr-row-label { color: var(--text-secondary); }
+  .mgr-row-value { font-weight: 700; font-size: 15px; }
+  .mgr-note {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+
+  .tbl-wrap {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+  th, td {
+    text-align: left;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  th {
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    background: #fafbfc;
+  }
+  tr:last-child td { border-bottom: none; }
+  tbody tr { transition: background 0.1s; }
+  tbody tr:hover { background: #fafbfc; }
+
+  .badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .b-green { background: var(--green-soft); color: var(--green); }
+  .b-amber { background: var(--amber-soft); color: var(--amber); }
+  .b-red { background: var(--red-soft); color: var(--red); }
+  .b-blue { background: var(--blue-soft); color: var(--blue); }
+  .b-purple { background: var(--purple-soft); color: var(--purple); }
+  .b-gray { background: #f1f3f5; color: var(--text-secondary); }
+
+  .stars {
+    display: inline-flex;
+    gap: 1px;
+    align-items: center;
+    font-size: 14px;
+    line-height: 1;
+  }
+  .star { color: #f59e0b; }
+  .star-empty { color: #e5e7eb; }
+  .score-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-left: 4px;
+  }
+
+  .quote {
+    background: #fafbfc;
+    border-left: 3px solid var(--blue);
+    padding: 14px 18px;
+    border-radius: 0 8px 8px 0;
+    margin: 12px 0;
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--text);
+  }
+  .quote-author {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 6px;
+    font-weight: 500;
+  }
+  .quote.client { border-left-color: var(--amber); background: #fffbeb; }
+  .quote.client-bad { border-left-color: var(--red); background: var(--red-bg); }
+  .quote.client-good { border-left-color: var(--green); background: var(--green-bg); }
+
+  .meeting-block {
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 22px 26px;
+    margin-bottom: 16px;
+    background: var(--card);
+  }
+  .meeting-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  .meeting-title {
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.2px;
+  }
+  .meeting-meta {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+  .meeting-score-block {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .callout {
+    padding: 18px 22px;
+    border-radius: 12px;
+    margin: 16px 0;
+    border: 1px solid;
+  }
+  .callout-amber { background: var(--amber-bg); border-color: #fde68a; }
+  .callout-red { background: var(--red-bg); border-color: #fecaca; }
+  .callout-blue { background: var(--blue-bg); border-color: #bfdbfe; }
+  .callout-green { background: var(--green-bg); border-color: #bbf7d0; }
+  .callout-label {
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    margin-bottom: 6px;
+  }
+  .callout-amber .callout-label { color: var(--amber); }
+  .callout-red .callout-label { color: var(--red); }
+  .callout-blue .callout-label { color: var(--blue); }
+  .callout-green .callout-label { color: var(--green); }
+  .callout-body { color: var(--text); font-size: 14px; line-height: 1.55; }
+
+  .hilight-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 14px;
+  }
+  .hilight {
+    padding: 18px 22px;
+    border-radius: 12px;
+    border: 1px solid;
+    background: var(--card);
+  }
+  .hilight.good {
+    border-color: #bbf7d0;
+    background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%);
+  }
+  .hilight.miss {
+    border-color: #fde68a;
+    background: linear-gradient(135deg, #fffbeb 0%, #ffffff 100%);
+  }
+  .hilight.risk {
+    border-color: #fecaca;
+    background: linear-gradient(135deg, #fef2f2 0%, #ffffff 100%);
+    border-left: 4px solid var(--red);
+  }
+  .hilight.risk-medium {
+    border-color: #fde68a;
+    background: linear-gradient(135deg, #fffbeb 0%, #ffffff 100%);
+    border-left: 4px solid var(--amber);
+  }
+  .hilight-title {
+    font-weight: 700;
+    font-size: 14px;
+    margin-bottom: 6px;
+    display: block;
+    line-height: 1.45;
+  }
+  .hilight-deal {
+    font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+  }
+  .hilight-body {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+  .hilight-tag {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    display: inline-block;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+  .tag-good { background: var(--green-soft); color: var(--green); }
+  .tag-miss { background: var(--amber-soft); color: var(--amber); }
+  .tag-risk { background: var(--red-soft); color: var(--red); }
+
+  .followup-table td:nth-child(2),
+  .followup-table td:nth-child(3),
+  .followup-table td:nth-child(4),
+  .followup-table td:nth-child(5) {
+    text-align: center;
+  }
+  .followup-table .miss { color: var(--red); font-weight: 800; }
+  .followup-table .ok { color: var(--green); font-weight: 800; }
+
+  a { color: var(--blue-light); text-decoration: none; font-weight: 500; }
+  a:hover { text-decoration: underline; }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  @media (max-width: 760px) { .grid-2 { grid-template-columns: 1fr; } }
+  ul { padding-left: 22px; color: var(--text-secondary); margin: 8px 0 12px; }
+  ul li { margin-bottom: 8px; line-height: 1.55; }
+  .small { font-size: 12px; color: var(--text-muted); }
+  .clock { color: var(--red); font-weight: 700; }
+
+  footer {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 12px;
+    padding: 32px 16px 48px;
+    line-height: 1.6;
+  }
+  /* РУКОВОДЯЩИЙ СЛОЙ */
+  .digest{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+  @media(max-width:860px){.digest{grid-template-columns:1fr;}}
+  .dcard{border-radius:16px;overflow:hidden;border:1px solid var(--border);display:flex;flex-direction:column;}
+  .dcard-head{padding:14px 20px;font-weight:800;font-size:13px;text-transform:uppercase;letter-spacing:.5px;color:#fff;display:flex;align-items:center;gap:8px;}
+  .dcard-head.fire{background:linear-gradient(135deg,#dc2626,#b91c1c);}
+  .dcard-head.money{background:linear-gradient(135deg,#d97706,#b45309);}
+  .dcard-head.fix{background:linear-gradient(135deg,#2563eb,#1d4ed8);}
+  .dcard-body{padding:18px 20px;background:var(--card);flex:1;}
+  .dcard-body ul{margin:0;padding-left:18px;}
+  .dcard-body li{margin-bottom:10px;font-size:13px;color:var(--text);line-height:1.45;}
+  .dcard-body li b{font-weight:700;}
+  .dcard-big{font-size:34px;font-weight:800;letter-spacing:-1px;color:var(--amber);line-height:1;margin-bottom:4px;}
+  .pin-row{display:flex;align-items:flex-start;gap:14px;padding:16px 0;border-bottom:1px solid var(--border);}
+  .pin-row:last-child{border-bottom:none;}
+  .pin-ava{flex-shrink:0;width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:#fff;}
+  .pin-ava.sem{background:#dc2626;}
+  .pin-ava.gor{background:#2563eb;}
+  .pin-ava.deg{background:#7c3aed;}
+  .pin-content{flex:1;}
+  .pin-name{font-weight:700;font-size:15px;margin-bottom:2px;}
+  .pin-action{font-size:14px;color:var(--text);margin-bottom:4px;}
+  .pin-why{font-size:12px;color:var(--text-muted);}
+  .pin-urgency{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;padding:3px 9px;border-radius:999px;white-space:nowrap;align-self:flex-start;}
+  .u-now{background:#fee2e2;color:#b91c1c;}
+  .u-today{background:#fef3c7;color:#b45309;}
+  .deals-risk{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;}
+  .drisk{border:1px solid var(--border);border-top:4px solid var(--red);border-radius:12px;padding:18px 20px;background:var(--card);}
+  .drisk.med{border-top-color:var(--amber);}
+  .drisk-sum{font-size:26px;font-weight:800;letter-spacing:-.5px;}
+  .drisk-name{font-weight:700;font-size:14px;margin:2px 0 8px;}
+  .drisk-name a{color:var(--blue-light);}
+  .drisk-why{font-size:12px;color:var(--text-secondary);line-height:1.45;}
+  .drisk-prob{display:inline-block;margin-top:8px;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:#fee2e2;color:#b91c1c;}
+  .drisk-prob.med{background:#fef3c7;color:#b45309;}
+  /* HERO 2.0 */
+  .hero-stats{display:flex;flex-wrap:wrap;gap:14px;margin:28px 0 24px;}
+  .hstat{background:#fff;border:1px solid var(--border);box-shadow:var(--shadow-sm);border-radius:14px;padding:16px 22px;min-width:150px;flex:1;}
+  .hstat-num{font-size:34px;font-weight:800;letter-spacing:-1px;line-height:1;color:var(--text);}
+  .hstat:last-child .hstat-num{color:var(--red);}
+  .hstat-lbl{font-size:13px;color:var(--text);margin-top:6px;font-weight:700;}
+  .hstat-lbl span{display:block;font-size:11px;color:var(--text-muted);font-weight:400;margin-top:2px;}
+  .hero-verdict{display:flex;align-items:flex-start;gap:14px;background:#fff;border:1px solid #fecaca;border-left:4px solid var(--red);box-shadow:var(--shadow-sm);border-radius:14px;padding:16px 20px;font-size:15px;color:var(--text);line-height:1.5;}
+  .hero-verdict b{color:var(--red);}
+  .hv-icon{font-size:22px;flex-shrink:0;line-height:1.2;}
+  .hero-corr{margin-top:16px;font-size:12px;color:var(--text-muted);}
+
+  /* ТИГР ДНЯ */
+  .tiger{background:linear-gradient(120deg,#fff7ed 0%,#ffedd5 55%,#fef3c7 100%);border:1px solid #fdba74;border-radius:20px;padding:28px 32px;display:flex;align-items:center;gap:28px;flex-wrap:wrap;}
+  .tiger-photo-wrap{position:relative;flex-shrink:0;}
+  .tiger-photo{width:120px;height:120px;border-radius:50%;object-fit:cover;border:4px solid #fff;box-shadow:0 6px 16px rgba(234,88,12,.25);}
+  .tiger-badge{position:absolute;bottom:-6px;right:-6px;font-size:34px;filter:drop-shadow(0 2px 3px rgba(0,0,0,.2));}
+  .tiger-body{flex:1;min-width:240px;}
+  .tiger-title{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#c2410c;margin-bottom:4px;}
+  .tiger-name{font-size:26px;font-weight:800;letter-spacing:-.5px;color:#7c2d12;margin-bottom:8px;}
+  .tiger-role{font-size:13px;color:#9a3412;font-weight:600;margin-left:8px;}
+  .tiger-quote{font-size:15px;color:#7c2d12;line-height:1.5;}
+  .tiger-metric{display:inline-block;margin-top:12px;background:#fff;border:1px solid #fdba74;border-radius:999px;padding:6px 16px;font-size:13px;font-weight:700;color:#c2410c;}
+  .mgr-head{display:flex;align-items:center;gap:12px;margin-bottom:14px;}
+  .mgr-ava{width:48px;height:48px;border-radius:50%;object-fit:cover;border:2px solid #fff;box-shadow:0 2px 6px rgba(15,23,42,.12);flex-shrink:0;}
+  .mgr-head .mgr-name{margin:0;}
+  .mgr-head .mgr-role{margin:0;}
+  /* ФАН-БЛОКИ */
+  .quote-day{background:linear-gradient(120deg,#eef2ff,#faf5ff);border:1px solid #c7d2fe;border-radius:16px;padding:24px 28px;}
+  .quote-day-text{font-size:20px;font-weight:600;font-style:italic;color:#3730a3;line-height:1.5;margin-bottom:10px;}
+  .quote-day-meta{font-size:13px;color:var(--text-secondary);}
+  .ach-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;}
+  .ach{display:flex;align-items:center;gap:12px;border:1px solid var(--border);border-radius:12px;padding:14px 16px;background:var(--card);}
+  .ach-emoji{font-size:28px;flex-shrink:0;}
+  .ach-title{font-weight:700;font-size:13px;}
+  .ach-who{font-size:12px;color:var(--text-secondary);}
+  .ach-streak{border-color:#fed7aa;background:linear-gradient(120deg,#fff7ed,#fff);}
+  .motto{text-align:center;font-size:15px;font-style:italic;color:#6d28d9;background:linear-gradient(120deg,#faf5ff,#fdf2f8);border:1px dashed #d8b4fe;border-radius:14px;padding:18px 24px;margin-top:8px;}
+</style><style>
+.muted{color:#8a93a3;font-size:13px}
+.cards-3{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.cards-2{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px}
+.card-30{border-radius:14px;padding:20px 22px;border:1px solid var(--border);background:var(--card)}
+.card-30 ul{margin:0;padding-left:18px}.card-30 li{margin:7px 0;color:var(--text-secondary);font-size:14px}
+.c30-title{font-weight:800;font-size:15px;margin-bottom:12px}
+.c30-big{font-size:34px;font-weight:800;letter-spacing:-1.5px;margin:6px 0 10px;color:var(--red)}
+.c-red{background:var(--red-bg);border-color:#fecaca}.c-amber{background:var(--amber-bg);border-color:#fde68a}
+.c-green{background:var(--green-bg);border-color:#bbf7d0}.c-blue{background:var(--blue-bg);border-color:#bfdbfe}
+.card-30.c-red .c30-title{color:var(--red)}.card-30.c-amber .c30-title{color:var(--amber)}.card-30.c-green .c30-title{color:var(--green)}
+.tiger-wrap{display:flex;gap:24px;align-items:center;flex-wrap:wrap}
+.tiger-photo{width:180px;height:180px;border-radius:20px;object-fit:cover;box-shadow:var(--shadow-md);flex-shrink:0}
+.tiger-body{flex:1;min-width:280px}
+.tiger-name{font-size:24px;font-weight:800;letter-spacing:-0.5px}.tiger-role{color:var(--text-muted);font-weight:600;font-size:15px}
+.tiger-quote{font-size:16px;color:var(--text-secondary);margin:12px 0;line-height:1.6}
+.tiger-metrics{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0}
+.tm-pill{background:#fff;border:1px solid #bbf7d0;color:var(--green);border-radius:999px;padding:6px 14px;font-weight:700;font-size:13px}
+.tiger-note{font-size:12px;color:var(--text-muted);margin-top:8px}
+.card-pat{border-radius:14px;padding:20px 24px;border:1px solid var(--border)}
+.card-pat h4{margin-top:0;color:var(--text);font-size:14px}
+.card-pat ul{margin:0;padding-left:18px}.card-pat li{margin:8px 0;color:var(--text-secondary);font-size:14px}
+.razbor-card{border:1px solid var(--border);border-radius:16px;padding:22px 26px;margin-bottom:20px;background:var(--card);box-shadow:var(--shadow-sm)}
+.razbor-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
+.razbor-head h3{margin:0}
+.razbor-score{font-size:22px;font-weight:800;color:var(--blue);flex-shrink:0;background:var(--blue-soft);border-radius:10px;padding:4px 14px}
+.razbor-sum{margin:12px 0 16px;color:var(--text-secondary);line-height:1.6}
+.checks{display:flex;flex-direction:column;gap:8px;margin:14px 0;padding:14px 16px;background:#fafbfc;border-radius:12px}
+.chk-row{display:grid;grid-template-columns:28px 200px 1fr;gap:10px;align-items:start;font-size:13.5px}
+.chk-mark{font-size:16px}.chk-label{font-weight:700;color:var(--text)}.chk-txt{color:var(--text-secondary)}
+.razbor-verdict{margin-top:14px;padding:12px 16px;background:var(--blue-bg);border-left:3px solid var(--blue);border-radius:8px;font-size:14px;color:var(--text)}
+.razbor-good{margin-top:10px;padding:10px 16px;background:var(--green-bg);border-left:3px solid var(--green);border-radius:8px;font-size:13.5px;color:var(--text-secondary)}
+.footer{margin-top:32px;padding:28px 0;border-top:1px solid var(--border);text-align:center;color:var(--text-muted);font-size:13px}
+.footer p{margin:4px 0}
+@media(max-width:640px){.chk-row{grid-template-columns:24px 1fr;}.chk-txt{grid-column:2}}
+</style>
+</head><body><div class="hero"><div class="wrap">
+<div class="hero-label">Сводка отдела продаж · отчёт за вчера</div>
+<h1>Понедельник, 1 июня 2026</h1>
+<div class="hero-subtitle">Рабочий старт недели: <b>4 встречи проведены</b> и закрыты в УСПЕХ — сильная защита КП по <a href="https://belberrycrm.bitrix24.ru/crm/type/1048/details/2170/">ionika-dent.ru</a> и три брифинга (<a href="https://belberrycrm.bitrix24.ru/crm/type/1048/details/2164/">dinastia-s.ru</a>, <a href="https://belberrycrm.bitrix24.ru/crm/type/1048/details/2184/">ametistcenter.ru</a>, <a href="https://belberrycrm.bitrix24.ru/crm/type/1048/details/2192/">rustrans-gr.ru</a>). Телемаркетинг сделал <b>204 набора</b> и завёл 35 сделок. Но деньги отдела стоят не на новых сделках, а на застрявшем договорном этапе: <b>19 сделок зависли на «Договоре» (&gt;1,5 млн ₽)</b>, и ядро затора — база Деговцовой, которая в отпуске до 8 июня.</div>
+<div class="stats">
+<div class="stat accent-green"><div class="stat-value">4</div><div class="stat-label">Встречи проведены</div><div class="stat-sub">1 защита КП (<a href="https://belberrycrm.bitrix24.ru/crm/type/1048/details/2170/">ionika</a>) + 3 брифинга — все в УСПЕХ</div></div>
+<div class="stat accent-blue"><div class="stat-value">6</div><div class="stat-label">Встреч на сегодня</div><div class="stat-sub">Семенихин 4 · Гордиенко 2 · из них 2 защиты КП</div></div>
+<div class="stat accent-blue"><div class="stat-value">2</div><div class="stat-label">Назначено встреч</div><div class="stat-sub"><a href="https://belberrycrm.bitrix24.ru/crm/type/1048/details/2200/">elbruskmv.ru</a> → 03.06 · <a href="https://belberrycrm.bitrix24.ru/crm/type/1048/details/2202/">mirmagnitov.ru</a> → 04.06</div></div>
+<div class="stat accent-blue"><div class="stat-value">35</div><div class="stat-label">Новых сделок</div><div class="stat-sub">33 телемаркетинг (Вострецов 17 · Исаева 14) · 2 входящих</div></div>
+<div class="stat accent-amber"><div class="stat-value">204</div><div class="stat-label">Набора ТМ за день</div><div class="stat-sub">Вострецов 89 · Исаева 69 · результативная конверсия 11–28%</div></div>
+<div class="stat accent-green"><div class="stat-value">5</div><div class="stat-label">Брифов в работе</div><div class="stat-sub">по итогам брифингов dinastia / ametist / rustrans</div></div>
+<div class="stat accent-amber"><div class="stat-value">2</div><div class="stat-label">Содержательных отказа</div><div class="stat-sub"><a href="https://belberrycrm.bitrix24.ru/crm/deal/details/14652/">aclinic.ru</a> 102 тыс. · <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/10402/">medicina35.ru</a> 74 тыс.</div></div>
+<div class="stat accent-red"><div class="stat-value">19</div><div class="stat-label">Зависших на договоре</div><div class="stat-sub">&gt;1,5 млн ₽ · большинство — база Деговцовой (в отпуске)</div></div>
+</div>
+<div class="hero-verdict">⚠️ <b>Итог за ночь:</b> встречи отработаны хорошо, но затор на договорном этапе растёт. <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/10938/">sporttravma.org</a> (304 тыс.) висит на «Договоре» <b>31 рабочий день</b>, <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/15654/">lsystems.ru</a> (289 тыс.), <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/16072/">sovcomlife.ru</a> (250 тыс. — без активности 8 дней). Почти весь застрявший пул — на Деговцовой, которая в отпуске до 8 июня. Базу нужно перевесить на Гордиенко/Семенихина сегодня, иначе крупные договоры остынут.</div>
+<div class="hero-corr">Данные из Bitrix24 на утро 02.06.2026 (МСК). Рейтинг менеджеров и «Тигр дня» — по официальной сводке отдела (поле «Опер»).</div>
+</div></div>
+<div class="wrap"><section><div class="section-head"><div class="section-icon blue">30s</div><h2>Главное за 30 секунд</h2></div>
+<div class="cards-3">
+<div class="card-30 c-red"><div class="c30-title">🔥 Горит сегодня</div>
+<ul>
+<li><b>Перевесить базу Деговцовой</b> — она в отпуске до 8 июня, на ней ядро договорного затора (<a href="https://belberrycrm.bitrix24.ru/crm/deal/details/10938/">sporttravma</a> 304 тыс., <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/16072/">sovcomlife</a> 250 тыс., <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/15654/">lsystems</a> 289 тыс.).</li>
+<li><b>6 встреч сегодня</b>, из них 2 защиты КП — <a href="https://belberrycrm.bitrix24.ru/crm/type/1048/details/2172/">eurotuning-spb.ru</a> (Гордиенко) и <a href="https://belberrycrm.bitrix24.ru/crm/type/1048/details/2182/">medklinika.spb.ru</a> (Семенихин).</li>
+<li>Догнать <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/13946/">ionika-dent</a> — клиент обещал ответ «на этой неделе» по нейровыдаче.</li>
+</ul></div>
+<div class="card-30 c-amber"><div class="c30-title">💰 Денег под риском</div>
+<div class="c30-big">&gt; 1,5 млн ₽</div>
+<p>застряло на стадии «Договор» (19 сделок). Топ: sporttravma 304 тыс. (31 раб.день), lsystems 289 тыс., sovcomlife 250 тыс., <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/16240/">vtb.med</a> 200 тыс., <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/18484/">evromedika.ru</a> 163 тыс.</p>
+<p>+ догрев: <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/15962/">geots.ru</a> 163 тыс. (14 дней).</p></div>
+<div class="card-30 c-amber"><div class="c30-title">🔧 Исправить системно</div>
+<ul>
+<li><b>Кейсы показывать вживую</b>, а не «пришлю после встречи» (ametist, dinastia — обещали потом).</li>
+<li><b>Спрашивать бюджет</b> на брифинге — 3 из 4 встреч прошли без выявления бюджета.</li>
+<li><b>Тянуть ЛПР на встречу</b>: на <a href="https://belberrycrm.bitrix24.ru/crm/type/1048/details/2184/">ametist</a> пришёл сын вместо отца-собственника.</li>
+<li><b>Предупреждать о записи</b> — на <a href="https://belberrycrm.bitrix24.ru/crm/type/1048/details/2164/">dinastia</a> клиент возмутился скрытой записью.</li>
+</ul></div>
+</div></section><section class="tinted-green"><div class="section-head"><div class="section-icon green">🐅</div><h2>Тигр дня</h2></div>
+<div class="tiger-wrap">
+<img class="tiger-photo" src="data:image/jpeg;base64,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" alt="Семенихин Егор">
+<div class="tiger-body">
+<div class="tiger-name">Семенихин Егор <span class="tiger-role">· менеджер по продажам</span></div>
+<p class="tiger-quote">«Тигр работает на полный цикл: при скромных 25 наборах выжал <b>самую высокую конверсию дня — 28%</b>, закрыл 7 чатов и <b>сам провёл 2 встречи</b>. №1 по операционной эффективности — Опер <b>10.0</b> из 10.»</p>
+<div class="tiger-metrics">
+<span class="tm-pill">Опер 10.0</span><span class="tm-pill">28% конверсия</span><span class="tm-pill">7 чатов</span><span class="tm-pill">2 встречи проведены</span>
+</div>
+<p class="tiger-note">По официальной сводке отдела (поле «Опер»). Рядом: Исаева Дарья 8.3, Вострецов Аркадий 8.0 — взяли объёмом (89 и 69 наборов), но по результативной конверсии и встречам уступили.</p>
+</div></div></section><section class="tinted-amber"><div class="section-head"><div class="section-icon amber">👈</div><h2>Кого пинать сегодня</h2></div>
+<div class="tbl-wrap"><table>
+<thead><tr><th>Менеджер</th><th>Что сделать</th><th>Сделка</th><th>Почему горит</th><th>Срочность</th></tr></thead>
+<tbody>
+<tr><td><b>Гордиенко Евгения</b><br><span class="muted">РОП</span></td><td>Принять решение по перевесу договорной базы Деговцовой на время отпуска</td><td><a href="https://belberrycrm.bitrix24.ru/crm/deal/details/10938/">sporttravma</a>, <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/16072/">sovcomlife</a>, <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/15654/">lsystems</a> и ещё 5</td><td>Деговцова в отпуске до 08.06, договоры стоят без движения 18–31 раб.день</td><td><span class="badge b-red">сейчас</span></td></tr>
+<tr><td><b>Гордиенко Евгения</b></td><td>Догнать клиента по нейровыдаче, прислать смету и кейсы (Beauty Way, биоспаклиника)</td><td><a href="https://belberrycrm.bitrix24.ru/crm/deal/details/13946/">ionika-dent</a></td><td>Защита прошла на «отлично», клиент обещал ответ на этой неделе — не дать остыть</td><td><span class="badge b-amber">сегодня</span></td></tr>
+<tr><td><b>Семенихин Егор</b></td><td>Сдвинуть договоры с мёртвой точки</td><td><a href="https://belberrycrm.bitrix24.ru/crm/deal/details/23982/">marlinmotors.ru</a> 130 тыс. (26 дн), <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/18484/">evromedika.ru</a> 163 тыс.</td><td>На «Договоре» больше нормы, по evromedika активность 4 дня назад</td><td><span class="badge b-amber">сегодня</span></td></tr>
+<tr><td><b>Семенихин Егор</b></td><td>Отправить NDA-форму и КП по SEO+контексту; назначить встречу со специалистом</td><td><a href="https://belberrycrm.bitrix24.ru/crm/deal/details/24170/">dinastia-s.ru</a></td><td>Клиент дал данные только после NDA; договорились на офиц. запрос</td><td><span class="badge b-amber">сегодня</span></td></tr>
+<tr><td><b>Семенихин Егор</b></td><td>Приложить кейсы по стоматологии (в итогах их не было), дожать гостевой доступ к Метрике и собрать КП за неделю</td><td><a href="https://belberrycrm.bitrix24.ru/crm/deal/details/15816/">ametistcenter.ru</a></td><td>Итоги и запись уже ушли отцу-ЛПР; не хватает кейсов и доступа к Метрике для просчёта</td><td><span class="badge b-blue">на неделе</span></td></tr>
+</tbody></table></div></section><section class="tinted-red"><div class="section-head"><div class="section-icon red">⚠</div><h2>Где могут сорваться сделки — затор на «Договоре»</h2></div>
+<p>19 сделок превысили норму на стадии «Подготовка договора» (&gt;5 раб.дней). Ниже — топ-10 по сумме. Ядро — база <b>Деговцовой</b>, которая в отпуске до 8 июня: договоры стоят, последняя содержательная коммуникация по части из них была неделю назад.</p>
+<div class="tbl-wrap"><table>
+<thead><tr><th>Сделка</th><th>Сумма</th><th>Менеджер</th><th>На стадии</th><th>Посл. контакт</th><th>Риск</th></tr></thead>
+<tbody><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/deal/details/10938/">sporttravma.org</a></td><td><b>304 тыс.</b></td><td>Деговцова Елизавета</td><td>31 раб.дн</td><td>1 дн назад</td><td><span class="badge b-red">высокий</span></td></tr><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/deal/details/15654/">lsystems.ru</a></td><td><b>289 тыс.</b></td><td>Деговцова Елизавета</td><td>14 раб.дн</td><td>1 дн назад</td><td><span class="badge b-red">высокий</span></td></tr><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/deal/details/16072/">sovcomlife.ru</a></td><td><b>250 тыс.</b></td><td>Деговцова Елизавета</td><td>18 раб.дн</td><td>8 дн назад</td><td><span class="badge b-red">высокий</span></td></tr><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/deal/details/16240/">vtb.med</a></td><td><b>200 тыс.</b></td><td>Деговцова Елизавета</td><td>26 раб.дн</td><td>5 дн назад</td><td><span class="badge b-red">высокий</span></td></tr><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/deal/details/18484/">evromedika.ru</a></td><td><b>163 тыс.</b></td><td>Семенихин Егор</td><td>12 раб.дн</td><td>4 дн назад</td><td><span class="badge b-amber">средний</span></td></tr><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/deal/details/23982/">marlinmotors.ru</a></td><td><b>130 тыс.</b></td><td>Семенихин Егор</td><td>26 раб.дн</td><td>1 дн назад</td><td><span class="badge b-amber">средний</span></td></tr><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/deal/details/17140/">zn48.ru</a></td><td><b>81 тыс.</b></td><td>Деговцова Елизавета</td><td>20 раб.дн</td><td>1 дн назад</td><td><span class="badge b-amber">средний</span></td></tr><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/deal/details/23428/">knauf.ru</a></td><td><b>75 тыс.</b></td><td>Деговцова Елизавета</td><td>21 раб.дн</td><td>1 дн назад</td><td><span class="badge b-amber">средний</span></td></tr><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/deal/details/18202/">ldclinic.ru</a></td><td><b>75 тыс.</b></td><td>Деговцова Елизавета</td><td>22 раб.дн</td><td>4 дн назад</td><td><span class="badge b-amber">средний</span></td></tr><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/deal/details/24158/">galaktika.clinic</a></td><td><b>75 тыс.</b></td><td>Семенихин Егор</td><td>11 раб.дн</td><td>1 дн назад</td><td><span class="badge b-amber">средний</span></td></tr></tbody></table></div>
+<p class="muted">Также в «Догреве» &gt;14 дней: <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/15962/">geots.ru</a> 163 тыс. (контакт 6 дн назад), <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/17120/">smclinic.ru</a> 85 тыс. (4 дн назад).</p></section><section><div class="section-head"><div class="section-icon blue">📞</div><h2>Активность менеджеров</h2></div>
+<p>Рейтинг — по операционной эффективности из официальной сводки отдела (поле «Опер»). Полный цикл взял Семенихин (Опер 10.0): меньше наборов, но лучшая конверсия (28%), 7 чатов и 2 проведённые встречи. Телемаркетологи Исаева и Вострецов отработали объёмом (69 и 89 наборов), но в воронку завели лишь будущие встречи. Деговцова в отпуске — на ней заморожен договорный затор.</p>
+<div class="managers"><div class="mgr hero-mgr">
+<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+<img src="data:image/jpeg;base64,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" style="width:48px;height:48px;border-radius:50%;object-fit:cover" alt="Семенихин Егор">
+<div><div class="mgr-name">Семенихин Егор</div><div class="mgr-role">Менеджер по продажам · Опер 10.0</div></div></div>
+<div class="mgr-row"><span class="mgr-row-label">Наборы</span><span class="mgr-row-value">25</span></div><div class="mgr-row"><span class="mgr-row-label">Дозвоны</span><span class="mgr-row-value">7 (28%)</span></div><div class="mgr-row"><span class="mgr-row-label">Чаты</span><span class="mgr-row-value">7</span></div><div class="mgr-row"><span class="mgr-row-label">Встречи проведены</span><span class="mgr-row-value">2</span></div><div class="mgr-row"><span class="mgr-row-label">Новых сделок</span><span class="mgr-row-value">2</span></div></div><div class="mgr ">
+<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+<img src="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAASABIAAD/4QBMRXhpZgAATU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAA6ABAAMAAAABAAEAAKACAAQAAAABAAAAeKADAAQAAAABAAAAeAAAAAD/7QA4UGhvdG9zaG9wIDMuMAA4QklNBAQAAAAAAAA4QklNBCUAAAAAABDUHYzZjwCyBOmACZjs+EJ+/8AAEQgAeAB4AwEiAAIRAQMRAf/EAB8AAAEFAQEBAQEBAAAAAAAAAAABAgMEBQYHCAkKC//EALUQAAIBAwMCBAMFBQQEAAABfQECAwAEEQUSITFBBhNRYQcicRQygZGhCCNCscEVUtHwJDNicoIJChYXGBkaJSYnKCkqNDU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6g4SFhoeIiYqSk5SVlpeYmZqio6Slpqeoqaqys7S1tre4ubrCw8TFxsfIycrS09TV1tfY2drh4uPk5ebn6Onq8fLz9PX29/j5+v/EAB8BAAMBAQEBAQEBAQEAAAAAAAABAgMEBQYHCAkKC//EALURAAIBAgQEAwQHBQQEAAECdwABAgMRBAUhMQYSQVEHYXETIjKBCBRCkaGxwQkjM1LwFWJy0QoWJDThJfEXGBkaJicoKSo1Njc4OTpDREVGR0hJSlNUVVZXWFlaY2RlZmdoaWpzdHV2d3h5eoKDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uLj5OXm5+jp6vLz9PX29/j5+v/bAEMABAQEBAQEBgQEBgkGBgYJDAkJCQkMDwwMDAwMDxIPDw8PDw8SEhISEhISEhUVFRUVFRkZGRkZHBwcHBwcHBwcHP/bAEMBBAUFBwcHDAcHDB0UEBQdHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHf/dAAQACP/aAAwDAQACEQMRAD8A+7dXu/sOmXN0OscZK/XGB+teZeDLJp7mMkBlTMsjEdz0H51v+PNQMelxWEZ+e8lC/wDAVOT+dbvhiyWz0tHK7Xl+Zj/KoersRuzeIDNj0FPwKRR1b1qOdykLsOoBxU6JOTNPI8L+J927oxB+R5BEn0AyT+eRXDaRGVReK2/iPI0t5Yw5z+78xh23Oef5Vl6XF8i14sZNxu+p69GOp1duOAMYq5sDEZGcdKowr71fQHr1rOWx6MES+VxxWFqaAQSD2NbxbC1zmrSHyHJ9K5HvY7or3bnz7qxUXj/WqayqSMDoKfrUn+nSAetZ0bNu/Cvo4fCj5CrFczRrpIp6VZSX0NZCnmrcbGtziZ658Jmz43suf4Zv/RbV9e18efCM/wDFcWX+7N/6KavsOqRcdj//0PqTWJ49Y8VQ20J3RWgCFhyMnrj3O7GfavVTiONUXsABXk3gewFxfNeH5o4i3zDo7nq307CvWusnPYcVyp3u11FFaakg6VzviC88iOKAHBkJJ+gH+JFdFXjfjXVY2v5YvOx5WyPaPTO9uc/3VP51njJ8tPlXU3oxvI8D8d65dr4gldGLCFjHnBx8vFXPD/ii2ucRSjy3/SvO9Yv7ue/nnlbImmbHOOSffio7NmjlzLGY3GGPGOD0NZKkuRI6adZqZ9GW96rYwc1pR3q8AmvPdFmllQADcO1W9TuJYoyFfyzzzXDLex7cNVzHoJnidThxx71xev6jZxwtGZ0DE9NwzXk97PcGX5rwL2wxNY9xp73Mbv8AbI3GPfNNYdXTbFLEtJxijN1WQvf9Qc9arxOSx9qzNksVwUkO7YOD1q9bjIyTXrrRHz8tW2SfaDuNW47gY5rnH3JI21sc9jUyTyA4zXSopnA7pnu/wdmD+O7Bf9ib/wBFNX2dXxL8EBJP47tH3IBHHMxBOCcxsPl9Tz+VfbVO1i4u6P/R+zPBWnHTtFj3YydxLDncc9QfT09Rz3retrj7RPI4P7uElAf7zfxH8OlUprltP0+KBEBk2gKijCjsBjsAKr2bG3hjtQRycMfXqXb8T+leBVxcYzSXT8zojTbjc0dX1aDStOkvZjjapIH05r5Y1fU/tkVzMGBe4k2j/gXU/kTXd/ErxRHIn2W3kOwnZ6AheTj8QK8ZSdpUiBJIyWx9BgfzNJ1HVlzvbodNKHLp1KI0aRpNzcjr61oSWJBMsy7nKbMnso6ADpW/bsFTeOMVSnuFmmETfePQCumMmdM6cUjpfDKpDb7mGadf2i3okbdtIB2+me1S2MZgtvQkZq3YBZNytyDXHVfvnq4aH7o8L1HQbo3IaMs65O8l8HPYjFc1f213aXOyBvMTsx6++a+jr3RbZ97EA4/AivOtX063tsuF/HrXoRq6HkywyTvc8sAbzGL8nGPzqyCqoTinXG1HcgfxU7eqxbWXrXRzaHHKKuzCmZRIaWJ6gvQom+WkRjxg812w2PNnue6fA9x/wn9go7pN/wCimr7lr4O+BjMfiLpwP9yf/wBEvX3jTluOGx//0vrm+1GOfW3tYzkogLt2X+6B/M1g+JfEkWkWM1zGMuQYoVbqeOT/AJ71zVlr0GoWxuo1EXnZZ+c4U5xknvjNeP8AjjxM09yVX7kK4AHQEk4r4iFGVSrZnrNxjG5ia5rjXupGGRt7KAufc8tj8Tj8Kt2swV9obIT5cfT/APVXnNk7SXX2hzlU+Y1tabctI4IPX5vz5r6JU+Vcq6HLCd3zHohnZxheKzrC+tLO8D6gdrl/4untzUFtqMSSCCUhWb1ro449OnwLkxnP97FC0R1fEzsDqFjNCfLkA49ayrS8+z3ReJtyHmqMWk6erMUUbGHRTxVhbe1tYWWJAi9OK456yPbpe7A6d7yCSBnJwa8w8QXEblkQ5FXbnVBFGUB6dK821/VWiXYD+9lO1fx6n8K6Yxb0OOrUSTbMm6Iabj1qKZmUqp781DHIWk5OcVDeThZQCPu4FdqXQ8aTvqUNRH70EDrzVdNwwKsXcisqHdVYY4IORXXHY8+a1Pa/gSxPxI04H+5P/wCiXr74r4H+BCP/AMLH05iMDZP1/wCuL198U27jjsf/061h4puLOyOnMw2s3Bb+Ad+nY1werXMl1IzFsknP1J/wq/PAQ+2Qn2PeqUiCBsN97PHvXEqcYy5rak80mrdCFv8ARbEqpG5xt/P/ACar6dqIhuQrnHYH+lR329cYz04BrDxuIXHU1oo6ag5Wd0exxhbuMFlDcU+K009W2zq0R9QxFc94cv5Lc+RdDIXgE/1r062exkTc6q/Heud6aHr4eV3cxVtoVQeVduCOmCKma4v2Ty2uSyr3wM/ia17iPTkQPCgVj6VzOo3qW8TGMZwO1Y26no1KulirqV5DbRNLK3CjJJ7V5Yb2TU783B+4OEB7D/PNX557rWYpJ3OEifBUdMdAT71Us7cQlwemePpXXThy77nj16rnZLY0YVH324x8xrDvpTuXnO7JrWu5hDAIx96Q/pXNX0itKoBxtUVrFGMpaWNFSsqYYBsetXYFRfuAL9KyLR8Sbc5zWzHiuiG1jknvc9o+CDE/EPTx/sT/APop6+6q+E/gdj/hYenYP8E//op6+7KGOOx//9TnWlXbiX756ZrBu5F3bWHHY1LeSEEkn61lSSiQbegPr3rn3MkrbFWSVWbaTkdjUQgGT6/zqOZGGM9M8Gp4yejdKdtClqz1G1tY20+y1WKMEMvlzY9R90n37VuNbRyIHiG3PpUnw8MN3YyaPd8x3IBX/PrWreabc6HN9nulzG4zG/ZhXPXpyUVUWx6uFnFt03uZsOnSSJ8zkjsKw9dtBDbsjcAda7u2mR02qORXM+JLV5bdg/ANc8LtnZNJKx5z4ctopLHU4SNzyL8o9AoLFvw4rB3ALu6E13X9kvpHhS71ksVeSQwxerBwFYfTrXAWkTXcvknrjn8eK9CWiR5SV9DJurkzXByeFGB/Ws2dt0mTzk0+6jks7qS3k+9GxB9/eoZV/d7sfeq0YvsSxSMkgYdM11cJEgDDnPpXGRZzyK27SaSMjuKpOxjJXPf/AIIBR8Q9Ox12T/8Aop6+6q+E/gZKsvxC0/HBCT8f9snr7sq2whsf/9XhLhRIuSPm71hzqeSByOoro7hD5hI4x1rMmhOMgc1mkYczMVZPMyj9R+tWEUBzjkEGopIlUk4qxbKWkCYzv4/Ok0aR1Z7F4GxZXVnLIMKVA56At3r6MfRrHWrA2t4m6JvuN3Q+oNfPOlQvEiNjPlr0Hp3H1r6O8K3MV5p8flvuAGR6iuzBzjUg4MrFUpU5KUTw3WdF1HwvctHd8xEny5B91h2+h9qxd1zrtzDZQ8s5xnqAO5P0r6wv9GsdatGs76NZUYYKsMgj/PeuQ8O+E/D/AIbuLm2tlYzZOHkO5sddoPov69TWTwUVPR6G/wBclKGq1Pnr4ry2lqul+GrBh5VnF5kgHdiO/vXn+iaO14JGjx5g4BPAB+v4V33jKyTxB4tuzGfJRB5ZIAOcfWuUvfDZskaGG5nkQ/M65AHPHp6VzYl++0VR+FM4HxXZTtdrK6bZlG18cg7ehBHrWFaxtJGYSMsvzD2Ir0WTQmsFwi+dBKNyZ4I/L9a5q4sminEyLtHb/CojPTlNZx15jEjiTzMsNv8AjWtDEoHIyKlaAOd4HDVPFHtIxyPSrvcweh6/8DEQfETTmQ4+Sfj/ALZPX3hXwz8EVX/hYWnsBg7J/wD0U9fc1aQ2Mmj/1uZVPMXB++OB71BJAGXOOVHP0q3B/rV+v9KP+en+61Yox6XObmtcnb69D60/T7dhcDcOh4B9qtzf8svpUtp/x8fnRUdkzSiryR1j6lepD5UR8tdvVOv512ngLxNc2Ewg37gOuT1wehzXBn/Vf8AH8queF/8Aj/b/AHzXJSk4NSjuejV97Rn2Raatb3Nv9ohOT0298+n9a5jxfJ9g8N3mowKI51KOJAeQd45/+t3qHw//AMep/wCug/8AQKXx/wD8iTqH+6n/AKGK+kSuuY8d6OyPB7Im+uZL2UbWcbmx0yTk4qe9gLksnBkICk+39Ki0f/UN/u1pT/dtvqf5ivn8W/3zPSofBY5bUIlRREvIjGAffua5P7D9oc714zzj0rs9Q6v9axLX7x/H+Vc0G9ztqLZHLX2kvYzFSMo3f+tUzbsDlea7LxD0X/dFc4vUV0wbOGa3R6Z8FQP+Fg6eTw2yf/0U9fcFfEPwZ/5KHp/+7P8A+inr7erqjsc5/9k=" style="width:48px;height:48px;border-radius:50%;object-fit:cover" alt="Исаева Дарья">
+<div><div class="mgr-name">Исаева Дарья</div><div class="mgr-role">Телемаркетолог · Опер 8.3</div></div></div>
+<div class="mgr-row"><span class="mgr-row-label">Наборы</span><span class="mgr-row-value">69</span></div><div class="mgr-row"><span class="mgr-row-label">Дозвоны</span><span class="mgr-row-value">12 (17%)</span></div><div class="mgr-row"><span class="mgr-row-label">Чаты</span><span class="mgr-row-value">2</span></div><div class="mgr-row"><span class="mgr-row-label">Назначено встреч</span><span class="mgr-row-value">—</span></div><div class="mgr-row"><span class="mgr-row-label">Новых сделок</span><span class="mgr-row-value">14</span></div></div><div class="mgr ">
+<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+<img src="data:image/jpeg;base64,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" style="width:48px;height:48px;border-radius:50%;object-fit:cover" alt="Вострецов Аркадий">
+<div><div class="mgr-name">Вострецов Аркадий</div><div class="mgr-role">Телемаркетолог · Опер 8.0</div></div></div>
+<div class="mgr-row"><span class="mgr-row-label">Наборы</span><span class="mgr-row-value">89</span></div><div class="mgr-row"><span class="mgr-row-label">Дозвоны</span><span class="mgr-row-value">10 (11%)</span></div><div class="mgr-row"><span class="mgr-row-label">Чаты</span><span class="mgr-row-value">3</span></div><div class="mgr-row"><span class="mgr-row-label">Назначено встреч</span><span class="mgr-row-value">—</span></div><div class="mgr-row"><span class="mgr-row-label">Новых сделок</span><span class="mgr-row-value">17</span></div></div><div class="mgr ">
+<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+<img src="data:image/jpeg;base64,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" style="width:48px;height:48px;border-radius:50%;object-fit:cover" alt="Гордиенко Евгения">
+<div><div class="mgr-name">Гордиенко Евгения</div><div class="mgr-role">РОП</div></div></div>
+<div class="mgr-row"><span class="mgr-row-label">Встречи проведены</span><span class="mgr-row-value">2</span></div><div class="mgr-row"><span class="mgr-row-label">Из них защита КП</span><span class="mgr-row-value">1 (ionika)</span></div><div class="mgr-row"><span class="mgr-row-label">Роль дня</span><span class="mgr-row-value">закрыла отпуск Деговцовой</span></div></div><div class="mgr away">
+<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+<img src="data:image/jpeg;base64,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" style="width:48px;height:48px;border-radius:50%;object-fit:cover" alt="Деговцова Елизавета">
+<div><div class="mgr-name">Деговцова Елизавета</div><div class="mgr-role">Менеджер · СТОП (отпуск до 08.06)</div></div></div>
+<div class="mgr-row"><span class="mgr-row-label">Наборы</span><span class="mgr-row-value">0</span></div><div class="mgr-row"><span class="mgr-row-label">Дозвоны</span><span class="mgr-row-value">0</span></div><div class="mgr-row"><span class="mgr-row-label">Чаты</span><span class="mgr-row-value">8</span></div><div class="mgr-row"><span class="mgr-row-label">Опер</span><span class="mgr-row-value">2.7</span></div><div class="mgr-row"><span class="mgr-row-label">Договоров заморожено</span><span class="mgr-row-value">8+</span></div></div></div></section><section><div class="section-head"><div class="section-icon green">📅</div><h2>Встречи дня — проведено 4</h2></div>
+<p class="muted">«Итоги клиенту» проверены по двум источникам: переписка Wazzup (лента timeline) + активности/письма. Норма — отправить итоги в течение ~2 часов после встречи.</p>
+<div class="tbl-wrap"><table>
+<thead><tr><th>Сделка / встреча</th><th>Тип</th><th>Проводит</th><th>Статус</th><th>Запись</th><th>Итоги клиенту</th><th>Оценка</th><th>Балл</th></tr></thead>
+<tbody><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/type/1048/details/2170/">ionika-dent.ru</a> <span class="muted">(<a href="https://belberrycrm.bitrix24.ru/crm/deal/details/13946/">сделка</a>)</span></td><td>Защита КП</td><td>Гордиенко Евгения</td><td><span class="badge b-green">проведена</span></td><td>есть</td><td><span class="badge b-green">✅</span> <span class="muted">Wazzup 14:27 (~2 ч): «направляю все материалы по SEO», клиент поблагодарил</span></td><td style="font-size:18px">✅</td><td><b>8/10</b></td></tr><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/type/1048/details/2164/">dinastia-s.ru</a> <span class="muted">(<a href="https://belberrycrm.bitrix24.ru/crm/deal/details/24170/">сделка</a>)</span></td><td>Брифинг</td><td>Семенихин Егор</td><td><span class="badge b-green">проведена</span></td><td>есть</td><td><span class="badge b-green">✅</span> <span class="muted">Wazzup 13:52: шаблон NDA + 16:07 инфо о компании (согласованный след. шаг)</span></td><td style="font-size:18px">⚠️</td><td><b>5/10</b></td></tr><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/type/1048/details/2184/">ametistcenter.ru</a> <span class="muted">(<a href="https://belberrycrm.bitrix24.ru/crm/deal/details/15816/">сделка</a>)</span></td><td>Брифинг</td><td>Семенихин Егор</td><td><span class="badge b-green">проведена</span></td><td>есть</td><td><span class="badge b-green">✅</span> <span class="muted">Резюме отправлено Филиппу 15:05 + проактивно отцу-ЛПР Александру 15:17 с записью встречи и резюме (кейсы пока не приложены)</span></td><td style="font-size:18px">⚠️</td><td><b>7/10</b></td></tr><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/type/1048/details/2192/">rustrans-gr.ru</a> <span class="muted">(<a href="https://belberrycrm.bitrix24.ru/crm/deal/details/24570/">сделка</a>)</span></td><td>Брифинг</td><td>Гордиенко Евгения</td><td><span class="badge b-green">проведена</span></td><td>есть</td><td><span class="badge b-green">✅</span> <span class="muted">Email 17:02 и 17:22 сразу после встречи + зафиксированы референсы клиента</span></td><td style="font-size:18px">✅</td><td><b>7/10</b></td></tr></tbody></table></div></section><section><div class="section-head"><div class="section-icon blue">🗓</div><h2>Встречи сегодня (2 июня) — 6 запланировано</h2></div>
+<div class="tbl-wrap"><table>
+<thead><tr><th>Время</th><th>Сделка</th><th>Тип</th><th>Проводит</th><th>Статус</th></tr></thead>
+<tbody><tr><td>12:00</td><td><a href="https://belberrycrm.bitrix24.ru/crm/type/1048/details/2172/">eurotuning-spb.ru</a></td><td>Защита КП</td><td>Гордиенко Евгения</td><td><span class="badge b-blue">запланирована</span></td></tr><tr><td>12:00</td><td><a href="https://belberrycrm.bitrix24.ru/crm/type/1048/details/2174/">интердент-клиник.рф</a></td><td>Брифинг</td><td>Семенихин Егор</td><td><span class="badge b-blue">запланирована</span></td></tr><tr><td>13:00</td><td><a href="https://belberrycrm.bitrix24.ru/crm/type/1048/details/2112/">med-shushary.ru</a></td><td>Брифинг</td><td>Семенихин Егор</td><td><span class="badge b-blue">запланирована</span></td></tr><tr><td>14:00</td><td><a href="https://belberrycrm.bitrix24.ru/crm/type/1048/details/2190/">spectra.ru</a></td><td>Брифинг</td><td>Семенихин Егор</td><td><span class="badge b-blue">запланирована</span></td></tr><tr><td>15:00</td><td><a href="https://belberrycrm.bitrix24.ru/crm/type/1048/details/2182/">medklinika.spb.ru</a></td><td>Защита КП</td><td>Семенихин Егор</td><td><span class="badge b-blue">запланирована</span></td></tr><tr><td>16:00</td><td><a href="https://belberrycrm.bitrix24.ru/crm/type/1048/details/2168/">cryplat.ru</a></td><td>Брифинг</td><td>Гордиенко Евгения</td><td><span class="badge b-blue">запланирована</span></td></tr></tbody></table></div>
+<p class="muted">Нагрузка дня лежит на Семенихине (4 встречи, из них защита medklinika) и Гордиенко (защита eurotuning + брифинг cryplat).</p></section><section><div class="section-head"><div class="section-icon purple">🔍</div><h2>Содержательный разбор встреч</h2></div><div class="razbor-card">
+<div class="razbor-head"><h3><a href="https://belberrycrm.bitrix24.ru/crm/type/1048/details/2170/">ionika-dent.ru</a> <span class="muted">· Защита КП · Гордиенко Евгения (за Деговцову) · 28 мин</span></h3><span class="razbor-score">8/10</span></div>
+<p class="razbor-sum">Гордиенко защищала КП по сделке Деговцовой (та в отпуске). Прошлась по техническому и коммерческому аудиту с конкретикой (дубли метатегов, проседание Яндекса, семантика под Химки/Куркино), показала смету по SEO и отдельный продукт по нейровыдаче (GEO) за 100 тыс./мес. Клиентка вовлечена, в конце — «очень плодотворный созвон».</p>
+<div class="checks"><div class="chk-row"><span class="chk-mark">✅</span><span class="chk-label">Кейсы (обязательно)</span><span class="chk-txt">Показала вживую Beauty Way и биоспаклинику — рост в нейровыдаче с цифрами</span></div><div class="chk-row"><span class="chk-mark">✅</span><span class="chk-label">Запрос след. шагов от клиента</span><span class="chk-txt">Спросила срок согласования — клиент ответил «на этой неделе»</span></div><div class="chk-row"><span class="chk-mark">✅</span><span class="chk-label">Аргументация цифр КП</span><span class="chk-txt">Разложила смету по часам, % на ссылки, логику наращивания промтов</span></div><div class="chk-row"><span class="chk-mark">✅</span><span class="chk-label">Допродажа / др. проекты</span><span class="chk-txt">Уточнила про другие проекты клиента — открыла второй контур</span></div><div class="chk-row"><span class="chk-mark">⚠️</span><span class="chk-label">Возражение по подрядчику</span><span class="chk-txt">Клиент уже с SEO-подрядчиком; перехватили только нейровыдачу, не весь объём</span></div></div>
+<div class="razbor-verdict">Эталонная защита: глубина аудита + живые кейсы + аргументированная смета. Реалистичный итог — интерес к GEO, не к полному SEO.</div>
+<div class="razbor-good">💚 Что было хорошо: РОП вытянула чужую сделку на уровне; кейсы показаны прямо в эфире, а не «пришлю потом»; мягкая разведка других проектов клиента.</div>
+<p class="muted">Сделка: <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/13946/">карточка в Битрикс24</a></p>
+</div><div class="razbor-card">
+<div class="razbor-head"><h3><a href="https://belberrycrm.bitrix24.ru/crm/type/1048/details/2164/">dinastia-s.ru</a> <span class="muted">· Брифинг · Семенихин Егор · 29 мин</span></h3><span class="razbor-score">5/10</span></div>
+<p class="razbor-sum">Тяжёлый брифинг стоматологии: руководитель клиента отказалась делиться данными по рекламе без NDA и возмутилась скрытой записью встречи («мы даже не знаем, кто вы»). Семенихин держал линию «без вводных не будет предложения», назвал цены (SEO от 110 тыс. + 56 тыс. техподдержка, контекст 62,5 тыс. при бюджете 150 тыс.). В итоге договорились на подписание NDA и оформление КП.</p>
+<div class="checks"><div class="chk-row"><span class="chk-mark">⚠️</span><span class="chk-label">Диалог, не анкета</span><span class="chk-txt">Скатилось в противостояние; клиент: «бездарно время проводим»</span></div><div class="chk-row"><span class="chk-mark">✅</span><span class="chk-label">Выявление потребности</span><span class="chk-txt">Вытащил задачу — удвоить поток лидов, приоритеты (имплантация → брекеты)</span></div><div class="chk-row"><span class="chk-mark">⚠️</span><span class="chk-label">Кейсы</span><span class="chk-txt">Упомянул медицину 12 лет, Краснодар/Ростов — но без цифр, «скину после»</span></div><div class="chk-row"><span class="chk-mark">❌</span><span class="chk-label">Бюджет</span><span class="chk-txt">Клиент отказался раскрывать; бюджет не выявлен</span></div><div class="chk-row"><span class="chk-mark">❌</span><span class="chk-label">Запись встречи</span><span class="chk-txt">Не предупредил о записи — клиент возмутился, потребовал NDA</span></div></div>
+<div class="razbor-verdict">Конфликтная встреча. Семенихин не сорвался и удержал клиента на NDA+КП — это спасение. Но скрытая запись и упор на данные без выстроенного доверия едва не сожгли контакт.</div>
+<div class="razbor-good">💚 Что было хорошо: Не поддался давлению и не обесценил себя демпингом; чётко обозначил, что КП «на коленке» = ересь; конвертировал конфликт в следующий шаг (NDA → КП → встреча со специалистом).</div>
+<p class="muted">Сделка: <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/24170/">карточка в Битрикс24</a></p>
+</div><div class="razbor-card">
+<div class="razbor-head"><h3><a href="https://belberrycrm.bitrix24.ru/crm/type/1048/details/2184/">ametistcenter.ru</a> <span class="muted">· Брифинг · Семенихин Егор · 47 мин</span></h3><span class="razbor-score">7/10</span></div>
+<p class="razbor-sum">Образовательный брифинг стоматологии в Лыткарино: клиент (сын собственника) почти не знаком с диджиталом, привлечение идёт через сарафан и рекламу в лифтах. Семенихин подробно объяснил, что такое SEO, снял вводные (средний чек 8–10 тыс., 95% обращений — звонки, юнит-экономики нет, скепсис к сайтам). Договорился свести итоги, прислать кейсы и позвать на следующую встречу отца-собственника.</p>
+<div class="checks"><div class="chk-row"><span class="chk-mark">⚠️</span><span class="chk-label">Диалог, не анкета</span><span class="chk-txt">Хороший разговор, но финал — серия быстрых вопросов подряд (анкета)</span></div><div class="chk-row"><span class="chk-mark">✅</span><span class="chk-label">Выявление потребности</span><span class="chk-txt">Глубоко: масштабирование, отсутствие учёта, скепсис клиента</span></div><div class="chk-row"><span class="chk-mark">❌</span><span class="chk-label">Кейсы</span><span class="chk-txt">Не показал вживую и не приложил в итогах — «ещё кейсами поделюсь»</span></div><div class="chk-row"><span class="chk-mark">❌</span><span class="chk-label">Бюджет</span><span class="chk-txt">Не выявлен; у клиента нет экономики, диапазон не предложен</span></div><div class="chk-row"><span class="chk-mark">✅</span><span class="chk-label">Итоги клиенту</span><span class="chk-txt">Резюме отправил Филиппу (15:05) и проактивно отцу-ЛПР Александру (15:17) с записью встречи</span></div><div class="chk-row"><span class="chk-mark">✅</span><span class="chk-label">Работа с отсутствующим ЛПР</span><span class="chk-txt">Сам вышел на отца с записью и резюме, втянул его в переписку в тот же день</span></div></div>
+<div class="razbor-verdict">Терпеливый ликбез: главный риск — решение за отсутствовавшим отцом — Семенихин закрыл грамотно, выйдя на ЛПР сразу после встречи с записью и резюме. Минусы остаются: кейсы не показаны и не приложены, бюджет не выявлен.</div>
+<div class="razbor-good">💚 Что было хорошо: Сильный follow-up: резюме + запись встречи ушли и сыну, и отцу-собственнику в тот же день — отсутствие ЛПР на встрече компенсировал перепиской. Зафиксировал все вводные (чек, цикл, путь клиента).</div>
+<p class="muted">Сделка: <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/15816/">карточка в Битрикс24</a></p>
+</div><div class="razbor-card">
+<div class="razbor-head"><h3><a href="https://belberrycrm.bitrix24.ru/crm/type/1048/details/2192/">rustrans-gr.ru</a> <span class="muted">· Брифинг (разработка сайта) · Гордиенко Евгения · 12 мин</span></h3><span class="razbor-score">7/10</span></div>
+<p class="razbor-sum">Консультативный брифинг по редизайну сайта морского логиста. Гордиенко показала релевантный кейс (Movers — международная логистика), профессионально отговорила от Tilda в пользу Bitrix под будущее SEO, собрала требования: 3 языка (RU/EN/CN), интеграция с 1С, расписание судов, форма обратной связи, +1–2 новых направления услуг.</p>
+<div class="checks"><div class="chk-row"><span class="chk-mark">✅</span><span class="chk-label">Кейсы</span><span class="chk-txt">Сразу показала близкий кейс Movers (логистика)</span></div><div class="chk-row"><span class="chk-mark">✅</span><span class="chk-label">Выявление потребности</span><span class="chk-txt">Раскрыла «почему редизайн» — переход от сарафана к визуалу/интернету</span></div><div class="chk-row"><span class="chk-mark">✅</span><span class="chk-label">Экспертная аргументация</span><span class="chk-txt">Объяснила, почему Tilda не подходит под SEO, рекомендовала Bitrix</span></div><div class="chk-row"><span class="chk-mark">❌</span><span class="chk-label">Бюджет</span><span class="chk-txt">Клиент спрашивал «насколько добавится смета», конкретики по бюджету нет</span></div><div class="chk-row"><span class="chk-mark">⚠️</span><span class="chk-label">Запись/полнота</span><span class="chk-txt">Транскрипт оборвался на 12-й минуте (часть 1) — финал не зафиксирован</span></div></div>
+<div class="razbor-verdict">Сильный консультативный заход: эксперт ведёт клиента, а не просто принимает ТЗ. Не хватило фиксации бюджета и явного следующего шага в доступной части записи.</div>
+<div class="razbor-good">💚 Что было хорошо: Сразу дала релевантный кейс и техническую экспертизу (Tilda vs Bitrix); вела как консультант, формируя доверие через пользу, а не давление.</div>
+<p class="muted">Сделка: <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/24570/">карточка в Битрикс24</a></p>
+</div></section><section><div class="section-head"><div class="section-icon green">📝</div><h2>Брифы и КП дня</h2></div>
+<p><b>Брифы в работе по итогам встреч:</b> <a href="https://belberrycrm.bitrix24.ru/crm/type/1056/details/1516/">dinastia-s.ru</a>, <a href="https://belberrycrm.bitrix24.ru/crm/type/1056/details/1514/">ametistcenter.ru</a> (Семенихин), <a href="https://belberrycrm.bitrix24.ru/crm/type/1056/details/1518/">rustrans-gr.ru</a> (Гордиенко) — заполняются после брифингов 1 июня.</p>
+<p><b>КП:</b> по части сделок статусы защит обновились в провал (FAIL) — <a href="https://belberrycrm.bitrix24.ru/crm/type/1106/details/138/">aclinic.ru</a> (Смирнов), <a href="https://belberrycrm.bitrix24.ru/crm/type/1106/details/66/">medicina35.ru</a> (Деговцова): эти сделки в тот же день ушли в отказ. Защита <a href="https://belberrycrm.bitrix24.ru/crm/type/1106/details/212/">kandela.ru</a> и <a href="https://belberrycrm.bitrix24.ru/crm/type/1106/details/206/">amoriya.ru</a> — в УСПЕХ.</p></section><section class="tinted-amber"><div class="section-head"><div class="section-icon amber">🚫</div><h2>Отказы дня</h2></div>
+<p><b>Содержательные потери (с деньгами):</b></p>
+<div class="tbl-wrap"><table>
+<thead><tr><th>Сделка</th><th>Сумма</th><th>Менеджер</th><th>Комментарий</th></tr></thead>
+<tbody>
+<tr><td><a href="https://belberrycrm.bitrix24.ru/crm/deal/details/14652/">aclinic.ru</a></td><td><b>102 тыс.</b></td><td>Семенихин Егор</td><td>КП не защитили, сделка закрыта проигрышем</td></tr>
+<tr><td><a href="https://belberrycrm.bitrix24.ru/crm/deal/details/10402/">medicina35.ru</a></td><td><b>74 тыс.</b></td><td>Деговцова Елизавета</td><td>Долгая сделка, КП в провал — закрыта в отказ</td></tr>
+</tbody></table></div>
+<p class="muted">Плюс 5 входящих/спам-лидов закрыты как отказ (заявки «Колесо Фортуны», письма на hello@belberry.net) — это нормальный отсев. В телемаркетинге за день 61 отвал (C50:LOSE) и 45 «извинений»/недозвонов (C50:APOLOGY) — штатный отсев холодной базы.</p></section><section><div class="section-head"><div class="section-icon purple">📊</div><h2>Системные паттерны</h2></div>
+<div class="cards-2">
+<div class="card-pat c-green"><h4>Сильные стороны</h4><ul>
+<li><b>РОП в полях вытягивает качество.</b> Гордиенко провела сильную защиту ionika и консультативный брифинг rustrans, прикрывая отпуск Деговцовой.</li>
+<li><b>Живые кейсы работают.</b> Где кейсы показали в эфире (ionika: Beauty Way, биоспаклиника) — клиент вовлекается и хвалит созвон.</li>
+<li><b>Консультативная экспертиза.</b> На rustrans клиента грамотно отговорили от Tilda — это продаёт доверие лучше прайса.</li>
+<li><b>Устойчивость под давлением.</b> На конфликтной dinastia Семенихин не сорвался и довёл до NDA+КП.</li>
+</ul></div>
+<div class="card-pat c-red"><h4>Слабые места</h4><ul>
+<li><b>Кейсы «пришлю потом».</b> На ametist и dinastia кейсы не показали вживую — теряется главный аргумент брифинга.</li>
+<li><b>Бюджет не выявляют.</b> 3 из 4 встреч прошли без вопроса о бюджете/ожиданиях по деньгам.</li>
+<li><b>ЛПР вне встречи.</b> На ametist на брифинг пришёл сын вместо отца-собственника — риск смягчён тем, что Семенихин сразу вышел на отца с записью и резюме, но изначально ЛПР лучше тянуть на саму встречу.</li>
+<li><b>Затор договорного этапа.</b> 19 сделок &gt;1,5 млн ₽ стоят; база Деговцовой не перевешена на время отпуска — sporttravma висит 31 раб.день.</li>
+<li><b>Скрытая запись встречи.</b> На dinastia не предупредили — клиент возмутился, доверие просело.</li>
+</ul></div>
+</div></section><section class="tinted-green"><div class="section-head"><div class="section-icon green">✓</div><h2>Итог дня</h2></div>
+<p>Понедельник отработан плотно по встречам: <b>4 проведены и закрыты в УСПЕХ</b>. Звезда дня — защита <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/13946/">ionika-dent</a> (Гордиенко): живые кейсы, аргументированная смета, тёплый клиент. Консультативный брифинг <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/24570/">rustrans</a> — тоже плюс. Брифинг <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/24170/">dinastia</a> дался с трением (данные только под NDA), <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/15816/">ametist</a> вытянул сильным follow-up — резюме и запись ушли и сыну, и отсутствовавшему отцу-ЛПР. Общие зоны роста: не выявляют бюджет и не прикладывают кейсы. Телемаркетинг отработал объёмом (204 набора), но результативная конверсия низкая (11–17%) и в воронку завёл лишь 2 будущие встречи.</p>
+<p><b>Главный риск недели</b> — не качество встреч, а <b>замороженный договорный этап на &gt;1,5 млн ₽</b>. Ядро затора — база Деговцовой, которая в отпуске до 8 июня; <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/10938/">sporttravma.org</a> (304 тыс.) стоит на «Договоре» 31 рабочий день. Перевес базы на Гордиенко/Семенихина сегодня — задача №1.</p></section><section><div class="section-head"><div class="section-icon amber">🔧</div><h2>Технические ограничения отчёта</h2></div>
+<ul class="muted">
+<li>Рейтинг менеджеров и «Тигр дня» взяты из официальной сводки отдела (поле «Опер»: композит наборы + результативные дозвоны + конверсия + чаты + встречи). В дашборд включены только сотрудники отдела продаж и телемаркетинга.</li>
+<li>Суммы сделок взяты из карточек (OPPORTUNITY); часть зависших на «Договоре» имеют OPPORTUNITY=0 (товарные позиции не заполнены) и в денежный риск не вошли — фактический затор может быть выше.</li>
+<li>Транскрипт rustrans-gr.ru оборвался на 12-й минуте («часть 1») — финал встречи и договорённость по следующему шагу не зафиксированы в записи.</li>
+</ul></section><footer class="footer"><div class="wrap">
+<p>Сводка отдела продаж Belberry · отчёт за понедельник 1 июня 2026 · сформировано 02.06.2026 (МСК)</p>
+<p class="muted">Источник: Bitrix24 belberrycrm. Все сущности кликабельны и ведут в карточки CRM.</p>
+</div></footer>
+</div></body></html>

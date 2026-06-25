@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Воронка продаж Belberry — визуальная схема</title>
+<style>
+:root{
+  --ink:#1d1d1f; --muted:#6e6e73; --line:#ece8e3; --bg:#1f1e47;
+  --indigo:#2b2a5e; --accent:#5b50d6; --accent2:#8b80ff; --soft:#f0eefb;
+  --red:#d4202e; --amber:#e88a3b; --ok:#2c7a4a; --okbg:#e7f3ec;
+  --grey:#9a9aa0; --greybg:#f3f1ee; --paper:#fff;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
+  background:linear-gradient(160deg,#2b2a5e 0%,#1f1e47 100%); color:var(--ink);
+  min-height:100vh; padding:44px 20px 70px; -webkit-font-smoothing:antialiased;
+}
+.sheet{max-width:1080px; margin:0 auto;}
+header{text-align:center; color:#fff; margin-bottom:8px;}
+header .kicker{font-size:12px; letter-spacing:.22em; text-transform:uppercase; color:#7b8494; font-weight:600;}
+header h1{font-size:30px; letter-spacing:-.02em; margin:8px 0 6px;}
+header .sub{color:#aeb6c4; font-size:14.5px;}
+
+/* предбанник */
+.prefilter{
+  max-width:560px; margin:30px auto 6px; background:rgba(255,255,255,.06);
+  border:1.5px dashed #5a6478; border-radius:14px;
+  padding:14px 20px; color:#dfe4ee; text-align:center;
+}
+.prefilter b{color:#fff}
+.prefilter .tag{display:inline-block; background:var(--red); color:#fff; font-size:11px;
+  font-weight:700; padding:2px 9px; border-radius:20px; margin-left:8px; vertical-align:middle;}
+.prefilter small{display:block; color:#9aa3b2; font-size:12.5px; margin-top:4px;}
+.drop{text-align:center; color:#7b8494; font-size:22px; line-height:1; margin:2px 0;}
+
+/* funnel */
+.funnel{margin:6px auto 0; display:flex; flex-direction:column; align-items:center; gap:9px;}
+.stage{
+  position:relative; background:var(--paper); border-radius:13px;
+  box-shadow:0 6px 24px rgba(0,0,0,.28); display:flex; align-items:stretch; overflow:hidden;
+  transition:transform .12s;
+}
+.stage:hover{transform:translateY(-2px) scale(1.008)}
+.num{flex:0 0 56px; display:flex; align-items:center; justify-content:center;
+  font-size:24px; font-weight:800; color:#fff;}
+.body{flex:1; padding:12px 18px; display:flex; align-items:center; gap:18px; min-width:0;}
+.main{flex:1; min-width:0}
+.name{font-size:18px; font-weight:700; letter-spacing:-.01em; line-height:1.2;}
+.crit{font-size:13px; color:var(--muted); margin-top:3px;}
+.crit b{color:#3a4150; font-weight:600}
+.meta{flex:0 0 auto; display:flex; flex-direction:column; align-items:flex-end; gap:5px;}
+.sla{background:var(--indigo); color:#fff; font-size:12px; font-weight:700; padding:4px 11px; border-radius:20px; white-space:nowrap;}
+.esc{font-size:11px; color:var(--red); font-weight:600; white-space:nowrap;}
+.esc::before{content:"⚠ "; }
+.bx{flex:0 0 168px; border-left:1px dashed var(--line); padding:12px 14px;
+  display:flex; flex-direction:column; justify-content:center; gap:3px; background:#fafbfc;}
+.bx code{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace; font-size:11.5px;
+  background:var(--soft); padding:2px 7px; border-radius:5px; color:#4a40b8; align-self:flex-start;}
+.bx .act{font-size:11px; font-weight:700; letter-spacing:.04em; text-transform:uppercase;}
+.bx .keep{color:var(--grey)} .bx .ren{color:var(--amber)} .bx .new{color:var(--ok)}
+.arrow{color:#8b80ff; font-size:16px; line-height:.6; margin:-2px 0}
+
+/* outcomes */
+.outcomes{display:flex; gap:18px; justify-content:center; margin-top:20px;}
+.out{flex:0 0 230px; border-radius:14px; padding:16px 20px; text-align:center; color:#fff;
+  box-shadow:0 6px 24px rgba(0,0,0,.3);}
+.out.won{background:linear-gradient(135deg,#2c7a4a,#3a9a63)}
+.out.lose{background:linear-gradient(135deg,#d4202e,#e0566a)}
+.out .t{font-size:18px; font-weight:800; letter-spacing:.02em}
+.out .d{font-size:12.5px; opacity:.92; margin-top:4px}
+
+/* legend / note */
+.note{max-width:720px; margin:26px auto 0; background:rgba(255,255,255,.06);
+  border-left:4px solid var(--accent); border-radius:0 10px 10px 0; padding:14px 18px;
+  color:#dfe4ee; font-size:13.5px; line-height:1.6;}
+.note b{color:#fff}
+.legend{display:flex; gap:22px; justify-content:center; flex-wrap:wrap; margin:22px auto 0;
+  color:#aeb6c4; font-size:12.5px;}
+.legend span{display:flex; align-items:center; gap:6px}
+.dot{width:11px; height:11px; border-radius:3px; display:inline-block}
+footer{text-align:center; color:#6b7280; font-size:11.5px; margin-top:30px;}
+
+@media print{
+  body{background:#fff; padding:0}
+  .stage,.out{box-shadow:0 0 0 1px #e6e9ef}
+  .prefilter,.note{background:#f6f7f9; color:#1a1d24} .prefilter b,.note b{color:#000}
+  header *{color:#000 !important}
+}
+</style>
+</head>
+<body>
+<div class="sheet">
+
+<header>
+  <div class="kicker">Belberry · Bitrix24 · воронка [10] Продажи</div>
+  <h1>Целевая воронка продаж — 8 стадий</h1>
+  <div class="sub">Каждая стадия = контрольная точка с критерием выхода, SLA и эскалацией РОПу</div>
+</header>
+
+<div class="prefilter">
+  <b>Предбанник / Карантин</b> <span class="tag">антиспам</span>
+  <small>Отдельная воронка-фильтр. В [10] попадают только проверенные лиды (сейчас 46% отказов — спам)</small>
+</div>
+<div class="drop">▼</div>
+
+<div class="funnel" id="funnel"></div>
+
+<div class="outcomes">
+  <div class="out won"><div class="t">✓ УСПЕХ</div><div class="d">оплата получена → передача проекта в производство</div></div>
+  <div class="out lose"><div class="t">✕ ОТВАЛ</div><div class="d">обязательная причина + комментарий (управленческий сигнал)</div></div>
+</div>
+
+<div class="note">
+  <b>«Вернуться позже».</b> Отдельной стадии «Отложено» нет. Тёплые, но не дозревшие клиенты → причина «Отложили проект» + поле <b>«Дата возврата»</b> с роботом-реактивацией через 30/60/90 дней. Так возврат сохраняется без лишней стадии.
+</div>
+
+<div class="legend">
+  <span><i class="dot" style="background:#9a9aa0"></i> оставить стадию</span>
+  <span><i class="dot" style="background:#e88a3b"></i> переименовать</span>
+  <span><i class="dot" style="background:#2c7a4a"></i> создать новую</span>
+  <span><i class="dot" style="background:#2b2a5e"></i> SLA — макс. время на стадии</span>
+</div>
+
+<footer>Сформировано 2026-06-17 · режим только чтение · SLA по фактическому времени на стадиях из выгрузки Bitrix REST</footer>
+</div>
+
+<script>
+const stages = [
+  {n:1, name:"Квалификация",         crit:"потребность + ЛПР + ориентир бюджета", sla:"2 дн",     esc:"4 ч без касания", code:"C10:NEW",            act:"оставить",     cls:"keep"},
+  {n:2, name:"Заполнение брифа",     crit:"бриф заполнен и согласован",            sla:"3 раб. дня",esc:"бриф >3 раб. дн", code:"C10:PREPAYMENT…",   act:"переименовать", cls:"ren"},
+  {n:3, name:"Подготовка КП",        crit:"КП готово к отправке",                  sla:"2 раб. дня",esc:"КП >2 раб. дн",   code:"C10:EXECUTING",      act:"оставить",     cls:"keep"},
+  {n:4, name:"Защита КП",            crit:"КП защищено, возражения сняты",         sla:"3 раб. дня",esc:"реакции >3 раб. дн",code:"C10:FINAL_INVOICE", act:"переименовать", cls:"ren"},
+  {n:5, name:"Получить решение",     crit:"клиент озвучил да / нет",               sla:"7 дн",     esc:"10 дн без решения",code:"новая",             act:"создать",      cls:"new"},
+  {n:6, name:"Получить реквизиты",   crit:"реквизиты для договора получены",       sla:"3 дн",     esc:"5 дн",            code:"новая",              act:"создать",      cls:"new"},
+  {n:7, name:"Согласование договора",crit:"договор согласован, счёт выставлен",    sla:"5 дн",     esc:"7 дн",            code:"C10:UC_KC7195",      act:"переименовать", cls:"ren"},
+  {n:8, name:"Ожидаем оплату",       crit:"оплата пришла",                         sla:"7 дн",     esc:"РОП+финдир 10 дн",code:"новая",              act:"создать",      cls:"new"},
+];
+const N = stages.length;
+const root = document.getElementById('funnel');
+stages.forEach((s,i)=>{
+  // narrowing: 100% -> 70%
+  const w = 100 - (i*(30/(N-1)));
+  // brand gradient: indigo (43,42,94) -> violet (139,128,255) across stages
+  const t = i/(N-1);
+  const r=Math.round(43+(139-43)*t), g=Math.round(42+(128-42)*t), b=Math.round(94+(255-94)*t);
+  const c2 = `rgb(${r},${g},${b})`;
+  const c1 = `rgb(${Math.round(r*0.78)},${Math.round(g*0.78)},${Math.round(b*0.82)})`;
+  const el = document.createElement('div');
+  el.className='stage';
+  el.style.width = w+'%';
+  el.innerHTML = `
+    <div class="num" style="background:linear-gradient(135deg,${c2},${c1})">${s.n}</div>
+    <div class="body">
+      <div class="main">
+        <div class="name">${s.name}</div>
+        <div class="crit">выход: <b>${s.crit}</b></div>
+      </div>
+      <div class="meta">
+        <div class="sla">SLA ${s.sla}</div>
+        <div class="esc">${s.esc}</div>
+      </div>
+    </div>
+    <div class="bx">
+      <code>${s.code}</code>
+      <div class="act ${s.cls}">${s.act}</div>
+    </div>`;
+  root.appendChild(el);
+  if(i<N-1){ const a=document.createElement('div'); a.className='arrow'; a.textContent='▼'; root.appendChild(a);}
+});
+</script>
+</body>
+</html>

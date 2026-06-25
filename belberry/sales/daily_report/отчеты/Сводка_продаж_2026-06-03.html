@@ -1,0 +1,663 @@
+<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Сводка продаж · среда 03.06.2026</title><style>
+  :root {
+    --bg: #f7f8fa;
+    --card: #ffffff;
+    --text: #14171c;
+    --text-secondary: #525a6b;
+    --text-muted: #8a93a3;
+    --border: #e7eaf0;
+    --green: #15803d;
+    --green-soft: #dcfce7;
+    --green-bg: #f0fdf4;
+    --amber: #b45309;
+    --amber-soft: #fef3c7;
+    --amber-bg: #fffbeb;
+    --red: #b91c1c;
+    --red-soft: #fee2e2;
+    --red-bg: #fef2f2;
+    --blue: #1d4ed8;
+    --blue-light: #2563eb;
+    --blue-soft: #dbeafe;
+    --blue-bg: #eff6ff;
+    --purple: #6d28d9;
+    --purple-soft: #ede9fe;
+    --shadow-sm: 0 1px 2px rgba(15,23,42,0.04), 0 1px 3px rgba(15,23,42,0.06);
+    --shadow-md: 0 4px 6px -1px rgba(15,23,42,0.07), 0 2px 4px -2px rgba(15,23,42,0.05);
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    margin: 0;
+    padding: 0;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 0 20px; }
+
+  .hero {
+    background: linear-gradient(120deg, #eef4ff 0%, #fdf2fb 50%, #ecfdf5 100%);
+    color: var(--text);
+    padding: 52px 0 56px;
+    margin-bottom: 32px;
+    position: relative;
+    overflow: hidden;
+    border-bottom: 1px solid var(--border);
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -140px; right: -100px;
+    width: 420px; height: 420px;
+    background: radial-gradient(circle, rgba(99,102,241,0.16) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .hero::after {
+    content: '';
+    position: absolute;
+    bottom: -160px; left: -80px;
+    width: 380px; height: 380px;
+    background: radial-gradient(circle, rgba(16,185,129,0.12) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .hero .wrap { position: relative; z-index: 1; }
+  .hero-label {
+    display: inline-block;
+    padding: 6px 14px;
+    background: #fff;
+    color: var(--blue);
+    box-shadow: var(--shadow-sm);
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+  .hero h1 {
+    font-size: 44px;
+    font-weight: 800;
+    letter-spacing: -1.5px;
+    margin: 0 0 12px;
+    line-height: 1.1;
+    color: var(--text);
+  }
+  .hero-subtitle {
+    font-size: 18px;
+    color: var(--text-secondary);
+    max-width: 820px;
+    line-height: 1.5;
+  }
+  .hero-meta {
+    margin-top: 24px;
+    display: flex;
+    gap: 32px;
+    flex-wrap: wrap;
+    font-size: 14px;
+    color: var(--text-secondary);
+  }
+  .hero-meta strong { color: var(--text); font-weight: 700; }
+
+  section {
+    background: var(--card);
+    border-radius: 20px;
+    padding: 32px 36px;
+    margin-bottom: 24px;
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--border);
+  }
+  section.tinted-green { background: var(--green-bg); border-color: #bbf7d0; }
+  section.tinted-amber { background: var(--amber-bg); border-color: #fde68a; }
+  section.tinted-red { background: var(--red-bg); border-color: #fecaca; }
+
+  .section-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .section-icon {
+    width: 36px; height: 36px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 10px;
+    font-size: 18px;
+    flex-shrink: 0;
+    font-weight: 800;
+  }
+  .section-icon.blue { background: var(--blue-soft); color: var(--blue); }
+  .section-icon.green { background: var(--green-soft); color: var(--green); }
+  .section-icon.amber { background: var(--amber-soft); color: var(--amber); }
+  .section-icon.red { background: var(--red-soft); color: var(--red); }
+  .section-icon.purple { background: var(--purple-soft); color: var(--purple); }
+
+  h2 {
+    font-size: 22px;
+    font-weight: 700;
+    margin: 0;
+    letter-spacing: -0.4px;
+  }
+  h3 {
+    font-size: 17px;
+    font-weight: 700;
+    margin: 28px 0 12px;
+    letter-spacing: -0.2px;
+  }
+  h3:first-child { margin-top: 0; }
+  h4 {
+    font-size: 14px;
+    font-weight: 700;
+    margin: 16px 0 8px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  p { margin: 0 0 12px; color: var(--text-secondary); }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+  }
+  .stat {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 22px 24px;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .stat:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+  .stat.accent-green { background: linear-gradient(135deg, #dcfce7 0%, #f0fdf4 100%); border-color: #bbf7d0; }
+  .stat.accent-amber { background: linear-gradient(135deg, #fef3c7 0%, #fffbeb 100%); border-color: #fde68a; }
+  .stat.accent-red { background: linear-gradient(135deg, #fee2e2 0%, #fef2f2 100%); border-color: #fecaca; }
+  .stat.accent-blue { background: linear-gradient(135deg, #dbeafe 0%, #eff6ff 100%); border-color: #bfdbfe; }
+  .stat-value {
+    font-size: 36px;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -1.5px;
+  }
+  .stat-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    margin-top: 8px;
+  }
+  .stat-sub {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 4px;
+  }
+
+  .managers {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 16px;
+  }
+  .mgr {
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px 22px;
+    background: var(--card);
+    transition: box-shadow 0.15s ease;
+  }
+  .mgr.away { background: linear-gradient(135deg, #f1f5f9 0%, #ffffff 100%); }
+  .mgr.hero-mgr { border-left: 4px solid var(--green); background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%); }
+  .mgr:hover { box-shadow: var(--shadow-md); }
+  .mgr-name {
+    font-weight: 700;
+    font-size: 16px;
+    letter-spacing: -0.2px;
+  }
+  .mgr-role {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 14px;
+  }
+  .mgr-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    font-size: 13px;
+    border-bottom: 1px dashed var(--border);
+  }
+  .mgr-row:last-child { border-bottom: none; }
+  .mgr-row-label { color: var(--text-secondary); }
+  .mgr-row-value { font-weight: 700; font-size: 15px; }
+  .mgr-note {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+
+  .tbl-wrap {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+  th, td {
+    text-align: left;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  th {
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    background: #fafbfc;
+  }
+  tr:last-child td { border-bottom: none; }
+  tbody tr { transition: background 0.1s; }
+  tbody tr:hover { background: #fafbfc; }
+
+  .badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .b-green { background: var(--green-soft); color: var(--green); }
+  .b-amber { background: var(--amber-soft); color: var(--amber); }
+  .b-red { background: var(--red-soft); color: var(--red); }
+  .b-blue { background: var(--blue-soft); color: var(--blue); }
+  .b-purple { background: var(--purple-soft); color: var(--purple); }
+  .b-gray { background: #f1f3f5; color: var(--text-secondary); }
+
+  .stars {
+    display: inline-flex;
+    gap: 1px;
+    align-items: center;
+    font-size: 14px;
+    line-height: 1;
+  }
+  .star { color: #f59e0b; }
+  .star-empty { color: #e5e7eb; }
+  .score-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-left: 4px;
+  }
+
+  .quote {
+    background: #fafbfc;
+    border-left: 3px solid var(--blue);
+    padding: 14px 18px;
+    border-radius: 0 8px 8px 0;
+    margin: 12px 0;
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--text);
+  }
+  .quote-author {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 6px;
+    font-weight: 500;
+  }
+  .quote.client { border-left-color: var(--amber); background: #fffbeb; }
+  .quote.client-bad { border-left-color: var(--red); background: var(--red-bg); }
+  .quote.client-good { border-left-color: var(--green); background: var(--green-bg); }
+
+  .meeting-block {
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 22px 26px;
+    margin-bottom: 16px;
+    background: var(--card);
+  }
+  .meeting-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  .meeting-title {
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.2px;
+  }
+  .meeting-meta {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+  .meeting-score-block {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .callout {
+    padding: 18px 22px;
+    border-radius: 12px;
+    margin: 16px 0;
+    border: 1px solid;
+  }
+  .callout-amber { background: var(--amber-bg); border-color: #fde68a; }
+  .callout-red { background: var(--red-bg); border-color: #fecaca; }
+  .callout-blue { background: var(--blue-bg); border-color: #bfdbfe; }
+  .callout-green { background: var(--green-bg); border-color: #bbf7d0; }
+  .callout-label {
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    margin-bottom: 6px;
+  }
+  .callout-amber .callout-label { color: var(--amber); }
+  .callout-red .callout-label { color: var(--red); }
+  .callout-blue .callout-label { color: var(--blue); }
+  .callout-green .callout-label { color: var(--green); }
+  .callout-body { color: var(--text); font-size: 14px; line-height: 1.55; }
+
+  .hilight-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 14px;
+  }
+  .hilight {
+    padding: 18px 22px;
+    border-radius: 12px;
+    border: 1px solid;
+    background: var(--card);
+  }
+  .hilight.good {
+    border-color: #bbf7d0;
+    background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%);
+  }
+  .hilight.miss {
+    border-color: #fde68a;
+    background: linear-gradient(135deg, #fffbeb 0%, #ffffff 100%);
+  }
+  .hilight.risk {
+    border-color: #fecaca;
+    background: linear-gradient(135deg, #fef2f2 0%, #ffffff 100%);
+    border-left: 4px solid var(--red);
+  }
+  .hilight.risk-medium {
+    border-color: #fde68a;
+    background: linear-gradient(135deg, #fffbeb 0%, #ffffff 100%);
+    border-left: 4px solid var(--amber);
+  }
+  .hilight-title {
+    font-weight: 700;
+    font-size: 14px;
+    margin-bottom: 6px;
+    display: block;
+    line-height: 1.45;
+  }
+  .hilight-deal {
+    font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+  }
+  .hilight-body {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+  .hilight-tag {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    display: inline-block;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+  .tag-good { background: var(--green-soft); color: var(--green); }
+  .tag-miss { background: var(--amber-soft); color: var(--amber); }
+  .tag-risk { background: var(--red-soft); color: var(--red); }
+
+  .followup-table td:nth-child(2),
+  .followup-table td:nth-child(3),
+  .followup-table td:nth-child(4),
+  .followup-table td:nth-child(5) {
+    text-align: center;
+  }
+  .followup-table .miss { color: var(--red); font-weight: 800; }
+  .followup-table .ok { color: var(--green); font-weight: 800; }
+
+  a { color: var(--blue-light); text-decoration: none; font-weight: 500; }
+  a:hover { text-decoration: underline; }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  @media (max-width: 760px) { .grid-2 { grid-template-columns: 1fr; } }
+  ul { padding-left: 22px; color: var(--text-secondary); margin: 8px 0 12px; }
+  ul li { margin-bottom: 8px; line-height: 1.55; }
+  .small { font-size: 12px; color: var(--text-muted); }
+  .clock { color: var(--red); font-weight: 700; }
+
+  footer {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 12px;
+    padding: 32px 16px 48px;
+    line-height: 1.6;
+  }
+  /* РУКОВОДЯЩИЙ СЛОЙ */
+  .digest{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+  @media(max-width:860px){.digest{grid-template-columns:1fr;}}
+  .dcard{border-radius:16px;overflow:hidden;border:1px solid var(--border);display:flex;flex-direction:column;}
+  .dcard-head{padding:14px 20px;font-weight:800;font-size:13px;text-transform:uppercase;letter-spacing:.5px;color:#fff;display:flex;align-items:center;gap:8px;}
+  .dcard-head.fire{background:linear-gradient(135deg,#dc2626,#b91c1c);}
+  .dcard-head.money{background:linear-gradient(135deg,#d97706,#b45309);}
+  .dcard-head.fix{background:linear-gradient(135deg,#2563eb,#1d4ed8);}
+  .dcard-body{padding:18px 20px;background:var(--card);flex:1;}
+  .dcard-body ul{margin:0;padding-left:18px;}
+  .dcard-body li{margin-bottom:10px;font-size:13px;color:var(--text);line-height:1.45;}
+  .dcard-body li b{font-weight:700;}
+  .dcard-big{font-size:34px;font-weight:800;letter-spacing:-1px;color:var(--amber);line-height:1;margin-bottom:4px;}
+  .pin-row{display:flex;align-items:flex-start;gap:14px;padding:16px 0;border-bottom:1px solid var(--border);}
+  .pin-row:last-child{border-bottom:none;}
+  .pin-ava{flex-shrink:0;width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:#fff;}
+  .pin-ava.sem{background:#dc2626;}
+  .pin-ava.gor{background:#2563eb;}
+  .pin-ava.deg{background:#7c3aed;}
+  .pin-content{flex:1;}
+  .pin-name{font-weight:700;font-size:15px;margin-bottom:2px;}
+  .pin-action{font-size:14px;color:var(--text);margin-bottom:4px;}
+  .pin-why{font-size:12px;color:var(--text-muted);}
+  .pin-urgency{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;padding:3px 9px;border-radius:999px;white-space:nowrap;align-self:flex-start;}
+  .u-now{background:#fee2e2;color:#b91c1c;}
+  .u-today{background:#fef3c7;color:#b45309;}
+  .deals-risk{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;}
+  .drisk{border:1px solid var(--border);border-top:4px solid var(--red);border-radius:12px;padding:18px 20px;background:var(--card);}
+  .drisk.med{border-top-color:var(--amber);}
+  .drisk-sum{font-size:26px;font-weight:800;letter-spacing:-.5px;}
+  .drisk-name{font-weight:700;font-size:14px;margin:2px 0 8px;}
+  .drisk-name a{color:var(--blue-light);}
+  .drisk-why{font-size:12px;color:var(--text-secondary);line-height:1.45;}
+  .drisk-prob{display:inline-block;margin-top:8px;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:#fee2e2;color:#b91c1c;}
+  .drisk-prob.med{background:#fef3c7;color:#b45309;}
+  /* HERO 2.0 */
+  .hero-stats{display:flex;flex-wrap:wrap;gap:14px;margin:28px 0 24px;}
+  .hstat{background:#fff;border:1px solid var(--border);box-shadow:var(--shadow-sm);border-radius:14px;padding:16px 22px;min-width:150px;flex:1;}
+  .hstat-num{font-size:34px;font-weight:800;letter-spacing:-1px;line-height:1;color:var(--text);}
+  .hstat:last-child .hstat-num{color:var(--red);}
+  .hstat-lbl{font-size:13px;color:var(--text);margin-top:6px;font-weight:700;}
+  .hstat-lbl span{display:block;font-size:11px;color:var(--text-muted);font-weight:400;margin-top:2px;}
+  .hero-verdict{display:flex;align-items:flex-start;gap:14px;background:#fff;border:1px solid #fecaca;border-left:4px solid var(--red);box-shadow:var(--shadow-sm);border-radius:14px;padding:16px 20px;font-size:15px;color:var(--text);line-height:1.5;}
+  .hero-verdict b{color:var(--red);}
+  .hv-icon{font-size:22px;flex-shrink:0;line-height:1.2;}
+  .hero-corr{margin-top:16px;font-size:12px;color:var(--text-muted);}
+
+  /* ТИГР ДНЯ */
+  .tiger{background:linear-gradient(120deg,#fff7ed 0%,#ffedd5 55%,#fef3c7 100%);border:1px solid #fdba74;border-radius:20px;padding:28px 32px;display:flex;align-items:center;gap:28px;flex-wrap:wrap;}
+  .tiger-photo-wrap{position:relative;flex-shrink:0;}
+  .tiger-photo{width:120px;height:120px;border-radius:50%;object-fit:cover;border:4px solid #fff;box-shadow:0 6px 16px rgba(234,88,12,.25);}
+  .tiger-badge{position:absolute;bottom:-6px;right:-6px;font-size:34px;filter:drop-shadow(0 2px 3px rgba(0,0,0,.2));}
+  .tiger-body{flex:1;min-width:240px;}
+  .tiger-title{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#c2410c;margin-bottom:4px;}
+  .tiger-name{font-size:26px;font-weight:800;letter-spacing:-.5px;color:#7c2d12;margin-bottom:8px;}
+  .tiger-role{font-size:13px;color:#9a3412;font-weight:600;margin-left:8px;}
+  .tiger-quote{font-size:15px;color:#7c2d12;line-height:1.5;}
+  .tiger-metric{display:inline-block;margin-top:12px;background:#fff;border:1px solid #fdba74;border-radius:999px;padding:6px 16px;font-size:13px;font-weight:700;color:#c2410c;}
+  .mgr-head{display:flex;align-items:center;gap:12px;margin-bottom:14px;}
+  .mgr-ava{width:48px;height:48px;border-radius:50%;object-fit:cover;border:2px solid #fff;box-shadow:0 2px 6px rgba(15,23,42,.12);flex-shrink:0;}
+  .mgr-head .mgr-name{margin:0;}
+  .mgr-head .mgr-role{margin:0;}
+  /* ФАН-БЛОКИ */
+  .quote-day{background:linear-gradient(120deg,#eef2ff,#faf5ff);border:1px solid #c7d2fe;border-radius:16px;padding:24px 28px;}
+  .quote-day-text{font-size:20px;font-weight:600;font-style:italic;color:#3730a3;line-height:1.5;margin-bottom:10px;}
+  .quote-day-meta{font-size:13px;color:var(--text-secondary);}
+  .ach-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;}
+  .ach{display:flex;align-items:center;gap:12px;border:1px solid var(--border);border-radius:12px;padding:14px 16px;background:var(--card);}
+  .ach-emoji{font-size:28px;flex-shrink:0;}
+  .ach-title{font-weight:700;font-size:13px;}
+  .ach-who{font-size:12px;color:var(--text-secondary);}
+  .ach-streak{border-color:#fed7aa;background:linear-gradient(120deg,#fff7ed,#fff);}
+  .motto{text-align:center;font-size:15px;font-style:italic;color:#6d28d9;background:linear-gradient(120deg,#faf5ff,#fdf2f8);border:1px dashed #d8b4fe;border-radius:14px;padding:18px 24px;margin-top:8px;}
+</style><style>
+.tbl{width:100%;border-collapse:collapse;margin-top:8px;font-size:14.5px}
+.tbl th{text-align:left;padding:9px 12px;color:var(--text-muted);font-size:12px;text-transform:uppercase;letter-spacing:.4px;border-bottom:2px solid var(--border)}
+.tbl td{padding:9px 12px;border-bottom:1px solid var(--border);vertical-align:top}
+.tbl tr:last-child td{border-bottom:none}
+.tbl a{color:var(--blue);text-decoration:none;font-weight:600}
+.tbl a:hover{text-decoration:underline}
+.tiger-row{background:var(--amber-bg)}
+.pill{display:inline-block;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:700}
+.pill.ok{background:var(--green-soft);color:var(--green)}
+.pill.stop{background:var(--red-soft);color:var(--red)}
+.pill.warn{background:var(--amber-soft);color:var(--amber)}
+.kbox{background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px 18px;margin:10px 0;box-shadow:var(--shadow-sm)}
+.kbox.red{border-color:#fecaca;background:var(--red-bg)}
+.kbox.amber{border-color:#fde68a;background:var(--amber-bg)}
+.kbox.green{border-color:#bbf7d0;background:var(--green-bg)}
+.dept-line{margin-top:12px;font-size:14px;color:var(--text-secondary);background:var(--blue-bg);border:1px solid var(--blue-soft);border-radius:12px;padding:12px 16px}
+.tiger{background:linear-gradient(120deg,#fffbeb,#fef3c7);border:1px solid #fde68a;border-radius:20px;padding:28px 32px;margin-bottom:24px}
+.tiger h2{margin:0 0 6px;font-size:24px}
+.muted{color:var(--text-muted);font-size:13px}
+ul.clean{margin:8px 0 0;padding-left:20px}
+ul.clean li{margin:6px 0}
+.mcard{border:1px solid var(--border);border-radius:16px;padding:20px 22px;margin:14px 0;box-shadow:var(--shadow-sm);background:#fff}
+.mcard.ok{border-left:5px solid var(--green)}
+.mcard.warn{border-left:5px solid var(--amber)}
+.mcard.risk{border-left:5px solid var(--red)}
+.mcard h3{margin:0 0 4px;font-size:18px}
+.mcard .meta{font-size:13px;color:var(--text-muted);margin-bottom:10px}
+.chk{margin:8px 0 0;padding:0;list-style:none}
+.chk li{margin:5px 0;font-size:14.5px}
+.grade{display:inline-block;padding:3px 12px;border-radius:999px;font-weight:700;font-size:13px;margin-left:8px}
+.grade.ok{background:var(--green-soft);color:var(--green)}
+.grade.warn{background:var(--amber-soft);color:var(--amber)}
+.grade.risk{background:var(--red-soft);color:var(--red)}
+</style></head><body><div class="hero"><div class="wrap">
+<span class="hero-label">Отдел продаж · ежедневная сводка</span>
+<h1>Среда, 3 июня 2026</h1>
+<div class="hero-subtitle">Рабочая середина недели: 3 проведённые встречи (2 брифинга + защита КП), одна защита КП сорвалась. Деньги в «Продажах» второй день стоят — выигранных сделок нет. Весь стол встреч и воронку держат двое: Семенихин и РОП Гордиенко.</div>
+<div class="hero-stats">
+  <div class="hstat"><div class="hstat-num">3</div><div class="hstat-lbl">Встречи проведено<span>2 брифинга + 1 защита КП</span></div></div>
+  <div class="hstat"><div class="hstat-num">1</div><div class="hstat-lbl">Встреча сорвалась<span>защита КП galaktika.clinic</span></div></div>
+  <div class="hstat"><div class="hstat-num">12</div><div class="hstat-lbl">Новых сделок<span>9 продажи · 2 ТМ · 1 AEO</span></div></div>
+  <div class="hstat"><div class="hstat-num">3/3</div><div class="hstat-lbl">Брифов / КП<span>1 КП в «Успех»</span></div></div>
+  <div class="hstat"><div class="hstat-num">0</div><div class="hstat-lbl">Выигранных в «Продажах»<span>деньги стоят 2-й день</span></div></div>
+  <div class="hstat"><div class="hstat-num">156</div><div class="hstat-lbl">Наборов отдела<span>Исаева 84 · Вострецов 63</span></div></div>
+</div>
+<div class="hero-verdict"><span class="hv-icon">⚠️</span><div>
+<b>Итог за день.</b> Встречи идут, но <b>во всех трёх не предъявлены кейсы/цифры окупаемости</b> — в защите КП phznanie клиент дважды прямо просил «в деньгах посчитать», менеджер ушёл от ответа. Это главный коучинг-пункт. Денег второй день нет. Рабочая лошадка — <b>Исаева</b> (Опер 10.0).
+</div></div>
+<div class="hero-corr">Сверено с официальной сводкой отдела «Опер» за 03.06. Разбор встреч — по транскриптам (memoai), оценка по чек-листу брифинга/защиты КП.</div>
+</div></div><div class="wrap"><section class=""><div class="section-head"><div class="section-icon blue">⏱️</div><h2>Главное за 30 секунд</h2></div>
+<div class="kbox red"><b>🔥 Горит.</b> Во всех 3 встречах не предъявлены кейсы и окупаемость. В защите КП phznanie клиент дважды просил «по опыту, сколько подняли конверсию, в деньгах» — ответа не получил. Для защиты КП кейсы обязательны.</div>
+<div class="kbox amber"><b>💰 Деньги.</b> Выигранных в «Продажах» — 0 второй день подряд. Единственное закрытие — КП «Терра Пи PPC» (аккаунтинг, продление). Новых денег в воронку не зашло.</div>
+<div class="kbox"><b>🧩 Системно.</b> Отдел продаж по факту держат двое (Семенихин + РОП Гордиенко): Деговцова в отпуске до 08.06. Плюс 9 из 12 новых сделок — сайт-заявки/«Колесо Фортуны», 6 тут же отвалились как нецелевые.</div>
+</section><section class=""><div class="section-head"><div class="section-icon amber">📣</div><h2>Кого пинать сегодня</h2></div>
+<ul class="clean">
+<li><b>Кейсы на встречах</b> — общий разбор отделу: к каждой встрече готовить 1–2 релевантных кейса с цифрами окупаемости. Сегодня клиент phznanie прямо просил — не дали.</li>
+<li><b>Семенихин Егор</b> — 2 брифинга подряд + 2 новых КП + сорвавшаяся защита galaktika. Перегруз, нужна подстраховка, а не пинок.</li>
+<li><b>galaktika.clinic</b> — защита КП сорвалась (стадия «Новый», нет записи): перенести и не потерять.</li>
+<li><b>База Деговцовой</b> — на время отпуска (до 08.06) нужен временный владелец: идут чаты (6), звонков 0.</li>
+</ul>
+</section><section class=""><div class="section-head"><div class="section-icon purple">🎯</div><h2>Содержательный разбор встреч</h2></div>
+<p class="muted">3 проведено, 1 сорвалась. Оценка по чек-листу: брифинг — диалог-не-анкета + потребность + кейсы + бюджет + след.шаг; защита КП — кейсы (обязательно) + аргументация + запрос след.шагов от клиента + итоги клиенту.</p>
+<div class="mcard warn">
+<h3><a href="https://belberrycrm.bitrix24.ru/crm/type/1048/details/2206/" target="_blank" rel="noopener" style="color:inherit">rant.ru</a> <span class="grade warn">⚠️ Хорошо с оговорками</span></h3>
+<div class="meta">Брифинг · Семенихин Егор · 12:00 · 28 мин · крупный интернет-магазин (коляски, автокресла, мебель)</div>
+<ul class="chk">
+<li>✅ <b>Потребность:</b> чётко — оптимизация контекста (бюджет 1М+, снизить не уронив результат), приоритет товаров, SEO-зоны роста (в топ-10 лишь 5к из 18,5к запросов).</li>
+<li>✅ <b>Бюджет:</b> предметно — рекламный ~1М, абонентка ~10% (~100к), SEO от 100к, IEO 100–110к.</li>
+<li>✅ <b>След.шаг:</b> гостевой доступ к Метрике и РК → КП через неделю.</li>
+<li>❌ <b>Кейсы:</b> не предъявлены. Клиент результат-ориентирован — примера окупаемости не дали.</li>
+<li>⚠️ <b>Цена:</b> расплывчато («что-то в духе сотки», «индивидуально»). Опытный клиент-закупщик давил и раздражался: «интересны вы мне как партнёры или нет».</li>
+</ul></div><div class="mcard ok">
+<h3><a href="https://belberrycrm.bitrix24.ru/crm/type/1048/details/2200/" target="_blank" rel="noopener" style="color:inherit">elbruskmv.ru</a> <span class="grade ok">✅ Хорошо</span></h3>
+<div class="meta">Брифинг · Семенихин Егор · 13:00 · 28 мин · санаторий (профсоюзный), контакт — Ольга</div>
+<ul class="chk">
+<li>✅ <b>Потребность:</b> подробно — бронь только через сайт/профкурорт, 3 направления лечения, просадка трафика ×3 после смены сайта/подрядчика (фев’25), репутация 4.7 (но Отзовик 3.1).</li>
+<li>✅ <b>Бюджет:</b> текущий ~120к/мес Директ; агентский минимум 150к + абонентка 62,5к; ОРМ 60–80к.</li>
+<li>✅ <b>Диалог:</b> не анкета — терпеливо объяснял концепции (ссылочная масса) по запросу клиента.</li>
+<li>✅ <b>След.шаг:</b> гостевой доступ к РК+Метрике → КП через неделю, вышлет таблицу и запись.</li>
+<li>❌ <b>Кейсы:</b> не предъявлены (та же системная дыра).</li>
+</ul></div><div class="mcard risk">
+<h3><a href="https://belberrycrm.bitrix24.ru/crm/type/1048/details/2194/" target="_blank" rel="noopener" style="color:inherit">phznanie.ru</a> <span class="grade risk">⚠️ Риск</span></h3>
+<div class="meta">Защита КП (запись — ч.2, хвост 6 мин) · Гордиенко Евгения (РОП) · 11:00 · SEO + ИИ/GEO</div>
+<ul class="chk">
+<li>❌ <b>Кейсы (критично):</b> клиент <b>дважды</b> прямо просил «по опыту других, сколько подняли конверсию, в деньгах посчитать» — менеджер ушла от ответа («у всех разная специфика»). Для защиты КП кейсы обязательны.</li>
+<li>✅ <b>Аргументация:</b> объяснила, почему 3 мес «на раскачку» (техправки под нейросети, аудиты, ТЗ, ссылки).</li>
+<li>⚠️ <b>След.шаг от клиента:</b> мягкий — «будем изучать, обсуждать с редакцией, потом допрессуем». Твёрдого обязательства нет.</li>
+<li>✅ <b>Итоги клиенту:</b> обещала прислать прогноз + документ «Стратегия продвижения» сегодня-завтра.</li>
+</ul></div><div class="mcard">
+<h3><a href="https://belberrycrm.bitrix24.ru/crm/type/1048/details/2198/" target="_blank" rel="noopener" style="color:inherit">galaktika.clinic</a> <span class="grade risk">❌ Не состоялась</span></h3>
+<div class="meta">Защита КП · Семенихин Егор · назначена на 11:00 · стадия «Новый», записи нет → перенос/срыв</div>
+<p class="muted">Защита КП не прошла: нет транскрипта, карточка осталась в стадии «Новый». Перенести и не потерять клиента.</p></div>
+<div class="kbox red"><b>Системный вывод дня:</b> во всех проведённых встречах отсутствуют кейсы и цифры окупаемости — даже когда клиент прямо их запрашивает. Это снижает убедительность и тормозит переход к деньгам. Самое быстрое улучшение: банк кейсов с окупаемостью под нишу, обязательный к показу.</div>
+</section><section class=""><div class="section-head"><div class="section-icon green">👥</div><h2>Активность менеджеров</h2></div>
+<p class="muted">Источник — официальная сводка отдела «Опер» за 03.06 (композит: наборы + результативные дозвоны + конверсия + чаты + встречи). Телемаркетинг и отдел продаж; HR/админ исключены.</p>
+<table class="tbl"><thead><tr><th>Статус</th><th>Менеджер</th><th>Роль</th><th>Наб</th><th>Дзв</th><th>Конв</th><th>Чаты</th><th>Встр</th><th>Опер</th></tr></thead><tbody><tr class="tiger-row"><td><span class="pill ok">НОРМ</span></td><td><b>Исаева Дарья</b></td><td>ТМ</td><td>84</td><td>22</td><td>26%</td><td>8</td><td>–</td><td><b>10.0</b></td></tr><tr><td><span class="pill ok">НОРМ</span></td><td><b>Вострецов Аркадий</b></td><td>ТМ</td><td>63</td><td>14</td><td>22%</td><td>2</td><td>–</td><td><b>8.7</b></td></tr><tr><td><span class="pill ok">НОРМ</span></td><td><b>Семенихин Егор</b></td><td>SM</td><td>9</td><td>3</td><td>33%</td><td>6</td><td>2</td><td><b>7.1</b></td></tr><tr><td><span class="pill stop">СТОП</span></td><td><b>Деговцова Елизавета</b></td><td>SM</td><td>0</td><td>0</td><td>0%</td><td>6</td><td>0</td><td><b>2.0</b></td></tr></tbody></table>
+<div class="dept-line"><b>Итого по отделу:</b> Наб 156 · Дзв 39 · Конв 25% · Чаты 22 · Встр 2 · Опер 7.0</div>
+<p class="muted" style="margin-top:10px">Деговцова — СТОП по причине отпуска до 08.06 (не показатель работы). Гордиенко (РОП) в ранг «Опер» не входит, но лично провела защиту КП phznanie и ведёт сайт-заявки.</p>
+</section><section class=""><div class="section-head"><div class="section-icon blue">🆕</div><h2>Новые сделки дня — 12</h2></div>
+<p class="muted">Воронки: 9 «Продажи» · 2 «Телемаркетинг» · 1 «AEO». Содержательная — clinicdiadema.ru (AEO, 100 000 ₽). Остальное в «Продажах» — сайт-заявки/«Колесо Фортуны» с нулевым бюджетом.</p>
+<table class="tbl"><thead><tr><th>Сделка</th><th>Ответственный</th><th>Сумма</th></tr></thead><tbody><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/deal/details/25078/" target="_blank" rel="noopener">Email | hello@belberry.net от  miha234170@gmail.</a></td><td>Гордиенко Евгения</td><td>—</td></tr><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/deal/details/25082/" target="_blank" rel="noopener">alcostop24.ru</a></td><td>Исаева Дарья</td><td>—</td></tr><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/deal/details/25084/" target="_blank" rel="noopener">Заявка с сайта Belberry от Светлана 79017436467</a></td><td>Семенихин Егор</td><td>—</td></tr><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/deal/details/25086/" target="_blank" rel="noopener">Заявка с сайта (Колесо Фортуны) от Yuldosh 79294</a></td><td>Гордиенко Евгения</td><td>—</td></tr><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/deal/details/25088/" target="_blank" rel="noopener">phznanie.ru</a></td><td>Гордиенко Евгения</td><td>—</td></tr><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/deal/details/25090/" target="_blank" rel="noopener">Заявка с сайта Belberry от Надежда Васильевна 79</a></td><td>Семенихин Егор</td><td>—</td></tr><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/deal/details/25092/" target="_blank" rel="noopener">Заявка с сайта Belberry от Виктория Валерьевна К</a></td><td>Гордиенко Евгения</td><td>—</td></tr><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/deal/details/25094/" target="_blank" rel="noopener">Заявка с сайта Belberry от Александр Иванович 79</a></td><td>Семенихин Егор</td><td>—</td></tr><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/deal/details/25096/" target="_blank" rel="noopener">Заявка с сайта Belberry от Милана 79990661702</a></td><td>Гордиенко Евгения</td><td>—</td></tr><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/deal/details/25098/" target="_blank" rel="noopener">Заявка с сайта (Колесо Фортуны) от лена 79685390</a></td><td>Семенихин Егор</td><td>—</td></tr><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/deal/details/25100/" target="_blank" rel="noopener">clinicdiadema.ru AEO</a></td><td>Василенко Данила</td><td>100 000 ₽</td></tr><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/deal/details/25102/" target="_blank" rel="noopener">Заявка с сайта от Роман 79870152478</a></td><td>Семенихин Егор</td><td>—</td></tr></tbody></table>
+</section><section class=""><div class="section-head"><div class="section-icon purple">🗓️</div><h2>Брифы и КП дня</h2></div>
+<h3 style="margin:6px 0 4px">Брифы — 3</h3>
+<table class="tbl"><thead><tr><th>Бриф</th><th>Ответственный</th><th>Стадия</th></tr></thead><tbody><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/type/1056/details/1530/" target="_blank" rel="noopener">rant.ru</a></td><td>Семенихин Егор</td><td>Новый</td></tr><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/type/1056/details/1532/" target="_blank" rel="noopener">elbruskmv.ru</a></td><td>Семенихин Егор</td><td>Новый</td></tr><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/type/1056/details/1534/" target="_blank" rel="noopener">doctor-omarov.ru</a></td><td>Семенихин Егор</td><td>Клиент</td></tr></tbody></table>
+<h3 style="margin:18px 0 4px">КП — 3</h3>
+<table class="tbl"><thead><tr><th>КП</th><th>Ответственный</th><th>Стадия</th></tr></thead><tbody><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/type/1106/details/242/" target="_blank" rel="noopener">Терра Пи PPC</a></td><td>Анисимкова Татьяна</td><td>✅ Успех</td></tr><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/type/1106/details/244/" target="_blank" rel="noopener">med-shushary.ru</a></td><td>Семенихин Егор</td><td>Новый</td></tr><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/type/1106/details/246/" target="_blank" rel="noopener">spectra.ru</a></td><td>Семенихин Егор</td><td>Новый</td></tr></tbody></table>
+</section><section class=""><div class="section-head"><div class="section-icon red">📉</div><h2>Отказы дня</h2></div>
+<p>Реальных отказов — <b>9</b>: 6 нецелевых сайт-заявок в «Продажах» + 3 программных сделки (transstroybank ORM, spasenie-med, icmr).</p>
+<table class="tbl"><thead><tr><th>Сделка</th><th>Ответственный</th><th>Воронка</th></tr></thead><tbody><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/deal/details/25060/" target="_blank" rel="noopener">Заявка с сайта (Колесо Фортуны) от Юлия 79193040</a></td><td>Гордиенко Евгения</td><td>Продажи</td></tr><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/deal/details/25076/" target="_blank" rel="noopener">Заявка с сайта от Егор 79191502810</a></td><td>Гордиенко Евгения</td><td>Продажи</td></tr><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/deal/details/25078/" target="_blank" rel="noopener">Email | hello@belberry.net от  miha234170@gmail.</a></td><td>Гордиенко Евгения</td><td>Продажи</td></tr><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/deal/details/25084/" target="_blank" rel="noopener">Заявка с сайта Belberry от Светлана 79017436467</a></td><td>Семенихин Егор</td><td>Продажи</td></tr><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/deal/details/25086/" target="_blank" rel="noopener">Заявка с сайта (Колесо Фортуны) от Yuldosh 79294</a></td><td>Гордиенко Евгения</td><td>Продажи</td></tr><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/deal/details/25098/" target="_blank" rel="noopener">Заявка с сайта (Колесо Фортуны) от лена 79685390</a></td><td>Семенихин Егор</td><td>Продажи</td></tr><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/deal/details/10342/" target="_blank" rel="noopener">transstroybank.ru ORM</a></td><td>Василенко Данила</td><td>Программа</td></tr><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/deal/details/16278/" target="_blank" rel="noopener">icmr.ru Deposit</a></td><td>Балашова Ирина</td><td>Программа</td></tr><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/deal/details/23296/" target="_blank" rel="noopener">spasenie-med.ru Deposit</a></td><td>Василенко Данила</td><td>Программа</td></tr></tbody></table>
+<div class="kbox" style="margin-top:14px"><b>Авто-отвал ТМ-базы:</b> ещё ~54 карточек «Телемаркетинга» (2019–2026) ушли в C50:APOLOGY автопроцессом гигиены базы — это не ручные отказы менеджеров, в провал отдела не засчитываем.</div>
+</section><div class="tiger"><h2>🐅 Тигр дня — Исаева Дарья</h2>
+<p>Операционная эффективность <b>10.0</b> — максимум по отделу. 84 набора, 22 результативных дозвона, конверсия 26%, 8 чатов. Держала телефонный фронт телемаркетинга в одиночку с большим отрывом. По официальной сводке отдела — №1 дня.</p></div><section class="tinted-green"><div class="section-head"><div class="section-icon green">✅</div><h2>Итог дня</h2></div>
+<ul class="clean">
+<li><b>Темп:</b> рабочая середина недели — 3 встречи проведено, 1 сорвалась. Телефония в норме (Опер отдела 7.0).</li>
+<li><b>Качество встреч:</b> потребность и бюджет вскрывают хорошо, но кейсы/окупаемость не показывают — главный тормоз к деньгам.</li>
+<li><b>Деньги:</b> второй день без выигранных сделок в «Продажах». Фокус — довести КП (med-shushary, spectra), перенести и закрыть galaktika.</li>
+<li><b>Люди:</b> Исаева — №1 (Тигр дня). Воронку «Продажи» держат двое; Деговцова в отпуске до 08.06 — нужен владелец её базы.</li>
+</ul>
+</section><section class=""><div class="section-head"><div class="section-icon blue">🔧</div><h2>Технические ограничения этого прогона</h2></div>
+<ul class="clean muted">
+<li>«Тигр дня» и рейтинг — из официальной сводки «Опер» за 03.06 (прислана вручную). Телефония voximplant — только для справки.</li>
+<li>Разбор встреч — по авто-транскриптам memoai. По phznanie доступна только ч.2 записи (хвост 6 мин) — основная часть защиты вне записи.</li>
+<li>Дата встречи берётся из поля карточки (ufCrm16…), т.к. begindate в смарт-процессе — служебная заглушка.</li>
+<li>Отказы дня отделены от авто-процесса отвала ТМ-базы (C50:APOLOGY).</li>
+</ul>
+</section></div><div class="wrap" style="padding:24px 20px 48px;color:var(--text-muted);font-size:13px;text-align:center">
+Сводка по отделу продаж Belberry · за среду 3 июня 2026 · сформировано 4 июня 2026, МСК · данные belberrycrm.bitrix24.ru
+</div></body></html>

@@ -1,0 +1,651 @@
+<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Сводка продаж · вторник 02.06.2026</title><style>
+  :root {
+    --bg: #f7f8fa;
+    --card: #ffffff;
+    --text: #14171c;
+    --text-secondary: #525a6b;
+    --text-muted: #8a93a3;
+    --border: #e7eaf0;
+    --green: #15803d;
+    --green-soft: #dcfce7;
+    --green-bg: #f0fdf4;
+    --amber: #b45309;
+    --amber-soft: #fef3c7;
+    --amber-bg: #fffbeb;
+    --red: #b91c1c;
+    --red-soft: #fee2e2;
+    --red-bg: #fef2f2;
+    --blue: #1d4ed8;
+    --blue-light: #2563eb;
+    --blue-soft: #dbeafe;
+    --blue-bg: #eff6ff;
+    --purple: #6d28d9;
+    --purple-soft: #ede9fe;
+    --shadow-sm: 0 1px 2px rgba(15,23,42,0.04), 0 1px 3px rgba(15,23,42,0.06);
+    --shadow-md: 0 4px 6px -1px rgba(15,23,42,0.07), 0 2px 4px -2px rgba(15,23,42,0.05);
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    margin: 0;
+    padding: 0;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 0 20px; }
+
+  .hero {
+    background: linear-gradient(120deg, #eef4ff 0%, #fdf2fb 50%, #ecfdf5 100%);
+    color: var(--text);
+    padding: 52px 0 56px;
+    margin-bottom: 32px;
+    position: relative;
+    overflow: hidden;
+    border-bottom: 1px solid var(--border);
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -140px; right: -100px;
+    width: 420px; height: 420px;
+    background: radial-gradient(circle, rgba(99,102,241,0.16) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .hero::after {
+    content: '';
+    position: absolute;
+    bottom: -160px; left: -80px;
+    width: 380px; height: 380px;
+    background: radial-gradient(circle, rgba(16,185,129,0.12) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .hero .wrap { position: relative; z-index: 1; }
+  .hero-label {
+    display: inline-block;
+    padding: 6px 14px;
+    background: #fff;
+    color: var(--blue);
+    box-shadow: var(--shadow-sm);
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+  .hero h1 {
+    font-size: 44px;
+    font-weight: 800;
+    letter-spacing: -1.5px;
+    margin: 0 0 12px;
+    line-height: 1.1;
+    color: var(--text);
+  }
+  .hero-subtitle {
+    font-size: 18px;
+    color: var(--text-secondary);
+    max-width: 820px;
+    line-height: 1.5;
+  }
+  .hero-meta {
+    margin-top: 24px;
+    display: flex;
+    gap: 32px;
+    flex-wrap: wrap;
+    font-size: 14px;
+    color: var(--text-secondary);
+  }
+  .hero-meta strong { color: var(--text); font-weight: 700; }
+
+  section {
+    background: var(--card);
+    border-radius: 20px;
+    padding: 32px 36px;
+    margin-bottom: 24px;
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--border);
+  }
+  section.tinted-green { background: var(--green-bg); border-color: #bbf7d0; }
+  section.tinted-amber { background: var(--amber-bg); border-color: #fde68a; }
+  section.tinted-red { background: var(--red-bg); border-color: #fecaca; }
+
+  .section-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .section-icon {
+    width: 36px; height: 36px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 10px;
+    font-size: 18px;
+    flex-shrink: 0;
+    font-weight: 800;
+  }
+  .section-icon.blue { background: var(--blue-soft); color: var(--blue); }
+  .section-icon.green { background: var(--green-soft); color: var(--green); }
+  .section-icon.amber { background: var(--amber-soft); color: var(--amber); }
+  .section-icon.red { background: var(--red-soft); color: var(--red); }
+  .section-icon.purple { background: var(--purple-soft); color: var(--purple); }
+
+  h2 {
+    font-size: 22px;
+    font-weight: 700;
+    margin: 0;
+    letter-spacing: -0.4px;
+  }
+  h3 {
+    font-size: 17px;
+    font-weight: 700;
+    margin: 28px 0 12px;
+    letter-spacing: -0.2px;
+  }
+  h3:first-child { margin-top: 0; }
+  h4 {
+    font-size: 14px;
+    font-weight: 700;
+    margin: 16px 0 8px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  p { margin: 0 0 12px; color: var(--text-secondary); }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+  }
+  .stat {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 22px 24px;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .stat:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+  .stat.accent-green { background: linear-gradient(135deg, #dcfce7 0%, #f0fdf4 100%); border-color: #bbf7d0; }
+  .stat.accent-amber { background: linear-gradient(135deg, #fef3c7 0%, #fffbeb 100%); border-color: #fde68a; }
+  .stat.accent-red { background: linear-gradient(135deg, #fee2e2 0%, #fef2f2 100%); border-color: #fecaca; }
+  .stat.accent-blue { background: linear-gradient(135deg, #dbeafe 0%, #eff6ff 100%); border-color: #bfdbfe; }
+  .stat-value {
+    font-size: 36px;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -1.5px;
+  }
+  .stat-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    margin-top: 8px;
+  }
+  .stat-sub {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 4px;
+  }
+
+  .managers {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 16px;
+  }
+  .mgr {
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px 22px;
+    background: var(--card);
+    transition: box-shadow 0.15s ease;
+  }
+  .mgr.away { background: linear-gradient(135deg, #f1f5f9 0%, #ffffff 100%); }
+  .mgr.hero-mgr { border-left: 4px solid var(--green); background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%); }
+  .mgr:hover { box-shadow: var(--shadow-md); }
+  .mgr-name {
+    font-weight: 700;
+    font-size: 16px;
+    letter-spacing: -0.2px;
+  }
+  .mgr-role {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 14px;
+  }
+  .mgr-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    font-size: 13px;
+    border-bottom: 1px dashed var(--border);
+  }
+  .mgr-row:last-child { border-bottom: none; }
+  .mgr-row-label { color: var(--text-secondary); }
+  .mgr-row-value { font-weight: 700; font-size: 15px; }
+  .mgr-note {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+
+  .tbl-wrap {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+  th, td {
+    text-align: left;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  th {
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    background: #fafbfc;
+  }
+  tr:last-child td { border-bottom: none; }
+  tbody tr { transition: background 0.1s; }
+  tbody tr:hover { background: #fafbfc; }
+
+  .badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .b-green { background: var(--green-soft); color: var(--green); }
+  .b-amber { background: var(--amber-soft); color: var(--amber); }
+  .b-red { background: var(--red-soft); color: var(--red); }
+  .b-blue { background: var(--blue-soft); color: var(--blue); }
+  .b-purple { background: var(--purple-soft); color: var(--purple); }
+  .b-gray { background: #f1f3f5; color: var(--text-secondary); }
+
+  .stars {
+    display: inline-flex;
+    gap: 1px;
+    align-items: center;
+    font-size: 14px;
+    line-height: 1;
+  }
+  .star { color: #f59e0b; }
+  .star-empty { color: #e5e7eb; }
+  .score-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-left: 4px;
+  }
+
+  .quote {
+    background: #fafbfc;
+    border-left: 3px solid var(--blue);
+    padding: 14px 18px;
+    border-radius: 0 8px 8px 0;
+    margin: 12px 0;
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--text);
+  }
+  .quote-author {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 6px;
+    font-weight: 500;
+  }
+  .quote.client { border-left-color: var(--amber); background: #fffbeb; }
+  .quote.client-bad { border-left-color: var(--red); background: var(--red-bg); }
+  .quote.client-good { border-left-color: var(--green); background: var(--green-bg); }
+
+  .meeting-block {
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 22px 26px;
+    margin-bottom: 16px;
+    background: var(--card);
+  }
+  .meeting-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  .meeting-title {
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.2px;
+  }
+  .meeting-meta {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+  .meeting-score-block {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .callout {
+    padding: 18px 22px;
+    border-radius: 12px;
+    margin: 16px 0;
+    border: 1px solid;
+  }
+  .callout-amber { background: var(--amber-bg); border-color: #fde68a; }
+  .callout-red { background: var(--red-bg); border-color: #fecaca; }
+  .callout-blue { background: var(--blue-bg); border-color: #bfdbfe; }
+  .callout-green { background: var(--green-bg); border-color: #bbf7d0; }
+  .callout-label {
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    margin-bottom: 6px;
+  }
+  .callout-amber .callout-label { color: var(--amber); }
+  .callout-red .callout-label { color: var(--red); }
+  .callout-blue .callout-label { color: var(--blue); }
+  .callout-green .callout-label { color: var(--green); }
+  .callout-body { color: var(--text); font-size: 14px; line-height: 1.55; }
+
+  .hilight-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 14px;
+  }
+  .hilight {
+    padding: 18px 22px;
+    border-radius: 12px;
+    border: 1px solid;
+    background: var(--card);
+  }
+  .hilight.good {
+    border-color: #bbf7d0;
+    background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%);
+  }
+  .hilight.miss {
+    border-color: #fde68a;
+    background: linear-gradient(135deg, #fffbeb 0%, #ffffff 100%);
+  }
+  .hilight.risk {
+    border-color: #fecaca;
+    background: linear-gradient(135deg, #fef2f2 0%, #ffffff 100%);
+    border-left: 4px solid var(--red);
+  }
+  .hilight.risk-medium {
+    border-color: #fde68a;
+    background: linear-gradient(135deg, #fffbeb 0%, #ffffff 100%);
+    border-left: 4px solid var(--amber);
+  }
+  .hilight-title {
+    font-weight: 700;
+    font-size: 14px;
+    margin-bottom: 6px;
+    display: block;
+    line-height: 1.45;
+  }
+  .hilight-deal {
+    font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+  }
+  .hilight-body {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+  .hilight-tag {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    display: inline-block;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+  .tag-good { background: var(--green-soft); color: var(--green); }
+  .tag-miss { background: var(--amber-soft); color: var(--amber); }
+  .tag-risk { background: var(--red-soft); color: var(--red); }
+
+  .followup-table td:nth-child(2),
+  .followup-table td:nth-child(3),
+  .followup-table td:nth-child(4),
+  .followup-table td:nth-child(5) {
+    text-align: center;
+  }
+  .followup-table .miss { color: var(--red); font-weight: 800; }
+  .followup-table .ok { color: var(--green); font-weight: 800; }
+
+  a { color: var(--blue-light); text-decoration: none; font-weight: 500; }
+  a:hover { text-decoration: underline; }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  @media (max-width: 760px) { .grid-2 { grid-template-columns: 1fr; } }
+  ul { padding-left: 22px; color: var(--text-secondary); margin: 8px 0 12px; }
+  ul li { margin-bottom: 8px; line-height: 1.55; }
+  .small { font-size: 12px; color: var(--text-muted); }
+  .clock { color: var(--red); font-weight: 700; }
+
+  footer {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 12px;
+    padding: 32px 16px 48px;
+    line-height: 1.6;
+  }
+  /* РУКОВОДЯЩИЙ СЛОЙ */
+  .digest{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+  @media(max-width:860px){.digest{grid-template-columns:1fr;}}
+  .dcard{border-radius:16px;overflow:hidden;border:1px solid var(--border);display:flex;flex-direction:column;}
+  .dcard-head{padding:14px 20px;font-weight:800;font-size:13px;text-transform:uppercase;letter-spacing:.5px;color:#fff;display:flex;align-items:center;gap:8px;}
+  .dcard-head.fire{background:linear-gradient(135deg,#dc2626,#b91c1c);}
+  .dcard-head.money{background:linear-gradient(135deg,#d97706,#b45309);}
+  .dcard-head.fix{background:linear-gradient(135deg,#2563eb,#1d4ed8);}
+  .dcard-body{padding:18px 20px;background:var(--card);flex:1;}
+  .dcard-body ul{margin:0;padding-left:18px;}
+  .dcard-body li{margin-bottom:10px;font-size:13px;color:var(--text);line-height:1.45;}
+  .dcard-body li b{font-weight:700;}
+  .dcard-big{font-size:34px;font-weight:800;letter-spacing:-1px;color:var(--amber);line-height:1;margin-bottom:4px;}
+  .pin-row{display:flex;align-items:flex-start;gap:14px;padding:16px 0;border-bottom:1px solid var(--border);}
+  .pin-row:last-child{border-bottom:none;}
+  .pin-ava{flex-shrink:0;width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:#fff;}
+  .pin-ava.sem{background:#dc2626;}
+  .pin-ava.gor{background:#2563eb;}
+  .pin-ava.deg{background:#7c3aed;}
+  .pin-content{flex:1;}
+  .pin-name{font-weight:700;font-size:15px;margin-bottom:2px;}
+  .pin-action{font-size:14px;color:var(--text);margin-bottom:4px;}
+  .pin-why{font-size:12px;color:var(--text-muted);}
+  .pin-urgency{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;padding:3px 9px;border-radius:999px;white-space:nowrap;align-self:flex-start;}
+  .u-now{background:#fee2e2;color:#b91c1c;}
+  .u-today{background:#fef3c7;color:#b45309;}
+  .deals-risk{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;}
+  .drisk{border:1px solid var(--border);border-top:4px solid var(--red);border-radius:12px;padding:18px 20px;background:var(--card);}
+  .drisk.med{border-top-color:var(--amber);}
+  .drisk-sum{font-size:26px;font-weight:800;letter-spacing:-.5px;}
+  .drisk-name{font-weight:700;font-size:14px;margin:2px 0 8px;}
+  .drisk-name a{color:var(--blue-light);}
+  .drisk-why{font-size:12px;color:var(--text-secondary);line-height:1.45;}
+  .drisk-prob{display:inline-block;margin-top:8px;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:#fee2e2;color:#b91c1c;}
+  .drisk-prob.med{background:#fef3c7;color:#b45309;}
+  /* HERO 2.0 */
+  .hero-stats{display:flex;flex-wrap:wrap;gap:14px;margin:28px 0 24px;}
+  .hstat{background:#fff;border:1px solid var(--border);box-shadow:var(--shadow-sm);border-radius:14px;padding:16px 22px;min-width:150px;flex:1;}
+  .hstat-num{font-size:34px;font-weight:800;letter-spacing:-1px;line-height:1;color:var(--text);}
+  .hstat:last-child .hstat-num{color:var(--red);}
+  .hstat-lbl{font-size:13px;color:var(--text);margin-top:6px;font-weight:700;}
+  .hstat-lbl span{display:block;font-size:11px;color:var(--text-muted);font-weight:400;margin-top:2px;}
+  .hero-verdict{display:flex;align-items:flex-start;gap:14px;background:#fff;border:1px solid #fecaca;border-left:4px solid var(--red);box-shadow:var(--shadow-sm);border-radius:14px;padding:16px 20px;font-size:15px;color:var(--text);line-height:1.5;}
+  .hero-verdict b{color:var(--red);}
+  .hv-icon{font-size:22px;flex-shrink:0;line-height:1.2;}
+  .hero-corr{margin-top:16px;font-size:12px;color:var(--text-muted);}
+
+  /* ТИГР ДНЯ */
+  .tiger{background:linear-gradient(120deg,#fff7ed 0%,#ffedd5 55%,#fef3c7 100%);border:1px solid #fdba74;border-radius:20px;padding:28px 32px;display:flex;align-items:center;gap:28px;flex-wrap:wrap;}
+  .tiger-photo-wrap{position:relative;flex-shrink:0;}
+  .tiger-photo{width:120px;height:120px;border-radius:50%;object-fit:cover;border:4px solid #fff;box-shadow:0 6px 16px rgba(234,88,12,.25);}
+  .tiger-badge{position:absolute;bottom:-6px;right:-6px;font-size:34px;filter:drop-shadow(0 2px 3px rgba(0,0,0,.2));}
+  .tiger-body{flex:1;min-width:240px;}
+  .tiger-title{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#c2410c;margin-bottom:4px;}
+  .tiger-name{font-size:26px;font-weight:800;letter-spacing:-.5px;color:#7c2d12;margin-bottom:8px;}
+  .tiger-role{font-size:13px;color:#9a3412;font-weight:600;margin-left:8px;}
+  .tiger-quote{font-size:15px;color:#7c2d12;line-height:1.5;}
+  .tiger-metric{display:inline-block;margin-top:12px;background:#fff;border:1px solid #fdba74;border-radius:999px;padding:6px 16px;font-size:13px;font-weight:700;color:#c2410c;}
+  .mgr-head{display:flex;align-items:center;gap:12px;margin-bottom:14px;}
+  .mgr-ava{width:48px;height:48px;border-radius:50%;object-fit:cover;border:2px solid #fff;box-shadow:0 2px 6px rgba(15,23,42,.12);flex-shrink:0;}
+  .mgr-head .mgr-name{margin:0;}
+  .mgr-head .mgr-role{margin:0;}
+  /* ФАН-БЛОКИ */
+  .quote-day{background:linear-gradient(120deg,#eef2ff,#faf5ff);border:1px solid #c7d2fe;border-radius:16px;padding:24px 28px;}
+  .quote-day-text{font-size:20px;font-weight:600;font-style:italic;color:#3730a3;line-height:1.5;margin-bottom:10px;}
+  .quote-day-meta{font-size:13px;color:var(--text-secondary);}
+  .ach-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;}
+  .ach{display:flex;align-items:center;gap:12px;border:1px solid var(--border);border-radius:12px;padding:14px 16px;background:var(--card);}
+  .ach-emoji{font-size:28px;flex-shrink:0;}
+  .ach-title{font-weight:700;font-size:13px;}
+  .ach-who{font-size:12px;color:var(--text-secondary);}
+  .ach-streak{border-color:#fed7aa;background:linear-gradient(120deg,#fff7ed,#fff);}
+  .motto{text-align:center;font-size:15px;font-style:italic;color:#6d28d9;background:linear-gradient(120deg,#faf5ff,#fdf2f8);border:1px dashed #d8b4fe;border-radius:14px;padding:18px 24px;margin-top:8px;}
+</style></head><body><div class="hero"><div class="wrap">
+<span class="hero-label">Отдел продаж · ежедневная сводка</span>
+<h1>Вторник, 2 июня 2026</h1>
+<div class="hero-subtitle">«Встречный» день: 7 встреч, 5 результативных. Две защиты КП ушли в счёт (~205&nbsp;тыс ₽), три брифинга закрылись в квалификации и перешли в продажи. Почти весь стол встреч вытащил один менеджер.</div>
+<div class="hero-stats">
+  <div class="hstat"><div class="hstat-num">7</div><div class="hstat-lbl">Встреч проведено<span>5 результат · 2 переноса</span></div></div>
+  <div class="hstat"><div class="hstat-num">2</div><div class="hstat-lbl">Защиты КП → счёт<span>eurotuning + medklinika</span></div></div>
+  <div class="hstat"><div class="hstat-num">3</div><div class="hstat-lbl">Квалификации закрыты<span>брифинг → продажи</span></div></div>
+  <div class="hstat"><div class="hstat-num">5</div><div class="hstat-lbl">Встреч назначено<span>наполнение воронки</span></div></div>
+  <div class="hstat"><div class="hstat-num">4</div><div class="hstat-lbl">Встречи сегодня<span>2 защиты + 2 брифинга</span></div></div>
+  <div class="hstat"><div class="hstat-num">165</div><div class="hstat-lbl">Наборов ТМ<span>Вострецов 87 · Исаева 78</span></div></div>
+  <div class="hstat"><div class="hstat-num">15</div><div class="hstat-lbl">Зависли на «Договоре»<span>&gt;5 раб. дней</span></div></div>
+</div>
+<div class="hero-verdict"><span class="hv-icon">⚠️</span><div>
+<b>Итог за ночь.</b> День сильный по встречам, но деньги стоят: на «Договоре» без движения зависли <b>sporttravma 304&nbsp;тыс ₽ (31 рабочий день!)</b> и amoriya 642&nbsp;тыс ₽. Большая часть застрявшей базы — на Деговцовой, которая в отпуске до 08.06: нужен временный владелец. И перегруз — Семенихин в одиночку провёл 6 встреч подряд.
+</div></div>
+<div class="hero-corr">Сверено с календарём: 2 июня 2026 — вторник, рабочий день, праздников рядом нет. Данные из Bitrix REST на утро 03.06.</div>
+</div></div>
+<div class="wrap"><section><div class="section-head"><div class="section-icon blue">30</div><h2>Главное за 30 секунд</h2></div>
+<div class="digest">
+  <div class="dcard"><div class="dcard-head fire">🔥 Горит сегодня</div><div class="dcard-body"><ul>
+    <li>Перебронировать 2 сорвавшиеся встречи: <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/24386/" target="_blank">cryplat.ru</a> (у клиента не работал интернет, ждали 30 мин) и <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/1674/" target="_blank">интердент-клиник.рф</a> (перенёс на потом). Обе тёплые — это <b>не отказ</b>, нужна новая дата.</li>
+    <li>Догнать обратную связь по защите <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/14728/" target="_blank">medklinika.spb.ru</a>: клиент уносит КП руководителям, ответ обещал «в начале недели».</li>
+    <li>4 встречи сегодня — 2 защиты КП (phznanie.ru, galaktika.clinic) требуют подготовки кейсов.</li>
+  </ul></div></div>
+  <div class="dcard"><div class="dcard-head money">💰 Деньги под риском</div><div class="dcard-body">
+    <div class="dcard-big">≈947 тыс ₽</div>
+    <p class="small" style="margin:0 0 10px">на «Договоре» у двух топ-сделок без закрытия</p>
+    <ul>
+    <li><a href="https://belberrycrm.bitrix24.ru/crm/deal/details/17592/" target="_blank">amoriya.ru</a> — <b>642 тыс ₽</b>, на договоре 8 раб. дн (Семенихин).</li>
+    <li><a href="https://belberrycrm.bitrix24.ru/crm/deal/details/10938/" target="_blank">sporttravma.org</a> — <b>304 тыс ₽</b>, на договоре <b>31 раб. день</b> (Деговцова, в отпуске).</li>
+    <li><a href="https://belberrycrm.bitrix24.ru/crm/deal/details/16322/" target="_blank">przvd.ru</a> 270 тыс ₽ и <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/15962/" target="_blank">geots.ru</a> 163 тыс ₽ — тоже стоят, обе Деговцовой.</li>
+  </ul></div></div>
+  <div class="dcard"><div class="dcard-head fix">🔧 Исправить системно</div><div class="dcard-body"><ul>
+    <li>У сделок, ушедших в счёт/предоплату, сумма = 0 (товары не заполнены): <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/12866/" target="_blank">med-shushary</a>, <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/24556/" target="_blank">spectra</a>, <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/24812/" target="_blank">doctor-omarov</a>. Заполнять товары по смете КП.</li>
+    <li><a href="https://belberrycrm.bitrix24.ru/crm/deal/details/9958/" target="_blank">eurotuning</a>: лендинг (разработка сайта) проведён строкой «SEO 129 700» — товар не соответствует услуге.</li>
+    <li>Перегруз: один менеджер тянет 6 встреч в день, к концу «крыша поехала» (его слова). Распределять встречи.</li>
+  </ul></div></div>
+</div></section><section><div class="tiger">
+  <div class="tiger-photo-wrap"><img class="tiger-photo" src="data:image/jpeg;base64,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" alt="Семенихин Егор"><span class="tiger-badge">🐅</span></div>
+  <div class="tiger-body">
+    <div class="tiger-title">🐅 Тигр дня</div>
+    <div class="tiger-name">Семенихин Егор<span class="tiger-role">менеджер по продажам</span></div>
+    <div class="tiger-quote">Шесть встреч за день — и почти все в одни лапы. Три брифинга закрыл в квалификацию, защиту medklinika разложил по полочкам с прогнозом окупаемости 177%. К седьмому часу честно признался клиенту: «после третьей встречи подряд крыша немного поехала». Тигр, которому пора дать передохнуть — и помощника.</div>
+    <span class="tiger-metric">6 встреч · 4 результативных · 3 квалификации в продажи</span>
+  </div>
+</div>
+<p class="small" style="margin-top:12px">Тигр выбран по объективным данным CRM (число и результат проведённых встреч). Официальная сводка «Опер» в этот прогон не подтягивалась — см. техдолг внизу.</p></section><section><div class="section-head"><div class="section-icon red">!</div><h2>Кого пинать сегодня</h2></div>
+<div class="pin-row">
+  <img class="mgr-ava" src="data:image/jpeg;base64,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" alt="">
+  <div class="pin-content"><div class="pin-name">Исаева Дарья · телемаркетинг</div>
+  <div class="pin-action">Перебронировать на конкретные даты <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/24386/" target="_blank">cryplat.ru</a> и <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/1674/" target="_blank">интердент-клиник.рф</a>.</div>
+  <div class="pin-why">Обе встречи сорвались вчера по технике/переносу, не по отказу. Специалист ждал cryplat 30 минут — клиент тёплый, нельзя терять.</div></div>
+  <span class="pin-urgency u-now">сейчас</span>
+</div>
+<div class="pin-row">
+  <img class="mgr-ava" src="data:image/jpeg;base64,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" alt="">
+  <div class="pin-content"><div class="pin-name">Гордиенко Евгения · РОП</div>
+  <div class="pin-action">Назначить временного владельца базе Деговцовой на время отпуска (до 08.06).</div>
+  <div class="pin-why">На «Договоре» без движения: <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/10938/" target="_blank">sporttravma.org</a> 304К (31 раб. день), <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/16322/" target="_blank">przvd.ru</a> 270К, <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/15962/" target="_blank">geots.ru</a> 163К. Клиенты остывают, пока некому двигать.</div></div>
+  <span class="pin-urgency u-today">сегодня</span>
+</div>
+<div class="pin-row">
+  <img class="mgr-ava" src="data:image/jpeg;base64,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" alt="">
+  <div class="pin-content"><div class="pin-name">Семенихин Егор · менеджер</div>
+  <div class="pin-action">Дожать <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/17592/" target="_blank">amoriya.ru</a> (642К, на договоре 8 раб. дн) и заполнить товары по 3 вчерашним сделкам, ушедшим в счёт с нулевой суммой.</div>
+  <div class="pin-why">Самая крупная зависшая сделка отдела + витрина прогноза в CRM врёт, пока товары пустые.</div></div>
+  <span class="pin-urgency u-today">сегодня</span>
+</div>
+</section><section><div class="section-head"><div class="section-icon amber">₽</div><h2>Где могут сорваться сделки</h2></div>
+<div class="deals-risk">
+<div class="drisk"><div class="drisk-sum">642 тыс ₽</div><div class="drisk-name"><a href="https://belberrycrm.bitrix24.ru/crm/deal/details/17592/" target="_blank">amoriya.ru</a></div><div class="drisk-why">На стадии «Договор» 8 раб. дней, последний контакт вчера. Самая крупная сделка отдела — нельзя дать остыть. Семенихин.</div><span class="drisk-prob">высокий риск</span></div>
+<div class="drisk"><div class="drisk-sum">304 тыс ₽</div><div class="drisk-name"><a href="https://belberrycrm.bitrix24.ru/crm/deal/details/10938/" target="_blank">sporttravma.org</a></div><div class="drisk-why">На «Договоре» 31 рабочий день. Владелец Деговцова в отпуске до 08.06 — двигать некому.</div><span class="drisk-prob">высокий риск</span></div>
+<div class="drisk med"><div class="drisk-sum">270 тыс ₽</div><div class="drisk-name"><a href="https://belberrycrm.bitrix24.ru/crm/deal/details/16322/" target="_blank">przvd.ru</a></div><div class="drisk-why">На «Договоре» 8 раб. дней, но контакт вчера — двигается. Бриф и КП обновлены 02.06. Деговцова.</div><span class="drisk-prob med">средний риск</span></div>
+<div class="drisk med"><div class="drisk-sum">163 тыс ₽</div><div class="drisk-name"><a href="https://belberrycrm.bitrix24.ru/crm/deal/details/15962/" target="_blank">geots.ru</a></div><div class="drisk-why">Догрев 14 кал. дней, последний контакт 6 дней назад — остывает. Деговцова.</div><span class="drisk-prob med">средний риск</span></div>
+<div class="drisk med"><div class="drisk-sum">163 тыс ₽</div><div class="drisk-name"><a href="https://belberrycrm.bitrix24.ru/crm/deal/details/18484/" target="_blank">evromedika.ru</a></div><div class="drisk-why">На «Договоре» 12 раб. дней, контакт 4 дня назад. Семенихин.</div><span class="drisk-prob med">средний риск</span></div>
+</div></section><section><div class="section-head"><div class="section-icon blue">📅</div><h2>Встречи дня — 7 проведено</h2></div>
+<div class="tbl-wrap"><table><thead><tr>
+<th>Время</th><th>Встреча / тип</th><th>Кто провёл</th><th>Статус</th><th>Расшифровка</th><th>Итоги клиенту</th><th>Оценка</th></tr></thead><tbody><tr><td>13:10</td><td><a href="https://belberrycrm.bitrix24.ru/crm/type/1048/details/2112/" target="_blank">med-shushary.ru</a> · брифинг<div class="meeting-meta"><a href="https://belberrycrm.bitrix24.ru/crm/deal/details/12866/" target="_blank">#12866</a></div></td><td>Семенихин</td><td><span class="badge b-green">Успех → квалификация</span></td><td><span class="badge b-blue">есть</span></td><td>Глубокий аудит вживую, клиент согласился на SEO+GEO. Готовим предложение.</td><td><span class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star-empty">★</span><span class="star-empty">★</span></span><span class="score-label">8/10</span></td></tr><tr><td>12:00</td><td><a href="https://belberrycrm.bitrix24.ru/crm/type/1048/details/2172/" target="_blank">eurotuning-spb.ru</a> · защита КП<div class="meeting-meta"><a href="https://belberrycrm.bitrix24.ru/crm/deal/details/9958/" target="_blank">#9958</a></div></td><td>Гордиенко</td><td><span class="badge b-green">Успех → счёт</span></td><td><span class="badge b-blue">есть</span></td><td>Смета подтверждена (~130К), ушёл в счёт. Связь рвалась, кейсы не показаны.</td><td><span class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star-empty">★</span><span class="star-empty">★</span><span class="star-empty">★</span><span class="star-empty">★</span></span><span class="score-label">6/10</span></td></tr><tr><td>12:00</td><td><a href="https://belberrycrm.bitrix24.ru/crm/type/1048/details/2174/" target="_blank">интердент-клиник.рф</a> · брифинг<div class="meeting-meta"><a href="https://belberrycrm.bitrix24.ru/crm/deal/details/1674/" target="_blank">#1674</a></div></td><td>Семенихин</td><td><span class="badge b-amber">Перенос</span></td><td><span class="badge b-gray">нет</span></td><td>Клиент: «не получается сегодня, попозже отпишусь». Не отказ — перебронь.</td><td><span class="small">—</span></td></tr><tr><td>14:00</td><td><a href="https://belberrycrm.bitrix24.ru/crm/type/1048/details/2190/" target="_blank">spectra.ru</a> · брифинг<div class="meeting-meta"><a href="https://belberrycrm.bitrix24.ru/crm/deal/details/24556/" target="_blank">#24556</a></div></td><td>Семенихин</td><td><span class="badge b-green">Успех → квалификация</span></td><td><span class="badge b-blue">есть</span></td><td>Стоматология, обсудили модель оплаты за лиды и кейс Dental Luxury (129 лидов/мес). Готовим КП.</td><td><span class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star-empty">★</span><span class="star-empty">★</span></span><span class="score-label">8/10</span></td></tr><tr><td>15:00</td><td><a href="https://belberrycrm.bitrix24.ru/crm/type/1048/details/2182/" target="_blank">medklinika.spb.ru</a> · защита КП<div class="meeting-meta"><a href="https://belberrycrm.bitrix24.ru/crm/deal/details/14728/" target="_blank">#14728</a></div></td><td>Семенихин</td><td><span class="badge b-green">Успех → счёт</span></td><td><span class="badge b-blue">есть</span></td><td>Техаудит + прогноз окупаемости 177%. Клиент уносит руководителям, ОС в начале недели.</td><td><span class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star-empty">★</span><span class="star-empty">★</span></span><span class="score-label">8/10</span></td></tr><tr><td>16:00</td><td><a href="https://belberrycrm.bitrix24.ru/crm/type/1048/details/2168/" target="_blank">cryplat.ru</a> · брифинг<div class="meeting-meta"><a href="https://belberrycrm.bitrix24.ru/crm/deal/details/24386/" target="_blank">#24386</a></div></td><td>Семенихин</td><td><span class="badge b-amber">Перенос</span></td><td><span class="badge b-gray">нет</span></td><td>У клиента не работал интернет, ждали 30 мин. Не отказ — перебронь.</td><td><span class="small">—</span></td></tr><tr><td>17:00</td><td><a href="https://belberrycrm.bitrix24.ru/crm/type/1048/details/2204/" target="_blank">doctor-omarov.ru</a> · брифинг<div class="meeting-meta"><a href="https://belberrycrm.bitrix24.ru/crm/deal/details/24812/" target="_blank">#24812</a></div></td><td>Семенихин</td><td><span class="badge b-green">Успех → квалификация</span></td><td><span class="badge b-blue">есть</span></td><td>ИКС сайта 200 (слабо), 4000+ исходящих ссылок «сливают» авторитетность. Клиент включился. Готовим КП.</td><td><span class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star-empty">★</span><span class="star-empty">★</span></span><span class="score-label">8/10</span></td></tr></tbody></table></div></section><section><div class="section-head"><div class="section-icon purple">＋</div><h2>Встречи, назначенные вчера — 5</h2></div>
+<p>Наполнение воронки и передача ТМ → менеджер: телемаркетологи назначают, проводит Семенихин.</p>
+<div class="tbl-wrap"><table><thead><tr><th>Встреча</th><th>Тип</th><th>Когда</th><th>Кто назначил</th><th>Кто проводит</th></tr></thead><tbody><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/type/1048/details/2204/" target="_blank">doctor-omarov.ru</a></td><td>Брифинг</td><td>02.06 (в тот же день)</td><td>Исаева</td><td>Семенихин</td></tr><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/type/1048/details/2206/" target="_blank">rant.ru</a></td><td>Брифинг</td><td>03.06</td><td>Вострецов</td><td>Семенихин</td></tr><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/type/1048/details/2208/" target="_blank">pokandyuk.ru</a></td><td>Брифинг</td><td>05.06</td><td>Исаева</td><td>Семенихин</td></tr><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/type/1048/details/2210/" target="_blank">altamedplus.ru</a></td><td>Защита КП</td><td>08.06</td><td>Гордиенко</td><td>Гордиенко</td></tr><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/type/1048/details/2212/" target="_blank">insightai.ru</a></td><td>Брифинг</td><td>04.06</td><td>Вострецов</td><td>Семенихин</td></tr></tbody></table></div></section><section><div class="section-head"><div class="section-icon blue">▶</div><h2>Встречи сегодня — 3 июня</h2></div>
+<div class="tbl-wrap"><table><thead><tr><th>Время</th><th>Встреча</th><th>Тип</th><th>Кто проводит</th><th>Статус</th></tr></thead><tbody><tr><td>11:00</td><td><a href="https://belberrycrm.bitrix24.ru/crm/type/1048/details/2194/" target="_blank">phznanie.ru</a></td><td>Защита КП</td><td>Гордиенко</td><td><span class="badge b-gray">запланирована</span></td></tr><tr><td>11:00</td><td><a href="https://belberrycrm.bitrix24.ru/crm/type/1048/details/2198/" target="_blank">galaktika.clinic</a></td><td>Защита КП</td><td>Семенихин</td><td><span class="badge b-gray">запланирована</span></td></tr><tr><td>12:00</td><td><a href="https://belberrycrm.bitrix24.ru/crm/type/1048/details/2206/" target="_blank">rant.ru</a></td><td>Брифинг</td><td>Семенихин</td><td><span class="badge b-gray">запланирована</span></td></tr><tr><td>13:00</td><td><a href="https://belberrycrm.bitrix24.ru/crm/type/1048/details/2200/" target="_blank">elbruskmv.ru</a></td><td>Брифинг</td><td>Семенихин</td><td><span class="badge b-gray">запланирована</span></td></tr></tbody></table></div></section><section><div class="section-head"><div class="section-icon green">👥</div><h2>Активность менеджеров</h2></div><div class="managers"><div class="mgr hero-mgr"><div class="mgr-head"><img class="mgr-ava" src="data:image/jpeg;base64,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" alt=""><div><div class="mgr-name">Семенихин Егор</div><div class="mgr-role">менеджер по продажам</div></div></div><div class="mgr-row"><span class="mgr-row-label">Встреч проведено</span><span class="mgr-row-value">6</span></div><div class="mgr-row"><span class="mgr-row-label">Результативных</span><span class="mgr-row-value">4</span></div><div class="mgr-row"><span class="mgr-row-label">Квалификаций в продажи</span><span class="mgr-row-value">3</span></div><div class="mgr-row"><span class="mgr-row-label">Наборов / дозвон</span><span class="mgr-row-value">15 / 13</span></div><div class="mgr-note">День держался на нём. Сильные консультативные брифинги, защита medklinika с прогнозом окупаемости. Риск перегруза.</div></div><div class="mgr"><div class="mgr-head"><img class="mgr-ava" src="data:image/jpeg;base64,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" alt=""><div><div class="mgr-name">Вострецов Аркадий</div><div class="mgr-role">телемаркетинг</div></div></div><div class="mgr-row"><span class="mgr-row-label">Наборов</span><span class="mgr-row-value">87</span></div><div class="mgr-row"><span class="mgr-row-label">Дозвонов</span><span class="mgr-row-value">65</span></div><div class="mgr-row"><span class="mgr-row-label">Конверсия в разговор</span><span class="mgr-row-value">75%</span></div><div class="mgr-row"><span class="mgr-row-label">Разговоров 120с+</span><span class="mgr-row-value">6</span></div><div class="mgr-row"><span class="mgr-row-label">Назначил встреч</span><span class="mgr-row-value">2 (rant, insightai)</span></div><div class="mgr-note">Лучший объём по телефонии за день. Назначил 2 встречи в воронку.</div></div><div class="mgr"><div class="mgr-head"><img class="mgr-ava" src="data:image/jpeg;base64,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" alt=""><div><div class="mgr-name">Исаева Дарья</div><div class="mgr-role">телемаркетинг</div></div></div><div class="mgr-row"><span class="mgr-row-label">Наборов</span><span class="mgr-row-value">78</span></div><div class="mgr-row"><span class="mgr-row-label">Дозвонов</span><span class="mgr-row-value">54</span></div><div class="mgr-row"><span class="mgr-row-label">Конверсия в разговор</span><span class="mgr-row-value">69%</span></div><div class="mgr-row"><span class="mgr-row-label">Разговоров 120с+</span><span class="mgr-row-value">2</span></div><div class="mgr-row"><span class="mgr-row-label">Назначила встреч</span><span class="mgr-row-value">2 (doctor-omarov, pokandyuk)</span></div><div class="mgr-note">Две вчерашние встречи сорвались по технике/переносу — нужно перебронировать.</div></div><div class="mgr"><div class="mgr-head"><img class="mgr-ava" src="data:image/jpeg;base64,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" alt=""><div><div class="mgr-name">Гордиенко Евгения</div><div class="mgr-role">РОП</div></div></div><div class="mgr-row"><span class="mgr-row-label">Встреч проведено</span><span class="mgr-row-value">1 (защита eurotuning → счёт)</span></div><div class="mgr-row"><span class="mgr-row-label">Наборов / дозвон</span><span class="mgr-row-value">12 / 3</span></div><div class="mgr-row"><span class="mgr-row-label">Назначила встреч</span><span class="mgr-row-value">1 (altamedplus)</span></div><div class="mgr-note">Ведёт сделки лично и закрыла защиту eurotuning. На ней — распределение базы Деговцовой на отпуск.</div></div><div class="mgr away"><div class="mgr-head"><img class="mgr-ava" src="data:image/jpeg;base64,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" alt=""><div><div class="mgr-name">Деговцова Елизавета</div><div class="mgr-role">менеджер по продажам</div></div></div><div class="mgr-row"><span class="mgr-row-label">Статус</span><span class="mgr-row-value">в отпуске до 08.06</span></div><div class="mgr-row"><span class="mgr-row-label">Сделок на «Договоре»</span><span class="mgr-row-value">6, в т.ч. 304К/270К/163К</span></div><div class="mgr-row"><span class="mgr-row-label">Бриф/КП обновлены</span><span class="mgr-row-value">przvd.ru</span></div><div class="mgr-note">В отпуске. На её базе — ядро застрявших денег отдела. Нужен временный владелец.</div></div></div></section><section><div class="section-head"><div class="section-icon purple">🔎</div><h2>Содержательный разбор встреч</h2></div><div class="meeting-block"><div class="meeting-head"><div><div class="meeting-title">Защита КП — medklinika.spb.ru (<a href="https://belberrycrm.bitrix24.ru/crm/deal/details/14728/" target="_blank">#14728</a> · <a href="https://belberrycrm.bitrix24.ru/crm/type/1048/details/2182/" target="_blank">карточка встречи</a>)</div><div class="meeting-meta">Семенихин Егор · 32 мин · стоматология/медицина SEO</div></div><div class="meeting-score-block"><span class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star-empty">★</span><span class="star-empty">★</span></span><span class="score-label">8/10</span></div></div><div class="quote client">«Прочитаю всё внимательно, перейду по ссылке, будем с главным врачом обсуждать. Обратная связь — в начале следующей недели, не раньше.»<div class="quote-author">Юлия, medklinika.spb.ru — следующий шаг на стороне клиента</div></div><div class="hilight-grid"><div class="hilight good"><span class="hilight-tag tag-good">✅ сильно</span><span class="hilight-body">Глубокий технический аудит вживую: дубли страниц и тайтлов, сломанная микроразметка, 404-е, падение трафика на 65–70% после редизайна, версия про «потерянный при переезде блоговый раздел».</span></div><div class="hilight good"><span class="hilight-tag tag-good">✅ сильно</span><span class="hilight-body">Аргументация цифрами: прогноз заявок ×2 к 6-му месяцу, окупаемость 177% при средней конверсии 23% — честно оговорил, что конверсию клиент не называл.</span></div><div class="hilight good"><span class="hilight-tag tag-good">✅ сильно</span><span class="hilight-body">Честность по бюджету: обещал ужать в 150К, получилось 175К (SEO 120К/мес + GEO 60К) — не стал «втирать», сказал прямо.</span></div><div class="hilight miss"><span class="hilight-tag tag-miss">⚠️ зона роста</span><span class="hilight-body">Кейсы намеренно пропущены («где мы хвастаемся кейсами — это лишнее»). По чек-листу защиты кейсы обязательны — клиенту нужна не только своя боль, но и доказательство, что её лечат.</span></div><div class="hilight miss"><span class="hilight-tag tag-miss">⚠️ зона роста</span><span class="hilight-body">Следующий шаг мягкий: «жду обратную связь, задачу через недельку». Клиент сам не взял жёсткое обязательство — стоит зафиксировать дату созвона.</span></div><div class="hilight miss"><span class="hilight-tag tag-miss">⚠️ зона роста</span><span class="hilight-body">Не смог обосновать претензию про «автор: админ/менеджер» в микроразметке — клиент переспросил дважды, ответ «уточню у коллег». Готовить факты заранее.</span></div></div></div><div class="meeting-block"><div class="meeting-head"><div><div class="meeting-title">Защита КП — eurotuning-spb.ru (<a href="https://belberrycrm.bitrix24.ru/crm/deal/details/9958/" target="_blank">#9958</a> · <a href="https://belberrycrm.bitrix24.ru/crm/type/1048/details/2172/" target="_blank">карточка встречи</a>)</div><div class="meeting-meta">Гордиенко Евгения · 29 мин · разработка лендинга на Битрикс</div></div><div class="meeting-score-block"><span class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star-empty">★</span><span class="star-empty">★</span><span class="star-empty">★</span><span class="star-empty">★</span></span><span class="score-label">6/10</span></div></div><div class="hilight-grid"><div class="hilight good"><span class="hilight-tag tag-good">✅ сильно</span><span class="hilight-body">Сделка двинулась: смета подтверждена (~130К), ушла в счёт. Хорошо отработала вопросы клиента про этапы оплаты и количество концепций дизайна (3 + правки).</span></div><div class="hilight good"><span class="hilight-tag tag-good">✅ сильно</span><span class="hilight-body">Зафиксировала запрос клиента «ограничить фантазию собственников» — договорились прописать в договоре: 3 варианта, остальное за доплату.</span></div><div class="hilight miss"><span class="hilight-tag tag-miss">⚠️ зона роста</span><span class="hilight-body">Связь рвалась полвстречи, перешли на телефон — часть аргументации потеряна.</span></div><div class="hilight miss"><span class="hilight-tag tag-miss">⚠️ зона роста</span><span class="hilight-body">Кейсы не показаны вживую («примеры работ направлю потом»), хотя клиент прямо просил подборку. На защите кейсы — ядро.</span></div><div class="hilight miss"><span class="hilight-tag tag-miss">⚠️ зона роста</span><span class="hilight-body">Несколько раз «я уточню у ребят» (смета, концепции, сценарий отказа от дизайна) — подготовиться к защите заранее.</span></div><div class="hilight miss"><span class="hilight-tag tag-miss">⚠️ зона роста</span><span class="hilight-body">Товар проведён строкой «SEO 129 700» — должна быть разработка сайта (WD).</span></div></div></div><div class="meeting-block"><div class="meeting-head"><div><div class="meeting-title">Брифинг — spectra.ru (<a href="https://belberrycrm.bitrix24.ru/crm/deal/details/24556/" target="_blank">#24556</a> · <a href="https://belberrycrm.bitrix24.ru/crm/type/1048/details/2190/" target="_blank">карточка встречи</a>)</div><div class="meeting-meta">Семенихин Егор · 48 мин · стоматология</div></div><div class="meeting-score-block"><span class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star-empty">★</span><span class="star-empty">★</span></span><span class="score-label">8/10</span></div></div><div class="hilight-grid"><div class="hilight good"><span class="hilight-tag tag-good">✅ сильно</span><span class="hilight-body">Не анкета, а диалог: вскрыл негативный опыт с наружной рекламой, проговорил модель оплаты с премией за лиды.</span></div><div class="hilight good"><span class="hilight-tag tag-good">✅ сильно</span><span class="hilight-body">Кейс к месту: Dental Luxury Clinic — с нуля до 129 лидов/мес, план на 24 недели. Клиент: «130 — это отлично».</span></div><div class="hilight good"><span class="hilight-tag tag-good">✅ сильно</span><span class="hilight-body">Закрылся в квалификацию → сделка в продажах.</span></div><div class="hilight miss"><span class="hilight-tag tag-miss">⚠️ зона роста</span><span class="hilight-body">Конкретные цифры/прогноз отложены на КП («вернёмся через неделю») — нормально для брифинга, но держать срок.</span></div></div></div><div class="meeting-block"><div class="meeting-head"><div><div class="meeting-title">Брифинг — med-shushary.ru (<a href="https://belberrycrm.bitrix24.ru/crm/deal/details/12866/" target="_blank">#12866</a> · <a href="https://belberrycrm.bitrix24.ru/crm/type/1048/details/2112/" target="_blank">карточка встречи</a>)</div><div class="meeting-meta">Семенихин Егор · 42 мин · медклиника (пригород СПб)</div></div><div class="meeting-score-block"><span class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star-empty">★</span><span class="star-empty">★</span></span><span class="score-label">8/10</span></div></div><div class="hilight-grid"><div class="hilight good"><span class="hilight-tag tag-good">✅ сильно</span><span class="hilight-body">Разобрал боль географии: дорогой контекст из-за крупных соседей → ставка на SEO. Индексация 350 в Яндексе против ~140 в Google, 90% из 4000 запросов не оптимизированы — «жирнющая зона роста».</span></div><div class="hilight good"><span class="hilight-tag tag-good">✅ сильно</span><span class="hilight-body">Поднял GEO/AEO и рентабельность вложений, аккуратно посеял сомнение в текущем подрядчике («за тридцатку толком ничего»).</span></div><div class="hilight good"><span class="hilight-tag tag-good">✅ сильно</span><span class="hilight-body">Закрылся в квалификацию → продажи.</span></div><div class="hilight miss"><span class="hilight-tag tag-miss">⚠️ зона роста</span><span class="hilight-body">Сумма сделки = 0: товары по итогам брифинга не заведены.</span></div></div></div><div class="meeting-block"><div class="meeting-head"><div><div class="meeting-title">Брифинг — doctor-omarov.ru (<a href="https://belberrycrm.bitrix24.ru/crm/deal/details/24812/" target="_blank">#24812</a> · <a href="https://belberrycrm.bitrix24.ru/crm/type/1048/details/2204/" target="_blank">карточка встречи</a>)</div><div class="meeting-meta">Семенихин Егор · 52 мин · стоматология (6-я встреча подряд)</div></div><div class="meeting-score-block"><span class="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star-empty">★</span><span class="star-empty">★</span></span><span class="score-label">8/10</span></div></div><div class="hilight-grid"><div class="hilight good"><span class="hilight-tag tag-good">✅ сильно</span><span class="hilight-body">Вскрыл негативный опыт с контекстом, объяснил простым языком: ИКС сайта 200 — «слабовато», 4000+ исходящих ссылок «дарят авторитетность» чужим сайтам.</span></div><div class="hilight good"><span class="hilight-tag tag-good">✅ сильно</span><span class="hilight-body">Развёл услуговые страницы и прайс-лист по поисковому интенту. Клиент включился, реагировал эмоционально — контакт есть.</span></div><div class="hilight good"><span class="hilight-tag tag-good">✅ сильно</span><span class="hilight-body">Закрылся в квалификацию → продажи.</span></div><div class="hilight miss"><span class="hilight-tag tag-miss">⚠️ зона роста</span><span class="hilight-body">Шестая встреча подряд — по транскрипту слышно усталость («буквы перемешались во рту»). Качество держится, но это потолок нагрузки на одного.</span></div><div class="hilight miss"><span class="hilight-tag tag-miss">⚠️ зона роста</span><span class="hilight-body">Сумма сделки = 0: товары не заведены.</span></div></div></div></section><section><div class="section-head"><div class="section-icon blue">📄</div><h2>Брифы и КП дня</h2></div>
+<div class="grid-2">
+<div><h3>Брифы (1056) — 7 обновлено</h3><div class="tbl-wrap"><table><thead><tr><th>Бриф</th><th>Менеджер</th><th>Статус</th></tr></thead><tbody><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/type/1056/details/1522/" target="_blank">med-shushary.ru</a></td><td>Семенихин</td><td><span class="badge b-blue">новый</span></td></tr><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/type/1056/details/1524/" target="_blank">spectra.ru</a></td><td>Семенихин</td><td><span class="badge b-blue">новый</span></td></tr><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/type/1056/details/1526/" target="_blank">cryplat.ru</a></td><td>Семенихин</td><td><span class="badge b-blue">новый</span></td></tr><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/type/1056/details/1528/" target="_blank">doctor-omarov.ru</a></td><td>Семенихин</td><td><span class="badge b-blue">новый</span></td></tr><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/type/1056/details/1520/" target="_blank">eurotuning-spb.ru</a></td><td>Гордиенко</td><td><span class="badge b-green">заполнен</span></td></tr><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/type/1056/details/1456/" target="_blank">przvd.ru</a></td><td>Деговцова</td><td><span class="badge b-green">заполнен</span></td></tr><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/type/1056/details/1506/" target="_blank">altmansgallery.com SEO</a></td><td>Лопатина</td><td><span class="badge b-green">заполнен</span></td></tr></tbody></table></div></div>
+<div><h3>КП (1106) — 8 обновлено</h3><div class="tbl-wrap"><table><thead><tr><th>КП</th><th>Менеджер</th><th>Статус</th></tr></thead><tbody><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/type/1106/details/220/" target="_blank">amoriya.ru</a></td><td>Семенихин</td><td><span class="badge b-green">готово</span></td></tr><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/type/1106/details/76/" target="_blank">tiflocentre.ru</a></td><td>Деговцова</td><td><span class="badge b-green">готово</span></td></tr><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/type/1106/details/230/" target="_blank">altmansgallery PPC</a></td><td>Лопатина</td><td><span class="badge b-green">готово</span></td></tr><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/type/1106/details/234/" target="_blank">nzdorovie.ru PPC</a></td><td>Василенко</td><td><span class="badge b-green">готово</span></td></tr><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/type/1106/details/200/" target="_blank">przvd.ru</a></td><td>Деговцова</td><td><span class="badge b-amber">у клиента</span></td></tr><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/type/1106/details/226/" target="_blank">altmansgallery SEO</a></td><td>Лопатина</td><td><span class="badge b-blue">новое</span></td></tr><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/type/1106/details/240/" target="_blank">eurotuning-spb.ru</a></td><td>Гордиенко</td><td><span class="badge b-blue">новое</span></td></tr><tr><td><a href="https://belberrycrm.bitrix24.ru/crm/type/1106/details/144/" target="_blank">doktopplus.ru</a></td><td>Семенихин</td><td><span class="badge b-red">провалено</span></td></tr></tbody></table></div></div></div></section><section class="tinted-amber"><div class="section-head"><div class="section-icon amber">↻</div><h2>Сорвавшиеся встречи и отказы</h2></div>
+<p>Главное: вчерашние «провалы» встреч — это <b>переносы по технике, а не отказы</b>. Сделки тёплые, их нужно вернуть в календарь.</p>
+<ul>
+<li><b><a href="https://belberrycrm.bitrix24.ru/crm/deal/details/24386/" target="_blank">cryplat.ru</a></b> — встреча сорвалась: у клиента не работал интернет, специалист ждал 30 минут. Исаева предложила перенос. <b>Перебронировать.</b></li>
+<li><b><a href="https://belberrycrm.bitrix24.ru/crm/deal/details/1674/" target="_blank">интердент-клиник.рф</a></b> — клиент с утра: «не получается сегодня, попозже отпишусь». <b>Согласовать новую дату.</b></li>
+<li><b><a href="https://belberrycrm.bitrix24.ru/crm/type/1106/details/144/" target="_blank">doktopplus.ru</a></b> — КП в статусе «провалено» (Семенихин). Зафиксировать причину для базы знаний.</li>
+</ul></section><section><div class="section-head"><div class="section-icon green">⚙</div><h2>Системные паттерны</h2></div>
+<div class="grid-2">
+<div><h4>Что работает</h4><ul>
+<li><b>Консультативный брифинг как двигатель воронки.</b> Живой разбор сайта на экране + простые аналогии + честный намёк на слабого подрядчика → 3 из 3 содержательных брифингов закрылись в квалификацию.</li>
+<li><b>Аргументация деньгами на защите.</b> medklinika: прогноз заявок ×2, окупаемость 177%, честная оговорка про конверсию — клиент уносит КП руководителям.</li>
+<li><b>Передача ТМ → менеджер живая.</b> Вострецов и Исаева назначают встречи, Семенихин проводит — воронка наполняется (5 встреч назначено за день).</li>
+</ul></div>
+<div><h4>Что чинить</h4><ul>
+<li><b>Кейсы на защите пропускаются.</b> И на medklinika, и на eurotuning кейсы не показаны вживую. По чек-листу защиты кейсы обязательны.</li>
+<li><b>Товары в сделках не заполнены.</b> 3 сделки ушли в счёт/предоплату с суммой 0; у eurotuning услуга проведена не той строкой. Прогноз в CRM искажается.</li>
+<li><b>Перегруз одного менеджера.</b> 6 встреч в день на Семенихине — к вечеру падает качество. Часть брифингов можно отдать РОПу/второму менеджеру.</li>
+<li><b>Застой базы Деговцовой.</b> Пока она в отпуске, ~740К на «Договоре»/«Догреве» стоят без владельца.</li>
+</ul></div>
+</div></section><section class="tinted-green"><div class="section-head"><div class="section-icon green">✓</div><h2>Итог дня</h2></div>
+<p style="font-size:15px;color:var(--text)">Вторник вышел сильным по встречам: 7 проведено, 5 результативных, две защиты КП (<a href="https://belberrycrm.bitrix24.ru/crm/deal/details/9958/" target="_blank">eurotuning</a> и <a href="https://belberrycrm.bitrix24.ru/crm/deal/details/14728/" target="_blank">medklinika</a>) ушли в счёт на ~205&nbsp;тыс ₽, три брифинга закрылись в квалификацию и перешли в продажи. Воронка наполняется — назначено ещё 5 встреч. Два «провала» оказались переносами по технике, а не отказами. Главные риски на сегодня — застрявшая на «Договоре» крупная база (sporttravma 304К стоит 31 рабочий день, amoriya 642К), которую надо двигать, в том числе перераспределив сделки Деговцовой на время её отпуска, и перегруз Семенихина, который в одиночку тянет почти все встречи.</p>
+<div class="motto">«Тигр поймал шесть зайцев за день. Седьмого ловить будем уже вдвоём — иначе у тигра кончатся лапы.»</div>
+</section><section class="tinted-amber"><div class="section-head"><div class="section-icon amber">⚙</div><h2>Технические ограничения этого прогона</h2></div>
+<ul>
+<li><b>Официальная сводка «Опер» не подтягивалась</b> — «Тигр дня» выбран по объективным данным CRM (число и результат встреч), а не по recompute телефонии. При наличии сводки — сверить.</li>
+<li><b>Транскрипты cryplat и интердент отсутствуют</b> — встречи не состоялись (перенос), это ожидаемо.</li>
+<li><b>Контакт по сорвавшимся встречам проверен по двум источникам</b> — активности + Wazzup-лента (переписка по переносу найдена в timeline).</li>
+<li><b>Суммы сделок</b> взяты из товарных позиций; где 0 — товары в карточке не заполнены (отмечено в системных паттернах).</li>
+</ul></section><footer>Сводка отдела продаж Belberry · за вторник 2 июня 2026 · сформировано 3 июня по данным Bitrix24 REST<br>
+Метрики — из CRM и телефонии; разбор встреч — по транскриптам memoai. Только отдел продаж и телемаркетинг.</footer>
+</div></body></html>

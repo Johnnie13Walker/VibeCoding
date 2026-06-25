@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Анализ продаж Belberry — воронка [10], WON, 12 мес.</title>
+<style>
+  :root{
+    --bg:#0f1216; --card:#171b21; --ink:#e8ecf1; --muted:#9aa6b2; --line:#262c34;
+    --accent:#4f8cff; --good:#34c759; --warn:#ffb020; --bad:#ff5c5c; --chip:#1f2630;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;}
+  .wrap{max-width:1080px;margin:0 auto;padding:40px 24px 80px}
+  h1{font-size:30px;margin:0 0 6px;letter-spacing:-.4px}
+  h2{font-size:21px;margin:48px 0 14px;padding-top:18px;border-top:1px solid var(--line)}
+  h3{font-size:16px;margin:26px 0 10px;color:var(--accent)}
+  .sub{color:var(--muted);font-size:14px;margin-bottom:8px}
+  .lead{color:var(--muted);font-size:15px;max-width:780px}
+  .pill{display:inline-block;background:var(--chip);border:1px solid var(--line);border-radius:999px;padding:3px 11px;font-size:12.5px;color:var(--muted);margin:2px 4px 2px 0}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin:18px 0}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
+  .kpi .v{font-size:26px;font-weight:700;letter-spacing:-.5px}
+  .kpi .l{color:var(--muted);font-size:12.5px;margin-top:4px}
+  .kpi.good .v{color:var(--good)} .kpi.bad .v{color:var(--bad)} .kpi.warn .v{color:var(--warn)} .kpi.acc .v{color:var(--accent)}
+  table{width:100%;border-collapse:collapse;margin:10px 0 6px;font-size:14px}
+  th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--line)}
+  th{color:var(--muted);font-weight:600;font-size:12.5px;text-transform:uppercase;letter-spacing:.3px}
+  td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+  tr:hover td{background:#1b2128}
+  .bar{height:7px;border-radius:4px;background:var(--accent);display:inline-block;vertical-align:middle}
+  .note{background:#15191f;border-left:3px solid var(--accent);padding:12px 16px;border-radius:0 8px 8px 0;margin:14px 0;color:var(--muted);font-size:14px}
+  .note.warn{border-color:var(--warn)} .note.bad{border-color:var(--bad)} .note.good{border-color:var(--good)}
+  .note b{color:var(--ink)}
+  .tag{font-size:11.5px;padding:1px 7px;border-radius:6px;font-weight:600}
+  .tag.h{background:rgba(52,199,89,.15);color:var(--good)} .tag.m{background:rgba(255,176,32,.15);color:var(--warn)} .tag.l{background:rgba(255,92,92,.15);color:var(--bad)}
+  .hyp{font-style:italic;color:var(--warn);font-size:13px}
+  ul{margin:8px 0 8px 0;padding-left:20px} li{margin:5px 0}
+  .footer{margin-top:50px;padding-top:18px;border-top:1px solid var(--line);color:var(--muted);font-size:12.5px}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+  @media(max-width:720px){.two{grid-template-columns:1fr}}
+  .win{font-weight:700}
+  code{background:var(--chip);padding:1px 6px;border-radius:5px;font-size:12.5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Анализ продаж Belberry</h1>
+  <div class="sub">Воронка <b>[10] «Продажи»</b> · выигранные сделки (<code>C10:WON</code>) · последние 12 месяцев</div>
+  <div class="sub">Период: <b>12.05.2025 — 12.05.2026</b> (скользящие 365 дней от макс. даты закрытия) · Источник: live Bitrix24 <code>belberrycrm</code>, read-only · Подготовлено 18.06.2026</div>
+  <div style="margin-top:10px">
+    <span class="pill">51 выигранная сделка</span>
+    <span class="pill">46 компаний</span>
+    <span class="pill">8,77 млн ₽</span>
+    <span class="pill">медицина — 72% выручки</span>
+  </div>
+
+  <div class="note warn"><b>Главное ограничение.</b> Выборка мала — 51 сделка. Выводы по каналам и услугам в целом надёжны; всё по телемаркетингу (n=4) и подсегментам — <span class="hyp">[гипотеза]</span>, требует подтверждения. Это <b>не вся выручка агентства</b>: возобновляемые/ретеншн-оплаты живут в других воронках ([44], [22]) и сюда не входят.</div>
+
+  <!-- ============ EXECUTIVE ============ -->
+  <h2>1. Ключевые цифры</h2>
+  <div class="cards">
+    <div class="kpi"><div class="v">51</div><div class="l">выигранных сделок</div></div>
+    <div class="kpi"><div class="v">8,77 млн ₽</div><div class="l">суммарная выручка</div></div>
+    <div class="kpi acc"><div class="v">172 тыс.</div><div class="l">средний чек ₽</div></div>
+    <div class="kpi"><div class="v">46</div><div class="l">уникальных клиентов</div></div>
+    <div class="kpi good"><div class="v">10,2%</div><div class="l">доля телемаркетинга по выручке</div></div>
+    <div class="kpi warn"><div class="v">15%</div><div class="l">общий win-rate воронки [10]</div></div>
+  </div>
+  <ul>
+    <li><b>Телемаркетинг (строго):</b> 4 сделки · 894 тыс. ₽ · 10,2% выручки · средний чек <b>224 тыс.</b> (медиана 237 тыс.).</li>
+    <li><b>Остальные продажи:</b> 47 сделок · 7,87 млн ₽ · 89,8% · средний чек 168 тыс. (медиана 126 тыс.).</li>
+    <li><b>Чек у телемаркетинга выше</b> на 33%, но объём кратно меньше.</li>
+    <li><b>Сегмент-ядро — медицина:</b> 35 из 51 сделки и 6,34 млн ₽ (72% выручки).</li>
+    <li><b>Чаще всего покупают</b> SEO (14) и пакет «Программа» (15); самый дорогой чек — разработка сайтов (~329 тыс.).</li>
+    <li><b>Главный вывод:</b> телемаркетинг малочислен, но приводит дорогих качественных клиентов на связку SEO + AI-SEO. Узкое место — низкая конверсия встреч в оплату и 25% выручки без размеченного источника.</li>
+  </ul>
+
+  <!-- ============ TM DEFINITION ============ -->
+  <h2>2. Телемаркетинг vs остальные</h2>
+  <div class="sub">Определение: <b>сделка из ТМ = первую встречу (смарт-процесс SP1048) создал действующий телемаркетолог</b> — Исаева Дарья (2772) или Вострецов Аркадий (2832). Уволенные сотрудники с этой должностью исключены.</div>
+  <table>
+    <tr><th>Показатель</th><th class="n">Телемаркетинг</th><th class="n">Остальные</th></tr>
+    <tr><td>Сделок</td><td class="n">4</td><td class="n">47</td></tr>
+    <tr><td>Уникальных клиентов</td><td class="n">4</td><td class="n">42</td></tr>
+    <tr><td>Сумма, ₽</td><td class="n">894 288</td><td class="n">7 874 076</td></tr>
+    <tr><td>Доля выручки</td><td class="n win">10,2%</td><td class="n">89,8%</td></tr>
+    <tr><td>Средний чек, ₽</td><td class="n win">223 572</td><td class="n">167 534</td></tr>
+    <tr><td>Медианный чек, ₽</td><td class="n win">236 650</td><td class="n">126 112</td></tr>
+    <tr><td>Мин / Макс, ₽</td><td class="n">132 300 / 288 688</td><td class="n">34 000 / 699 483</td></tr>
+    <tr><td>Медиана выручки клиента</td><td class="n">60 млн</td><td class="n">263 млн</td></tr>
+    <tr><td>Товары</td><td class="n">SEO ×4, AEO ×2</td><td class="n">Program, SMM, WD</td></tr>
+  </table>
+  <h3>Все 4 сделки телемаркетинга (первую встречу создала Исаева Дарья)</h3>
+  <table>
+    <tr><th>Сделка</th><th class="n">Сумма ₽</th><th>Клиент</th><th>Товары</th><th>Регион</th><th class="n">Выручка</th></tr>
+    <tr><td>16266</td><td class="n">288 688</td><td>ТЕМЕД Новокузнецкая</td><td>SEO + AEO</td><td>Москва</td><td class="n">51 млн</td></tr>
+    <tr><td>16270</td><td class="n">256 100</td><td>МЕДИНТЕГ</td><td>SEO + Program</td><td>Москва</td><td class="n">68 млн</td></tr>
+    <tr><td>16234</td><td class="n">217 200</td><td>Наше здоровье</td><td>SEO + AEO</td><td>Санкт-Петербург</td><td class="n">141 млн</td></tr>
+    <tr><td>18396</td><td class="n">132 300</td><td>ЦДЗ</td><td>SEO</td><td>Москва</td><td class="n">47 млн</td></tr>
+  </table>
+  <div class="note"><b>AEO (AI-SEO) встречается только в ТМ-сделках</b> (2 из 2 по всей базе) — новый продукт двигается обзвоном. <b>Все 4 клиента — Москва/СПб</b> (по полю региона в сделке; «ТЕМЕД Новокузнецкая» зарегистрирована в Москве, на ул. Новокузнецкой). Весь зафиксированный результат ТМ держится на одном человеке (Исаева); Вострецов создал 42 встречи, но ни одна не стала первой встречей выигранной [10]-сделки. <span class="hyp">[гипотеза: учёт встреч второго ТМ либо привязка к другим воронкам]</span></div>
+
+  <!-- ============ OVERALL ============ -->
+  <h2>3. Общая картина за 12 месяцев</h2>
+  <h3>По источникам (все сделки)</h3>
+  <table>
+    <tr><th>Источник</th><th class="n">Сделок</th><th class="n">Клиентов</th><th class="n">Сумма ₽</th><th class="n">Доля</th><th class="n">Ср. чек ₽</th></tr>
+    <tr><td>Не выяснено</td><td class="n">14</td><td class="n">12</td><td class="n">2 233 998</td><td class="n">25%</td><td class="n">159 571</td></tr>
+    <tr><td>Холодный звонок</td><td class="n">7</td><td class="n">7</td><td class="n">1 428 133</td><td class="n">16%</td><td class="n">204 019</td></tr>
+    <tr><td>SEO (органика)</td><td class="n">8</td><td class="n">7</td><td class="n">1 070 007</td><td class="n">12%</td><td class="n">133 751</td></tr>
+    <tr><td>Контекстная реклама</td><td class="n">6</td><td class="n">6</td><td class="n">1 050 983</td><td class="n">12%</td><td class="n">175 164</td></tr>
+    <tr><td>Телемаркетинг</td><td class="n">3</td><td class="n">3</td><td class="n">761 988</td><td class="n">9%</td><td class="n">253 996</td></tr>
+    <tr><td>Личный контакт</td><td class="n">7</td><td class="n">6</td><td class="n">652 800</td><td class="n">7%</td><td class="n">93 257</td></tr>
+    <tr><td>Нейросети</td><td class="n">3</td><td class="n">3</td><td class="n">579 815</td><td class="n">7%</td><td class="n">193 272</td></tr>
+    <tr><td>Рекомендация / Копирайт в футере / Развитие клиента</td><td class="n">3</td><td class="n">3</td><td class="n">990 640</td><td class="n">11%</td><td class="n">330 213</td></tr>
+  </table>
+  <div class="note bad"><b>25% выручки — источник «Не выяснено».</b> Четверть денег не атрибутируется ни к одному каналу — это первоочередная проблема учёта, искажающая любую оценку эффективности.</div>
+
+  <h3>По услугам <span style="color:var(--muted);font-weight:400;font-size:13px">(по фактическому названию товара в сделке)</span></h3>
+  <table>
+    <tr><th>Товар</th><th class="n">Строк</th><th class="n">Компаний</th><th class="n">≈Сумма ₽</th><th class="n">≈Чек/строку</th></tr>
+    <tr><td>WD <span style="color:var(--muted)">— разработка сайта</span></td><td class="n">6</td><td class="n">5</td><td class="n">1 976 920</td><td class="n win">329 487</td></tr>
+    <tr><td>SEO</td><td class="n">14</td><td class="n">14</td><td class="n">1 894 597</td><td class="n">135 328</td></tr>
+    <tr><td>Program <span style="color:var(--muted)">— пакет</span></td><td class="n">15</td><td class="n">15</td><td class="n">1 171 471</td><td class="n">78 098</td></tr>
+    <tr><td>SMM</td><td class="n">8</td><td class="n">7</td><td class="n">809 042</td><td class="n">101 130</td></tr>
+    <tr><td>WDT <span style="color:var(--muted)">— разработка turnkey</span></td><td class="n">3</td><td class="n">3</td><td class="n">779 159</td><td class="n">259 720</td></tr>
+    <tr><td>ORM</td><td class="n">6</td><td class="n">6</td><td class="n">757 441</td><td class="n">126 240</td></tr>
+    <tr><td>PPC <span style="color:var(--muted)">— контекст</span></td><td class="n">6</td><td class="n">6</td><td class="n">484 596</td><td class="n">80 766</td></tr>
+    <tr><td>LP <span style="color:var(--muted)">— лендинг</span></td><td class="n">3</td><td class="n">3</td><td class="n">370 120</td><td class="n">123 373</td></tr>
+    <tr><td>AEO <span style="color:var(--muted)">— AI-SEO</span></td><td class="n">2</td><td class="n">2</td><td class="n">252 944</td><td class="n">126 472</td></tr>
+    <tr><td>Audit <span style="color:var(--muted)">— аудит</span></td><td class="n">1</td><td class="n">1</td><td class="n">65 075</td><td class="n">65 075</td></tr>
+  </table>
+  <div class="note">SEO и Program — самые массовые точки входа; WD (разработка сайтов) — самый высокий чек. <b>AEO (AI-SEO)</b> покупают только через телемаркетинг. Названия товаров — короткие коды каталога Bitrix, как заведено в сделках.</div>
+
+  <!-- ============ TM ACTIVITY ============ -->
+  <h2>4. Активность телемаркетинга: встречи → исходы</h2>
+  <div class="sub">Все встречи действующих ТМ (Исаева 141 + Вострецов 42 = 183) привязаны к <b>160 сделкам</b> в двух воронках: [10] Продажи — 106, [50] Телемаркетинг — 54.</div>
+  <div class="cards">
+    <div class="kpi bad"><div class="v">102</div><div class="l">отвалились (64%)</div></div>
+    <div class="kpi warn"><div class="v">54</div><div class="l">в работе (34%)</div></div>
+    <div class="kpi good"><div class="v">4</div><div class="l">выиграны (2,5%)</div></div>
+    <div class="kpi"><div class="v">2,5%</div><div class="l">конверсия встреч в оплату</div></div>
+  </div>
+
+  <h3>Куда назначают встречи (регион — из поля сделки, покрытие 160/160)</h3>
+  <table>
+    <tr><th>Город</th><th class="n">Встреч</th><th class="n">Отвал</th><th class="n">В работе</th><th class="n">Выиграно</th></tr>
+    <tr><td>Москва</td><td class="n">84</td><td class="n">53</td><td class="n">28</td><td class="n">3</td></tr>
+    <tr><td>Санкт-Петербург</td><td class="n">19</td><td class="n">7</td><td class="n">11</td><td class="n">1</td></tr>
+    <tr><td>Краснодар</td><td class="n">4</td><td class="n">4</td><td class="n">0</td><td class="n">0</td></tr>
+    <tr><td>Новосибирск</td><td class="n">4</td><td class="n">2</td><td class="n">2</td><td class="n">0</td></tr>
+    <tr><td>Одинцово / Нижний Новгород</td><td class="n">6</td><td class="n">4</td><td class="n">2</td><td class="n">0</td></tr>
+    <tr><td>прочие города (≈40, по 1–2)</td><td class="n">43</td><td class="n">~33</td><td class="n">~10</td><td class="n">0</td></tr>
+  </table>
+  <div class="note"><b>Обзвон сконцентрирован на столицах:</b> Москва (84) + СПб (19) = 64% всех встреч. Регионы — единичные сделки, почти все отваливаются. <span style="color:var(--muted)">Регион взят из поля сделки (<code>UF_CRM_5FB3854A1EDBC</code>), а не из карточки компании — в кэше компаний у части записей оно было пустым; по сделке заполнено у всех 160.</span></div>
+
+  <h3>Причины отвала в воронке [10] Продажи (56 сделок, поле <code>UF_CRM_1771495464</code>)</h3>
+  <div class="sub">Причина заполнена у всех 56 — в [10] учёт причин рабочий (в отличие от [50], где 2/3 пустые).</div>
+  <table>
+    <tr><th>Причина</th><th class="n">Сделок</th><th class="n">Доля</th><th class="n">Медиана выручки</th><th>Концентрация</th></tr>
+    <tr><td>Нет связи (гостинг)</td><td class="n">14</td><td class="n">25%</td><td class="n">115 млн</td><td>Москва, СПб</td></tr>
+    <tr><td>Свой исполнитель / инхаус</td><td class="n">12</td><td class="n">21%</td><td class="n">86 млн</td><td>Москва (6)</td></tr>
+    <tr><td>Передумали / неактуально</td><td class="n">10</td><td class="n">18%</td><td class="n">51 млн</td><td>Москва (6)</td></tr>
+    <tr><td>Нехватка бюджета / нет финмодели</td><td class="n">9</td><td class="n">16%</td><td class="n win">171 млн</td><td>Москва (7)</td></tr>
+    <tr><td>Ушли к конкурентам</td><td class="n">7</td><td class="n">12%</td><td class="n">92 млн</td><td>СПб (3)</td></tr>
+    <tr><td>Нет услуги / технически</td><td class="n">3</td><td class="n">5%</td><td class="n">67 млн</td><td>—</td></tr>
+    <tr><td>СПАМ</td><td class="n">1</td><td class="n">2%</td><td class="n">—</td><td>—</td></tr>
+  </table>
+  <div class="note"><b>Парадокс «нехватки бюджета».</b> У этой причины самая высокая медиана выручки (171 млн) — значит дело не в бедности клиента, а в том, что он не выделяет деньги на маркетинг / не видит окупаемости. Это вопрос аргументации ценности, а не размера компании.</div>
+
+  <!-- ============ REVENUE / WIN-RATE ============ -->
+  <h2>5. Выручка клиента и конверсия</h2>
+  <div class="sub">Проверка гипотезы «теряем мелких» — и поиск порога выручки, выше которого растёт конверсия. Win-rate = WON / (WON+LOSE) по всей воронке [10] за 12 мес. (331 закрытая сделка).</div>
+  <table>
+    <tr><th>Годовая выручка клиента</th><th class="n">WON</th><th class="n">LOSE</th><th class="n">Всего</th><th class="n">Win-rate</th><th>график</th></tr>
+    <tr><td>до 30 млн</td><td class="n">4</td><td class="n">27</td><td class="n">31</td><td class="n bad">13%</td><td><span class="bar" style="width:26px"></span></td></tr>
+    <tr><td>30–100 млн</td><td class="n">12</td><td class="n">35</td><td class="n">47</td><td class="n">26%</td><td><span class="bar" style="width:52px"></span></td></tr>
+    <tr><td>100–300 млн</td><td class="n">8</td><td class="n">29</td><td class="n">37</td><td class="n">22%</td><td><span class="bar" style="width:44px"></span></td></tr>
+    <tr><td>300 млн – 1 млрд</td><td class="n">9</td><td class="n">21</td><td class="n">30</td><td class="n">30%</td><td><span class="bar" style="width:60px"></span></td></tr>
+    <tr><td>1 млрд+</td><td class="n">6</td><td class="n">9</td><td class="n">15</td><td class="n good">40%</td><td><span class="bar" style="width:80px;background:var(--good)"></span></td></tr>
+    <tr><td>нет данных</td><td class="n">12</td><td class="n">159</td><td class="n">171</td><td class="n bad">7%</td><td><span class="bar" style="width:14px;background:var(--bad)"></span></td></tr>
+    <tr style="font-weight:700"><td>ИТОГО</td><td class="n">51</td><td class="n">280</td><td class="n">331</td><td class="n">15%</td><td></td></tr>
+    <tr><td><i>с известной выручкой</i></td><td class="n">39</td><td class="n">121</td><td class="n">160</td><td class="n">24%</td><td></td></tr>
+  </table>
+  <div class="note good"><b>Конверсия растёт с выручкой клиента:</b> от 13% (&lt;30 млн) до 40% (1 млрд+) — разница в 3 раза. Жёсткой «ступеньки» нет, но выше ~300 млн закрывается заметно лучше (30–40%).</div>
+  <div class="note bad"><b>Главная дыра — «нет данных» (52% воронки, win-rate 7%).</b> У половины закрытых сделок выручка вообще не заполнена, и они почти не конвертятся. <span class="hyp">[гипотеза: это неквалифицированные / необогащённые лиды]</span>. Отсутствие квалификации = 7% против 24% у квалифицированных.</div>
+  <div class="note warn"><b>Гипотеза «теряем мелких» — опровергнута в части объёма.</b> Среди проигранных сделок с известной выручкой медиана = 81 млн, мелких (&lt;30 млн) лишь 7 из 56. Проигрывают в основном <b>средние</b> компании (их в воронке большинство). Но <b>по win-rate</b> мелкие действительно хуже всех (13%) — порог отсечения по &lt;30 млн осмыслен.</div>
+
+  <!-- ============ CONCLUSIONS ============ -->
+  <h2>6. Выводы и рекомендации</h2>
+  <table>
+    <tr><th>Вывод</th><th>Уверенность</th></tr>
+    <tr><td>Телемаркетинг даёт мало сделок, но дорогих и качественных (медцентры, SEO + AI-SEO)</td><td><span class="tag l">низкая · n=4</span></td></tr>
+    <tr><td>Весь результат ТМ держится на одном сотруднике (Исаева); у Вострецова 0 выигрышей в [10]</td><td><span class="tag h">высокая</span></td></tr>
+    <tr><td>Конверсия растёт с выручкой клиента (13% → 40%); крупные закрываются лучше</td><td><span class="tag m">средняя</span></td></tr>
+    <tr><td>Незаполненная выручка — маркер мёртвого лида (win-rate 7%)</td><td><span class="tag m">средняя</span></td></tr>
+    <tr><td>В [10] теряют не из-за «мелкости», а из-за инхауса, отсутствия ROI-аргументации и гостинга</td><td><span class="tag m">средняя</span></td></tr>
+    <tr><td>25% выручки без размеченного источника</td><td><span class="tag h">высокая</span></td></tr>
+  </table>
+
+  <h3>Рекомендации</h3>
+  <ul>
+    <li><b>Разобрать конверсию Вострецова</b> — 42 встречи и 0 закрытых [10]; проверить качество назначения и привязку к воронкам.</li>
+    <li><b>Масштабировать доказанный профиль ТМ:</b> связка SEO + AI-SEO для медцентров — все 4 выигрыша по этому шаблону.</li>
+    <li><b>Таргетировать медбизнес от ~100–300 млн выручки</b> — конверсия там в 2–3 раза выше, чем у мелких.</li>
+    <li><b>Квалифицировать по выручке ДО встречи</b> и обязательно заполнять её в CRM — пустая выручка коррелирует с провалом (7%).</li>
+    <li><b>Отсекать на входе инхаус-команды и «не находящих бюджет»</b> — вместе ~37% отвалов в [10]; для них нужна отдельная ROI-аргументация.</li>
+    <li><b>Сделать <code>SOURCE_ID</code> обязательным на стадии WON</b> и разметить 14 сделок «Не выяснено».</li>
+    <li><b>Усилить контекст и органический SEO</b> как масштабируемые входящие каналы крупных клиентов (контекст — медиана выручки 669 млн).</li>
+    <li><b>Кросс-сейл от SEO:</b> к каждой SEO-сделке предлагать AI-SEO и контекст; разработку сайтов (чек 329 тыс.) продавать как апсейл.</li>
+    <li><b>Для СПб — отдельная ценовая аргументация</b> против «дешёвого конкурента» (там теряют через конкурентов).</li>
+    <li><b>Нормализовать справочник регионов и почистить мусорные карточки</b> («данные не найдены» держит 993 тыс. ₽).</li>
+  </ul>
+
+  <h3>Что проверить дополнительно</h3>
+  <ul>
+    <li>Почему за 12 мес. в [10] лишь 51 WON, а исторически 372 (321 — до мая 2025)? Миграция, смена воронки или падение?</li>
+    <li>Где учитываются возобновляемые/ретеншн-оплаты ([44], [22])? Без них объём не отражает выручку агентства.</li>
+    <li>Дозаполнить выручку по проигранным сделкам (52% пусто) и пересчитать win-rate по диапазонам.</li>
+    <li>Обязать телемаркетологов фиксировать первую встречу в SP1048 — иначе доля ТМ занижена.</li>
+  </ul>
+
+  <div class="footer">
+    Подготовлено в read-only режиме (Bitrix24 belberrycrm), без write-операций. Периметр: воронка [10] «Продажи», стадия C10:WON, 12.05.2025–12.05.2026.<br>
+    Определение телемаркетинга: первую встречу (SP1048) создал действующий телемаркетолог (Исаева 2772 / Вострецов 2832). Все суммы в рублях, округление разумное.<br>
+    Ограничение выборки: 51 выигранная сделка; n по подсегментам мал — пометки <span class="hyp">[гипотеза]</span> обязательны к учёту.
+  </div>
+
+</div>
+</body>
+</html>
