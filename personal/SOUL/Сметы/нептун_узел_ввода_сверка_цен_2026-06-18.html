@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Нептун — узел ввода: сверка цен сметы с рынком</title>
+<style>
+  :root{
+    --bg:#0f1115; --card:#171a21; --line:#262b36; --ink:#e8eaed; --muted:#9aa3b2;
+    --good:#22c55e; --warn:#f59e0b; --bad:#ef4444; --accent:#60a5fa; --pink:#f6d9e0; --pinkd:#9a3b54;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,Arial,sans-serif;padding:28px}
+  .wrap{max-width:1000px;margin:0 auto}
+  h1{font-size:24px;margin:0 0 4px}
+  .sub{color:var(--muted);margin:0 0 20px;font-size:14px}
+  .verdict{background:linear-gradient(135deg,#102818,#0f1115);border:1px solid #1e4d2e;border-left:4px solid var(--good);border-radius:12px;padding:16px 18px;margin:0 0 22px}
+  .verdict b{color:var(--good)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:4px 0;overflow:hidden;margin:0 0 22px}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{padding:11px 14px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+  tr:last-child td{border-bottom:none}
+  .num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+  .total td{background:#1d212b;font-weight:700;font-size:15px}
+  .pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600}
+  .p-good{background:rgba(34,197,94,.15);color:var(--good)}
+  .p-warn{background:rgba(245,158,11,.15);color:var(--warn)}
+  .p-mid{background:rgba(96,165,250,.15);color:var(--accent)}
+  .p-bad{background:rgba(239,68,68,.15);color:var(--bad)}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
+  .src{font-size:13px;color:var(--muted)}
+  .src a{margin-right:2px}
+  h2{font-size:16px;margin:26px 0 10px;border-left:3px solid var(--accent);padding-left:10px}
+  .flags li{margin:6px 0}
+  .flag-warn::marker{content:"⚠ "}
+  .meta{font-size:13px;color:var(--muted);margin:0 0 18px}
+  .meta b{color:var(--ink)}
+  footer{color:var(--muted);font-size:12px;margin-top:28px;border-top:1px solid var(--line);padding-top:14px}
+  code{background:#222733;padding:1px 6px;border-radius:5px;font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Нептун — узел ввода: сверка цен</h1>
+  <p class="sub">Смета подрядчика «Расчёт стоимости материалов и работ на монтаж системы» · сверка с рынком на 18.06.2026</p>
+
+  <p class="meta">
+    <b>Адрес в бланке:</b> Часовая 32, кв 192 &nbsp;·&nbsp;
+    <b>Раздел:</b> только «1. УЗЕЛ ВВОДА» (датчики + краны), без модуля Смарт+, БП и работ
+  </p>
+
+  <div class="verdict">
+    <b>Смета 48 230 ₽ ≈ рынок</b> (самостоятельная закупка по самым дешёвым в наличии ~48 800 ₽).
+    На <b>датчиках SW005 переплата ~5 900 ₽</b> (1 654 vs 1 000 в наличии), но на <b>кранах Profi экономия ~6 700 ₽</b>
+    (6 086 vs 7 756+ в наличии) — взаимно компенсируется. Реальный рычаг для торга: пересчитать SW005 по ~1 000–1 100 ₽.
+  </div>
+
+  <div class="card">
+  <table>
+    <thead>
+      <tr>
+        <th>Позиция</th>
+        <th class="num">Кол-во</th>
+        <th class="num">Смета ₽/шт</th>
+        <th class="num">Смета итог</th>
+        <th>Рынок ₽/шт (в наличии)</th>
+        <th>Оценка</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>NEPTUN <b>SW005</b> датчик протечки 5,0&nbsp;м</td>
+        <td class="num">9</td>
+        <td class="num">1 654</td>
+        <td class="num">14 886</td>
+        <td>
+          <a href="https://mossan.ru/neptun-sw005-provodnoy-datchik-kontrolya-protechki-vody-5m" target="_blank"><b>MosSan 1 000 (в наличии)</b></a>;
+          Lunda 3м 1 991; розница (Teploluxe / neptunsale) 1 990
+        </td>
+        <td><span class="pill p-bad">дороже рынка ~650/шт</span></td>
+      </tr>
+      <tr>
+        <td>NEPTUN <b>Smart 868</b> радиодатчик</td>
+        <td class="num">2</td>
+        <td class="num">4 500</td>
+        <td class="num">9 000</td>
+        <td>
+          <a href="https://www.vseinstrumenti.ru/product/radiodatchik-neptun-smart-868-084407-1619805/" target="_blank">снят с поставок, посл. 4 331</a>;
+          замена 868.2 ~4 373–5 990
+        </td>
+        <td><span class="pill p-warn">позиции нет в продаже</span></td>
+      </tr>
+      <tr>
+        <td>NEPTUN кран <b>Profi 12В 1/2″</b> с электроприводом</td>
+        <td class="num">4</td>
+        <td class="num">6 086</td>
+        <td class="num">24 344</td>
+        <td>
+          <a href="https://www.santexbaza.ru/sistema-kontrolya-protechki-vody-neptun/neptun/sharovyy-kran-profi-12v-12-s-elektroprivodom/" target="_blank">santexbaza 7 756</a>,
+          <a href="https://samoreg.ru/catalog/zashchita-ot-potopa/sharovye-krany-s-elektroprivodom/kran-s-elektroprivodom-neptun-profi-12v-1-2.html" target="_blank">samoreg 8 990</a>,
+          <a href="https://neptunsale.ru/products/neptun-profi-12v-1-2" target="_blank">neptunsale 9 990</a>
+        </td>
+        <td><span class="pill p-good">ниже рынка — выгодно</span></td>
+      </tr>
+      <tr class="total">
+        <td>ИТОГО</td>
+        <td class="num"></td>
+        <td class="num"></td>
+        <td class="num">48 230 ₽</td>
+        <td></td>
+        <td></td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2>Смета vs самая дешёвая закупка в наличии</h2>
+  <div class="card">
+  <table>
+    <thead><tr><th>Позиция</th><th class="num">Смета</th><th class="num">Дешёвое в наличии</th><th>Δ</th></tr></thead>
+    <tbody>
+      <tr><td>SW005 5м ×9</td><td class="num">14 886</td><td class="num">9 000 (MosSan 1 000)</td><td><span class="pill p-bad">смета дороже на 5 886</span></td></tr>
+      <tr><td>Smart 868 ×2</td><td class="num">9 000</td><td class="num">~8 800 (868.2 со скидкой)</td><td><span class="pill p-mid">≈ ровно</span></td></tr>
+      <tr><td>Profi 12В 1/2″ ×4</td><td class="num">24 344</td><td class="num">31 024 (santexbaza 7 756)</td><td><span class="pill p-good">смета дешевле на 6 680</span></td></tr>
+      <tr class="total"><td>ИТОГО</td><td class="num">48 230</td><td class="num">~48 824</td><td>≈ ровно</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>
+    Переплата на датчиках SW005 (~5 900 ₽) почти точно гасится экономией на кранах Profi (~6 700 ₽).
+    В сумме смета равна рынку или чуть дешевле. <b>Реальный рычаг для торга</b> — попросить пересчитать
+    датчики SW005 по живой цене ~1 000–1 100 ₽/шт (краны оставить).
+  </p>
+
+  <h2>Что проверить перед заказом</h2>
+  <ul class="flags">
+    <li class="flag-warn"><b>Адрес «кв 192» ≠ кв 194.</b> В договоре/проекте у нас кв 194 — опечатка в бланке или это смета по соседней квартире?</li>
+    <li class="flag-warn"><b>Smart 868 снят с производства</b> (заменён на Smart 868.2 ~5 990 ₽). Уточнить: ставят остатки 868 или 868.2, и держится ли цена 4 500 ₽/шт.</li>
+    <li><b>Это только узел ввода.</b> Полная система = + модуль Смарт+ / радиомодуль + блок питания + работа. Запросить итоговую спецификацию.</li>
+    <li><b>4 крана 1/2″</b> — под стояки ХВС/ГВС. Краны <code>Ду40</code> на холодоснабжение фанкойлов (из проекта ОВ) — отдельный размер, в этом узле их нет.</li>
+  </ul>
+
+  <footer>
+    Сверка цен: 18.06.2026, МСК · источники — Lunda, Teploluxe, neptunsale, vseinstrumenti, santexbaza, samoreg.
+    Цены параллельного/розничного рынка, меняются; перед заказом подтвердить наличие.
+  </footer>
+</div>
+</body>
+</html>

@@ -1,0 +1,10 @@
+.obsidian/workspace*
+.obsidian/cache
+.obsidian/plugins/*/data.json
+.trash/
+.env
+.env.*
+*.pem
+*.key
+.cloudbot.lock
+.DS_Store
