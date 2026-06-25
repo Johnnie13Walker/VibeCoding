@@ -36,6 +36,10 @@ CALLS_WALL_SEC = int(os.environ.get("SCC_AUDIO_CALLS_WALL_SEC", "150"))  # на 
 VIDEO_WALL_SEC = int(os.environ.get("SCC_AUDIO_VIDEO_WALL_SEC", "180"))  # на одну видеозапись
 CALL_MAX_CHARS = int(os.environ.get("SCC_AUDIO_CALL_MAX_CHARS", "3000"))  # потом обрежется до PER_CALL_CHARS
 VIDEO_MAX_CHARS = int(os.environ.get("SCC_AUDIO_VIDEO_MAX_CHARS", "14000"))  # ~суть встречи, потом обрезка
+# Видеовстреча бывает 1–2 часа и при прямой подаче в faster-whisper съедает >3 ГБ RAM
+# → OOM-kill воркера (сервер 3.7 ГБ). Поэтому сначала ПОТОКОВО извлекаем аудиодорожку
+# в маленький wav (16кГц моно), обрезая по времени — память не зависит от размера видео.
+VIDEO_MAX_SEC = int(os.environ.get("SCC_AUDIO_VIDEO_MAX_SEC", "1200"))  # первые 20 мин встречи
 # Сервис-аккаунт Google для скачивания видеозаписей встреч с Drive. Чтобы он видел
 # запись, папку записей нужно расшарить на его email (см. SA .json client_email).
 GOOGLE_SA = os.environ.get(
@@ -108,6 +112,38 @@ def _get_model():
 
         _MODEL = WhisperModel(WHISPER_MODEL, device="cpu", compute_type="int8")
     return _MODEL
+
+
+def _extract_audio_to_wav(src_path: str, dst_wav: str, max_sec: int) -> bool:
+    """Потоково декодирует аудиодорожку media-файла в маленький wav (16кГц моно s16),
+    обрезая по времени. Декод по кадру → пиковая память не растёт с длиной/размером видео
+    (фикс OOM на часовых видеовстречах). Вернёт True, если что-то записали."""
+    import wave
+
+    import av  # бандлится с faster-whisper (PyAV)
+
+    container = av.open(src_path)
+    astream = next((s for s in container.streams if s.type == "audio"), None)
+    if astream is None:
+        container.close()
+        return False
+    resampler = av.AudioResampler(format="s16", layout="mono", rate=16000)
+    wrote = False
+    wf = wave.open(dst_wav, "wb")
+    wf.setnchannels(1)
+    wf.setsampwidth(2)
+    wf.setframerate(16000)
+    try:
+        for frame in container.decode(astream):
+            for rf in resampler.resample(frame):
+                wf.writeframes(bytes(rf.planes[0]))
+                wrote = True
+            if frame.time is not None and frame.time >= max_sec:
+                break
+    finally:
+        wf.close()
+        container.close()
+    return wrote
 
 
 def _transcribe_segments(path: str, deadline: float | None, max_chars: int | None) -> str | None:
@@ -199,7 +235,8 @@ def transcribe_meeting_video(url: str) -> tuple[str | None, str]:
     """Видеозапись встречи → текст. Вернёт (text|None, status).
     Поддерживает Google Drive (через сервис-аккаунт) и прямые URL."""
     fid = _drive_file_id(url)
-    with tempfile.NamedTemporaryFile(suffix=".mp4", delete=True) as f:
+    with tempfile.NamedTemporaryFile(suffix=".mp4", delete=True) as f, \
+            tempfile.NamedTemporaryFile(suffix=".wav", delete=True) as w:
         if fid:
             ok, reason = _drive_download(fid, f.name)
             if not ok:
@@ -210,10 +247,16 @@ def transcribe_meeting_video(url: str) -> tuple[str | None, str]:
                 return None, "download failed"
             f.write(body)
             f.flush()
-        # Видео встречи — самая длинная запись: жёсткий wall-clock + лимит символов,
-        # чтобы 40-минутка не растягивала аудит на полчаса.
+        # Сначала ПОТОКОВО вытаскиваем первые VIDEO_MAX_SEC аудио в маленький wav — иначе
+        # часовое видео грузится в память целиком и убивает воркер по OOM. Дальше Whisper
+        # читает уже крошечный wav. + wall-clock и лимит символов (чтобы не растягивало аудит).
+        try:
+            if not _extract_audio_to_wav(f.name, w.name, VIDEO_MAX_SEC):
+                return None, "no audio track"
+        except Exception as exc:  # битый контейнер / нет кодека — не валим аудит
+            return None, f"decode error: {type(exc).__name__}"
         text = _transcribe_file(
-            f.name, deadline=time.monotonic() + VIDEO_WALL_SEC, max_chars=VIDEO_MAX_CHARS)
+            w.name, deadline=time.monotonic() + VIDEO_WALL_SEC, max_chars=VIDEO_MAX_CHARS)
     return (text, "ok") if text else (None, "empty transcript")
 
 
