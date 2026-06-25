@@ -191,11 +191,11 @@ export function AuditView({ initialAudits }: { initialAudits: DealAudit[] }) {
           <div style={{ color: 'var(--bb-faint)', fontSize: 13 }}>Пока пусто — запусти первый аудит.</div>
         ) : (
           <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-          <table className="bb-table" style={{ fontSize: 12.5, minWidth: 1120 }}>
+          <table className="bb-table" style={{ fontSize: 12.5, minWidth: 980 }}>
             <thead><tr>
               {COLS.map((c) => (
                 <th key={c.key} onClick={() => toggleSort(c.key)} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }} title="Сортировать">
-                  {c.label}<span style={{ color: sortKey === c.key ? 'var(--bb-violet)' : 'var(--bb-faint)', marginLeft: 4 }}>{sortKey === c.key ? (sortDir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+                  {c.label}{sortKey === c.key && <span style={{ color: 'var(--bb-violet)', marginLeft: 3, fontSize: 9 }}>{sortDir === 'asc' ? '▲' : '▼'}</span>}
                 </th>
               ))}
               <th></th>
