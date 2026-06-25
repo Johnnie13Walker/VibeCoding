@@ -176,3 +176,7 @@ dist/
 .next.clean-build/
 **/.next/
 **/.next.clean-build/
+**/.preview/
+belberry/sales/kp/*.json
+belberry/sales/kp/problem_solution.html
+belberry/sales/kp/seo_benchmark.html
