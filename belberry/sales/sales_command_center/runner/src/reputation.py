@@ -136,8 +136,67 @@ def _pd_clinic(href: str) -> dict | None:
             "rating": rating, "reviews_count": reviews}
 
 
+# ── Яндекс.Карты через Apify-актор (zen-studio/yandex-maps-scraper) ────────────
+APIFY_TOKEN = os.environ.get("SCC_APIFY_TOKEN", "")
+_YANDEX_ACTOR = "zen-studio~yandex-maps-scraper"
+
+
+def _city_name_from_site(site_text: str | None) -> str | None:
+    if not site_text:
+        return None
+    m = re.search(r"\bг\.?\s*([А-ЯЁ][а-яё-]{2,})", site_text) or \
+        re.search(r"город\s+([А-ЯЁ][а-яё-]{2,})", site_text)
+    return m.group(1) if m else None
+
+
+def yandex_maps(brand: str | None, city: str | None) -> dict | None:
+    """Рейтинг + число отзывов клиента на Яндекс.Картах (через Apify). Лёгкий вызов:
+    без текстов отзывов, маленький лимит — нужен только рейтинг/счётчик."""
+    if not APIFY_TOKEN or not brand:
+        return None
+    q = f"{brand} {city}".strip() if city else brand
+    try:
+        r = requests.post(
+            f"https://api.apify.com/v2/acts/{_YANDEX_ACTOR}/run-sync-get-dataset-items",
+            params={"token": APIFY_TOKEN},
+            json={"query": [q], "maxResults": int(os.environ.get("SCC_YA_MAX", "6")),
+                  "includeReviews": False, "language": "ru"},
+            timeout=int(os.environ.get("SCC_YA_TIMEOUT", "180")),
+        )
+    except Exception:
+        return None
+    if r.status_code not in (200, 201):
+        return None
+    try:
+        items = r.json()
+    except Exception:
+        return None
+    if not isinstance(items, list) or not items:
+        return None
+    want = _name_tokens(brand)
+    # клиент = лучший матч по названию, при равенстве — больше отзывов (главный филиал)
+    def score(it):
+        toks = _name_tokens(it.get("title") or it.get("name") or "")
+        return (len(toks & want), int(it.get("ratingsCount") or it.get("reviewsCount") or 0))
+    items_sorted = sorted(items, key=score, reverse=True)
+    client = items_sorted[0]
+    if score(client)[0] == 0:
+        return None
+    def fmt(it):
+        rat = it.get("rating")
+        return {"name": it.get("title") or it.get("name"),
+                "rating": round(float(rat), 1) if rat is not None else None,
+                "reviews_count": it.get("ratingsCount") or it.get("reviewsCount"),
+                "url": it.get("url")}
+    # конкуренты = прочие из выдачи с рейтингом, не совпадающие с клиентом
+    competitors = [fmt(it) for it in items_sorted[1:5]
+                   if (it.get("rating") or it.get("ratingsCount")) and it.get("title") != client.get("title")]
+    return {"source": "yandex_maps", "found": True, **fmt(client), "competitors": competitors}
+
+
 def collect(company_name: str | None, site_text: str | None) -> dict | None:
-    """Снимок репутации по доступным источникам. Сейчас — ProDoctorov (медтема)."""
+    """Снимок репутации по доступным источникам: ProDoctorov (медтема, без ключа) +
+    Яндекс.Карты (через Apify, любой бизнес). Каждый источник независим, сбой → пропуск."""
     if not REPUTATION_ON:
         return None
     out = {}
@@ -145,6 +204,12 @@ def collect(company_name: str | None, site_text: str | None) -> dict | None:
         pd = prodoctorov(company_name, _city_slug_from_site(site_text))
         if pd:
             out["prodoctorov"] = pd
+    except Exception:
+        pass
+    try:
+        ya = yandex_maps(company_name, _city_name_from_site(site_text))
+        if ya:
+            out["yandex_maps"] = ya
     except Exception:
         pass
     return out or None
