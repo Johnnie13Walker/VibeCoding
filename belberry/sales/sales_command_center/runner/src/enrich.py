@@ -17,14 +17,21 @@ def _mask(text: str) -> str:
     return TOKEN_RE.sub(r"\1=***", text)
 
 
+# Поля с файлом транскрипта. Старое ufCrm16Transcript (memoai PDF) на части встреч
+# пустое — транскрипт теперь кладут в новое файл-поле «Транскрибация встречи (TXT)».
+# Читаем оба, по приоритету; структура у обоих — dict/list с urlMachine.
+TRANSCRIPT_FIELDS = ("ufCrm16Transcript", "ufCrm16_1782395353")
+
+
 def _extract_transcript_url(meeting: dict[str, Any]) -> str | None:
-    value = meeting.get("ufCrm16Transcript")
-    if isinstance(value, dict):
-        return value.get("urlMachine") or None
-    if isinstance(value, list):
-        for item in value:
-            if isinstance(item, dict) and item.get("urlMachine"):
-                return item["urlMachine"]
+    for field in TRANSCRIPT_FIELDS:
+        value = meeting.get(field)
+        if isinstance(value, dict) and value.get("urlMachine"):
+            return value["urlMachine"]
+        if isinstance(value, list):
+            for item in value:
+                if isinstance(item, dict) and item.get("urlMachine"):
+                    return item["urlMachine"]
     return None
 
 
