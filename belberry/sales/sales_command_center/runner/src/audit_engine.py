@@ -92,7 +92,7 @@ def _strip_html(text: str) -> str:
     text = re.sub(r"(?i)<br\s*/?>", "\n", text)
     text = re.sub(r"(?i)</p>", "\n", text)
     text = re.sub(r"<[^>]+>", " ", text)
-    text = html.unescape(text).replace("\xa0", " ")
+    text = html.unescape(text).replace("\xa0", " ").replace("\r", "")
     text = re.sub(r"[ \t]+", " ", text)
     text = re.sub(r"\n\s*\n+", "\n", text)
     return text.strip()
