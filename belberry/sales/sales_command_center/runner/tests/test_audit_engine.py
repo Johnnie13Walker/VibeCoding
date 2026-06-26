@@ -104,3 +104,14 @@ def test_emails_extracts_only_email_activities_with_direction():
     assert emails[0]["direction"] == "входящее" and emails[1]["direction"] == "исходящее"
     assert emails[0]["subject"] == "Запрос КП" and "Пришлите смету" in emails[0]["body"]
     assert emails[0]["date"] == "2026-05-02"  # хронологический порядок по CREATED
+
+
+# ── Живая ветка vs мёртвая (фидбэк сейлза по amoriya 26.06) ───────────────────
+def test_competitor_won_softened_when_deal_is_live():
+    """Конкурент увёл ВЕТКУ, но клиент активно с нами — балл выше, чем у мёртвой сделки.
+    Балл = шанс выиграть бизнес сейчас, а не отыграть упущенное."""
+    base = dict(competitor_won=True, company_revenue=5_000_000, meetings_total=1, briefs_total=2)
+    live = ae.recovery_score(_base_signals(days_since_contact=0, **base))["score"]
+    dead = ae.recovery_score(_base_signals(days_since_contact=200, **base))["score"]
+    assert live > dead + 15  # живой диалог поднимает шанс ощутимо
+    assert live >= 40        # активный клиент с бюджетом — не «почти ноль»
