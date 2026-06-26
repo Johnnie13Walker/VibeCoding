@@ -3,7 +3,7 @@
 ## Context
 
 - Branch: `feat/sales-kpi-cron-deploy`
-- VPS: `cloudbot-ssh-proxy` (`ams-1-vm-76ds`)
+- VPS: `cloudbot-hz` (`ams-1-vm-76ds`)
 - Deploy path: `/opt/cloudbot-runtime/larisa/sales-kpi-dashboard/`
 - Wrapper: `/usr/local/bin/cloudbot-larisa-sales-kpi.sh`
 - Cron: `/etc/cron.d/cloudbot-larisa-sales-kpi`

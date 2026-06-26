@@ -34,7 +34,7 @@
 
 | Переменная | Значение для cloudbot-бокса |
 |---|---|
-| `PRIMARY_HOST` | `72.56.83.251` |
+| `PRIMARY_HOST` | `188.34.206.115` |
 | `SSH_USER` | `root` |
 | `SSH_KEY_PATH` | `/Users/pro2kuror/.ssh/temp_migration_key` |
 | `SSH_PORT` | `22` |
@@ -63,16 +63,16 @@ git show HEAD:cloudbot/apps/lev_petrovich/legacy_sales_agent/sales_formatter.py 
 
 ### 1. Снять живой env с прод-бокса (резерв + источник значений)
 ```bash
-ssh cloudbot-ssh-proxy 'cp -a /etc/openclaw/sales_agent.env /etc/openclaw/sales_agent.env.bak-$(date +%Y%m%d-%H%M%S-MSK)'
+ssh cloudbot-hz 'cp -a /etc/openclaw/sales_agent.env /etc/openclaw/sales_agent.env.bak-$(date +%Y%m%d-%H%M%S-MSK)'
 # скопировать значения SALES_* себе в локальный gitignored файл деплоя:
 mkdir -p ~/.config/vibecoding/cloudbot
-scp -i ~/.ssh/temp_migration_key root@72.56.83.251:/etc/openclaw/sales_agent.env ~/.config/vibecoding/cloudbot/sales_agent.live.env
+scp -i ~/.ssh/temp_migration_key root@188.34.206.115:/etc/openclaw/sales_agent.env ~/.config/vibecoding/cloudbot/sales_agent.live.env
 ```
 
 ### 2. Собрать деплой-env на маке (gitignored, вне репо)
 ```bash
 cat > ~/.config/vibecoding/cloudbot/deploy.env <<'EOF'
-export PRIMARY_HOST=72.56.83.251
+export PRIMARY_HOST=188.34.206.115
 export SSH_USER=root
 export SSH_KEY_PATH=/Users/pro2kuror/.ssh/temp_migration_key
 export SSH_PORT=22
@@ -105,11 +105,11 @@ bash cloudbot/infra/orchestrator/workflows/sales_agent_deploy.sh 2>&1 | tee /tmp
 ### 5. Верификация
 ```bash
 # а) релиз и symlink:
-ssh cloudbot-ssh-proxy 'readlink /opt/cloudbot-runtime/current; cat /opt/cloudbot-runtime/current/RELEASE_COMMIT'
+ssh cloudbot-hz 'readlink /opt/cloudbot-runtime/current; cat /opt/cloudbot-runtime/current/RELEASE_COMMIT'
 # б) Опер-модель в живом релизе:
-ssh cloudbot-ssh-proxy 'grep -n "реальных рабочих минут" /opt/cloudbot-runtime/current/apps/lev_petrovich/legacy_sales_agent/sales_formatter.py'
+ssh cloudbot-hz 'grep -n "реальных рабочих минут" /opt/cloudbot-runtime/current/apps/lev_petrovich/legacy_sales_agent/sales_formatter.py'
 # в) env/cron не регрессировали (diff с бэкапом из шага 1 — ожидаем пусто):
-ssh cloudbot-ssh-proxy 'diff /etc/openclaw/sales_agent.env.bak-* /etc/openclaw/sales_agent.env'
+ssh cloudbot-hz 'diff /etc/openclaw/sales_agent.env.bak-* /etc/openclaw/sales_agent.env'
 # г) штатный verify:
 set -a; . ~/.config/vibecoding/cloudbot/deploy.env; set +a
 bash cloudbot/infra/orchestrator/workflows/sales_agent_verify.sh
@@ -119,9 +119,9 @@ bash cloudbot/infra/orchestrator/workflows/sales_agent_verify.sh
 ### 6. Откат (если что)
 ```bash
 # вернуть symlink на прежний релиз:
-ssh cloudbot-ssh-proxy 'ln -sfn /opt/cloudbot-runtime/releases/dev_3b160ba /opt/cloudbot-runtime/current'
+ssh cloudbot-hz 'ln -sfn /opt/cloudbot-runtime/releases/dev_3b160ba /opt/cloudbot-runtime/current'
 # вернуть env при регрессе:
-ssh cloudbot-ssh-proxy 'cp -a /etc/openclaw/sales_agent.env.bak-<stamp> /etc/openclaw/sales_agent.env'
+ssh cloudbot-hz 'cp -a /etc/openclaw/sales_agent.env.bak-<stamp> /etc/openclaw/sales_agent.env'
 ```
 
 ## После закрепления

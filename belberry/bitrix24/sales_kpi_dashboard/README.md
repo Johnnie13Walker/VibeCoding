@@ -97,7 +97,7 @@ bash /Users/pro2kuror/Desktop/VibeCoding/shared/scripts/bitrix-sync-state.sh
 
 ## Production cron на VPS
 
-Phase 4 развёрнут на `cloudbot-ssh-proxy`:
+Phase 4 развёрнут на `cloudbot-hz`:
 
 - runtime: `/opt/cloudbot-runtime/larisa/sales-kpi-dashboard/`
 - wrapper: `/usr/local/bin/cloudbot-larisa-sales-kpi.sh`
@@ -108,7 +108,7 @@ Phase 4 развёрнут на `cloudbot-ssh-proxy`:
 Ручной smoke на VPS:
 
 ```bash
-ssh root@cloudbot-ssh-proxy /usr/local/bin/cloudbot-larisa-sales-kpi.sh
+ssh root@cloudbot-hz /usr/local/bin/cloudbot-larisa-sales-kpi.sh
 ```
 
 Freshness-check для Cloudbot daily health-check:
