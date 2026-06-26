@@ -1,12 +1,25 @@
 """Тонкий клиент Bitrix REST: OAuth из state-файла + retry на 429/5xx + пагинация."""
 
 import json
+import os
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
 from typing import Iterator
+
+# Предохранитель: физическое удаление CRM-сущностей запрещено по умолчанию.
+# Снять блок можно только явным BITRIX_ALLOW_DELETE=1. Unbind-методы
+# (crm.*.company.delete, crm.deal.contact.delete и т.п.) — это разрыв связи,
+# не удаление сущности, и под блок НЕ попадают.
+_DESTRUCTIVE_METHODS = frozenset(
+    {"crm.company.delete", "crm.contact.delete", "crm.deal.delete", "crm.lead.delete"}
+)
+
+
+def _delete_allowed() -> bool:
+    return os.environ.get("BITRIX_ALLOW_DELETE", "0") == "1"
 
 
 class BitrixClient:
@@ -16,6 +29,15 @@ class BitrixClient:
         self.token = payload["auth[access_token]"]
 
     def call(self, method: str, params: list[tuple[str, str]], max_tries: int = 6) -> dict:
+        if method in _DESTRUCTIVE_METHODS and not _delete_allowed():
+            return {
+                "result": False,
+                "error": "DELETE_BLOCKED",
+                "error_description": (
+                    f"Удаление {method} заблокировано предохранителем "
+                    "(BITRIX_ALLOW_DELETE!=1) — ничего не удаляем."
+                ),
+            }
         url = f"{self.endpoint}/{method}"
         data = urllib.parse.urlencode([("auth", self.token), *params]).encode()
         last_err = None
