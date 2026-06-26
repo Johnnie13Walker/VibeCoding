@@ -31,7 +31,7 @@ belberry/sales/
 
 ## Production environment (сервер)
 
-- host: `cloudbot-ssh-proxy` (72.56.83.251), root
+- host: `cloudbot-hz` (188.34.206.115), root
 - runtime symlink: `/opt/cloudbot-runtime/current`
 - env: `/opt/openclaw/.env`, `/etc/openclaw/sales_agent.env`
 - bitrix OAuth state dir: `/opt/openclaw/state/bitrix_app/`
