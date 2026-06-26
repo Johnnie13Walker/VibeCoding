@@ -149,12 +149,22 @@ def _city_name_from_site(site_text: str | None) -> str | None:
     return m.group(1) if m else None
 
 
+def _category_query(brand: str) -> str | None:
+    """Категория из названия (без бренда в кавычках): «Стоматологическая клиника «Улыбка»»
+    → «Стоматологическая клиника». Нужна, чтобы Яндекс-запрос вернул и конкурентов."""
+    cat = re.sub(r'[«"“][^»"”]*[»"”]', " ", brand or "")
+    cat = re.sub(r"\s+", " ", cat).strip(" -—,")
+    return cat if len(cat) >= 4 else None
+
+
 def yandex_maps(brand: str | None, city: str | None) -> dict | None:
-    """Рейтинг + число отзывов клиента на Яндекс.Картах (через Apify). Лёгкий вызов:
-    без текстов отзывов, маленький лимит — нужен только рейтинг/счётчик."""
+    """Рейтинг + число отзывов клиента и КОНКУРЕНТОВ на Яндекс.Картах (через Apify). Запрос по
+    КАТЕГОРИИ+городу (если выделяется из названия) — возвращает и клиента, и конкурентов одним
+    вызовом; иначе по бренду (только клиент). Без текстов отзывов, маленький лимит."""
     if not APIFY_TOKEN or not brand:
         return None
-    q = f"{brand} {city}".strip() if city else brand
+    cat = _category_query(brand) if city else None
+    q = f"{cat} {city}".strip() if cat else (f"{brand} {city}".strip() if city else brand)
     try:
         r = requests.post(
             f"https://api.apify.com/v2/acts/{_YANDEX_ACTOR}/run-sync-get-dataset-items",
