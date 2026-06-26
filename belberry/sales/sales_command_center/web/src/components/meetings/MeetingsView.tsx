@@ -183,11 +183,11 @@ export function MeetingsView({ items }: { items: MeetingItem[] }) {
                   <span style={{ display: 'block', fontWeight: 700, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.domain}</span>
                   <span style={{ display: 'block', fontSize: 12, color: 'var(--bb-faint)', marginTop: 2 }}>{fmtDate(m.date)} {m.time} · {m.manager}</span>
                   <span style={{ fontSize: 12.5, color: hasGap(m) ? '#e07b1a' : 'var(--bb-muted)', marginTop: 4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
-                    {hasGap(m) ? 'Нет транскрипта — разбор не выполнен' : m.verdict || '—'}
+                    {hasGap(m) ? (m.note ?? 'Нет транскрипта — разбор не выполнен') : m.verdict || '—'}
                   </span>
                   <span style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
                     <Mini text={TYPE_RU[m.type ?? 'other']} kind={m.type === 'defense' ? 'df' : 'bf'} />
-                    {hasGap(m) ? <Mini text={`⚠ ${TRANSCRIPT_RU[m.transcript]}`} kind="warn" /> : null}
+                    {hasGap(m) ? <Mini text={`⚠ ${m.note ?? TRANSCRIPT_RU[m.transcript]}`} kind="warn" /> : null}
                     {m.summarySent === true ? <Mini text="Итоги ✓" kind="ok" /> : m.summarySent === false ? <Mini text="Итоги ✗" kind="no" /> : null}
                   </span>
                 </span>
@@ -433,9 +433,11 @@ function Detail({ m }: { m: MeetingItem }) {
       <div>
         {head}
         <div style={{ marginTop: 18, padding: '18px 20px', borderRadius: 14, background: '#fdf2e3', border: '1px solid #f3d9b0' }}>
-          <h3 style={{ margin: '0 0 6px', color: '#e07b1a', fontSize: 16 }}>⚠ Встреча не разобрана</h3>
+          <h3 style={{ margin: '0 0 6px', color: '#e07b1a', fontSize: 16 }}>⚠ {m.note ?? 'Встреча не разобрана'}</h3>
           <p style={{ margin: 0, fontSize: 13.5, color: '#7a5a23', lineHeight: 1.5 }}>
-            Транскрибация не приложена к сделке — LLM-разбор не выполнен. Прикрепите расшифровку встречи, чтобы появился анализ качества.
+            {m.note
+              ? 'Встреча состоялась, но записи и транскрипции нет — LLM-разбор не выполняется.'
+              : 'Транскрибация не приложена к сделке — LLM-разбор не выполнен. Прикрепите расшифровку встречи, чтобы появился анализ качества.'}
           </p>
         </div>
       </div>

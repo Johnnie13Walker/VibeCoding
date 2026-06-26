@@ -24,6 +24,8 @@ export interface MeetingItem {
   conclusion: string;
   nextStep: { what?: string; who?: string; deadline?: string } | null;
   transcript: TranscriptStatus;
+  /** Пометка вместо разбора: напр. «Не было записи и транскрипции» (no_record). null = обычная. */
+  note: string | null;
   /** Итоги клиенту отправлены (по пост-встречной переписке). null = не вычислено. */
   summarySent: boolean | null;
   /** Бюджет назван. null = не вычислено. */
