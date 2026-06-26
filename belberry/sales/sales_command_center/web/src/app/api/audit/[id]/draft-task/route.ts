@@ -19,7 +19,7 @@ function draftCmd(): string | null {
 
 function runDraft(cmd: string, auditId: number, responsibleId: number): Promise<{ title?: string; description?: string; error?: string }> {
   return new Promise((resolve) => {
-    execFile('sh', ['-c', `${cmd} ${auditId} ${responsibleId}`], { timeout: 60_000, maxBuffer: 1 << 20 }, (err, stdout) => {
+    execFile('sh', ['-c', `${cmd} ${auditId} ${responsibleId}`], { timeout: 120_000, maxBuffer: 1 << 20 }, (err, stdout) => {
       if (err && !stdout) { resolve({ error: 'ИИ недоступен' }); return; }
       const line = (stdout || '').trim().split('\n').filter(Boolean).pop() || '';
       try { resolve(JSON.parse(line)); } catch { resolve({ error: 'ИИ недоступен' }); }
