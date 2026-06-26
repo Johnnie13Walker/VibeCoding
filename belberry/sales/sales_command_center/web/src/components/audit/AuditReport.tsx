@@ -70,6 +70,23 @@ function tomorrow18iso(): string {
   d.setDate(d.getDate() + 1);
   return `${d.toISOString().slice(0, 10)}T18:00:00+03:00`;
 }
+// Ключ сортировки из даты ДД.ММ.ГГГГ → число ГГГГММДД. null, если года нет.
+function chronoSortKey(date?: string): number | null {
+  if (!date) return null;
+  const m = date.match(/(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})/);
+  if (!m) return null;
+  const dd = +m[1], mm = +m[2];
+  let yy = +m[3];
+  if (yy < 100) yy += 2000;
+  return yy * 10000 + mm * 100 + dd;
+}
+// Сортировка хронологии от раннего к позднему. Если хотя бы у одного события
+// дата без года (старые аудиты) — не трогаем порядок, чтобы не сломать межгодовую логику.
+function sortChronology<T extends { date?: string }>(items: T[]): T[] {
+  const keyed = items.map((e) => ({ e, k: chronoSortKey(e.date) }));
+  if (keyed.some((x) => x.k === null)) return items;
+  return keyed.sort((a, b) => (a.k as number) - (b.k as number)).map((x) => x.e);
+}
 
 function Gauge({ score, band }: { score: number; band: string }) {
   const r = 78;
@@ -88,6 +105,50 @@ function Gauge({ score, band }: { score: number; band: string }) {
           <div style={{ fontSize: 12, color: 'var(--bb-muted)', marginTop: 4 }}>шанс возврата</div>
         </div>
       </div>
+    </div>
+  );
+}
+
+// Настрой клиента → цвет плашки.
+const MOOD_STYLE: Record<string, { bg: string; color: string }> = {
+  'тёплый': { bg: '#e7f4ec', color: 'var(--bb-green)' },
+  'нейтральный': { bg: 'var(--bb-canvas)', color: 'var(--bb-muted)' },
+  'остывает': { bg: '#fdf2e7', color: '#b5651d' },
+  'потерян': { bg: '#fdeced', color: 'var(--bb-red)' },
+};
+
+type CS = NonNullable<AuditResult['narrative']['current_state']>;
+
+// Быстрый снимок «где сейчас клиент»: тема, что хотел / что не дали, договорённость, мяч.
+function CurrentState({ cs }: { cs: CS }) {
+  const mood = (cs.client_mood ?? '').toLowerCase();
+  const ms = MOOD_STYLE[mood] ?? MOOD_STYLE['нейтральный'];
+  const Row = ({ label, value, accent }: { label: string; value?: string; accent?: boolean }) => (
+    value ? (
+      <div style={{ display: 'flex', gap: 10, padding: '9px 0', borderTop: '1px solid var(--bb-line)' }}>
+        <span style={{ flex: '0 0 168px', fontSize: 12.5, color: 'var(--bb-muted)', fontWeight: 600 }}>{label}</span>
+        <span style={{ fontSize: 13.5, lineHeight: 1.5, fontWeight: accent ? 600 : 400, color: accent ? 'var(--bb-ink)' : undefined }}>{value}</span>
+      </div>
+    ) : null
+  );
+  return (
+    <div className="bb-card">
+      <div className="bb-sect-head">
+        <div className="bb-sect-ic">🧭</div><h2>Текущий статус клиента</h2>
+        <small style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {cs.client_mood && <span style={{ background: ms.bg, color: ms.color, borderRadius: 999, padding: '3px 11px', fontWeight: 700, fontSize: 11.5 }}>{cs.client_mood}</span>}
+          {cs.ball_is_on && <span style={{ color: 'var(--bb-faint)' }}>мяч: {cs.ball_is_on}</span>}
+        </small>
+      </div>
+      {cs.live_topic && (
+        <div style={{ background: 'var(--bb-violet-soft)', borderRadius: 12, padding: '10px 14px', marginBottom: 4 }}>
+          <span style={{ fontSize: 11.5, color: 'var(--bb-violet)', fontWeight: 700 }}>СЕЙЧАС ОБСУЖДАЕМ</span>
+          <div style={{ fontSize: 14.5, fontWeight: 600, marginTop: 2 }}>{cs.live_topic}</div>
+        </div>
+      )}
+      <Row label="Клиент хотел" value={cs.client_wanted} />
+      <Row label="Что мы не дали" value={cs.we_didnt_give} />
+      <Row label="Договорились на" value={cs.agreed_next_step} accent />
     </div>
   );
 }
@@ -122,11 +183,14 @@ export function AuditReport({ initialAudit, managers }: { initialAudit: DealAudi
   const s = (r?.signals ?? {}) as Record<string, unknown>;
   const [stageId, setStageId] = useState('C10:EXECUTING');
   const [responsibleId, setResponsibleId] = useState(''); // явный выбор — без «умолчания»
-  const [deadline] = useState(tomorrow18iso());
+  const [deadline, setDeadline] = useState(tomorrow18iso());
   const [taskTitle, setTaskTitle] = useState('');
   const [taskDesc, setTaskDesc] = useState('');
   const [taskTouched, setTaskTouched] = useState(false); // правил ли пользователь текст вручную
+  const [drafting, setDrafting] = useState(false);        // идёт генерация сценария под менеджера
+  const [draftNote, setDraftNote] = useState<string | null>(null);
   const selectedIsTm = managers.find((m) => String(m.id) === responsibleId)?.kind === 'tm';
+  const selectedManager = managers.find((m) => String(m.id) === responsibleId);
 
   // самоопрос статуса, пока аудит выполняется
   const poll = useCallback(async () => {
@@ -144,14 +208,17 @@ export function AuditReport({ initialAudit, managers }: { initialAudit: DealAudi
   // Меняем, пока пользователь не правил вручную.
   useEffect(() => {
     if (taskTouched) return;
+    // В начало описания — ссылка на полный аудит сделки (видна и в задаче, и здесь).
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const withLink = (d: string) => `🔍 Полный аудит сделки: ${origin}/audit/${audit.id}\n\n${d}`;
     if (selectedIsTm) {
       const t = tmTask(audit.title ?? `сделку #${audit.dealId}`, n);
-      setTaskTitle(t.title); setTaskDesc(t.description);
+      setTaskTitle(t.title); setTaskDesc(withLink(t.description));
     } else if (n.first_task) {
       setTaskTitle(n.first_task.title ?? 'Связаться по сделке');
-      setTaskDesc(n.first_task.description ?? '');
+      setTaskDesc(withLink(n.first_task.description ?? ''));
     }
-  }, [selectedIsTm, n.first_task, taskTouched, audit.title, audit.dealId]);
+  }, [selectedIsTm, n.first_task, taskTouched, audit.title, audit.dealId, audit.id]);
 
   const back = (
     <Link href="/audit" style={{ color: 'var(--bb-violet)', fontWeight: 600, textDecoration: 'none', fontSize: 13.5 }}>← к списку аудитов</Link>
@@ -166,6 +233,29 @@ export function AuditReport({ initialAudit, managers }: { initialAudit: DealAudi
         <div className="bb-card bb-fade" style={{ marginTop: 14 }}>⏳ Аудит выполняется: сбор данных, расшифровка звонков и встреч, разбор. Обычно 1–2 минуты…</div>
       </div>
     );
+  }
+
+  // Умная задача под выбранного менеджера: пол/имя в речи + легенда перехвата сделки.
+  async function draftTask() {
+    if (!responsibleId) return;
+    setDrafting(true); setDraftNote(null); setErr(null);
+    try {
+      const res = await fetch(`/api/audit/${audit.id}/draft-task`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ responsibleId: Number(responsibleId) }),
+      });
+      const data = await res.json().catch(() => null);
+      if (data?.title) {
+        const origin = typeof window !== 'undefined' ? window.location.origin : '';
+        setTaskTitle(data.title);
+        setTaskDesc(`🔍 Полный аудит сделки: ${origin}/audit/${audit.id}\n\n${data.description ?? ''}`);
+        setTaskTouched(true); // не перетирать авто-шаблоном
+      } else {
+        setDraftNote('ИИ недоступен — оставлен базовый план. Попробуй ещё раз.');
+      }
+    } finally {
+      setDrafting(false);
+    }
   }
 
   async function returnToWork() {
@@ -220,6 +310,8 @@ export function AuditReport({ initialAudit, managers }: { initialAudit: DealAudi
         </div>
       </div>
 
+      {n.current_state && <CurrentState cs={n.current_state} />}
+
       <Section icon="📊" title="Что в системе">
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12 }}>
           <Stat value={kpCards} label="карточек КП в системе" flag={kpCards === 0 && !!s.kp_sent} chip={kpCards === 0 && s.kp_via_pitch ? 'КП мимо системы' : undefined} />
@@ -232,8 +324,8 @@ export function AuditReport({ initialAudit, managers }: { initialAudit: DealAudi
 
       {!!n.chronology?.length && (
         <Section icon="🕑" title="Хронология">
-          {n.chronology.map((e, i) => (
-            <div key={i} style={{ display: 'grid', gridTemplateColumns: '80px 1fr', gap: 12, padding: '7px 0', borderBottom: '1px solid var(--bb-line)', fontSize: 13.5 }}>
+          {sortChronology(n.chronology).map((e, i) => (
+            <div key={i} style={{ display: 'grid', gridTemplateColumns: '92px 1fr', gap: 12, padding: '7px 0', borderBottom: '1px solid var(--bb-line)', fontSize: 13.5 }}>
               <span style={{ color: 'var(--bb-faint)', fontWeight: 600 }}>{e.date}</span>
               <span>{e.event} {e.who && <i style={{ color: 'var(--bb-faint)' }}>— {e.who}</i>}</span>
             </div>
@@ -313,6 +405,13 @@ export function AuditReport({ initialAudit, managers }: { initialAudit: DealAudi
                 </a>.
               </div>
             )}
+            {audit.followupStatus && (
+              <div style={{ marginTop: 10, padding: '8px 12px', borderRadius: 10, fontWeight: 500, fontSize: 13,
+                background: audit.followupStatus === 'progressed' ? '#e7f4ec' : audit.followupStatus === 'in_progress' ? '#fdf2e7' : '#fdeced',
+                color: audit.followupStatus === 'progressed' ? 'var(--bb-green)' : audit.followupStatus === 'in_progress' ? '#b5651d' : 'var(--bb-red)' }}>
+                📈 Проверка через неделю: <b>{audit.followupStatus === 'progressed' ? 'сработало' : audit.followupStatus === 'in_progress' ? 'в процессе' : 'зависло'}</b> — {audit.followupNote}
+              </div>
+            )}
           </div>
         ) : !open ? (
           <button onClick={() => setOpen(true)}
@@ -342,8 +441,24 @@ export function AuditReport({ initialAudit, managers }: { initialAudit: DealAudi
                   </select>
                 </label>
               )}
-              <span style={{ color: 'var(--bb-muted)' }}>дедлайн: завтра 18:00</span>
+              <label style={{ color: 'var(--bb-muted)' }}>дедлайн:{' '}
+                <input type="datetime-local" value={deadline.slice(0, 16)}
+                  onChange={(e) => setDeadline(e.target.value ? `${e.target.value}:00+03:00` : '')}
+                  style={{ border: '1px solid var(--bb-line)', borderRadius: 8, padding: '4px 8px', fontSize: 13 }} />
+              </label>
             </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
+              <button type="button" onClick={draftTask} disabled={!responsibleId || drafting}
+                style={{ background: responsibleId && !drafting ? 'var(--bb-violet-soft)' : '#eee', color: responsibleId && !drafting ? 'var(--bb-violet)' : 'var(--bb-faint)', border: 0, borderRadius: 10, padding: '7px 13px', fontWeight: 700, fontSize: 13, cursor: responsibleId && !drafting ? 'pointer' : 'default' }}>
+                {drafting ? '🪄 Генерирую сценарий…' : '🪄 Подобрать сценарий под менеджера'}
+              </button>
+              <span style={{ fontSize: 12, color: 'var(--bb-faint)' }}>
+                {responsibleId
+                  ? `речь в роде ${selectedManager?.name ?? ''} + легенда, если перехватывает сделку`
+                  : 'сначала выбери ответственного'}
+              </span>
+            </div>
+            {draftNote && <div style={{ color: 'var(--bb-amber)', fontSize: 12.5, marginBottom: 8 }}>{draftNote}</div>}
             <input value={taskTitle} onChange={(e) => { setTaskTouched(true); setTaskTitle(e.target.value); }}
               style={{ width: '100%', border: '1px solid var(--bb-line)', borderRadius: 8, padding: '8px 10px', marginBottom: 8, fontSize: 13.5 }} />
             <textarea value={taskDesc} onChange={(e) => { setTaskTouched(true); setTaskDesc(e.target.value); }}

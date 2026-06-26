@@ -39,23 +39,34 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   try {
     const kind = await userKind(responsibleId); // sales | rop | tm
     let outcomeKind: 'current' | 'transferred' | 'telemarketing';
+    let effectiveStage: string;
     if (kind === 'tm') {
       // Перевод в воронку Телемаркетинг на телемаркетолога (повторный обзвон).
       await transferToTelemarketing(audit.dealId, responsibleId);
       outcomeKind = 'telemarketing';
+      effectiveStage = 'C50:NEW';
     } else {
       const current = await getDealResponsible(audit.dealId);
       await reopenDeal(audit.dealId, stageId, responsibleId); // стадия + переназначение
       outcomeKind = current === responsibleId ? 'current' : 'transferred';
+      effectiveStage = stageId;
     }
+    // В начало каждой задачи — ссылка на полный аудит сделки (открывается в командном
+    // центре). Фронт обычно уже подставил её в текст; если нет (или вызвали API напрямую) —
+    // добавляем здесь. Идемпотентно: не дублируем, если ссылка на /audit/<id> уже есть.
+    const base = (process.env.SCC_BASE_URL || req.headers.get('origin') || '').replace(/\/$/, '');
+    const auditUrl = `${base}/audit/${audit.id}`;
+    const fullDescription = taskDescription.includes(`/audit/${audit.id}`)
+      ? taskDescription
+      : `🔍 Полный аудит сделки: ${auditUrl}\n\n${taskDescription}`;
     const taskId = await createDealTask({
       dealId: audit.dealId,
       title: taskTitle,
-      description: taskDescription,
+      description: fullDescription,
       responsibleId,
       deadline,
     });
-    await markReturnedToWork(audit.id, taskId, outcomeKind, responsibleId);
+    await markReturnedToWork(audit.id, taskId, outcomeKind, responsibleId, effectiveStage);
     await recordAuditTask({ dealId: audit.dealId, taskId, responsibleId, title: taskTitle, deadline }); // видна в Алертах
     return Response.json({ ok: true, taskId, outcomeKind });
   } catch (e) {

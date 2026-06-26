@@ -68,11 +68,17 @@ export async function reopenDeal(dealId: number, stageId: string, responsibleId?
   await bitrixWrite('crm.deal.update', { id: dealId, fields });
 }
 
-/** Перевести сделку в воронку Телемаркетинг на телемаркетолога (для повторного обзвона). */
+/** Перевести сделку в воронку Телемаркетинг на телемаркетолога (для повторного обзвона).
+ * ВАЖНО: Bitrix НЕ переносит между воронками, если в одном update прислать CATEGORY_ID
+ * вместе со STAGE_ID чужой воронки — стадия C50:* невалидна, пока сделка в категории 10,
+ * и смена категории откатывается (ответственный при этом проходит — была частичная запись).
+ * Поэтому двумя шагами: 1) сменить категорию (Bitrix сам ставит первую стадию воронки);
+ * 2) уже внутри воронки 50 выставить старт-стадию + ответственного. */
 export async function transferToTelemarketing(dealId: number, responsibleId: number): Promise<void> {
+  await bitrixWrite('crm.deal.update', { id: dealId, fields: { CATEGORY_ID: TM_CATEGORY_ID } });
   await bitrixWrite('crm.deal.update', {
     id: dealId,
-    fields: { CATEGORY_ID: TM_CATEGORY_ID, STAGE_ID: TM_START_STAGE, ASSIGNED_BY_ID: responsibleId },
+    fields: { STAGE_ID: TM_START_STAGE, ASSIGNED_BY_ID: responsibleId },
   });
 }
 

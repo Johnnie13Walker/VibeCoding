@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import Link from 'next/link';
 import { Flame, Clock, BellRing, ExternalLink, VolumeX } from 'lucide-react';
 import type { AlertManager, AlertsData } from '@/lib/alerts';
 import { BURNING_TOP, SILENT_TOP, TASKS_TOP, TASK_KINDS, burnComparator, filterSection, filterTasks, sectionManagers, type BurnSort, type TaskKind } from '@/lib/alerts-filter';
@@ -56,6 +57,11 @@ function SectionPicker({ managers, selected, onChange }: { managers: AlertManage
   if (managers.length === 0) return null;
   return <ManagerPicker managers={managers} selected={selected} onChange={onChange} allWord="менеджеры" />;
 }
+
+// Превентив (#5) пока шумит — handover-флаг частит (RESPONSIBLE_ID звонков
+// варьируется), на пилоте набегает ~46 «критичных». Прячем блок до доработки
+// чувствительности флагов. Данные (deal_risk_flags) продолжают собираться cron'ом.
+const SHOW_PROCESS_RISK = false;
 
 export function AlertsView({ data }: { data: AlertsData }) {
   const lookup = useMemo(() => new Map(data.managers.map((m) => [m.managerId, m])), [data.managers]);
@@ -225,6 +231,44 @@ export function AlertsView({ data }: { data: AlertsData }) {
           </ul>
         )}
       </div>
+
+      {/* Риск процесса — живые сделки с красными флагами (превентив). Скрыто до доработки флагов. */}
+      {SHOW_PROCESS_RISK && (
+      <div className="bb-card" style={{ marginTop: 16 }}>
+        <div className="bb-sect-head">
+          <span className="bb-sect-ic" style={{ background: '#fdeced', color: '#d4202e' }}>⚠️</span>
+          <h2>Риск процесса</h2>
+          <small>живые сделки с провалами процесса · {data.processRisk.length}</small>
+        </div>
+        {data.processRisk.length === 0 ? (
+          <p style={{ color: 'var(--bb-muted)' }}>Живых сделок с процессными рисками нет.</p>
+        ) : (
+          <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column' }}>
+            {data.processRisk.map((r) => (
+              <li key={r.dealId} className="bb-alert-row">
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <a href={dealUrl(r.dealId)} target="_blank" rel="noopener noreferrer" className="bb-alert-title" style={{ fontWeight: 600 }}>
+                    {r.title} <ExternalLink size={12} />
+                  </a>
+                  <p className="bb-alert-meta">{r.stageLabel} · {r.manager}</p>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
+                    {r.flags.map((f, i) => (
+                      <span key={i} style={{ fontSize: 11, fontWeight: 600, background: 'var(--bb-violet-soft)', color: 'var(--bb-violet)', borderRadius: 6, padding: '2px 7px' }}>{f}</span>
+                    ))}
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right', flex: '0 0 auto' }}>
+                  <span className={`bb-reason ${r.severity === 'critical' ? 'critical' : ''}`}>{r.severity === 'critical' ? 'критично' : 'риск'}</span>
+                  <p style={{ fontSize: 12, color: 'var(--bb-faint)', marginTop: 4 }}>
+                    <Link href="/audit" style={{ color: 'var(--bb-violet)' }}>разобрать →</Link>
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      )}
     </div>
   );
 }

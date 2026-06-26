@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type { DealAudit } from '@/lib/audit';
@@ -34,6 +34,14 @@ function fmtDate(v: Date | string | null): string {
   return d.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' });
 }
 
+// Только дата (для «дата аудита», «последняя коммуникация», «не ранее …»).
+function fmtDay(v: Date | string | null): string {
+  if (!v) return '—';
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Europe/Moscow' });
+}
+
 // Стили плашки «Итог» (мягкая заливка по смыслу).
 const OUTCOME_STYLE: Record<string, { bg: string; color: string; label: string }> = {
   current: { bg: '#e7f4ec', color: 'var(--bb-green)', label: '↩︎ Вернули текущему' },
@@ -55,12 +63,66 @@ function OutcomeCell({ a }: { a: DealAudit }) {
   );
 }
 
+// Колонки таблицы аудитов и ключ сортировки каждой. Любую можно сортировать кликом по
+// заголовку (по возрастанию/убыванию). Последняя колонка (ссылка «открыть») — без сортировки.
+type SortKey =
+  | 'title' | 'stage' | 'requester' | 'auditDate' | 'lastContact'
+  | 'score' | 'managerStart' | 'managerNew' | 'outcome';
+
+const COLS: { key: SortKey; label: string }[] = [
+  { key: 'title', label: 'Сделка' },
+  { key: 'stage', label: 'Стадия при аудите' },
+  { key: 'requester', label: 'Заказал' },
+  { key: 'auditDate', label: 'Дата аудита' },
+  { key: 'lastContact', label: 'Последняя коммуникация' },
+  { key: 'score', label: 'Шанс' },
+  { key: 'managerStart', label: 'Менеджер на начало аудита' },
+  { key: 'managerNew', label: 'Новый менеджер' },
+  { key: 'outcome', label: 'Итог' },
+];
+
+// Значение ячейки для сравнения: число (дата/шанс) — числом, текст — строкой.
+const SORT_VALUE: Record<SortKey, (a: DealAudit) => number | string> = {
+  title: (a) => (a.title ?? `Сделка #${a.dealId}`).toLowerCase(),
+  stage: (a) => a.stageLabel ?? '',
+  requester: (a) => (a.source === 'auto' ? 'Авто-радар' : (a.requestedByName ?? '')),
+  auditDate: (a) => (a.createdAt ? new Date(a.createdAt).getTime() : 0),
+  lastContact: (a) => (a.lastContactAt ? new Date(a.lastContactAt).getTime() : 0),
+  score: (a) => (a.status === 'ready' && a.score != null ? a.score : -1),
+  managerStart: (a) => a.responsibleAtAuditName ?? '',
+  managerNew: (a) => (a.returnedToWork ? (a.outcomeResponsibleName ?? '') : ''),
+  outcome: (a) => a.outcomeKind ?? '',
+};
+
 export function AuditView({ initialAudits }: { initialAudits: DealAudit[] }) {
   const router = useRouter();
   const [audits, setAudits] = useState<DealAudit[]>(initialAudits);
   const [input, setInput] = useState('');
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Уведомление о запрете повтора (анализ свежее 45 дней / уже идёт).
+  const [notice, setNotice] = useState<
+    { reason: 'cooldown' | 'in_progress'; existingId: number; lastAuditAt: string | null; nextAvailableAt: string | null } | null
+  >(null);
+  // Сортировка таблицы: по умолчанию — свежие аудиты сверху.
+  const [sortKey, setSortKey] = useState<SortKey>('auditDate');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+
+  function toggleSort(k: SortKey) {
+    if (k === sortKey) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    else { setSortKey(k); setSortDir('desc'); }
+  }
+
+  const sortedAudits = useMemo(() => {
+    const get = SORT_VALUE[sortKey];
+    return [...audits].sort((a, b) => {
+      const va = get(a), vb = get(b);
+      const cmp = typeof va === 'number' && typeof vb === 'number'
+        ? va - vb
+        : String(va).localeCompare(String(vb), 'ru');
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+  }, [audits, sortKey, sortDir]);
 
   const refresh = useCallback(async () => {
     try {
@@ -77,14 +139,19 @@ export function AuditView({ initialAudits }: { initialAudits: DealAudit[] }) {
   }, [audits, refresh]);
 
   async function submit(e: React.FormEvent) {
-    e.preventDefault(); setErr(null); setBusy(true);
+    e.preventDefault(); setErr(null); setNotice(null); setBusy(true);
     const r = await fetch('/api/audit', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ deal: input }),
     });
     setBusy(false);
-    if (!r.ok) { setErr((await r.json().catch(() => null))?.error ?? `Ошибка ${r.status}`); return; }
-    const { id } = await r.json();
-    router.push(`/audit/${id}`); // переход на страницу отчёта (она сама опрашивает статус)
+    const data = await r.json().catch(() => null);
+    if (!r.ok) { setErr(data?.error ?? `Ошибка ${r.status}`); return; }
+    if (data && data.ok === false) {
+      // Запрет повтора — показываем уведомление со ссылкой на готовый анализ.
+      setNotice({ reason: data.reason, existingId: data.existingId, lastAuditAt: data.lastAuditAt, nextAvailableAt: data.nextAvailableAt });
+      return;
+    }
+    router.push(`/audit/${data.id}`); // переход на страницу отчёта (она сама опрашивает статус)
   }
 
   return (
@@ -101,6 +168,21 @@ export function AuditView({ initialAudits }: { initialAudits: DealAudit[] }) {
           </button>
         </form>
         {err && <div style={{ color: '#ffd2d2', fontSize: 13, marginTop: 8, position: 'relative' }}>{err}</div>}
+        {notice && (
+          <div style={{ position: 'relative', marginTop: 12, background: 'rgba(255,255,255,.14)', border: '1px solid rgba(255,255,255,.28)', borderRadius: 12, padding: '12px 15px', color: '#fff', fontSize: 13.5, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 18 }}>🔁</span>
+            <span style={{ flex: 1, minWidth: 220 }}>
+              {notice.reason === 'cooldown' ? (
+                <>Сделка уже проанализирована <b>{fmtDate(notice.lastAuditAt)}</b>. Повторный анализ доступен не ранее <b>{fmtDay(notice.nextAvailableAt)}</b> — анализ обновляется не чаще раза в 45 дней.</>
+              ) : (
+                <>Анализ этой сделки уже идёт — дождись завершения.</>
+              )}
+            </span>
+            <Link href={`/audit/${notice.existingId}`} style={{ background: '#fff', color: 'var(--bb-indigo)', borderRadius: 10, padding: '8px 16px', fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap' }}>
+              Открыть анализ →
+            </Link>
+          </div>
+        )}
       </div>
 
       <div className="bb-card">
@@ -110,14 +192,22 @@ export function AuditView({ initialAudits }: { initialAudits: DealAudit[] }) {
         ) : (
           <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
           <table className="bb-table" style={{ fontSize: 12.5, minWidth: 980 }}>
-            <thead><tr><th>Сделка</th><th>Стадия при аудите</th><th>Заказал</th><th>Дата</th><th>Шанс</th><th>Менеджер на начало аудита</th><th>Новый менеджер</th><th>Итог</th><th></th></tr></thead>
+            <thead><tr>
+              {COLS.map((c) => (
+                <th key={c.key} onClick={() => toggleSort(c.key)} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'normal', lineHeight: 1.15, verticalAlign: 'bottom' }} title="Сортировать">
+                  {c.label}{sortKey === c.key && <span style={{ color: 'var(--bb-violet)', marginLeft: 3, fontSize: 9 }}>{sortDir === 'asc' ? '▲' : '▼'}</span>}
+                </th>
+              ))}
+              <th></th>
+            </tr></thead>
             <tbody>
-              {audits.map((a) => (
+              {sortedAudits.map((a) => (
                 <tr key={a.id} onClick={() => router.push(auditHref(a))} style={{ cursor: 'pointer' }}>
                   <td style={{ whiteSpace: 'nowrap' }}><b>{a.title ?? `Сделка #${a.dealId}`}</b></td>
                   <td style={{ color: 'var(--bb-muted)', whiteSpace: 'nowrap' }}>{a.stageLabel ?? '—'}</td>
-                  <td style={{ color: 'var(--bb-muted)', whiteSpace: 'nowrap' }}>{a.requestedByName ?? '—'}</td>
-                  <td style={{ color: 'var(--bb-muted)', whiteSpace: 'nowrap' }}>{fmtDate(a.createdAt)}</td>
+                  <td style={{ color: 'var(--bb-muted)', whiteSpace: 'nowrap' }}>{a.source === 'auto' ? '🤖 Авто-радар' : (a.requestedByName ?? '—')}</td>
+                  <td style={{ color: 'var(--bb-muted)', whiteSpace: 'nowrap' }}>{fmtDay(a.createdAt)}</td>
+                  <td style={{ color: 'var(--bb-muted)', whiteSpace: 'nowrap' }}>{fmtDay(a.lastContactAt ?? null)}</td>
                   <td>{a.status === 'ready'
                     ? <span style={{ fontSize: 11, fontWeight: 800, borderRadius: 999, padding: '3px 10px', background: BAND_BG[a.band ?? 'low'], color: BAND_COLOR[a.band ?? 'low'] }}>{a.score}%</span>
                     : '—'}</td>

@@ -17,14 +17,21 @@ def _mask(text: str) -> str:
     return TOKEN_RE.sub(r"\1=***", text)
 
 
+# Поля с файлом транскрипта. Старое ufCrm16Transcript (memoai PDF) на части встреч
+# пустое — транскрипт теперь кладут в новое файл-поле «Транскрибация встречи (TXT)».
+# Читаем оба, по приоритету; структура у обоих — dict/list с urlMachine.
+TRANSCRIPT_FIELDS = ("ufCrm16Transcript", "ufCrm16_1782395353")
+
+
 def _extract_transcript_url(meeting: dict[str, Any]) -> str | None:
-    value = meeting.get("ufCrm16Transcript")
-    if isinstance(value, dict):
-        return value.get("urlMachine") or None
-    if isinstance(value, list):
-        for item in value:
-            if isinstance(item, dict) and item.get("urlMachine"):
-                return item["urlMachine"]
+    for field in TRANSCRIPT_FIELDS:
+        value = meeting.get(field)
+        if isinstance(value, dict) and value.get("urlMachine"):
+            return value["urlMachine"]
+        if isinstance(value, list):
+            for item in value:
+                if isinstance(item, dict) and item.get("urlMachine"):
+                    return item["urlMachine"]
     return None
 
 
@@ -147,8 +154,11 @@ def enrich_meetings(
         if meeting_id in cache:
             continue
         url = _extract_transcript_url(meeting)
-        # Перед скачиванием обновляем ссылку: токен из времени сбора уже мог протухнуть.
-        if refresh and url:
+        # Полный crm.item.get перед скачиванием: (1) токен из времени сбора мог протухнуть;
+        # (2) новые файл-поля транскрипта (ufCrm16_1782395353) могут НЕ входить в select сбора,
+        # и тогда в сырой встрече ссылки нет — full get их вернёт. Поэтому refresh всегда, а не
+        # только когда url уже найден (иначе встречи с новым полем уходят в missing).
+        if refresh:
             fresh = _refresh_transcript_url(meeting_id, client)
             if fresh:
                 url = fresh

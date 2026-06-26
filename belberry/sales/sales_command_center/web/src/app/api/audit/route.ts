@@ -47,7 +47,12 @@ export async function POST(req: Request) {
   if (!dealId) {
     return Response.json({ error: 'Укажи ID или ссылку на сделку' }, { status: 400 });
   }
-  const id = await createAudit(dealId, session.bitrixId ?? null);
+  const res = await createAudit(dealId, session.bitrixId ?? null);
+  if (!res.ok) {
+    // Запрет повтора (свежий аудит < 45 дней) или разбор уже идёт — фронт покажет
+    // уведомление со ссылкой на существующий анализ и датой следующего доступного.
+    return Response.json(res, { status: 200 });
+  }
   kickWorker(); // стартуем разбор сразу; идёт на сервере независимо от вкладки
-  return Response.json({ id }, { status: 201 });
+  return Response.json({ id: res.id }, { status: 201 });
 }

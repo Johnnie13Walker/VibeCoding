@@ -2,7 +2,7 @@ import 'server-only';
 
 import { and, asc, eq, sql } from 'drizzle-orm';
 import { db } from '@/db';
-import { dealsSnapshot, meetingTasks, users } from '@/db/schema';
+import { dealRiskFlags, dealsSnapshot, meetingTasks, users } from '@/db/schema';
 import { STAGE_META } from './dashboard';
 
 export interface BurningDeal {
@@ -50,12 +50,24 @@ export interface AlertManager {
   isActive: boolean;
 }
 
+export interface RiskDeal {
+  dealId: number;
+  title: string;
+  stageLabel: string;
+  managerId: number | null;
+  manager: string;
+  flags: string[];
+  severity: 'critical' | 'warning';
+}
+
 export interface AlertsData {
   snapshotDate: string | null;
   /** Полные отсортированные списки (срез топ-N делается на клиенте после фильтра). */
   burning: BurningDeal[];
   silent: SilentDeal[];
   tasks: TaskItem[];
+  /** Живые сделки с процессными красными флагами (превентив — до смерти сделки). */
+  processRisk: RiskDeal[];
   /** Менеджеры, встречающиеся в алертах, — опции фильтра. */
   managers: AlertManager[];
   count: number;
@@ -252,9 +264,21 @@ export async function getAlerts(): Promise<AlertsData> {
   }
   const managers = [...seen.values()].sort((a, b) => a.name.localeCompare(b.name, 'ru'));
 
+  // Превентив: живые сделки с процессными риск-флагами (снимок из audit_preventive).
+  const riskRows = await db.select().from(dealRiskFlags);
+  const processRisk: RiskDeal[] = riskRows
+    .map((r) => ({
+      dealId: r.dealId, title: r.title ?? `Сделка #${r.dealId}`, stageLabel: r.stageLabel ?? '—',
+      managerId: r.managerId ?? null, manager: nameOf(r.managerId),
+      flags: (r.flags as string[]) ?? [], severity: (r.severity === 'critical' ? 'critical' : 'warning') as 'critical' | 'warning',
+    }))
+    .sort((a, b) => (b.severity === a.severity ? b.flags.length - a.flags.length : a.severity === 'critical' ? -1 : 1));
+
+  // processRisk пока скрыт в UI (превентив шумит) — не вливаем его в бейдж Алертов,
+  // иначе ~46 фантомных «критичных». Вернуть вместе с SHOW_PROCESS_RISK в AlertsView.
   const count =
     burning.filter((b) => b.severity === 'critical').length +
     silent.filter((s) => s.severity === 'critical').length +
     tasks.filter((t) => t.overdue).length;
-  return { snapshotDate, burning, silent, tasks, managers, count };
+  return { snapshotDate, burning, silent, tasks, processRisk, managers, count };
 }

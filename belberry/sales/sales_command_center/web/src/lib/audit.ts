@@ -1,9 +1,10 @@
-import { desc, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray } from 'drizzle-orm';
 import { db } from '@/db';
 import { dealAudits, meetingTasks, users } from '@/db/schema';
 import { isSalesDept, isSalesManager, isTelemarketing } from '@/lib/dashboard';
 
-// Названия стадий воронки «Продажи» (CATEGORY_ID=10) для показа стадии на момент аудита.
+// Названия стадий для показа стадии на момент аудита. Воронка «Продажи» (C10) и
+// «Телемаркетинг» (C50) — сделку могли аудитить в любой из них.
 const STAGE_NAMES: Record<string, string> = {
   'C10:NEW': 'Квалификация',
   'C10:PREPAYMENT_INVOIC': 'Подготовка БРИФа',
@@ -16,6 +17,14 @@ const STAGE_NAMES: Record<string, string> = {
   'C10:WON': 'Успех',
   'C10:LOSE': 'Отвал',
   'C10:1': 'Отложено',
+  // Воронка «Телемаркетинг» (CATEGORY_ID=50).
+  'C50:UC_1S1KIU': 'База',
+  'C50:NEW': 'К обзвону',
+  'C50:PREPARATION': 'Взято в работу',
+  'C50:UC_WZ4KQE': 'Встреча назначена',
+  'C50:WON': 'Успех',
+  'C50:LOSE': 'Отложено',
+  'C50:APOLOGY': 'Отвал',
 };
 function stageLabelOf(result: AuditResult | null): string | null {
   const id = result?.signals?.stage_id as string | undefined;
@@ -93,6 +102,14 @@ export type AuditResult = {
   failure_tags: { tag: string; label: string }[];
   call_recordings?: { date?: string; duration?: number; status?: string }[];
   narrative: {
+    current_state?: {
+      live_topic?: string;
+      client_wanted?: string;
+      we_didnt_give?: string;
+      agreed_next_step?: string;
+      ball_is_on?: string;
+      client_mood?: string;
+    };
     summary?: string;
     real_cause?: string;
     verdict_band_text?: string;
@@ -130,6 +147,12 @@ export type DealAudit = {
   taskId: number | null;
   outcomeKind: string | null;          // current | transferred | telemarketing
   outcomeResponsibleId: number | null; // кому в итоге досталась сделка
+  source: string;                      // manual | auto (радар застрявших)
+  returnedAt: Date | string | null;
+  returnStage: string | null;
+  followupStatus: string | null;       // progressed | stalled | in_progress
+  followupNote: string | null;
+  followupAt: Date | string | null;
   createdAt: Date | string | null;
   updatedAt: Date | string | null;
   requestedByName?: string | null;     // ФИО заказчика аудита (из users по requested_by)
@@ -137,7 +160,14 @@ export type DealAudit = {
   outcomeResponsibleName?: string | null; // ФИО того, кому досталась сделка (новый менеджер)
   responsibleAtAuditId?: number | null;   // ответственный на момент аудита (последний в цепочке)
   responsibleAtAuditName?: string | null; // ФИО менеджера на начало аудита
+  lastContactAt?: string | null;          // дата последней коммуникации с клиентом (signals.last_contact)
 };
+
+// Дата последней коммуникации с клиентом — из сигналов аудита (ISO или null).
+function lastContactOf(result: AuditResult | null): string | null {
+  const v = (result?.signals as { last_contact?: unknown })?.last_contact;
+  return typeof v === 'string' && v ? v : null;
+}
 
 // Менеджер на момент аудита: последний ответственный в цепочке активностей.
 function responsibleAtAuditOf(result: AuditResult | null): number | null {
@@ -156,7 +186,11 @@ function map(r: typeof dealAudits.$inferSelect): DealAudit {
     result: (r.result as AuditResult | null) ?? null,
     requestedBy: r.requestedBy, returnedToWork: r.returnedToWork, taskId: r.taskId,
     outcomeKind: r.outcomeKind ?? null, outcomeResponsibleId: r.outcomeResponsibleId ?? null,
+    source: r.source ?? 'manual',
+    returnedAt: r.returnedAt, returnStage: r.returnStage ?? null,
+    followupStatus: r.followupStatus ?? null, followupNote: r.followupNote ?? null, followupAt: r.followupAt,
     createdAt: r.createdAt, updatedAt: r.updatedAt,
+    lastContactAt: lastContactOf((r.result as AuditResult | null) ?? null),
   };
 }
 
@@ -202,12 +236,68 @@ export async function getAudit(id: number): Promise<DealAudit | null> {
   return a;
 }
 
-export async function createAudit(dealId: number, requestedBy: number | null): Promise<number> {
+/** Сделку нельзя анализировать чаще, чем раз в столько дней. Свежий готовый аудит
+ * блокирует повтор — и ручной, и авто-радар. */
+export const AUDIT_COOLDOWN_DAYS = 45;
+
+/** Когда сделку снова можно анализировать после готового аудита от lastReadyAt. */
+export function nextAuditAvailableAt(lastReadyAt: Date): Date {
+  return new Date(lastReadyAt.getTime() + AUDIT_COOLDOWN_DAYS * 86_400_000);
+}
+
+/** Активен ли запрет повтора: готовый аудит ещё моложе 45 дней. */
+export function isAuditOnCooldown(lastReadyAt: Date, now: Date = new Date()): boolean {
+  return now.getTime() < nextAuditAvailableAt(lastReadyAt).getTime();
+}
+
+export type CreateAuditResult =
+  | { ok: true; id: number }
+  | {
+      ok: false;
+      reason: 'cooldown' | 'in_progress';
+      existingId: number;
+      lastAuditAt: string | null; // ISO — когда сделана последняя готовая версия
+      nextAvailableAt: string | null; // ISO — когда снова можно (last + 45 дней)
+    };
+
+export async function createAudit(
+  dealId: number,
+  requestedBy: number | null,
+): Promise<CreateAuditResult> {
+  // Запрет повтора: если есть готовый аудит этой сделки моложе 45 дней — не создаём
+  // новый, отдаём ссылку на существующий и дату, когда анализ снова станет доступен.
+  const cutoff = new Date(Date.now() - AUDIT_COOLDOWN_DAYS * 86_400_000);
+  const recent = await db
+    .select({ id: dealAudits.id, updatedAt: dealAudits.updatedAt })
+    .from(dealAudits)
+    .where(and(eq(dealAudits.dealId, dealId), eq(dealAudits.status, 'ready'), gte(dealAudits.updatedAt, cutoff)))
+    .orderBy(desc(dealAudits.updatedAt))
+    .limit(1);
+  if (recent[0]?.updatedAt) {
+    const last = recent[0].updatedAt;
+    return {
+      ok: false,
+      reason: 'cooldown',
+      existingId: recent[0].id,
+      lastAuditAt: last.toISOString(),
+      nextAvailableAt: nextAuditAvailableAt(last).toISOString(),
+    };
+  }
+  // Разбор этой сделки уже в очереди/идёт — не плодим дубликат.
+  const inflight = await db
+    .select({ id: dealAudits.id })
+    .from(dealAudits)
+    .where(and(eq(dealAudits.dealId, dealId), inArray(dealAudits.status, ['pending', 'collecting'])))
+    .orderBy(desc(dealAudits.id))
+    .limit(1);
+  if (inflight[0]) {
+    return { ok: false, reason: 'in_progress', existingId: inflight[0].id, lastAuditAt: null, nextAvailableAt: null };
+  }
   const [row] = await db
     .insert(dealAudits)
     .values({ dealId, requestedBy })
     .returning({ id: dealAudits.id });
-  return row.id;
+  return { ok: true, id: row.id };
 }
 
 export async function markReturnedToWork(
@@ -215,10 +305,14 @@ export async function markReturnedToWork(
   taskId: number | null,
   outcomeKind: string,
   outcomeResponsibleId: number,
+  returnStage: string,
 ): Promise<void> {
   await db
     .update(dealAudits)
-    .set({ returnedToWork: true, taskId, outcomeKind, outcomeResponsibleId, updatedAt: new Date() })
+    .set({
+      returnedToWork: true, taskId, outcomeKind, outcomeResponsibleId,
+      returnStage, returnedAt: new Date(), updatedAt: new Date(),
+    })
     .where(eq(dealAudits.id, id));
 }
 

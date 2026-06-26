@@ -356,6 +356,16 @@ export const meetingTasks = pgTable(
   (table) => [unique('meeting_tasks_meeting_id_step_key_unique').on(table.meetingId, table.stepKey)],
 );
 
+export const dealRiskFlags = pgTable('deal_risk_flags', {
+  dealId: integer('deal_id').primaryKey(),
+  title: text('title'),
+  stageLabel: text('stage_label'),
+  managerId: integer('manager_id'),
+  flags: jsonb('flags').notNull().default([]),
+  severity: text('severity').notNull().default('warning'),
+  checkedAt: timestamp('checked_at', { withTimezone: true }).defaultNow(),
+});
+
 export const kpJobs = pgTable(
   'kp_jobs',
   {
@@ -396,6 +406,13 @@ export const dealAudits = pgTable(
     taskId: integer('task_id'),
     outcomeKind: text('outcome_kind'), // current | transferred | telemarketing
     outcomeResponsibleId: integer('outcome_responsible_id'),
+    source: text('source').notNull().default('manual'), // manual | auto (радар)
+    attempts: integer('attempts').notNull().default(0), // неудачные попытки (транзиентные сбои → повтор)
+    returnedAt: timestamp('returned_at', { withTimezone: true }),
+    returnStage: text('return_stage'),
+    followupStatus: text('followup_status'),   // progressed | stalled | in_progress
+    followupNote: text('followup_note'),
+    followupAt: timestamp('followup_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
   },

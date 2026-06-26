@@ -1,10 +1,10 @@
-// Доступ к «Аудиту сделок». Пилот (решение заказчика 23.06): на проде видно
-// ТОЛЬКО заказчику — строгий allowlist по почте, доступ по роли отключён до
-// расширения пилота. role оставлен в сигнатуре для будущего включения РОП.
+// Доступ к «Аудиту сделок». Пилот завершён (25.06): инструмент открыт ВСЕМ
+// авторизованным сотрудникам командного центра. Авторизация проверяется отдельно
+// (session.bitrixId в страницах/роутах), поэтому здесь — разрешение для всех.
+// Функция/сигнатура сохранены, чтобы при необходимости снова сузить доступ по
+// почте/роли в одном месте.
 import type { UserRole } from './session';
 
-export const AUDIT_ALLOWED_EMAILS = ['es@belberry.net'];
-
-export function canSeeAudit(email?: string | null, _role?: UserRole | string | null): boolean {
-  return !!email && AUDIT_ALLOWED_EMAILS.includes(email.trim().toLowerCase());
+export function canSeeAudit(_email?: string | null, _role?: UserRole | string | null): boolean {
+  return true;
 }
