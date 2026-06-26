@@ -3,7 +3,7 @@
 ## Один раз
 
 ```bash
-ssh root@cloudbot-ssh-proxy
+ssh root@cloudbot-hz
 mkdir -p /opt/cloudbot-runtime/larisa/sales-kpi-dashboard
 cd /opt/cloudbot-runtime/larisa/sales-kpi-dashboard
 
@@ -37,7 +37,7 @@ tail -50 /var/log/cloudbot-larisa-sales-kpi.log
 ## После каждого обновления кода
 
 ```bash
-ssh root@cloudbot-ssh-proxy
+ssh root@cloudbot-hz
 cd /opt/cloudbot-runtime/larisa/sales-kpi-dashboard
 git pull
 .venv/bin/pip install -e ./sales_dashboard
