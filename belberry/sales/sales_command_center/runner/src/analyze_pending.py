@@ -23,10 +23,12 @@ from .transform import build_post_meeting_comms
 def _pending(conn, since: date) -> dict[str, set[int]]:
     """{report_date_iso: {meeting_id,...}} непроанализированных SUCCESS-встреч."""
     with conn.cursor() as cursor:
+        # Терминальные статусы НЕ переразбираем: done — успешно; no_record — встреча без
+        # записи/транскрипта (вручную); skipped_manual — исключена вручную (встреча про другое).
         cursor.execute(
             "SELECT report_date, meeting_id FROM meetings "
             "WHERE status = 'DT1048_24:SUCCESS' AND report_date >= %s "
-            "AND coalesce(analysis_status, '') <> 'done'",
+            "AND coalesce(analysis_status, '') NOT IN ('done', 'no_record', 'skipped_manual')",
             (since.isoformat(),),
         )
         out: dict[str, set[int]] = {}

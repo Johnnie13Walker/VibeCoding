@@ -66,6 +66,7 @@ export async function getMeetingsForAnalysis(days = 120): Promise<MeetingItem[]>
       transcriptOk: meetings.transcriptOk,
       transcriptUrl: meetings.transcriptUrl,
       status: meetings.status,
+      analysisStatus: meetings.analysisStatus,
     })
     .from(meetings)
     // Только ПРОВЕДЁННЫЕ встречи, ОДНА строка на встречу. В meetings теперь две
@@ -111,6 +112,8 @@ export async function getMeetingsForAnalysis(days = 120): Promise<MeetingItem[]>
     // Только продажные встречи: брифинг и защита КП. «Другое» / «Передача проекта»
     // (meeting_type='other') не про продажи — не анализируем и не показываем здесь.
     if (r.type !== 'briefing' && r.type !== 'defense') continue;
+    // Исключённые вручную (встреча про другое) не показываем и не анализируем.
+    if (r.analysisStatus === 'skipped_manual') continue;
 
     const a = (r.analysis ?? null) as RawAnalysis | null;
     const analyzed = a != null && typeof a.score === 'number';
@@ -135,6 +138,7 @@ export async function getMeetingsForAnalysis(days = 120): Promise<MeetingItem[]>
       conclusion: (a?.systemic_conclusion ?? '').toString().trim(),
       nextStep: a?.next_step ?? null,
       transcript,
+      note: r.analysisStatus === 'no_record' ? 'Не было записи и транскрипции' : null,
       summarySent: typeof a?.summary_sent === 'boolean' ? a.summary_sent : null,
       budgetNamed: typeof a?.budget_named === 'boolean' ? a.budget_named : null,
       products: Array.isArray(a?.products_discussed) ? a!.products_discussed!.map(String) : [],
