@@ -3,7 +3,7 @@
 set -euo pipefail
 
 ROOT="/Users/pro2kuror/Desktop/VibeCoding"
-REMOTE_STATE="cloudbot-ssh-proxy:/opt/openclaw/state/bitrix_app/install.latest.json"
+REMOTE_STATE="cloudbot-hz:/opt/openclaw/state/bitrix_app/install.latest.json"
 LOCAL_STATE_DIR="$ROOT/shared/config/bitrix24-state"
 LOCAL_STATE_FILE="$LOCAL_STATE_DIR/install.latest.json"
 
