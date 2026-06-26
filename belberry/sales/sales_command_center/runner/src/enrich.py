@@ -154,8 +154,11 @@ def enrich_meetings(
         if meeting_id in cache:
             continue
         url = _extract_transcript_url(meeting)
-        # Перед скачиванием обновляем ссылку: токен из времени сбора уже мог протухнуть.
-        if refresh and url:
+        # Полный crm.item.get перед скачиванием: (1) токен из времени сбора мог протухнуть;
+        # (2) новые файл-поля транскрипта (ufCrm16_1782395353) могут НЕ входить в select сбора,
+        # и тогда в сырой встрече ссылки нет — full get их вернёт. Поэтому refresh всегда, а не
+        # только когда url уже найден (иначе встречи с новым полем уходят в missing).
+        if refresh:
             fresh = _refresh_transcript_url(meeting_id, client)
             if fresh:
                 url = fresh
