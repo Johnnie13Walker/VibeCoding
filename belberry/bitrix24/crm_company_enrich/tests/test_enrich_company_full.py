@@ -475,6 +475,21 @@ def test_liquidated_company_with_deal_marks_REJECTED():
     assert out.deal_id == "100"
 
 
+def test_stale_liquidated_company_rechecked_before_auto_reject(monkeypatch):
+    monkeypatch.setattr(stage.sync_deals, "fetch_rusprofile_html", lambda inn: "<span>Действующая организация</span>")
+    monkeypatch.setattr(stage.sync_deals, "parse_organization_status", lambda html: "Действующая")
+    bx = FakeBitrix(companies={"10": company(UF_CRM_ORG_STATUS="8852")}, deals={"100": deal()}, requisites={"10": [req()]})
+
+    out = stage.run(bx, company_id="10", dry_run=False, skip_bp=True, bizproc_wait_s=0)
+
+    assert out.final_status != "REJECTED"
+    assert bx.companies["10"][COMPANY_UF_ORGANIZATION_STATUS] == "8850"
+    assert ("10", {COMPANY_UF_ORGANIZATION_STATUS: "8850"}) in bx.updated_companies
+    step = _step(out, "RANK_DEAL_VIABILITY")
+    assert step.details["decision"] == "continue"
+    assert step.details["liquidated_status_recheck"]["status"] == "restored_active"
+
+
 def test_low_revenue_with_deal_marks_REJECTED():
     bx = FakeBitrix(companies={"10": company(UF_CRM_1737098549301="10000000")}, deals={"100": deal()}, requisites={"10": [req()]})
     out = stage.run(bx, company_id="10")

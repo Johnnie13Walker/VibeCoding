@@ -26,6 +26,22 @@ def test_extract_inn_labeled_english():
     assert extract_inn_from_text(html) == "7707083893"
 
 
+def test_extract_inn_labeled_html_nbsp_entity():
+    html = "ООО Фирма «Феррум» ИНН&nbsp;2614018356, ОГРН&nbsp;1032600181569"
+    assert extract_inn_from_text(html) == "2614018356"
+
+
+def test_extract_inn_labeled_tilda_split_html():
+    html = """
+    <div class='tn-atom' field='tn_text_1'>ИНН</div>
+    <div class='tn-elem' data-field-left-value="717" data-field-top-value="155">
+      <div class='tn-atom' field='tn_text_2'>7714891820</div>
+    </div>
+    """
+
+    assert extract_inn_from_text(html) == "7714891820"
+
+
 def test_extract_inn_12_digit():
     html = "<div>ИНН 770708389300</div>"
     assert extract_inn_from_text(html) == "770708389300"
@@ -103,6 +119,23 @@ def test_enrich_one_falls_back_to_web():
     assert name == "Acme"
     # должны были обойти как минимум первые два URL
     assert any("/requisites/" in u for u in fetched)
+
+
+def test_enrich_one_checks_politika_page_for_requisites():
+    row = QueueRow(company_id="2", web="stail-s.ru", uf_inn_candidate=None)
+
+    def fetcher(url):
+        if url.endswith("/politika/"):
+            return FetchResult(
+                url=url,
+                status=200,
+                text="ООО «Стайл-С», ИНН&nbsp;7715424113, ОГРН&nbsp;1157746179381, КПП&nbsp;771501001",
+            )
+        return FetchResult(url=url, status=404, text="")
+
+    inn, source, _ = _enrich_one(row, fetcher, sleep_s=0)
+    assert inn == "7715424113"
+    assert source == "web"
 
 
 def test_enrich_one_returns_none_when_all_sources_fail():

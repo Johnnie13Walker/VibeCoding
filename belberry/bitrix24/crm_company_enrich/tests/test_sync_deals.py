@@ -677,6 +677,19 @@ def test_organization_status_ignores_unrelated_liquidated_word_on_search_page():
     assert sync_deals._parse_organization_status(html) == "Действующая"
 
 
+def test_organization_status_ignores_related_liquidated_companies_block():
+    html = """
+    <main>
+      <h1>ООО "СТАЙЛ-С"</h1>
+      <p>Действующая организация.</p>
+      <p>Статус: действующая с 11.03.2015.</p>
+      <aside>Выявлена 1 действующая и 8 ликвидированных связанных организаций.</aside>
+    </main>
+    """
+
+    assert sync_deals._parse_organization_status(html) == "Действующая"
+
+
 def test_brand_defaults_to_belberry_when_company_brand_is_empty():
     bx = FakeBitrix(
         companies={"100": _company(UF_CRM_1737098476975="")},
@@ -927,6 +940,12 @@ def test_parse_main_activity_from_rusprofile_text():
 
     assert activity == "Оптовая торговля автомобильными деталями, узлами и принадлежностями"
     assert sync_deals._industry_from_text(activity, fallback_other=True) == "Другое"
+
+
+def test_veterinary_clinic_is_medical_industry():
+    activity = "Деятельность ветеринарная. Ветеринарная клиника Вет-Доктор"
+
+    assert sync_deals._industry_from_text(activity, fallback_other=True) == "Медицина"
 
 
 def test_run_company_fills_company_without_deals(monkeypatch):

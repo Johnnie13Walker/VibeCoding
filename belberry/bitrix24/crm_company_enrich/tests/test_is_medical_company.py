@@ -26,6 +26,8 @@ from crm_company_enrich.models import is_medical_company
         ("OncoCareClinic 308", None, "oncocareclinic.ru", True),
         ("youcanlive.ru", "youcanlive.ru", None, True),
         ("ООО АЛЬЯНС-МЕД", None, None, True),
+        ("ООО ВЕТ-ДОКТОР", "Ветеринарная клиника", None, True),
+        ("VetClinic Happy Pet", None, "vetclinic.example", True),
         # медицинская adjacency: «Фрезерный центр» — стоматологическая фрезеровка
         ("LabPrestige", "Фрезерный центр LabPrestige", None, True),
 
