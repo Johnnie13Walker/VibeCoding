@@ -12,6 +12,7 @@
 
   BITRIX_STATE_PATH=/opt/openclaw/state/bitrix_app/install.latest.json \\
   GOOGLE_SERVICE_ACCOUNT_JSON=/opt/openclaw/secrets/finance-director-sheets.json \\
+  BITRIX_ALLOW_DELETE=1 \\
   /opt/openclaw/venvs/crm_company_merge/bin/python \\
   /opt/openclaw/repos/vibecoding/belberry/bitrix24/empty_companies_score/scripts/delete_score3_safe.py \\
   [--confirm-delete] [--limit N]
@@ -20,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -49,6 +51,12 @@ def main() -> int:
     p.add_argument("--confirm-delete", action="store_true", help="без флага — dry-run")
     p.add_argument("--limit", type=int, help="обработать не больше N кандидатов")
     args = p.parse_args()
+    if args.confirm_delete and not _delete_env_enabled():
+        print(
+            "Для реального удаления нужен BITRIX_ALLOW_DELETE=1 вместе с --confirm-delete.",
+            file=sys.stderr,
+        )
+        return 2
 
     bx = BitrixClient(BITRIX_STATE)
     sheets = _sheets()
@@ -160,6 +168,10 @@ def _sheets():
         SA_KEY, scopes=["https://www.googleapis.com/auth/spreadsheets"]
     )
     return build("sheets", "v4", credentials=creds, cache_discovery=False)
+
+
+def _delete_env_enabled() -> bool:
+    return os.environ.get("BITRIX_ALLOW_DELETE", "0") == "1"
 
 
 def _gid(svc, tab: str) -> int:

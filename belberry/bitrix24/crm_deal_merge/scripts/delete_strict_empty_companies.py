@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 from datetime import datetime
@@ -30,6 +31,8 @@ def main() -> None:
     parser.add_argument("--include-phone-title", action="store_true")
     parser.add_argument("--limit", type=int)
     args = parser.parse_args()
+    if args.confirm_delete and not _delete_env_enabled():
+        raise SystemExit("Для реального удаления нужен BITRIX_ALLOW_DELETE=1 вместе с --confirm-delete.")
 
     bx = BitrixClient(STATE_PATH, log_path=LOG_PATH)
     sheets = SheetsClient(SHEET_ID, SERVICE_ACCOUNT_JSON)
@@ -191,6 +194,10 @@ def title_is_phone(title: str) -> bool:
     digits = re.sub(r"\D+", "", text)
     letters = re.sub(r"[^a-zа-я]+", "", text)
     return len(digits) >= 7 and len(letters) <= 2
+
+
+def _delete_env_enabled() -> bool:
+    return os.environ.get("BITRIX_ALLOW_DELETE", "0") == "1"
 
 
 def safe_name(raw: str) -> str:

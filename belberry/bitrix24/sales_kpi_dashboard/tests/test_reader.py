@@ -39,7 +39,7 @@ def test_resolve_role_users_includes_sales_rop_via_mop_regex() -> None:
                 {"ID": "2846", "NAME": "Егор", "LAST_NAME": "Семенихин",
                  "WORK_POSITION": "Менеджер по продажам"},
                 {"ID": "2188", "NAME": "Евгения", "LAST_NAME": "Гордиенко",
-                 "WORK_POSITION": "Руководитель отдела продаж"},
+                 "WORK_POSITION": "РОП"},
                 {"ID": "470", "NAME": "Мария", "LAST_NAME": "Лопатина",
                  "WORK_POSITION": "Руководитель отдела аккаунтинга"},
                 {"ID": "584", "NAME": "Екатерина", "LAST_NAME": "Смирнова",
