@@ -57,7 +57,7 @@ const RANGES = [
   ["rawSpamSources", "'RAW · spam_sources_2026'!A1:H220"],
   ["winsDeals", "'Продажи YTD 2026 · сделки'!A1:P400"],
   ["winsServices", "'Продажи YTD 2026 · услуги'!A1:R400"],
-  ["expenses", "'Шаблон расходов'!A1:H80"],
+  ["expenses", "'Шаблон расходов'!A:H"],
   ["methodology", "'Методология'!A1:F40"],
   ["rawCohortSource", "'RAW · cohort_source'!A1:I90"],
   ["rawEventBrand", "'RAW · event_brand'!A1:G20"],
