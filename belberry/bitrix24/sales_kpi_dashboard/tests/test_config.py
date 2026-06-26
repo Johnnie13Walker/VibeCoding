@@ -33,6 +33,8 @@ def test_mop_regex_includes_sales_rop_but_not_other_rops() -> None:
     assert r.search("менеджер по продажам ")
     assert r.search("Руководитель отдела продаж")
     assert r.search("руководитель отдела ПРОДАЖ")
+    assert r.search("РОП")
+    assert r.search(" роп ")
     # Соседние роли — не должны
     assert not r.search("Аккаунт-менеджер")
     assert not r.search("Руководитель отдела аккаунтинга")
@@ -40,6 +42,7 @@ def test_mop_regex_includes_sales_rop_but_not_other_rops() -> None:
     assert not r.search("Руководитель отдела SEO")
     assert not r.search("Административный менеджер")
     assert not r.search("Контент-менеджер")
+    assert not r.search("бывший РОП Belberry")
 
 
 def test_google_sa_key_can_be_overridden_by_env(monkeypatch) -> None:
