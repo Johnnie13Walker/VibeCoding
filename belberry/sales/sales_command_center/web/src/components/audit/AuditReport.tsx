@@ -109,6 +109,50 @@ function Gauge({ score, band }: { score: number; band: string }) {
   );
 }
 
+// Настрой клиента → цвет плашки.
+const MOOD_STYLE: Record<string, { bg: string; color: string }> = {
+  'тёплый': { bg: '#e7f4ec', color: 'var(--bb-green)' },
+  'нейтральный': { bg: 'var(--bb-canvas)', color: 'var(--bb-muted)' },
+  'остывает': { bg: '#fdf2e7', color: '#b5651d' },
+  'потерян': { bg: '#fdeced', color: 'var(--bb-red)' },
+};
+
+type CS = NonNullable<AuditResult['narrative']['current_state']>;
+
+// Быстрый снимок «где сейчас клиент»: тема, что хотел / что не дали, договорённость, мяч.
+function CurrentState({ cs }: { cs: CS }) {
+  const mood = (cs.client_mood ?? '').toLowerCase();
+  const ms = MOOD_STYLE[mood] ?? MOOD_STYLE['нейтральный'];
+  const Row = ({ label, value, accent }: { label: string; value?: string; accent?: boolean }) => (
+    value ? (
+      <div style={{ display: 'flex', gap: 10, padding: '9px 0', borderTop: '1px solid var(--bb-line)' }}>
+        <span style={{ flex: '0 0 168px', fontSize: 12.5, color: 'var(--bb-muted)', fontWeight: 600 }}>{label}</span>
+        <span style={{ fontSize: 13.5, lineHeight: 1.5, fontWeight: accent ? 600 : 400, color: accent ? 'var(--bb-ink)' : undefined }}>{value}</span>
+      </div>
+    ) : null
+  );
+  return (
+    <div className="bb-card">
+      <div className="bb-sect-head">
+        <div className="bb-sect-ic">🧭</div><h2>Текущий статус клиента</h2>
+        <small style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {cs.client_mood && <span style={{ background: ms.bg, color: ms.color, borderRadius: 999, padding: '3px 11px', fontWeight: 700, fontSize: 11.5 }}>{cs.client_mood}</span>}
+          {cs.ball_is_on && <span style={{ color: 'var(--bb-faint)' }}>мяч: {cs.ball_is_on}</span>}
+        </small>
+      </div>
+      {cs.live_topic && (
+        <div style={{ background: 'var(--bb-violet-soft)', borderRadius: 12, padding: '10px 14px', marginBottom: 4 }}>
+          <span style={{ fontSize: 11.5, color: 'var(--bb-violet)', fontWeight: 700 }}>СЕЙЧАС ОБСУЖДАЕМ</span>
+          <div style={{ fontSize: 14.5, fontWeight: 600, marginTop: 2 }}>{cs.live_topic}</div>
+        </div>
+      )}
+      <Row label="Клиент хотел" value={cs.client_wanted} />
+      <Row label="Что мы не дали" value={cs.we_didnt_give} />
+      <Row label="Договорились на" value={cs.agreed_next_step} accent />
+    </div>
+  );
+}
+
 function Section({ icon, title, hint, children }: { icon: string; title: string; hint?: string; children: React.ReactNode }) {
   return (
     <div className="bb-card">
@@ -265,6 +309,8 @@ export function AuditReport({ initialAudit, managers }: { initialAudit: DealAudi
           </div>
         </div>
       </div>
+
+      {n.current_state && <CurrentState cs={n.current_state} />}
 
       <Section icon="📊" title="Что в системе">
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12 }}>
