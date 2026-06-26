@@ -158,6 +158,111 @@ def test_director_cluster_is_unresolved_instead_of_deleted():
     assert outcome.skipped_reason == "director_contact_protected"
 
 
+def test_sales_deal_contact_is_unresolved_instead_of_deleted():
+    """Контакт на сделке вне телемаркетинга ([10] Продажи) не должен удаляться."""
+    deleted: list[str] = []
+
+    class FakeBitrix:
+        def list_contact_deals(self, contact_id):
+            if contact_id == "2":
+                return [{"ID": "16268", "CATEGORY_ID": "10", "STAGE_ID": "C10:1"}]
+            return []
+
+        def list_contact_companies(self, contact_id):
+            return ["100"]
+
+        def delete_contact(self, contact_id):
+            deleted.append(str(contact_id))
+            return True
+
+    older = _contact("1", LAST_NAME="", NAME="Николай", PHONE=[{"VALUE": "+79639990913"}])
+    on_deal = _contact("2", LAST_NAME="", NAME="Николай", PHONE=[{"VALUE": "+79639990913"}])
+
+    outcome = dedupe_contacts._process_cluster(FakeBitrix(), "100", [older, on_deal], dry_run=False)
+
+    assert outcome.status == "UNRESOLVED"
+    assert outcome.skipped_reason.startswith("non_telemarketing_deal:")
+    assert deleted == []
+
+
+def test_telemarketing_only_deal_still_merges():
+    """Кластер чисто телемаркетинговых сделок [50] по-прежнему сливается."""
+
+    class FakeBitrix:
+        def list_contact_deals(self, contact_id):
+            return [{"ID": "900", "CATEGORY_ID": "50", "STAGE_ID": "C50:NEW"}]
+
+        def list_contact_companies(self, contact_id):
+            return ["100"]
+
+    reason = dedupe_contacts._non_telemarketing_deal_reason(
+        {"1": [{"ID": "900", "CATEGORY_ID": "50"}], "2": []}
+    )
+    assert reason == ""
+
+
+def test_telemarketing_contact_with_call_history_is_unresolved():
+    """ТМ-контакт, которому реально звонили, не удаляется при авто-merge.
+
+    Инцидент: «переговорные» контакты (Леонов/Макаревич) сидели только на
+    ТМ-сделке [50], поэтому non_telemarketing-guard их не спасал, и дедуп их сносил.
+    """
+    deleted: list[str] = []
+
+    class FakeBitrix:
+        def list_contact_deals(self, contact_id):
+            if contact_id == "2":
+                return [{"ID": "900", "CATEGORY_ID": "50", "STAGE_ID": "C50:NEW"}]
+            return []
+
+        def list_contact_companies(self, contact_id):
+            return ["100"]
+
+        def deal_call_contact_ids(self, deal_id):
+            # на сделке 900 реально звонили контакту 2 (проигравшему)
+            return {"2"} if str(deal_id) == "900" else set()
+
+        def delete_contact(self, contact_id):
+            deleted.append(str(contact_id))
+            return True
+
+    older = _contact("1", LAST_NAME="", NAME="Анна", PHONE=[{"VALUE": "+79166273951"}])
+    on_deal = _contact("2", LAST_NAME="", NAME="Анна", PHONE=[{"VALUE": "+79166273951"}])
+
+    outcome = dedupe_contacts._process_cluster(
+        FakeBitrix(), "100", [older, on_deal], dry_run=False, advisory_only=False
+    )
+
+    assert outcome.status == "UNRESOLVED"
+    assert outcome.skipped_reason.startswith("deal_with_call_history:")
+    assert deleted == []
+
+
+def test_telemarketing_contact_without_calls_still_merges():
+    """Пустой ТМ-дубль без звонков по-прежнему дедупится (защита не over-блокирует)."""
+
+    class FakeBitrix:
+        def list_contact_deals(self, contact_id):
+            return [{"ID": "900", "CATEGORY_ID": "50", "STAGE_ID": "C50:NEW"}]
+
+        def list_contact_companies(self, contact_id):
+            return ["100"]
+
+        def deal_call_contact_ids(self, deal_id):
+            return set()  # звонков нет
+
+    reason = dedupe_contacts._unresolved_reason(
+        FakeBitrix(),
+        [
+            _contact("1", LAST_NAME="", NAME="Анна", PHONE=[{"VALUE": "+79166273951"}]),
+            _contact("2", LAST_NAME="", NAME="Анна", PHONE=[{"VALUE": "+79166273951"}]),
+        ],
+        {"1": [{"ID": "900", "CATEGORY_ID": "50"}], "2": [{"ID": "900", "CATEGORY_ID": "50"}]},
+        advisory_only=False,
+    )
+    assert reason == ""
+
+
 class FakeBitrixForRun:
     def __init__(
         self,
@@ -166,11 +271,13 @@ class FakeBitrixForRun:
         contact_deals: dict[str, list[dict]] | None = None,
         deal_contacts: dict[str, list[dict]] | None = None,
         company_deals: list[dict] | None = None,
+        deal_call_contacts: dict[str, list[str]] | None = None,
     ):
         self.contacts = contacts
         self.contact_deals = contact_deals or {}
         self.deal_contacts = deal_contacts or {}
         self.company_deals = company_deals or []
+        self.deal_call_contacts = deal_call_contacts or {}
         self.added_deal_contacts: list[tuple[str, str]] = []
         self.removed_deal_contacts: list[tuple[str, str]] = []
         self.removed_company_contacts: list[tuple[str, str]] = []
@@ -201,6 +308,9 @@ class FakeBitrixForRun:
 
     def list_deal_contacts(self, deal_id):
         return list(self.deal_contacts.get(str(deal_id), []))
+
+    def deal_call_contact_ids(self, deal_id):
+        return {str(c) for c in self.deal_call_contacts.get(str(deal_id), [])}
 
     def add_deal_contact(self, deal_id, contact_id):
         self.added_deal_contacts.append((str(deal_id), str(contact_id)))
@@ -317,7 +427,7 @@ def test_audit_csv_row_written_on_dry_run(tmp_path, monkeypatch):
         ],
     )
 
-    dedupe_contacts.run_company(bx, company_id="100", dry_run=True)
+    dedupe_contacts.run_company(bx, company_id="100", dry_run=True, advisory_only=False)
 
     rows = list(csv.DictReader(audit_path.open(encoding="utf-8")))
     assert rows[-1]["dry_run"] == "true"
@@ -336,7 +446,7 @@ def test_audit_csv_row_written_on_success(tmp_path, monkeypatch):
         ],
     )
 
-    dedupe_contacts.run_company(bx, company_id="100", dry_run=False)
+    dedupe_contacts.run_company(bx, company_id="100", dry_run=False, advisory_only=False)
 
     rows = list(csv.DictReader(audit_path.open(encoding="utf-8")))
     assert rows[-1]["dry_run"] == "false"
@@ -356,7 +466,7 @@ def test_timeline_comment_on_deal_when_loser_transferred(tmp_path, monkeypatch):
         deal_contacts={"22790": [{"CONTACT_ID": "1"}]},
     )
 
-    dedupe_contacts.run_company(bx, company_id="100", dry_run=False)
+    dedupe_contacts.run_company(bx, company_id="100", dry_run=False, advisory_only=False)
 
     assert bx.added_deal_contacts == [("22790", "2")]
     assert len(bx.timeline_comments) == 1
@@ -378,7 +488,32 @@ def test_no_timeline_comment_when_winner_already_attached(tmp_path, monkeypatch)
         deal_contacts={"22790": [{"CONTACT_ID": "1"}, {"CONTACT_ID": "2"}]},
     )
 
-    dedupe_contacts.run_company(bx, company_id="100", dry_run=False)
+    dedupe_contacts.run_company(bx, company_id="100", dry_run=False, advisory_only=False)
 
     assert bx.added_deal_contacts == []
     assert bx.timeline_comments == []
+
+
+def test_advisory_mode_never_merges_or_deletes(tmp_path, monkeypatch):
+    """Advisory (по умолчанию): даже чистый дубль не сливается и не удаляется."""
+    monkeypatch.setattr(dedupe_contacts, "AUDIT_CSV_PATH", tmp_path / "audit.csv")
+    monkeypatch.setattr(dedupe_contacts, "_backup_contact", lambda *a, **k: "")
+    # Не ходим в реальные Sheets — проверяем только отсутствие мутаций.
+    monkeypatch.setattr(dedupe_contacts, "_record_unresolved_if_needed", lambda *a, **k: None)
+    bx = FakeBitrixForRun(
+        contacts=[
+            _contact("1", LAST_NAME="!", NAME="Иванов Иван"),
+            _contact("2", LAST_NAME="Иванов", NAME="Иван"),
+        ],
+        contact_deals={"1": [{"ID": "22790", "CATEGORY_ID": "50"}]},
+        deal_contacts={"22790": [{"CONTACT_ID": "1"}]},
+    )
+
+    summary = dedupe_contacts.run_company(bx, company_id="100", dry_run=False)
+
+    assert summary["merged"] == 0
+    assert bx.deleted_contacts == []
+    assert bx.removed_deal_contacts == []
+    assert bx.removed_company_contacts == []
+    assert summary["outcomes"][0]["status"] == "UNRESOLVED"
+    assert summary["outcomes"][0]["skipped_reason"] == "advisory_no_auto_merge"
