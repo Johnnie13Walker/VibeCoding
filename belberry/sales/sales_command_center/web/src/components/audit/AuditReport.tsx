@@ -143,7 +143,10 @@ export function AuditReport({ initialAudit, managers }: { initialAudit: DealAudi
   const [taskTitle, setTaskTitle] = useState('');
   const [taskDesc, setTaskDesc] = useState('');
   const [taskTouched, setTaskTouched] = useState(false); // правил ли пользователь текст вручную
+  const [drafting, setDrafting] = useState(false);        // идёт генерация сценария под менеджера
+  const [draftNote, setDraftNote] = useState<string | null>(null);
   const selectedIsTm = managers.find((m) => String(m.id) === responsibleId)?.kind === 'tm';
+  const selectedManager = managers.find((m) => String(m.id) === responsibleId);
 
   // самоопрос статуса, пока аудит выполняется
   const poll = useCallback(async () => {
@@ -186,6 +189,29 @@ export function AuditReport({ initialAudit, managers }: { initialAudit: DealAudi
         <div className="bb-card bb-fade" style={{ marginTop: 14 }}>⏳ Аудит выполняется: сбор данных, расшифровка звонков и встреч, разбор. Обычно 1–2 минуты…</div>
       </div>
     );
+  }
+
+  // Умная задача под выбранного менеджера: пол/имя в речи + легенда перехвата сделки.
+  async function draftTask() {
+    if (!responsibleId) return;
+    setDrafting(true); setDraftNote(null); setErr(null);
+    try {
+      const res = await fetch(`/api/audit/${audit.id}/draft-task`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ responsibleId: Number(responsibleId) }),
+      });
+      const data = await res.json().catch(() => null);
+      if (data?.title) {
+        const origin = typeof window !== 'undefined' ? window.location.origin : '';
+        setTaskTitle(data.title);
+        setTaskDesc(`🔍 Полный аудит сделки: ${origin}/audit/${audit.id}\n\n${data.description ?? ''}`);
+        setTaskTouched(true); // не перетирать авто-шаблоном
+      } else {
+        setDraftNote('ИИ недоступен — оставлен базовый план. Попробуй ещё раз.');
+      }
+    } finally {
+      setDrafting(false);
+    }
   }
 
   async function returnToWork() {
@@ -375,6 +401,18 @@ export function AuditReport({ initialAudit, managers }: { initialAudit: DealAudi
                   style={{ border: '1px solid var(--bb-line)', borderRadius: 8, padding: '4px 8px', fontSize: 13 }} />
               </label>
             </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
+              <button type="button" onClick={draftTask} disabled={!responsibleId || drafting}
+                style={{ background: responsibleId && !drafting ? 'var(--bb-violet-soft)' : '#eee', color: responsibleId && !drafting ? 'var(--bb-violet)' : 'var(--bb-faint)', border: 0, borderRadius: 10, padding: '7px 13px', fontWeight: 700, fontSize: 13, cursor: responsibleId && !drafting ? 'pointer' : 'default' }}>
+                {drafting ? '🪄 Генерирую сценарий…' : '🪄 Подобрать сценарий под менеджера'}
+              </button>
+              <span style={{ fontSize: 12, color: 'var(--bb-faint)' }}>
+                {responsibleId
+                  ? `речь в роде ${selectedManager?.name ?? ''} + легенда, если перехватывает сделку`
+                  : 'сначала выбери ответственного'}
+              </span>
+            </div>
+            {draftNote && <div style={{ color: 'var(--bb-amber)', fontSize: 12.5, marginBottom: 8 }}>{draftNote}</div>}
             <input value={taskTitle} onChange={(e) => { setTaskTouched(true); setTaskTitle(e.target.value); }}
               style={{ width: '100%', border: '1px solid var(--bb-line)', borderRadius: 8, padding: '8px 10px', marginBottom: 8, fontSize: 13.5 }} />
             <textarea value={taskDesc} onChange={(e) => { setTaskTouched(true); setTaskDesc(e.target.value); }}
