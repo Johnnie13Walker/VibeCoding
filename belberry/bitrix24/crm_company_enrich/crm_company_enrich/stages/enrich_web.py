@@ -13,6 +13,7 @@
 """
 from __future__ import annotations
 
+import html
 import re
 import time
 import urllib.parse
@@ -588,8 +589,14 @@ def extract_inn_from_text(text: str, *, source_url: str | None = None) -> str | 
 
 
 def _html_visible_text(text: str) -> str:
-    """Сжать HTML до видимого текста, чтобы Tilda-блоки не разрывали label/value."""
+    """Сжать HTML до видимого текста, чтобы Tilda-блоки не разрывали label/value.
+
+    Декодируем HTML-сущности (`&nbsp;` → NBSP), снимаем теги и схлопываем пробелы —
+    тогда label и значение, разорванные разметкой/entity, склеиваются и попадают
+    под INN_NEAR_LABEL.
+    """
     visible = re.sub(r"<[^>]+>", " ", text)
+    visible = html.unescape(visible)
     return re.sub(r"\s+", " ", visible)
 
 
