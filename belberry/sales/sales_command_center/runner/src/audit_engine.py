@@ -154,8 +154,9 @@ def collect_deal_context(deal_id: int) -> dict[str, Any] | None:
         external = web_context.deal_external_context(deal) or {}
         site = external.get("site") if isinstance(external, dict) else None
         site_ok = site if (isinstance(site, dict) and site.get("ok")) else None
-        # репутация в агрегаторах (ProDoctorov и др.): имя из карточки компании, иначе из сайта
-        name = (company.get("TITLE") or (site_ok or {}).get("title") or "").strip()
+        # репутация: матчим по БРЕНДУ. Бренд надёжнее в title сайта («клиника Улыбка»), а не в
+        # юрлице карточки («ООО НОЙ»). Поэтому site.title первым, company.TITLE — фолбэк.
+        name = ((site_ok or {}).get("title") or company.get("TITLE") or "").strip()
         rep = reputation.collect(name, (site_ok or {}).get("text"))
         if rep:
             external["reputation"] = rep
