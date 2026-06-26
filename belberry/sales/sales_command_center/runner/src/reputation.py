@@ -98,25 +98,42 @@ def prodoctorov(company_name: str | None, city_slug: str | None) -> dict | None:
             best, best_score, best_name = href, score, title
     if not best:
         return None
-    page = _get(f"https://prodoctorov.ru{best}")
-    if not page:
+    own = _pd_clinic(best)
+    if not own:
         return {"source": "prodoctorov", "found": False, "url": f"https://prodoctorov.ru{best}", "name": best_name}
-    # рейтинг — первое значение у data-qa="stars_rate"; отзывы — из og:title или текста
+    # конкуренты: другие клиники города из листинга (слаги клиник, без /vrachi/), сэмпл с их рейтингом
+    comp_hrefs = []
+    for h in re.findall(r'/' + re.escape(city_slug) + r'/lpu/\d+-[a-z0-9-]+/', listing):
+        if h != best and h not in comp_hrefs:
+            comp_hrefs.append(h)
+        if len(comp_hrefs) >= int(os.environ.get("SCC_PD_COMPETITORS", "4")):
+            break
+    competitors = []
+    for h in comp_hrefs:
+        c = _pd_clinic(h)
+        if c and (c.get("rating") or c.get("reviews_count")):
+            competitors.append(c)
+    return {"source": "prodoctorov", **own, "competitors": competitors}
+
+
+def _pd_clinic(href: str) -> dict | None:
+    """Имя+рейтинг+отзывы одной клиники ProDoctorov по её href."""
+    page = _get(f"https://prodoctorov.ru{href}")
+    if not page:
+        return None
     rating = None
-    mr = re.search(r'stars_rate.{0,400}?([0-9]{1,2}[.,][0-9])', page, re.S)
+    mr = re.search(r"stars_rate.{0,400}?([0-9]{1,2}[.,][0-9])", page, re.S)
     if mr:
         rating = mr.group(1).replace(",", ".")
-    # число отзывов — из <title> («… 18 врачей, 679 отзывов …»), он клиника-специфичный
     mt = re.search(r"<title[^>]*>(.*?)</title>", page, re.S)
     title_txt = _strip_html(mt.group(1)) if mt else ""
     reviews = None
     mrev = re.search(r"([0-9][0-9 ]{0,6})\s*отзыв", title_txt)
     if mrev:
         reviews = int(mrev.group(1).replace(" ", ""))
-    return {
-        "source": "prodoctorov", "found": True, "url": f"https://prodoctorov.ru{best}",
-        "name": best_name, "rating": rating, "reviews_count": reviews,
-    }
+    name = re.split(r"\s[-—]\s", title_txt)[0][:80] if title_txt else None
+    return {"found": True, "url": f"https://prodoctorov.ru{href}", "name": name,
+            "rating": rating, "reviews_count": reviews}
 
 
 def collect(company_name: str | None, site_text: str | None) -> dict | None:
