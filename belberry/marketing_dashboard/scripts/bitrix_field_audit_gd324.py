@@ -29,7 +29,7 @@ OUTPUT_JSON = TMP_DIR / "gd324_field_audit_data.json"
 OUTPUT_SUMMARY = DOCS_DIR / "gd-324-bitrix-field-audit-summary.md"
 
 MOSCOW_NOW = datetime.now().astimezone().strftime("%Y-%m-%d %H:%M")
-SSH_HOST = "72.56.83.251"
+SSH_HOST = "188.34.206.115"
 SSH_USER = "ops"
 SSH_KEY = os.path.expanduser("~/.ssh/temp_migration_key")
 FULL_DATA_SWEEP = os.environ.get("GD324_FULL_DATA_SWEEP") == "1"

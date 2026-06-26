@@ -3,7 +3,7 @@
 ## Discovery
 
 - Дата: `2026-05-20`
-- Host alias: `cloudbot-ssh-proxy`
+- Host alias: `cloudbot-hz`
 - Hostname: `ams-1-vm-76ds`
 - Пользователь: `root`
 - Системная TZ VPS: `Etc/UTC`
