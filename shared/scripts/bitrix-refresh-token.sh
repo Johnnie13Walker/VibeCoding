@@ -5,7 +5,7 @@ set -euo pipefail
 
 ROOT="/Users/pro2kuror/Desktop/VibeCoding"
 STATE_LOCAL="$ROOT/shared/config/bitrix24-state/install.latest.json"
-STATE_REMOTE="cloudbot-ssh-proxy:/opt/openclaw/state/bitrix_app/install.latest.json"
+STATE_REMOTE="cloudbot-hz:/opt/openclaw/state/bitrix_app/install.latest.json"
 
 # Загружаем credentials
 set -a
@@ -65,7 +65,7 @@ PY
 
 # Заливаем на VPS чтобы cloudbot имел свежие данные
 scp -q "$STATE_LOCAL" "$STATE_REMOTE"
-ssh cloudbot-ssh-proxy "chmod 600 /opt/openclaw/state/bitrix_app/install.latest.json"
+ssh cloudbot-hz "chmod 600 /opt/openclaw/state/bitrix_app/install.latest.json"
 
 # Проверка профиля
 python3 - <<PY

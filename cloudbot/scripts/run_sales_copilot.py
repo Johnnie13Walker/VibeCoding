@@ -27,7 +27,7 @@ from shared.contracts.sales_runtime_contract import REMOTE_ENV_KEYS, REPORT_TYPE
 from shared.contracts.telegram_routing_contract import normalize_chat_id
 
 WHOOP_ENV_FILE = ROOT_DIR.parent / "whoop" / ".env"
-DEFAULT_REMOTE_HOST = "72.56.83.251"
+DEFAULT_REMOTE_HOST = "188.34.206.115"
 DEFAULT_REMOTE_ENV_FILE = "/opt/openclaw/.env"
 DEFAULT_REMOTE_STATE_DIR = "/opt/openclaw/state/bitrix_app"
 DEFAULT_REMOTE_SALES_TELEGRAM_TOKEN_FILE = "/root/.openclaw/telegram/commercial-director.bot_token"
