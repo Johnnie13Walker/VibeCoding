@@ -412,6 +412,21 @@ def cmd_telemarketing_dedupe(args: argparse.Namespace) -> int:
     return 0 if not summary.get("unresolved") else 1
 
 
+def cmd_rebind_orphan_contacts(args: argparse.Namespace) -> int:
+    from .stages import rebind_orphan_contacts
+    bx, _ = _make_clients()
+    summary = rebind_orphan_contacts.run_batch(
+        bx,
+        dry_run=not args.live,
+        limit=args.limit,
+        sources=(args.sources.split(",") if args.sources else None),
+    )
+    # Не печатаем per-contact outcomes для 3.7k строк — только агрегат.
+    summary.pop("outcomes", None)
+    print(json.dumps(summary, indent=2, ensure_ascii=False))
+    return 0
+
+
 def cmd_telemarketing_digest(args: argparse.Namespace) -> int:
     from .stages import telemarketing_digest
     bx, _ = _make_clients()
@@ -942,6 +957,22 @@ def main() -> None:
         help="Стартовый индекс ротации для переназначения winner с уволенного",
     )
     sp.set_defaults(func=cmd_telemarketing_dedupe)
+
+    sp = sub.add_parser(
+        "rebind-orphan-contacts",
+        help=(
+            "WRITE: привязать контакты-сироты (импорт «Вернувшийся клиент») "
+            "к компаниям/сделкам по телефону. По умолчанию dry-run + отчёт в "
+            "Sheets (contact_rebind_plan); --live для записи в Bitrix."
+        ),
+    )
+    sp.add_argument("--live", action="store_true")
+    sp.add_argument("--limit", type=int, help="Ограничить число контактов (для smoke)")
+    sp.add_argument(
+        "--sources",
+        help="SOURCE_ID сирот через запятую (по умолчанию из конфига: 5)",
+    )
+    sp.set_defaults(func=cmd_rebind_orphan_contacts)
 
     sp = sub.add_parser(
         "telemarketing-digest",

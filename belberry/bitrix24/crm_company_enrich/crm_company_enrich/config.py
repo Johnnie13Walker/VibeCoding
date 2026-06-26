@@ -140,6 +140,15 @@ CONTACT_DEDUPE_ADVISORY_ONLY = os.environ.get(
     "CCE_CONTACT_DEDUPE_ADVISORY_ONLY", "1"
 ).lower() not in {"0", "false", "no"}
 
+# Привязка контактов-сирот (импорт «Вернувшийся клиент» 26.05.2026 создал ~3.7k
+# контактов без компании). Матчим по телефону к существующим компаниям/контактам
+# и привязываем. SOURCE_ID для отбора сирот (через запятую).
+CONTACT_REBIND_SOURCE_IDS = [
+    s.strip() for s in os.environ.get("CCE_CONTACT_REBIND_SOURCE_IDS", "5").split(",") if s.strip()
+]
+# Вкладка с планом привязки (dry-run отчёт + статусы).
+CONTACT_REBIND_SHEET_TAB = "contact_rebind_plan"
+
 # Статус «Ликвидирована» в company.UF_CRM_ORG_STATUS.
 ORG_STATUS_LIQUIDATED = "8852"
 
