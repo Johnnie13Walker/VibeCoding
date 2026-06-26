@@ -111,16 +111,18 @@ def _plan_one(bx: BitrixClient, contact: dict) -> RebindOutcome:
 
     company_ids: set[str] = set()
     for phone in outcome.phones:
-        company_ids.update(bx.find_by_comm("PHONE", phone, "COMPANY"))
+        for query in _bitrix_phone_queries(phone):
+            company_ids.update(bx.find_by_comm("PHONE", query, "COMPANY"))
 
     match_status = "MATCH_COMPANY"
     if not company_ids:
         # Косвенно: телефон есть у другого контакта → берём его компанию.
         for phone in outcome.phones:
-            for other_id in bx.find_by_comm("PHONE", phone, "CONTACT"):
-                if str(other_id) == contact_id:
-                    continue
-                company_ids.update(bx.list_contact_companies(str(other_id)))
+            for query in _bitrix_phone_queries(phone):
+                for other_id in bx.find_by_comm("PHONE", query, "CONTACT"):
+                    if str(other_id) == contact_id:
+                        continue
+                    company_ids.update(bx.list_contact_companies(str(other_id)))
         match_status = "MATCH_VIA_CONTACT"
 
     company_ids.discard("")
@@ -189,6 +191,18 @@ def _normalize_phones(contact: dict) -> set[str]:
         if len(digits) >= 10:
             out.add(digits[-10:])
     return out
+
+
+def _bitrix_phone_queries(digits10: str) -> tuple[str, str]:
+    """Форматы телефона, которые матчит Bitrix `crm.duplicate.findbycomm`.
+
+    `_normalize_phones` хранит последние 10 цифр (для сравнения/отчёта), но Bitrix
+    ищет дубли по своему формату хранения и НЕ матчит голые 10 цифр против
+    сохранённого `+7XXXXXXXXXX` (проверено на проде: `find_by_comm("4993929971")`
+    → [], `find_by_comm("+74993929971")` → [компания]). Поэтому в lookup передаём
+    обе российские формы — `+7…` и `8…`.
+    """
+    return (f"+7{digits10}", f"8{digits10}")
 
 
 def _write_report(outcomes: list[RebindOutcome], *, dry_run: bool) -> None:

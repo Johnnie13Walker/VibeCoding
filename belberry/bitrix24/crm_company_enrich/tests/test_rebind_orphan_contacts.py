@@ -28,6 +28,11 @@ class FakeBitrix:
         self.deal_links: list[tuple] = []
 
     def find_by_comm(self, comm_type, value, entity_type):
+        # Как реальный Bitrix: матчит телефон по формату хранения (+7…/8…), НЕ по
+        # голым 10 цифрам. Голый 10-значный запрос ничего не находит — это ловит
+        # регресс _plan_one к небитриксовому формату.
+        if not (value.startswith("+7") or value.startswith("8")):
+            return []
         key = value[-10:]
         if entity_type == "COMPANY":
             return [str(x) for x in self.comm_company.get(key, [])]
@@ -128,3 +133,17 @@ def test_run_batch_dry_run_does_not_write(monkeypatch):
     assert summary["total"] == 1
     assert summary["rebindable"] == 1
     assert bx.updates == [] and bx.deal_links == []
+
+
+def test_phone_lookup_uses_bitrix_format_not_bare_digits():
+    # Регресс (прод-баг 26.06): _plan_one должен искать компанию по +7/8-форме.
+    # Строгий фейк (как реальный Bitrix) на голые 10 цифр вернёт [] → NO_MATCH.
+    # Телефон сирот хранится по-разному — match не должен зависеть от форматирования.
+    bx = FakeBitrix(comm_company={"9991112233": ["500"]})
+    out = rob._plan_one(bx, _contact("1", phones=["+7 (999) 111-22-33"]))
+    assert out.status == "MATCH_COMPANY"
+    assert out.target_company_id == "500"
+
+
+def test_bitrix_phone_queries_forms():
+    assert rob._bitrix_phone_queries("9991112233") == ("+79991112233", "89991112233")
