@@ -102,6 +102,14 @@ export type AuditResult = {
   failure_tags: { tag: string; label: string }[];
   call_recordings?: { date?: string; duration?: number; status?: string }[];
   narrative: {
+    current_state?: {
+      live_topic?: string;
+      client_wanted?: string;
+      we_didnt_give?: string;
+      agreed_next_step?: string;
+      ball_is_on?: string;
+      client_mood?: string;
+    };
     summary?: string;
     real_cause?: string;
     verdict_band_text?: string;
