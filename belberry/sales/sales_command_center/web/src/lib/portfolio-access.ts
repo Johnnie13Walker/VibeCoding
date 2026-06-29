@@ -1,14 +1,12 @@
 import type { UserRole } from './session';
 
-// Раздел «Портфолио» пока виден только владельцу (Щемелёв). Открыть шире —
-// расширить условие здесь (одно место). Гейтим и пункт меню, и саму страницу.
-const OWNER_EMAIL = 'es@belberry.net';
-const OWNER_BITRIX_ID = 12;
-
+// «Портфолио» открыто ВСЕМ авторизованным сотрудникам командного центра
+// (с 29.06 — раньше был пилот только для владельца). Сигнатура сохранена,
+// чтобы при необходимости снова сузить доступ в одном месте.
 export function canSeePortfolio(
-  email?: string | null,
-  role?: UserRole | string | null,
-  bitrixId?: number | null,
+  _email?: string | null,
+  _role?: UserRole | string | null,
+  _bitrixId?: number | null,
 ): boolean {
-  return role === 'director' || (email ?? '').trim().toLowerCase() === OWNER_EMAIL || bitrixId === OWNER_BITRIX_ID;
+  return true;
 }
