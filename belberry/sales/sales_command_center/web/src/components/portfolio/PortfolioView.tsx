@@ -44,10 +44,16 @@ function ProjectRow({ p }: { p: PortfolioProject }) {
         <div className="pf-cl">
           <span className={`pf-dot ${brand ?? 'none'}`} title={brand === 'acoola' ? 'Acoola Team' : brand === 'belberry' ? 'Belberry' : ''} />
           {siteUrl ? (
-            <a href={siteUrl} target="_blank" rel="noopener noreferrer">{p.project} ↗</a>
+            <a href={siteUrl} target="_blank" rel="noopener noreferrer">{p.project}</a>
           ) : (
             <span style={{ fontWeight: 700 }}>{p.project}</span>
           )}
+          <span
+            title={p.siteActive ? 'сайт работает' : 'сайт не работает'}
+            style={{ fontWeight: 900, fontSize: 15, lineHeight: 1, marginLeft: 2, color: p.siteActive ? '#1f9d4d' : '#d4202e' }}
+          >
+            {p.siteActive ? '✓' : '✕'}
+          </span>
         </div>
       </td>
       <td><span className="pf-badge" style={{ background: '#eef0f4', color: '#5a6473' }}>{p.category}</span></td>
