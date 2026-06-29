@@ -6,7 +6,7 @@ import { Flame, ExternalLink, VolumeX } from 'lucide-react';
 import type { AlertsData } from '@/lib/alerts';
 import { BURNING_TOP, SILENT_TOP, burnComparator, filterSection, sectionManagers, type BurnSort } from '@/lib/alerts-filter';
 import { BurningSortPicker } from '@/components/alerts/BurningSortPicker';
-import { SectionPicker, dealUrl, fmtDate, fmtDateFull, daysAgo, rub } from '@/components/alerts/shared';
+import { SectionPicker, dealUrl, fmtDateFull, daysAgo, rub } from '@/components/alerts/shared';
 
 // Превентив (#5) пока шумит — handover-флаг частит (RESPONSIBLE_ID звонков
 // варьируется), на пилоте набегает ~46 «критичных». Прячем блок до доработки
@@ -108,10 +108,23 @@ export function DealsAlerts({ data }: { data: AlertsData }) {
                     <span className={`bb-reason ${d.severity}`}>{d.reason}</span>
                   </p>
                 </div>
+                <div className="bb-comm">
+                  <div className="bb-comm-lbl">последний контакт</div>
+                  {d.lastCommAt ? (
+                    <>
+                      <div className="bb-comm-val">{fmtDateFull(d.lastCommAt)}</div>
+                      {daysAgo(d.lastCommAt, data.snapshotDate) != null ? (
+                        <div className="bb-comm-ago">{daysAgo(d.lastCommAt, data.snapshotDate)} дн. назад</div>
+                      ) : null}
+                    </>
+                  ) : (
+                    <div className="bb-comm-none">контакта не было</div>
+                  )}
+                </div>
                 <div style={{ textAlign: 'right', flex: '0 0 auto' }}>
                   <p className="tabular" style={{ fontWeight: 700, fontSize: 14 }}>{rub(d.amount)}</p>
                   <p style={{ fontSize: 12, fontWeight: 600, color: d.severity === 'critical' ? '#d4202e' : '#b5651d' }}>
-                    {d.lastCommAt ? `последний контакт ${fmtDate(d.lastCommAt)}` : `${d.silenceDays} дн. без контакта`}
+                    {d.silenceDays} дн. без контакта
                   </p>
                 </div>
               </li>
