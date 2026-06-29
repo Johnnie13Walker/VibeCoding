@@ -299,6 +299,7 @@ export function aggregateServices(projects: PortfolioProject[]): NicheCount[] {
 
 export interface PortfolioFilter {
   niche?: string | null; // null/undefined = все
+  subcategory?: string | null;
   service?: string | null;
   onlyWithCase?: boolean;
   query?: string;
@@ -307,6 +308,7 @@ export function filterProjects(projects: PortfolioProject[], f: PortfolioFilter)
   const q = (f.query ?? '').trim().toLowerCase();
   return projects.filter((p) => {
     if (f.niche && p.category !== f.niche) return false;
+    if (f.subcategory && p.subcategory !== f.subcategory) return false;
     if (f.service && !p.services.includes(f.service)) return false;
     if (f.onlyWithCase && !p.caseUrl) return false;
     if (q && !(`${p.project} ${p.brand}`.toLowerCase().includes(q))) return false;

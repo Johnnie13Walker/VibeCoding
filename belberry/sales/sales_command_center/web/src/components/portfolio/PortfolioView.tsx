@@ -8,9 +8,9 @@ import { agencyBrand, filterProjects, nicheIcon, rubShort, type PortfolioProject
 const NICHE_PREVIEW = 8; // сколько ниш показывать до «показать все»
 const PAGE = 60;
 
-type SortKey = 'client' | 'niche' | 'services' | 'period' | 'revenue';
+type SortKey = 'client' | 'niche' | 'subcategory' | 'services' | 'period' | 'revenue';
 // По умолчанию: текст — А-Я (asc), числа/годы — от большего (desc).
-const DEFAULT_DIR: Record<SortKey, 'asc' | 'desc'> = { client: 'asc', niche: 'asc', services: 'asc', period: 'desc', revenue: 'desc' };
+const DEFAULT_DIR: Record<SortKey, 'asc' | 'desc'> = { client: 'asc', niche: 'asc', subcategory: 'asc', services: 'asc', period: 'desc', revenue: 'desc' };
 function yearOf(period: string): number {
   const ys = (period.match(/\d{4}/g) || []).map(Number);
   return ys.length ? Math.max(...ys) : 0;
@@ -19,6 +19,7 @@ function sortVal(p: PortfolioProject, key: SortKey): string | number {
   switch (key) {
     case 'client': return (p.brand || p.project).toLowerCase();
     case 'niche': return p.category.toLowerCase();
+    case 'subcategory': return (p.subcategory || 'яяя').toLowerCase();
     case 'services': return p.services.join(' ').toLowerCase();
     case 'period': return yearOf(p.period);
     case 'revenue': return p.revenue ?? -1;
@@ -49,13 +50,11 @@ function ProjectRow({ p }: { p: PortfolioProject }) {
           )}
         </div>
       </td>
+      <td><span className="pf-badge" style={{ background: '#eef0f4', color: '#5a6473' }}>{p.category}</span></td>
       <td>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 3, alignItems: 'flex-start' }}>
-          <span className="pf-badge" style={{ background: '#eef0f4', color: '#5a6473' }}>{p.category}</span>
-          {p.subcategory && p.subcategory.trim().toLowerCase() !== 'не определено' ? (
-            <span style={{ fontSize: 11.5, color: 'var(--bb-faint)', whiteSpace: 'nowrap' }}>{p.subcategory}</span>
-          ) : null}
-        </div>
+        {p.subcategory && p.subcategory.trim().toLowerCase() !== 'не определено' ? (
+          <span className="pf-badge" style={{ background: '#eef0fd', color: '#5b50d6' }}>{p.subcategory}</span>
+        ) : <span style={{ color: 'var(--bb-faint)' }}>—</span>}
       </td>
       <td>
         <div className="pf-servs">
@@ -79,6 +78,7 @@ function ProjectRow({ p }: { p: PortfolioProject }) {
 
 export function PortfolioView({ data }: { data: PortfolioData }) {
   const [niche, setNiche] = useState<string | null>(null);
+  const [subcategory, setSubcategory] = useState<string | null>(null);
   const [service, setService] = useState<string | null>(null);
   const [onlyWithCase, setOnlyWithCase] = useState(false);
   const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' } | null>(null);
@@ -86,8 +86,19 @@ export function PortfolioView({ data }: { data: PortfolioData }) {
   const [showAllNiches, setShowAllNiches] = useState(false);
   const [limit, setLimit] = useState(PAGE);
 
+  // Доступные подкатегории — сужаются под выбранную нишу.
+  const subOptions = useMemo(() => {
+    const set = new Map<string, number>();
+    for (const p of data.projects) {
+      if (niche && p.category !== niche) continue;
+      const s = (p.subcategory || '').trim();
+      if (s && s.toLowerCase() !== 'не определено') set.set(s, (set.get(s) ?? 0) + 1);
+    }
+    return [...set.entries()].sort((a, b) => a[0].localeCompare(b[0], 'ru'));
+  }, [data.projects, niche]);
+
   const filtered = useMemo(() => {
-    const list = filterProjects(data.projects, { niche, service, onlyWithCase, query });
+    const list = filterProjects(data.projects, { niche, subcategory, service, onlyWithCase, query });
     if (!sort) return list;
     const { key, dir } = sort;
     const sorted = [...list].sort((a, b) => {
@@ -97,7 +108,7 @@ export function PortfolioView({ data }: { data: PortfolioData }) {
       return dir === 'desc' ? -c : c;
     });
     return sorted;
-  }, [data.projects, niche, service, onlyWithCase, query, sort]);
+  }, [data.projects, niche, subcategory, service, onlyWithCase, query, sort]);
 
   const clickSort = (key: SortKey) =>
     setSort((prev) => (prev && prev.key === key ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: DEFAULT_DIR[key] }));
@@ -129,12 +140,12 @@ export function PortfolioView({ data }: { data: PortfolioData }) {
           <small>клик — отфильтровать</small>
         </div>
         <div className="pf-niches">
-          <div className={`pf-niche${niche === null ? ' on' : ''}`} onClick={() => setNiche(null)}>
+          <div className={`pf-niche${niche === null ? ' on' : ''}`} onClick={() => { setNiche(null); setSubcategory(null); }}>
             <span className="pf-av">🗂️</span>
             <div><div className="pf-nn">Все ниши</div><div className="pf-nc">{data.totalProjects} проектов</div></div>
           </div>
           {nichesToShow.map((n) => (
-            <div key={n.niche} className={`pf-niche${niche === n.niche ? ' on' : ''}`} onClick={() => setNiche(niche === n.niche ? null : n.niche)}>
+            <div key={n.niche} className={`pf-niche${niche === n.niche ? ' on' : ''}`} onClick={() => { setNiche(niche === n.niche ? null : n.niche); setSubcategory(null); }}>
               <span className="pf-av">{nicheIcon(n.niche)}</span>
               <div><div className="pf-nn">{n.niche}</div><div className="pf-nc">{n.count} проектов</div></div>
             </div>
@@ -157,6 +168,17 @@ export function PortfolioView({ data }: { data: PortfolioData }) {
 
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
           <div className="pf-search"><Search size={15} /><input placeholder="Поиск по названию / бренду…" value={query} onChange={(e) => setQuery(e.target.value)} /></div>
+          <select
+            className="pf-toggle"
+            value={subcategory ?? ''}
+            onChange={(e) => setSubcategory(e.target.value || null)}
+            style={{ maxWidth: 240 }}
+          >
+            <option value="">Все подкатегории</option>
+            {subOptions.map(([s, n]) => (
+              <option key={s} value={s}>{s} · {n}</option>
+            ))}
+          </select>
           <button className={`pf-toggle${onlyWithCase ? ' on' : ''}`} onClick={() => setOnlyWithCase((v) => !v)}>
             ★ только с кейсом на сайте
           </button>
@@ -180,6 +202,7 @@ export function PortfolioView({ data }: { data: PortfolioData }) {
                 <tr>
                   <SortTh label="Клиент" k="client" sort={sort} onClick={clickSort} />
                   <SortTh label="Ниша" k="niche" sort={sort} onClick={clickSort} />
+                  <SortTh label="Подкатегория" k="subcategory" sort={sort} onClick={clickSort} />
                   <SortTh label="Услуги" k="services" sort={sort} onClick={clickSort} />
                   <SortTh label="Годы работы" k="period" sort={sort} onClick={clickSort} />
                   <SortTh label="Выручка" k="revenue" sort={sort} onClick={clickSort} align="right" />
