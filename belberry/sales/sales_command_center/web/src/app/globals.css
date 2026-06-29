@@ -444,13 +444,16 @@ input {
 .bb-th-av { width: 34px; height: 34px; border-radius: 50%; flex: 0 0 34px; display: grid; place-items: center; font-weight: 700; font-size: 12.5px; color: #fff; background: linear-gradient(135deg, #6a5cff, #2b2a5e); }
 
 /* Портфолио — витрина кейсов */
-.pf-niches{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
-.pf-niche{border:1px solid var(--bb-line);border-radius:12px;padding:11px 13px;cursor:pointer;transition:background .12s,border-color .12s;background:#fff}
+.pf-niches{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.pf-niche{display:flex;align-items:center;gap:10px;border:1px solid var(--bb-line);border-radius:13px;padding:10px 12px;cursor:pointer;transition:background .12s,border-color .12s;background:#fff}
 .pf-niche:hover{background:var(--bb-violet-soft)}
 .pf-niche.on{background:var(--bb-indigo);border-color:var(--bb-indigo)}
 .pf-niche.on .pf-nn,.pf-niche.on .pf-nc{color:#fff}
-.pf-nn{font-size:13.5px;font-weight:600}
-.pf-nc{font-size:12px;color:var(--bb-faint);margin-top:2px}
+.pf-av{width:34px;height:34px;border-radius:9px;flex:0 0 34px;display:grid;place-items:center;font-size:17px;background:var(--bb-violet-soft)}
+.pf-niche.on .pf-av{background:rgba(255,255,255,.18)}
+.pf-nn{font-size:12.5px;font-weight:600;line-height:1.2}
+.pf-nc{font-size:11.5px;color:var(--bb-faint);margin-top:2px}
+@media (max-width:900px){.pf-niches{grid-template-columns:repeat(3,1fr)}}
 .pf-chip{font-size:12.5px;font-weight:600;border:1px solid var(--bb-line);background:#fff;border-radius:999px;padding:6px 13px;cursor:pointer;color:var(--bb-muted)}
 .pf-chip.on{background:var(--bb-violet);color:#fff;border-color:var(--bb-violet)}
 .pf-chip small{opacity:.7}

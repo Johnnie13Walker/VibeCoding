@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { ExternalLink, Search, FolderOpen } from 'lucide-react';
 import type { PortfolioData } from '@/lib/portfolio';
-import { filterProjects, type PortfolioProject } from '@/lib/portfolio-shared';
+import { filterProjects, nicheIcon, type PortfolioProject } from '@/lib/portfolio-shared';
 
 const NICHE_PREVIEW = 8; // сколько ниш показывать до «показать все»
 const PAGE = 60;
@@ -90,11 +90,13 @@ export function PortfolioView({ data }: { data: PortfolioData }) {
         </div>
         <div className="pf-niches">
           <div className={`pf-niche${niche === null ? ' on' : ''}`} onClick={() => setNiche(null)}>
-            <div className="pf-nn">Все ниши</div><div className="pf-nc">{data.totalProjects} проектов</div>
+            <span className="pf-av">🗂️</span>
+            <div><div className="pf-nn">Все ниши</div><div className="pf-nc">{data.totalProjects} проектов</div></div>
           </div>
           {nichesToShow.map((n) => (
             <div key={n.niche} className={`pf-niche${niche === n.niche ? ' on' : ''}`} onClick={() => setNiche(niche === n.niche ? null : n.niche)}>
-              <div className="pf-nn">{n.niche}</div><div className="pf-nc">{n.count}</div>
+              <span className="pf-av">{nicheIcon(n.niche)}</span>
+              <div><div className="pf-nn">{n.niche}</div><div className="pf-nc">{n.count} проектов</div></div>
             </div>
           ))}
         </div>
