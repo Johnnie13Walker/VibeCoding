@@ -49,7 +49,14 @@ function ProjectRow({ p }: { p: PortfolioProject }) {
           )}
         </div>
       </td>
-      <td><span className="pf-badge" style={{ background: '#eef0f4', color: '#5a6473' }}>{p.category}</span></td>
+      <td>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 3, alignItems: 'flex-start' }}>
+          <span className="pf-badge" style={{ background: '#eef0f4', color: '#5a6473' }}>{p.category}</span>
+          {p.subcategory && p.subcategory.trim().toLowerCase() !== 'не определено' ? (
+            <span style={{ fontSize: 11.5, color: 'var(--bb-faint)', whiteSpace: 'nowrap' }}>{p.subcategory}</span>
+          ) : null}
+        </div>
+      </td>
       <td>
         <div className="pf-servs">
           {p.services.map((s) => (
