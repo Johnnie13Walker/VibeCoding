@@ -21,14 +21,16 @@ export interface PortfolioProject {
   caseType: string | null; // LP / TB / WD
 }
 
-// Коды услуг → человекочитаемые названия. Program/WDT — предположительно
-// (ждём подтверждения), Deposit — не услуга (оплата), скрываем.
+// Коды услуг → человекочитаемые названия (расшифровка подтверждена пользователем
+// 29.06). Program и Deposit — обе техподдержка сайта; WD — инд. дизайн; TB —
+// шаблон медсайта Belberry; WDT (в данных может быть «ЦЕВ») — сайт на шаблоне 1С-Битрикс.
 export const SERVICE_LABELS: Record<string, string> = {
   SEO: 'SEO',
   PPC: 'Контекст',
-  WD: 'Разработка сайта',
-  WDT: 'Разработка (шаблон)',
-  TB: 'Шаблонный сайт',
+  WD: 'Разработка сайта (инд. дизайн)',
+  TB: 'Шаблон медсайта Belberry',
+  WDT: 'Сайт на шаблоне 1С-Битрикс',
+  ЦЕВ: 'Сайт на шаблоне 1С-Битрикс',
   LP: 'Лендинг',
   SMM: 'SMM',
   ORM: 'ORM',
@@ -40,11 +42,13 @@ export const SERVICE_LABELS: Record<string, string> = {
   Foto: 'Фотосъёмка',
   Таргет: 'Таргет',
   Audit: 'Аудит',
-  Program: 'Программирование',
+  Program: 'Техподдержка сайта',
+  Deposit: 'Техподдержка сайта',
   Marketing: 'Маркетинг',
   Б24: 'Битрикс24',
 };
-const HIDDEN_SERVICES = new Set(['Deposit', 'deposit']);
+// Все коды теперь — услуги; ничего не скрываем.
+const HIDDEN_SERVICES = new Set<string>();
 
 export function serviceLabel(code: string): string {
   const c = code.trim();

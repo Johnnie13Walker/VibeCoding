@@ -29,7 +29,10 @@ describe('serviceLabel + normalizeDomain', () => {
   it('коды услуг → человеческие названия', () => {
     expect(serviceLabel('SEO')).toBe('SEO');
     expect(serviceLabel('PPC')).toBe('Контекст');
-    expect(serviceLabel('WD')).toBe('Разработка сайта');
+    expect(serviceLabel('WD')).toBe('Разработка сайта (инд. дизайн)');
+    expect(serviceLabel('Program')).toBe('Техподдержка сайта');
+    expect(serviceLabel('Deposit')).toBe('Техподдержка сайта');
+    expect(serviceLabel('WDT')).toBe('Сайт на шаблоне 1С-Битрикс');
     expect(serviceLabel('НовыйКод')).toBe('НовыйКод');
   });
   it('домен нормализуется', () => {
@@ -51,10 +54,9 @@ describe('parseClients', () => {
   it('пропускает пустые строки', () => {
     expect(projects).toHaveLength(2);
   });
-  it('Deposit скрыт из услуг, коды замаплены', () => {
+  it('коды замаплены, Deposit→Техподдержка (дедуп с Program)', () => {
     const k = projects.find((p) => p.project === 'k-medica.ru')!;
-    expect(k.services).toEqual(['Разработка сайта', 'SEO']);
-    expect(k.rawServices).not.toContain('Deposit');
+    expect(k.services).toEqual(['Разработка сайта (инд. дизайн)', 'SEO', 'Техподдержка сайта']);
     expect(k.domain).toBe('k-medica.ru');
     expect(k.experienceMonths).toBe(48);
     expect(k.siteActive).toBe(true);
