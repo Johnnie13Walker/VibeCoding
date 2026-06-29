@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { effLevel, type TeamHealthData, type TeamMemberHealth } from '@/lib/team-health';
+import { canViewMember, effLevel, type TeamHealthData, type TeamMemberHealth, type Viewer } from '@/lib/team-health';
 
 const EFF_COLOR = { good: '#1a7f37', warn: '#b5651d', bad: '#d4202e', unknown: '#9a9aa0' } as const;
 const BAR_COLOR = { good: '#2c9a52', warn: '#e88a3b', bad: '#d4202e', unknown: '#cfcfcf' } as const;
@@ -53,10 +53,12 @@ function GroupLabel({ text }: { text: string }) {
 /** Сводный блок над списком задач: эффективность Б24 (наш КПД) + просрочки по
  * отделу продаж и телемаркетингу (две группы). Строка кликабельна →
  * /alerts/tasks/[managerId]. Нет снимка → блок скрыт. */
-export function TeamHealth({ data }: { data: TeamHealthData }) {
-  if (data.members.length === 0) return null;
-  const sales = data.members.filter((m) => m.group === 'sales');
-  const tm = data.members.filter((m) => m.group === 'tm');
+export function TeamHealth({ data, viewer }: { data: TeamHealthData; viewer: Viewer }) {
+  // Данные РОПа скрыты от всех, кроме директора/владельца и самого РОПа.
+  const visible = data.members.filter((m) => canViewMember(viewer, m));
+  if (visible.length === 0) return null;
+  const sales = visible.filter((m) => m.group === 'sales');
+  const tm = visible.filter((m) => m.group === 'tm');
   return (
     <div className="bb-card" style={{ marginBottom: 16 }}>
       <div className="bb-sect-head">

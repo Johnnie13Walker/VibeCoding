@@ -71,3 +71,27 @@ export function effLevel(pct: number | null): 'good' | 'warn' | 'bad' | 'unknown
   if (pct >= 60) return 'warn';
   return 'bad';
 }
+
+// Владелец командного центра (видит данные всех, включая РОПа). Роли в users
+// не всегда заполнены, поэтому держим явный id как запасной признак директора.
+export const DIRECTOR_BITRIX_ID = 12; // Щемелёв Евгений
+
+/** Сотрудник — РОП (по должности). Данные РОПа закрыты от рядовых менеджеров. */
+export function isRopDept(dept: string | null): boolean {
+  return (dept || '').trim().toLowerCase() === 'роп';
+}
+
+export interface Viewer {
+  bitrixId?: number;
+  role?: string | null;
+}
+
+/**
+ * Видит ли зритель данные конкретного сотрудника. Все видят всех, КРОМЕ РОПа:
+ * данные РОПа открыты только директору/владельцу (id 12) и самому РОПу.
+ */
+export function canViewMember(viewer: Viewer, member: { managerId: number; dept: string | null }): boolean {
+  if (!isRopDept(member.dept)) return true;
+  if (viewer.role === 'director' || viewer.bitrixId === DIRECTOR_BITRIX_ID) return true;
+  return viewer.bitrixId === member.managerId;
+}

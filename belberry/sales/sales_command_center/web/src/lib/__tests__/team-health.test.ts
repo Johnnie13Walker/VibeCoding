@@ -69,3 +69,21 @@ describe('teamGroup', () => {
     expect(teamGroup(null)).toBe('sales');
   });
 });
+
+describe('canViewMember (доступ к данным РОПа)', () => {
+  it('не-РОПа видят все', async () => {
+    const { canViewMember } = await import('../team-health');
+    const mop = { managerId: 2806, dept: 'Менеджер по продажам' };
+    expect(canViewMember({ bitrixId: 9999, role: 'manager' }, mop)).toBe(true);
+  });
+
+  it('РОПа видит только директор, владелец (12) и сам РОП', async () => {
+    const { canViewMember } = await import('../team-health');
+    const rop = { managerId: 2188, dept: 'РОП' };
+    expect(canViewMember({ bitrixId: 12, role: 'manager' }, rop)).toBe(true);   // владелец
+    expect(canViewMember({ bitrixId: 777, role: 'director' }, rop)).toBe(true);  // директор по роли
+    expect(canViewMember({ bitrixId: 2188, role: 'manager' }, rop)).toBe(true);  // сам РОП
+    expect(canViewMember({ bitrixId: 2806, role: 'manager' }, rop)).toBe(false); // рядовой МОП — нет
+    expect(canViewMember({ bitrixId: undefined, role: undefined }, rop)).toBe(false);
+  });
+});
