@@ -94,13 +94,15 @@ export async function getPortfolio(): Promise<PortfolioData> {
     valuesGet(token, "'Кейсы сайта'!A2:D2000").catch(() => [] as string[][]),
     valuesGet(token, "'Контрагенты'!A2:F1016", MASTER_SHEET_ID).catch(() => [] as string[][]),
   ]);
-  const projects = applyRevenue(
+  const all = applyRevenue(
     applyCaseLinks(
       mergeWdCases(parseClients(clientsRows), parseWdCases(wdRows)),
       parseCaseTab(caseRows),
     ),
     parseContragents(contragentRows),
   );
+  // «Не определено» (взломанные/заглушки/нерелевантные) в витрину не показываем.
+  const projects = all.filter((p) => p.category.trim().toLowerCase() !== 'не определено');
   dataCache = {
     projects,
     niches: aggregateNiches(projects),
