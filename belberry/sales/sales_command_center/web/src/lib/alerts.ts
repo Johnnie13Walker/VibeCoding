@@ -1,5 +1,6 @@
 import 'server-only';
 
+import { cache } from 'react';
 import { and, asc, eq, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { dealRiskFlags, dealsSnapshot, meetingTasks, users } from '@/db/schema';
@@ -146,7 +147,12 @@ export function taskOverdue(
   return isOverdue(deadline, now);
 }
 
-export async function getAlerts(): Promise<AlertsData> {
+/**
+ * Один запрос к БД на все секции алертов. Обёрнут в React cache() — layout вкладок
+ * и страница роута (/alerts/deals|tasks) делят один результат за рендер-проход,
+ * без двойного похода в Postgres.
+ */
+export const getAlerts = cache(async function getAlerts(): Promise<AlertsData> {
   const latest = await db.select({ d: sql<string>`max(${dealsSnapshot.reportDate})` }).from(dealsSnapshot);
   const snapshotDate = latest[0]?.d ?? null;
 
@@ -275,10 +281,10 @@ export async function getAlerts(): Promise<AlertsData> {
     .sort((a, b) => (b.severity === a.severity ? b.flags.length - a.flags.length : a.severity === 'critical' ? -1 : 1));
 
   // processRisk пока скрыт в UI (превентив шумит) — не вливаем его в бейдж Алертов,
-  // иначе ~46 фантомных «критичных». Вернуть вместе с SHOW_PROCESS_RISK в AlertsView.
+  // иначе ~46 фантомных «критичных». Вернуть вместе с SHOW_PROCESS_RISK в DealsAlerts.
   const count =
     burning.filter((b) => b.severity === 'critical').length +
     silent.filter((s) => s.severity === 'critical').length +
     tasks.filter((t) => t.overdue).length;
   return { snapshotDate, burning, silent, tasks, processRisk, managers, count };
-}
+});

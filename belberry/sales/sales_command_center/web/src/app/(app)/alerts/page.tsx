@@ -1,9 +1,6 @@
-import { getAlerts } from '@/lib/alerts';
-import { AlertsView } from '@/components/alerts/AlertsView';
+import { redirect } from 'next/navigation';
 
-export const dynamic = 'force-dynamic';
-
-export default async function AlertsPage() {
-  const data = await getAlerts();
-  return <AlertsView data={data} />;
+// Голый /alerts → дефолтная вкладка «Сделки».
+export default function AlertsPage() {
+  redirect('/alerts/deals');
 }
