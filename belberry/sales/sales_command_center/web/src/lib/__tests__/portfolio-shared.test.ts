@@ -124,3 +124,29 @@ describe('parseCaseTab + applyCaseLinks', () => {
     expect(withCases.find((p) => p.project === 'stomklinika.ru')!.caseUrl).toBeNull();
   });
 });
+
+describe('parseContragents + applyRevenue + rubShort', () => {
+  it('парс «Контрагентов» и привязка выручки по домену', async () => {
+    const { parseContragents, applyRevenue, parseClients, rubShort } = await import('../portfolio-shared');
+    const kt = [
+      ['k-medica.ru', 'SEO', 'ООО К медицина', '7700000000', '120000000', '2025'],
+      ['@dentalplats', 'SMM', 'ООО Дентал Платс', '7800000000', '10000000', '2024'], // @handle — не домен
+      ['stomklinika.ru', 'SEO', '', '', '0', ''], // выручка 0 — пропуск
+    ];
+    const map = parseContragents(kt);
+    expect(map.get('k-medica.ru')).toEqual({ revenue: 120000000, year: '2025' });
+    expect(map.has('stomklinika.ru')).toBe(false);
+    const projects = applyRevenue(parseClients(CLIENTS), map);
+    const k = projects.find((p) => p.project === 'k-medica.ru')!;
+    expect(k.revenue).toBe(120000000);
+    expect(k.revenueYear).toBe('2025');
+    expect(projects.find((p) => p.project === 'stomklinika.ru')!.revenue).toBeNull();
+  });
+  it('rubShort форматирует', async () => {
+    const { rubShort } = await import('../portfolio-shared');
+    expect(rubShort(568000000)).toBe('568 млн ₽');
+    expect(rubShort(2911800000)).toBe('2.9 млрд ₽');
+    expect(rubShort(0)).toBe('—');
+    expect(rubShort(null)).toBe('—');
+  });
+});

@@ -8,6 +8,8 @@ import {
   mergeWdCases,
   parseCaseTab,
   applyCaseLinks,
+  parseContragents,
+  applyRevenue,
   aggregateNiches,
   aggregateServices,
   type PortfolioProject,
@@ -15,6 +17,8 @@ import {
 } from './portfolio-shared';
 
 const SHEET_ID = process.env.PORTFOLIO_SHEET_ID || '1TSEei_ncr3SQmiYT074Q17HOzmxxtrPV447j27N_BZw';
+// Мастер-таблица «Продажи» — вкладка «Контрагенты» (ИНН + выручка ГИР БО).
+const MASTER_SHEET_ID = process.env.PORTFOLIO_MASTER_SHEET_ID || '17SBisFgKrf3hRP_zjVPC2e4wMzlq8j8HDC2bvkyS74Y';
 const SA_PATH = process.env.PORTFOLIO_SA_JSON || process.env.GOOGLE_SA_JSON || '/etc/scc/finance-sa.json';
 const SCOPE = 'https://www.googleapis.com/auth/spreadsheets.readonly';
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
@@ -60,8 +64,8 @@ async function getToken(): Promise<string> {
   return tokenCache.token;
 }
 
-async function valuesGet(token: string, range: string): Promise<string[][]> {
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}?majorDimension=ROWS`;
+async function valuesGet(token: string, range: string, spreadsheetId: string = SHEET_ID): Promise<string[][]> {
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}?majorDimension=ROWS`;
   const res = await fetch(url, { headers: { authorization: `Bearer ${token}` } });
   const payload = await res.json();
   if (!res.ok) throw new Error(`Sheets API ${res.status}`);
@@ -74,6 +78,7 @@ export interface PortfolioData {
   services: NicheCount[];
   totalProjects: number;
   withCaseCount: number;
+  withRevenueCount: number;
   updatedAt: number;
 }
 
@@ -83,14 +88,18 @@ let dataCache: PortfolioData | null = null;
 export async function getPortfolio(): Promise<PortfolioData> {
   if (dataCache && Date.now() - dataCache.updatedAt < TTL_MS) return dataCache;
   const token = await getToken();
-  const [clientsRows, wdRows, caseRows] = await Promise.all([
+  const [clientsRows, wdRows, caseRows, contragentRows] = await Promise.all([
     valuesGet(token, "'Клиенты'!A13:Q1200"),
     valuesGet(token, "'Портфолио WD'!A1:Q1000"),
     valuesGet(token, "'Кейсы сайта'!A2:D2000").catch(() => [] as string[][]),
+    valuesGet(token, "'Контрагенты'!A2:F1016", MASTER_SHEET_ID).catch(() => [] as string[][]),
   ]);
-  const projects = applyCaseLinks(
-    mergeWdCases(parseClients(clientsRows), parseWdCases(wdRows)),
-    parseCaseTab(caseRows),
+  const projects = applyRevenue(
+    applyCaseLinks(
+      mergeWdCases(parseClients(clientsRows), parseWdCases(wdRows)),
+      parseCaseTab(caseRows),
+    ),
+    parseContragents(contragentRows),
   );
   dataCache = {
     projects,
@@ -98,6 +107,7 @@ export async function getPortfolio(): Promise<PortfolioData> {
     services: aggregateServices(projects),
     totalProjects: projects.length,
     withCaseCount: projects.filter((p) => p.caseUrl).length,
+    withRevenueCount: projects.filter((p) => p.revenue && p.revenue > 0).length,
     updatedAt: Date.now(),
   };
   return dataCache;

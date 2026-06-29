@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { Search, FolderOpen } from 'lucide-react';
 import type { PortfolioData } from '@/lib/portfolio';
-import { agencyBrand, filterProjects, nicheIcon, periodLabel, type PortfolioProject } from '@/lib/portfolio-shared';
+import { agencyBrand, filterProjects, nicheIcon, periodLabel, rubShort, type PortfolioProject } from '@/lib/portfolio-shared';
 
 const NICHE_PREVIEW = 8; // сколько ниш показывать до «показать все»
 const PAGE = 60;
@@ -32,6 +32,9 @@ function ProjectRow({ p }: { p: PortfolioProject }) {
         </div>
       </td>
       <td style={{ color: 'var(--bb-faint)', whiteSpace: 'nowrap' }}>{periodLabel(p.period, p.experienceMonths) || '—'}</td>
+      <td style={{ textAlign: 'right', whiteSpace: 'nowrap', fontWeight: p.revenue ? 700 : 400, color: p.revenue ? 'var(--bb-ink)' : 'var(--bb-faint)', fontVariantNumeric: 'tabular-nums' }}>
+        {p.revenue ? rubShort(p.revenue) : '—'}
+      </td>
       <td style={{ textAlign: 'right' }}>
         {p.caseUrl ? (
           <a href={p.caseUrl} target="_blank" rel="noopener noreferrer" className="pf-casebtn">📄 кейс</a>
@@ -45,14 +48,16 @@ export function PortfolioView({ data }: { data: PortfolioData }) {
   const [niche, setNiche] = useState<string | null>(null);
   const [service, setService] = useState<string | null>(null);
   const [onlyWithCase, setOnlyWithCase] = useState(false);
+  const [sortRev, setSortRev] = useState(false);
   const [query, setQuery] = useState('');
   const [showAllNiches, setShowAllNiches] = useState(false);
   const [limit, setLimit] = useState(PAGE);
 
-  const filtered = useMemo(
-    () => filterProjects(data.projects, { niche, service, onlyWithCase, query }),
-    [data.projects, niche, service, onlyWithCase, query],
-  );
+  const filtered = useMemo(() => {
+    const list = filterProjects(data.projects, { niche, service, onlyWithCase, query });
+    if (!sortRev) return list;
+    return [...list].sort((a, b) => (b.revenue ?? -1) - (a.revenue ?? -1));
+  }, [data.projects, niche, service, onlyWithCase, query, sortRev]);
   const nichesToShow = showAllNiches ? data.niches : data.niches.slice(0, NICHE_PREVIEW);
 
   return (
@@ -68,6 +73,7 @@ export function PortfolioView({ data }: { data: PortfolioData }) {
             <div style={{ textAlign: 'center' }}><div style={{ fontSize: 24, fontWeight: 800 }}>{data.totalProjects}</div><div style={{ fontSize: 11, color: '#c9c5f0', textTransform: 'uppercase', letterSpacing: '.03em' }}>проекта</div></div>
             <div style={{ textAlign: 'center' }}><div style={{ fontSize: 24, fontWeight: 800 }}>{data.niches.length}</div><div style={{ fontSize: 11, color: '#c9c5f0', textTransform: 'uppercase', letterSpacing: '.03em' }}>ниш</div></div>
             <div style={{ textAlign: 'center' }}><div style={{ fontSize: 24, fontWeight: 800 }}>{data.withCaseCount}</div><div style={{ fontSize: 11, color: '#c9c5f0', textTransform: 'uppercase', letterSpacing: '.03em' }}>кейсов на сайте</div></div>
+            <div style={{ textAlign: 'center' }}><div style={{ fontSize: 24, fontWeight: 800 }}>{data.withRevenueCount}</div><div style={{ fontSize: 11, color: '#c9c5f0', textTransform: 'uppercase', letterSpacing: '.03em' }}>с выручкой</div></div>
           </div>
         </div>
       </div>
@@ -111,6 +117,9 @@ export function PortfolioView({ data }: { data: PortfolioData }) {
           <button className={`pf-toggle${onlyWithCase ? ' on' : ''}`} onClick={() => setOnlyWithCase((v) => !v)}>
             ★ только с кейсом на сайте
           </button>
+          <button className={`pf-toggle${sortRev ? ' on' : ''}`} onClick={() => setSortRev((v) => !v)}>
+            ₽ по выручке ↓
+          </button>
         </div>
 
         <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginBottom: 16 }}>
@@ -133,6 +142,7 @@ export function PortfolioView({ data }: { data: PortfolioData }) {
                   <th>Ниша</th>
                   <th>Услуги</th>
                   <th>Период · опыт</th>
+                  <th style={{ textAlign: 'right' }}>Выручка</th>
                   <th />
                 </tr>
               </thead>

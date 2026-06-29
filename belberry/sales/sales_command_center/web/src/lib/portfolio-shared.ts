@@ -19,6 +19,9 @@ export interface PortfolioProject {
   caseUrl: string | null;
   caseDescription: string | null;
   caseType: string | null; // LP / TB / WD
+  // выручка юрлица (ГИР БО, из «Контрагентов» по ИНН) — есть не у всех
+  revenue: number | null; // ₽/год
+  revenueYear: string | null;
 }
 
 // Коды услуг → человекочитаемые названия (расшифровка подтверждена пользователем
@@ -168,6 +171,8 @@ export function parseClients(rows: string[][]): PortfolioProject[] {
       caseUrl: null,
       caseDescription: null,
       caseType: null,
+      revenue: null,
+      revenueYear: null,
     });
   }
   return out;
@@ -232,6 +237,40 @@ export function parseCaseTab(rows: string[][]): Map<string, string> {
     if (url && dom && !m.has(dom)) m.set(dom, url);
   }
   return m;
+}
+
+/**
+ * Парсит «Контрагенты» (мастер-таблица): Сайт(0), …, Выручка ₽(4), Год(5).
+ * Возвращает домен → {выручка, год}. ИНН/выручку наполняет ГИР БО-обогащение.
+ */
+export function parseContragents(rows: string[][]): Map<string, { revenue: number; year: string }> {
+  const m = new Map<string, { revenue: number; year: string }>();
+  for (const r of rows) {
+    const dom = normalizeDomain((r[0] ?? '').replace(/^@/, ''));
+    const revenue = Number(String(r[4] ?? '').replace(/[\s ]/g, ''));
+    if (dom && dom.includes('.') && Number.isFinite(revenue) && revenue > 0 && !m.has(dom)) {
+      m.set(dom, { revenue, year: (r[5] ?? '').trim() });
+    }
+  }
+  return m;
+}
+
+/** Проставляет выручку проектам по домену из «Контрагентов». */
+export function applyRevenue(projects: PortfolioProject[], revMap: Map<string, { revenue: number; year: string }>): PortfolioProject[] {
+  if (revMap.size === 0) return projects;
+  return projects.map((p) => {
+    const r = p.domain ? revMap.get(p.domain) : undefined;
+    return r ? { ...p, revenue: r.revenue, revenueYear: r.year || null } : p;
+  });
+}
+
+/** Короткий формат выручки: 568 млн ₽ / 2.9 млрд ₽. */
+export function rubShort(n: number | null): string {
+  if (!n || n <= 0) return '—';
+  if (n >= 1e9) return `${(n / 1e9).toFixed(1)} млрд ₽`;
+  if (n >= 1e6) return `${Math.round(n / 1e6)} млн ₽`;
+  if (n >= 1e3) return `${Math.round(n / 1e3)} тыс ₽`;
+  return `${Math.round(n)} ₽`;
 }
 
 /** Проставляет caseUrl проектам по домену из «Кейсы сайта» (приоритетнее «Портфолио WD»). */
