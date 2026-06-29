@@ -421,3 +421,23 @@ export const dealAudits = pgTable(
     index('deal_audits_deal_idx').on(table.dealId),
   ],
 );
+
+// Снимок «Команда · эффективность и просрочки» (/alerts/tasks). Наполняет runner
+// team_health.py. КПД (наш) + счётчики просрочек на каждого ОП+РОП за день.
+export const teamTaskHealth = pgTable(
+  'team_task_health',
+  {
+    reportDate: date('report_date').notNull(),
+    managerId: integer('manager_id').notNull(),
+    name: text('name'),
+    dept: text('dept'),
+    isActive: boolean('is_active').notNull().default(true),
+    efficiencyPct: numeric('efficiency_pct'),
+    closedWithDeadline: integer('closed_with_deadline').notNull().default(0),
+    closedOntime: integer('closed_ontime').notNull().default(0),
+    overdueTasks: integer('overdue_tasks').notNull().default(0),
+    overdueActivities: integer('overdue_activities').notNull().default(0),
+    collectedAt: timestamp('collected_at', { withTimezone: true }).defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.reportDate, table.managerId] })],
+);

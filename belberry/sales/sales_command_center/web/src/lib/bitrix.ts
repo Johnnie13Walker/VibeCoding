@@ -181,3 +181,61 @@ export async function assertLarisaToken(): Promise<boolean> {
 
   return isLarisa;
 }
+
+// ── Просрочки сотрудника для detail-страницы /alerts/tasks/[id] (живьём из Bitrix) ──
+// Полный scope (OAuth-токен Ларисы) позволяет вебу читать задачи и CRM-дела.
+// «<DEADLINE: now» — сравнение по инстанту (UTC ISO ≡ тот же момент, что МСК).
+
+export interface OverdueTaskItem {
+  id: number;
+  title: string;
+  deadline: string | null;
+  status: number | null;
+  groupId: number | null;
+}
+
+export interface OverdueActivityItem {
+  id: number;
+  subject: string;
+  providerTypeId: string | null;
+  typeId: number | null;
+  endTime: string | null;
+  ownerId: number | null;
+  ownerTypeId: number | null;
+}
+
+/** Просроченные задачи (RESPONSIBLE_ID, дедлайн в прошлом, не завершена). До 50. */
+export async function getOverdueTasks(userId: number): Promise<OverdueTaskItem[]> {
+  const now = new Date().toISOString();
+  const res = await callBitrix<{ tasks?: Array<Record<string, unknown>> }>('tasks.task.list', {
+    filter: { RESPONSIBLE_ID: userId, '<DEADLINE': now, '!STATUS': '5' },
+    select: ['ID', 'TITLE', 'DEADLINE', 'STATUS', 'GROUP_ID'],
+    order: { DEADLINE: 'asc' },
+  });
+  return (res?.tasks ?? []).map((t) => ({
+    id: Number(t.id ?? t.ID),
+    title: String(t.title ?? t.TITLE ?? ''),
+    deadline: (t.deadline ?? t.DEADLINE ?? null) as string | null,
+    status: t.status != null ? Number(t.status) : null,
+    groupId: t.groupId ?? t.GROUP_ID ? Number(t.groupId ?? t.GROUP_ID) : null,
+  }));
+}
+
+/** Просроченные CRM-дела (RESPONSIBLE_ID, COMPLETED=N, END_TIME в прошлом). До 50. */
+export async function getOverdueActivities(userId: number): Promise<OverdueActivityItem[]> {
+  const now = new Date().toISOString();
+  const res = await callBitrix<Array<Record<string, unknown>>>('crm.activity.list', {
+    filter: { RESPONSIBLE_ID: userId, COMPLETED: 'N', '<END_TIME': now },
+    select: ['ID', 'SUBJECT', 'TYPE_ID', 'PROVIDER_TYPE_ID', 'END_TIME', 'DEADLINE', 'OWNER_ID', 'OWNER_TYPE_ID'],
+    order: { END_TIME: 'asc' },
+  });
+  return (res ?? []).map((a) => ({
+    id: Number(a.ID),
+    subject: String(a.SUBJECT ?? ''),
+    providerTypeId: (a.PROVIDER_TYPE_ID ?? null) as string | null,
+    typeId: a.TYPE_ID != null ? Number(a.TYPE_ID) : null,
+    endTime: (a.END_TIME ?? null) as string | null,
+    ownerId: a.OWNER_ID != null ? Number(a.OWNER_ID) : null,
+    ownerTypeId: a.OWNER_TYPE_ID != null ? Number(a.OWNER_TYPE_ID) : null,
+  }));
+}
