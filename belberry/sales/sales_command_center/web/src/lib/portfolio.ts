@@ -6,6 +6,8 @@ import {
   parseClients,
   parseWdCases,
   mergeWdCases,
+  parseCaseTab,
+  applyCaseLinks,
   aggregateNiches,
   aggregateServices,
   type PortfolioProject,
@@ -81,11 +83,15 @@ let dataCache: PortfolioData | null = null;
 export async function getPortfolio(): Promise<PortfolioData> {
   if (dataCache && Date.now() - dataCache.updatedAt < TTL_MS) return dataCache;
   const token = await getToken();
-  const [clientsRows, wdRows] = await Promise.all([
+  const [clientsRows, wdRows, caseRows] = await Promise.all([
     valuesGet(token, "'Клиенты'!A13:Q1200"),
     valuesGet(token, "'Портфолио WD'!A1:Q1000"),
+    valuesGet(token, "'Кейсы сайта'!A2:D2000").catch(() => [] as string[][]),
   ]);
-  const projects = mergeWdCases(parseClients(clientsRows), parseWdCases(wdRows));
+  const projects = applyCaseLinks(
+    mergeWdCases(parseClients(clientsRows), parseWdCases(wdRows)),
+    parseCaseTab(caseRows),
+  );
   dataCache = {
     projects,
     niches: aggregateNiches(projects),

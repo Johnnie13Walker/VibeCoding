@@ -108,3 +108,19 @@ describe('agencyBrand + periodLabel + nicheIcon', () => {
     expect(nicheIcon('Неизвестная')).toBe('📁');
   });
 });
+
+describe('parseCaseTab + applyCaseLinks', () => {
+  it('привязывает кейс к проекту по домену', async () => {
+    const { parseCaseTab, applyCaseLinks, parseClients } = await import('../portfolio-shared');
+    const caseRows = [
+      ['https://belberry.net/works/k', 'belberry.net', 'Кейс K', 'k-medica.ru', 'brand', ''],
+      ['https://acoola.team/projects/x', 'acoola.team', 'X', '', '', ''], // без домена — игнор
+    ];
+    const map = parseCaseTab(caseRows);
+    expect(map.get('k-medica.ru')).toBe('https://belberry.net/works/k');
+    const projects = parseClients(CLIENTS);
+    const withCases = applyCaseLinks(projects, map);
+    expect(withCases.find((p) => p.project === 'k-medica.ru')!.caseUrl).toBe('https://belberry.net/works/k');
+    expect(withCases.find((p) => p.project === 'stomklinika.ru')!.caseUrl).toBeNull();
+  });
+});

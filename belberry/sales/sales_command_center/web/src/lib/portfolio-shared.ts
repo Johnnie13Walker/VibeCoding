@@ -220,6 +220,29 @@ export function mergeWdCases(projects: PortfolioProject[], cases: WdCase[]): Por
   });
 }
 
+/**
+ * Парсит вкладку «Кейсы сайта» (ручная привязка кейсов к проектам): строки
+ * [Кейс URL, Сайт, Заголовок, Проект (домен), …]. Возвращает домен → URL кейса.
+ */
+export function parseCaseTab(rows: string[][]): Map<string, string> {
+  const m = new Map<string, string>();
+  for (const r of rows) {
+    const url = (r[0] ?? '').trim();
+    const dom = normalizeDomain(r[3] ?? '');
+    if (url && dom && !m.has(dom)) m.set(dom, url);
+  }
+  return m;
+}
+
+/** Проставляет caseUrl проектам по домену из «Кейсы сайта» (приоритетнее «Портфолио WD»). */
+export function applyCaseLinks(projects: PortfolioProject[], caseMap: Map<string, string>): PortfolioProject[] {
+  if (caseMap.size === 0) return projects;
+  return projects.map((p) => {
+    const url = p.domain ? caseMap.get(p.domain) : undefined;
+    return url ? { ...p, caseUrl: url } : p;
+  });
+}
+
 export interface NicheCount {
   niche: string;
   count: number;
