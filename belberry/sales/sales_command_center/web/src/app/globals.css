@@ -442,3 +442,23 @@ input {
 .bb-th-bar { height: 8px; border-radius: 5px; background: #eee; overflow: hidden; width: 120px; display: inline-block; vertical-align: middle; margin-right: 8px; }
 .bb-th-bar > i { display: block; height: 100%; border-radius: 5px; }
 .bb-th-av { width: 34px; height: 34px; border-radius: 50%; flex: 0 0 34px; display: grid; place-items: center; font-weight: 700; font-size: 12.5px; color: #fff; background: linear-gradient(135deg, #6a5cff, #2b2a5e); }
+
+/* Портфолио — витрина кейсов */
+.pf-niches{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.pf-niche{border:1px solid var(--bb-line);border-radius:12px;padding:11px 13px;cursor:pointer;transition:background .12s,border-color .12s;background:#fff}
+.pf-niche:hover{background:var(--bb-violet-soft)}
+.pf-niche.on{background:var(--bb-indigo);border-color:var(--bb-indigo)}
+.pf-niche.on .pf-nn,.pf-niche.on .pf-nc{color:#fff}
+.pf-nn{font-size:13.5px;font-weight:600}
+.pf-nc{font-size:12px;color:var(--bb-faint);margin-top:2px}
+.pf-chip{font-size:12.5px;font-weight:600;border:1px solid var(--bb-line);background:#fff;border-radius:999px;padding:6px 13px;cursor:pointer;color:var(--bb-muted)}
+.pf-chip.on{background:var(--bb-violet);color:#fff;border-color:var(--bb-violet)}
+.pf-chip small{opacity:.7}
+.pf-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+.pf-case{border:1px solid var(--bb-line);border-radius:16px;padding:16px;background:#fff;display:flex;flex-direction:column;gap:9px;transition:box-shadow .15s,transform .15s}
+.pf-case:hover{box-shadow:var(--bb-shadow-lift);transform:translateY(-2px)}
+.pf-badge{font-size:11px;font-weight:700;border-radius:999px;padding:2px 9px}
+.pf-search{flex:1;min-width:220px;display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--bb-line);border-radius:11px;padding:9px 13px;color:var(--bb-faint);font-size:14px}
+.pf-search input{border:0;outline:0;flex:1;font-size:14px;color:var(--bb-ink);background:transparent}
+.pf-toggle{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--bb-line);background:#fff;border-radius:11px;padding:9px 13px;font-size:13.5px;font-weight:600;color:var(--bb-muted);cursor:pointer}
+.pf-toggle.on{background:#e6f4ea;border-color:#b6e0c4;color:#1a7f37}

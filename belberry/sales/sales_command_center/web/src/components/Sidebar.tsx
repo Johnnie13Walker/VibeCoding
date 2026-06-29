@@ -5,13 +5,14 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { canSeeKp } from '@/lib/kp-access';
 import { canSeeAudit } from '@/lib/audit-access';
-import { LayoutDashboard, Radio, BellRing, LogOut, Search, ClipboardCheck, PhoneCall, FileText, ScanSearch } from 'lucide-react';
+import { LayoutDashboard, Radio, BellRing, LogOut, Search, ClipboardCheck, PhoneCall, FileText, ScanSearch, Briefcase } from 'lucide-react';
 
 const NAV = [
   { href: '/dashboard', label: 'Дашборд ОП', Icon: LayoutDashboard, tag: undefined },
   { href: '/telemarketing', label: 'Дашборд ТМ', Icon: PhoneCall, tag: undefined },
   { href: '/today', label: 'Отчёт за день', Icon: Radio, tag: 'live' },
   { href: '/meetings', label: 'Анализ встреч', Icon: ClipboardCheck, tag: undefined },
+  { href: '/portfolio', label: 'Портфолио', Icon: Briefcase, tag: undefined },
   { href: '/kp', label: 'Сборка КП', Icon: FileText, tag: undefined },
   { href: '/audit', label: 'Аудит сделок', Icon: ScanSearch, tag: undefined },
   { href: '/alerts', label: 'Алерты', Icon: BellRing, tag: undefined },
