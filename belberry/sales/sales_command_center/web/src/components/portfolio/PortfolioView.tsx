@@ -8,6 +8,32 @@ import { agencyBrand, filterProjects, nicheIcon, rubShort, type PortfolioProject
 const NICHE_PREVIEW = 8; // сколько ниш показывать до «показать все»
 const PAGE = 60;
 
+type SortKey = 'client' | 'niche' | 'services' | 'period' | 'revenue';
+// По умолчанию: текст — А-Я (asc), числа/годы — от большего (desc).
+const DEFAULT_DIR: Record<SortKey, 'asc' | 'desc'> = { client: 'asc', niche: 'asc', services: 'asc', period: 'desc', revenue: 'desc' };
+function yearOf(period: string): number {
+  const ys = (period.match(/\d{4}/g) || []).map(Number);
+  return ys.length ? Math.max(...ys) : 0;
+}
+function sortVal(p: PortfolioProject, key: SortKey): string | number {
+  switch (key) {
+    case 'client': return (p.brand || p.project).toLowerCase();
+    case 'niche': return p.category.toLowerCase();
+    case 'services': return p.services.join(' ').toLowerCase();
+    case 'period': return yearOf(p.period);
+    case 'revenue': return p.revenue ?? -1;
+  }
+}
+
+function SortTh({ label, k, sort, onClick, align }: { label: string; k: SortKey; sort: { key: SortKey; dir: 'asc' | 'desc' } | null; onClick: (k: SortKey) => void; align?: 'right' }) {
+  const active = sort?.key === k;
+  return (
+    <th onClick={() => onClick(k)} style={{ cursor: 'pointer', userSelect: 'none', textAlign: align, color: active ? 'var(--bb-violet)' : undefined, whiteSpace: 'nowrap' }}>
+      {label}{active ? (sort!.dir === 'asc' ? ' ↑' : ' ↓') : ' ↕'}
+    </th>
+  );
+}
+
 function ProjectRow({ p }: { p: PortfolioProject }) {
   const siteUrl = p.domain ? `https://${p.domain}` : null;
   const brand = agencyBrand(p.brand);
@@ -48,16 +74,26 @@ export function PortfolioView({ data }: { data: PortfolioData }) {
   const [niche, setNiche] = useState<string | null>(null);
   const [service, setService] = useState<string | null>(null);
   const [onlyWithCase, setOnlyWithCase] = useState(false);
-  const [sortRev, setSortRev] = useState(false);
+  const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' } | null>(null);
   const [query, setQuery] = useState('');
   const [showAllNiches, setShowAllNiches] = useState(false);
   const [limit, setLimit] = useState(PAGE);
 
   const filtered = useMemo(() => {
     const list = filterProjects(data.projects, { niche, service, onlyWithCase, query });
-    if (!sortRev) return list;
-    return [...list].sort((a, b) => (b.revenue ?? -1) - (a.revenue ?? -1));
-  }, [data.projects, niche, service, onlyWithCase, query, sortRev]);
+    if (!sort) return list;
+    const { key, dir } = sort;
+    const sorted = [...list].sort((a, b) => {
+      const va = sortVal(a, key);
+      const vb = sortVal(b, key);
+      const c = typeof va === 'number' && typeof vb === 'number' ? va - vb : String(va).localeCompare(String(vb), 'ru');
+      return dir === 'desc' ? -c : c;
+    });
+    return sorted;
+  }, [data.projects, niche, service, onlyWithCase, query, sort]);
+
+  const clickSort = (key: SortKey) =>
+    setSort((prev) => (prev && prev.key === key ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: DEFAULT_DIR[key] }));
   const nichesToShow = showAllNiches ? data.niches : data.niches.slice(0, NICHE_PREVIEW);
 
   return (
@@ -117,9 +153,6 @@ export function PortfolioView({ data }: { data: PortfolioData }) {
           <button className={`pf-toggle${onlyWithCase ? ' on' : ''}`} onClick={() => setOnlyWithCase((v) => !v)}>
             ★ только с кейсом на сайте
           </button>
-          <button className={`pf-toggle${sortRev ? ' on' : ''}`} onClick={() => setSortRev((v) => !v)}>
-            ₽ по выручке ↓
-          </button>
         </div>
 
         <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginBottom: 16 }}>
@@ -138,11 +171,11 @@ export function PortfolioView({ data }: { data: PortfolioData }) {
             <table className="pf-tbl">
               <thead>
                 <tr>
-                  <th>Клиент</th>
-                  <th>Ниша</th>
-                  <th>Услуги</th>
-                  <th>Годы работы</th>
-                  <th style={{ textAlign: 'right' }}>Выручка</th>
+                  <SortTh label="Клиент" k="client" sort={sort} onClick={clickSort} />
+                  <SortTh label="Ниша" k="niche" sort={sort} onClick={clickSort} />
+                  <SortTh label="Услуги" k="services" sort={sort} onClick={clickSort} />
+                  <SortTh label="Годы работы" k="period" sort={sort} onClick={clickSort} />
+                  <SortTh label="Выручка" k="revenue" sort={sort} onClick={clickSort} align="right" />
                   <th />
                 </tr>
               </thead>
