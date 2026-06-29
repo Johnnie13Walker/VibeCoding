@@ -5,6 +5,7 @@ function m(over: Partial<TeamMemberHealth> & { managerId: number }): TeamMemberH
   return {
     name: `m${over.managerId}`,
     dept: 'Менеджер по продажам',
+    group: 'sales',
     efficiencyPct: null,
     overdueTasks: 0,
     overdueActivities: 0,
@@ -56,5 +57,15 @@ describe('effLevel', () => {
     expect(effLevel(60)).toBe('warn');
     expect(effLevel(59)).toBe('bad');
     expect(effLevel(0)).toBe('bad');
+  });
+});
+
+describe('teamGroup', () => {
+  it('телемаркетолог → tm, остальные → sales', async () => {
+    const { teamGroup } = await import('../team-health');
+    expect(teamGroup('Телемаркетолог')).toBe('tm');
+    expect(teamGroup('Менеджер по продажам')).toBe('sales');
+    expect(teamGroup('РОП')).toBe('sales');
+    expect(teamGroup(null)).toBe('sales');
   });
 });

@@ -33,6 +33,16 @@ def is_sales_rop(position: str | None) -> bool:
     return "продаж" in low or low == "роп"
 
 
+def is_telemarketing(position: str | None) -> bool:
+    """Телемаркетолог по должности."""
+    return "телемарк" in (position or "").lower()
+
+
+def in_team(position: str | None) -> bool:
+    """Весь отдел продаж: ОП + РОП + телемаркетинг (группируем на стороне веба по dept)."""
+    return is_sales_rop(position) or is_telemarketing(position)
+
+
 def _g(item: dict, *keys):
     """Достаёт значение по любому из вариантов написания ключа (REST задач отдаёт
     camelCase: deadline/closedDate, CRM — UPPER: END_TIME)."""
@@ -64,7 +74,7 @@ def _roster(bx_call=call) -> list[dict]:
     out = []
     for u in _user_get_all(bx_call):
         pos = u.get("WORK_POSITION")
-        if not is_sales_rop(pos):
+        if not in_team(pos):
             continue
         name = " ".join(p for p in (u.get("LAST_NAME"), u.get("NAME")) if p).strip()
         out.append({

@@ -5,14 +5,22 @@ import { eq, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { teamTaskHealth } from '@/db/schema';
 
+export type TeamGroup = 'sales' | 'tm';
+
 export interface TeamMemberHealth {
   managerId: number;
   name: string;
   dept: string | null;
+  group: TeamGroup;
   efficiencyPct: number | null;
   overdueTasks: number;
   overdueActivities: number;
   overdueTotal: number;
+}
+
+/** Группа сотрудника по должности: телемаркетинг vs отдел продаж (ОП+РОП). */
+export function teamGroup(dept: string | null): TeamGroup {
+  return (dept || '').toLowerCase().includes('телемарк') ? 'tm' : 'sales';
 }
 
 export interface TeamHealthData {
@@ -43,6 +51,7 @@ export const getTeamHealth = cache(async function getTeamHealth(): Promise<TeamH
     managerId: r.managerId,
     name: r.name ?? `#${r.managerId}`,
     dept: r.dept,
+    group: teamGroup(r.dept),
     efficiencyPct: r.efficiencyPct == null ? null : Number(r.efficiencyPct),
     overdueTasks: r.overdueTasks,
     overdueActivities: r.overdueActivities,

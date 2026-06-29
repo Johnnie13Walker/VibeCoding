@@ -41,10 +41,22 @@ function Row({ m }: { m: TeamMemberHealth }) {
   );
 }
 
-/** Сводный блок над списком задач: эффективность Б24 (наш КПД) + просрочки по ОП+РОП.
- * Строка кликабельна → /alerts/tasks/[managerId]. Нет снимка → блок скрыт. */
+function GroupLabel({ text }: { text: string }) {
+  return (
+    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--bb-faint)', textTransform: 'uppercase', letterSpacing: '0.04em', margin: '14px 0 2px', display: 'flex', alignItems: 'center', gap: 7 }}>
+      <span style={{ width: 6, height: 6, borderRadius: 999, background: '#5b50d6' }} />
+      {text}
+    </div>
+  );
+}
+
+/** Сводный блок над списком задач: эффективность Б24 (наш КПД) + просрочки по
+ * отделу продаж и телемаркетингу (две группы). Строка кликабельна →
+ * /alerts/tasks/[managerId]. Нет снимка → блок скрыт. */
 export function TeamHealth({ data }: { data: TeamHealthData }) {
   if (data.members.length === 0) return null;
+  const sales = data.members.filter((m) => m.group === 'sales');
+  const tm = data.members.filter((m) => m.group === 'tm');
   return (
     <div className="bb-card" style={{ marginBottom: 16 }}>
       <div className="bb-sect-head">
@@ -60,7 +72,10 @@ export function TeamHealth({ data }: { data: TeamHealthData }) {
         <span style={{ width: 70, textAlign: 'center' }}>Дела</span>
         <span style={{ width: 70, textAlign: 'center' }}>Всего</span>
       </div>
-      {data.members.map((m) => <Row key={m.managerId} m={m} />)}
+      {sales.length > 0 && (tm.length > 0 ? <GroupLabel text="Отдел продаж" /> : null)}
+      {sales.map((m) => <Row key={m.managerId} m={m} />)}
+      {tm.length > 0 && <GroupLabel text="Телемаркетинг" />}
+      {tm.map((m) => <Row key={m.managerId} m={m} />)}
     </div>
   );
 }

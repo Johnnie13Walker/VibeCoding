@@ -14,6 +14,16 @@ def test_is_sales_rop_excludes_telemarketing_and_others():
     assert team_health.is_sales_rop(None) is False
 
 
+def test_in_team_includes_tm_and_sales_rop_excludes_others():
+    assert team_health.in_team("Менеджер по продажам") is True
+    assert team_health.in_team("РОП") is True
+    assert team_health.in_team("Телемаркетолог") is True
+    assert team_health.in_team("SEO-специалист") is False
+    assert team_health.in_team("Аккаунт-менеджер") is False
+    assert team_health.is_telemarketing("Телемаркетолог") is True
+    assert team_health.is_telemarketing("Менеджер по продажам") is False
+
+
 def test_compute_efficiency_basic():
     # 3 задачи с дедлайном: 2 закрыты вовремя, 1 с опозданием → 66.67%
     closed = [

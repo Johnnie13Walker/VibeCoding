@@ -5,7 +5,15 @@ import { effLevel, type TeamMemberHealth } from '@/lib/team-health';
 
 const PORTAL = 'https://belberrycrm.bitrix24.ru';
 const taskUrl = (managerId: number, id: number) => `${PORTAL}/company/personal/user/${managerId}/tasks/task/view/${id}/`;
-const dealUrl = (id: number) => `${PORTAL}/crm/deal/details/${id}/`;
+
+// CRM-дело открываем на карточке его владельца (там оно в таймлайне).
+// OWNER_TYPE_ID: 1=лид, 2=сделка, 3=контакт, 4=компания.
+const CRM_PATH: Record<number, string> = { 1: 'lead', 2: 'deal', 3: 'contact', 4: 'company' };
+function activityUrl(ownerTypeId: number | null, ownerId: number | null): string | undefined {
+  if (!ownerId || ownerTypeId == null) return undefined;
+  const path = CRM_PATH[ownerTypeId];
+  return path ? `${PORTAL}/crm/${path}/details/${ownerId}/` : undefined;
+}
 
 const EFF_COLOR = { good: '#1a7f37', warn: '#b5651d', bad: '#d4202e', unknown: '#9a9aa0' } as const;
 
@@ -110,22 +118,18 @@ export function EmployeeOverdue({
         ) : (
           activities.map((a) => {
             const meta = actMeta(a.providerTypeId);
-            const href = a.ownerTypeId === 2 && a.ownerId ? dealUrl(a.ownerId) : undefined;
-            const title = (
-              <span className="bb-alert-title">
-                {meta.label} — {a.subject || 'без темы'} {href ? <ExternalLink size={12} /> : null}
-              </span>
-            );
+            const href = activityUrl(a.ownerTypeId, a.ownerId);
+            const label = `${meta.label} — ${a.subject || 'без темы'}`;
             return (
               <div key={a.id} className="bb-alert-row">
                 <span className="bb-sect-ic" style={{ background: meta.bg }}>{meta.icon}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   {href ? (
                     <a href={href} target="_blank" rel="noopener noreferrer" className="bb-alert-title">
-                      {meta.label} — {a.subject || 'без темы'} <ExternalLink size={12} />
+                      {label} <ExternalLink size={12} />
                     </a>
                   ) : (
-                    title
+                    <span className="bb-alert-title">{label}</span>
                   )}
                 </div>
                 <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--bb-red)', whiteSpace: 'nowrap' }}>{fmtDeadline(a.endTime)}</div>
