@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { canSeeKp } from '@/lib/kp-access';
 import { canSeeAudit } from '@/lib/audit-access';
+import { canSeePortfolio } from '@/lib/portfolio-access';
 import { LayoutDashboard, Radio, BellRing, LogOut, Search, ClipboardCheck, PhoneCall, FileText, ScanSearch, Briefcase } from 'lucide-react';
 
 const NAV = [
@@ -36,7 +37,8 @@ export function Sidebar({ user }: { user?: { email?: string; role?: string } }) 
   const nav = NAV.filter(
     (item) =>
       (item.href !== '/kp' || canSeeKp(user?.email)) &&
-      (item.href !== '/audit' || canSeeAudit(user?.email, user?.role)),
+      (item.href !== '/audit' || canSeeAudit(user?.email, user?.role)) &&
+      (item.href !== '/portfolio' || canSeePortfolio(user?.email, user?.role)),
   );
   const pathname = usePathname();
   const email = user?.email ?? '';

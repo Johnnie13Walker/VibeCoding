@@ -1,9 +1,15 @@
+import { notFound } from 'next/navigation';
 import { getPortfolio } from '@/lib/portfolio';
+import { getSession } from '@/lib/session';
+import { canSeePortfolio } from '@/lib/portfolio-access';
 import { PortfolioView } from '@/components/portfolio/PortfolioView';
 
 export const dynamic = 'force-dynamic';
 
 export default async function PortfolioPage() {
+  const session = await getSession();
+  if (!canSeePortfolio(session.email, session.role, session.bitrixId)) notFound();
+
   let data;
   try {
     data = await getPortfolio();
