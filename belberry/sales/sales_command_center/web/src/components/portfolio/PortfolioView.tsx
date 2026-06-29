@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { Search, FolderOpen } from 'lucide-react';
 import type { PortfolioData } from '@/lib/portfolio';
-import { agencyBrand, filterProjects, nicheIcon, periodLabel, rubShort, type PortfolioProject } from '@/lib/portfolio-shared';
+import { agencyBrand, filterProjects, nicheIcon, rubShort, type PortfolioProject } from '@/lib/portfolio-shared';
 
 const NICHE_PREVIEW = 8; // сколько ниш показывать до «показать все»
 const PAGE = 60;
@@ -31,7 +31,7 @@ function ProjectRow({ p }: { p: PortfolioProject }) {
           ))}
         </div>
       </td>
-      <td style={{ color: 'var(--bb-faint)', whiteSpace: 'nowrap' }}>{periodLabel(p.period, p.experienceMonths) || '—'}</td>
+      <td style={{ color: 'var(--bb-faint)', whiteSpace: 'nowrap' }}>{p.period || '—'}</td>
       <td style={{ textAlign: 'right', whiteSpace: 'nowrap', fontWeight: p.revenue ? 700 : 400, color: p.revenue ? 'var(--bb-ink)' : 'var(--bb-faint)', fontVariantNumeric: 'tabular-nums' }}>
         {p.revenue ? rubShort(p.revenue) : '—'}
       </td>
@@ -141,7 +141,7 @@ export function PortfolioView({ data }: { data: PortfolioData }) {
                   <th>Клиент</th>
                   <th>Ниша</th>
                   <th>Услуги</th>
-                  <th>Период · опыт</th>
+                  <th>Годы работы</th>
                   <th style={{ textAlign: 'right' }}>Выручка</th>
                   <th />
                 </tr>
