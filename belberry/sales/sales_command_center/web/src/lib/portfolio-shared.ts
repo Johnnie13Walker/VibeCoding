@@ -84,6 +84,22 @@ export function nicheIcon(niche: string): string {
   return NICHE_ICONS[niche.trim()] ?? '📁';
 }
 
+/** Бренд-исполнитель (по полю «Бренд» в «Клиентах»): Acoola Team или Belberry. */
+export function agencyBrand(brand: string | null): 'acoola' | 'belberry' | null {
+  const b = (brand || '').toLowerCase();
+  if (b.includes('acoola') || b.includes('акула')) return 'acoola';
+  if (b.includes('belberry') || b.includes('белберри')) return 'belberry';
+  return null;
+}
+
+/** «Период · опыт» одной строкой: «2019–2020 · 7 мес». */
+export function periodLabel(period: string, experienceMonths: number | null): string {
+  const parts: string[] = [];
+  if (period) parts.push(period);
+  if (experienceMonths) parts.push(`${experienceMonths} мес`);
+  return parts.join(' · ');
+}
+
 /** Нормализует домен: убирает протокол/www/путь/хвостовой слеш, нижний регистр. */
 export function normalizeDomain(value: string | null | undefined): string | null {
   if (!value) return null;

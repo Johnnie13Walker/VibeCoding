@@ -1,52 +1,43 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { ExternalLink, Search, FolderOpen } from 'lucide-react';
+import { Search, FolderOpen } from 'lucide-react';
 import type { PortfolioData } from '@/lib/portfolio';
-import { filterProjects, nicheIcon, type PortfolioProject } from '@/lib/portfolio-shared';
+import { agencyBrand, filterProjects, nicheIcon, periodLabel, type PortfolioProject } from '@/lib/portfolio-shared';
 
 const NICHE_PREVIEW = 8; // сколько ниш показывать до «показать все»
 const PAGE = 60;
 
-function CaseCard({ p }: { p: PortfolioProject }) {
+function ProjectRow({ p }: { p: PortfolioProject }) {
   const siteUrl = p.domain ? `https://${p.domain}` : null;
+  const brand = agencyBrand(p.brand);
   return (
-    <div className="pf-case">
-      <div>
-        <div style={{ fontSize: 15.5, fontWeight: 700, lineHeight: 1.25 }}>{p.brand || p.project}</div>
-        <div style={{ fontSize: 12, color: 'var(--bb-faint)', marginTop: 2 }}>
-          {p.domain ?? p.project}
-          {p.period ? ` · ${p.period}` : ''}
-          {p.experienceMonths ? ` · ${p.experienceMonths} мес.` : ''}
+    <tr>
+      <td>
+        <div className="pf-cl">
+          <span className={`pf-dot ${brand ?? 'none'}`} title={brand === 'acoola' ? 'Acoola Team' : brand === 'belberry' ? 'Belberry' : ''} />
+          {siteUrl ? (
+            <a href={siteUrl} target="_blank" rel="noopener noreferrer">{p.project} ↗</a>
+          ) : (
+            <span style={{ fontWeight: 700 }}>{p.project}</span>
+          )}
         </div>
-      </div>
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-        <span className="pf-badge" style={{ background: '#e6f4ea', color: '#1a7f37' }}>{p.category}</span>
-        {p.services.slice(0, 4).map((s) => (
-          <span key={s} className="pf-badge" style={{ background: 'var(--bb-violet-soft)', color: 'var(--bb-violet)' }}>{s}</span>
-        ))}
-        {p.caseUrl ? <span className="pf-badge" style={{ background: '#fff4e6', color: '#b5651d' }}>★ кейс на сайте</span> : null}
-      </div>
-      {p.caseDescription ? (
-        <div style={{ fontSize: 13, color: 'var(--bb-muted)', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-          {p.caseDescription}
+      </td>
+      <td><span className="pf-badge" style={{ background: '#eef0f4', color: '#5a6473' }}>{p.category}</span></td>
+      <td>
+        <div className="pf-servs">
+          {p.services.map((s) => (
+            <span key={s} className="pf-badge" style={{ background: 'var(--bb-violet-soft)', color: 'var(--bb-violet)' }}>{s}</span>
+          ))}
         </div>
-      ) : null}
-      <div style={{ display: 'flex', gap: 8, marginTop: 'auto', flexWrap: 'wrap', alignItems: 'center' }}>
-        {siteUrl ? (
-          <a href={siteUrl} target="_blank" rel="noopener noreferrer" className="btn" style={{ fontSize: 12.5, fontWeight: 600, borderRadius: 9, padding: '7px 12px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 5, background: 'var(--bb-indigo)', color: '#fff' }}>
-            ↗ Сайт
-          </a>
-        ) : null}
+      </td>
+      <td style={{ color: 'var(--bb-faint)', whiteSpace: 'nowrap' }}>{periodLabel(p.period, p.experienceMonths) || '—'}</td>
+      <td style={{ textAlign: 'right' }}>
         {p.caseUrl ? (
-          <a href={p.caseUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12.5, fontWeight: 600, borderRadius: 9, padding: '7px 12px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 5, background: 'var(--bb-violet-soft)', color: 'var(--bb-violet)' }}>
-            📄 Кейс <ExternalLink size={12} />
-          </a>
-        ) : (
-          <span style={{ fontSize: 11, color: 'var(--bb-faint)' }}>кейс на сайте не опубликован</span>
-        )}
-      </div>
-    </div>
+          <a href={p.caseUrl} target="_blank" rel="noopener noreferrer" className="pf-casebtn">📄 кейс</a>
+        ) : null}
+      </td>
+    </tr>
   );
 }
 
@@ -135,9 +126,20 @@ export function PortfolioView({ data }: { data: PortfolioData }) {
           <p style={{ color: 'var(--bb-muted)' }}>Ничего не найдено под фильтры.</p>
         ) : (
           <>
-            <div className="pf-grid">
-              {filtered.slice(0, limit).map((p) => <CaseCard key={p.project} p={p} />)}
-            </div>
+            <table className="pf-tbl">
+              <thead>
+                <tr>
+                  <th>Клиент</th>
+                  <th>Ниша</th>
+                  <th>Услуги</th>
+                  <th>Период · опыт</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.slice(0, limit).map((p) => <ProjectRow key={p.project} p={p} />)}
+              </tbody>
+            </table>
             {filtered.length > limit ? (
               <div style={{ textAlign: 'center', marginTop: 16 }}>
                 <button className="pf-toggle" onClick={() => setLimit((l) => l + PAGE)}>Показать ещё ({filtered.length - limit})</button>

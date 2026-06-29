@@ -87,3 +87,24 @@ describe('aggregate + filter', () => {
     expect(filterProjects(merged, { query: 'stom' })).toHaveLength(1);
   });
 });
+
+describe('agencyBrand + periodLabel + nicheIcon', () => {
+  it('бренд-исполнитель', async () => {
+    const { agencyBrand } = await import('../portfolio-shared');
+    expect(agencyBrand('Belberry')).toBe('belberry');
+    expect(agencyBrand('Acoola Team')).toBe('acoola');
+    expect(agencyBrand('что-то ещё')).toBeNull();
+    expect(agencyBrand(null)).toBeNull();
+  });
+  it('период · опыт', async () => {
+    const { periodLabel } = await import('../portfolio-shared');
+    expect(periodLabel('2019–2020', 7)).toBe('2019–2020 · 7 мес');
+    expect(periodLabel('2016', null)).toBe('2016');
+    expect(periodLabel('', null)).toBe('');
+  });
+  it('иконка ниши с дефолтом', async () => {
+    const { nicheIcon } = await import('../portfolio-shared');
+    expect(nicheIcon('Медицина')).toBe('🏥');
+    expect(nicheIcon('Неизвестная')).toBe('📁');
+  });
+});
