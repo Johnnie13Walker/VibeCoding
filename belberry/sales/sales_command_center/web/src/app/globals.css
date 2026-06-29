@@ -477,6 +477,6 @@ input {
 .pf-cl a{color:var(--bb-indigo);text-decoration:none;font-weight:700}
 .pf-cl a:hover{color:var(--bb-violet)}
 .pf-dot{width:7px;height:7px;border-radius:999px;flex:0 0 7px}
-.pf-dot.acoola{background:#e0584f}.pf-dot.belberry{background:#5b50d6}.pf-dot.none{background:#cfcfcf}
+.pf-dot.acoola{background:#34a8e0}.pf-dot.belberry{background:#5b50d6}.pf-dot.none{background:#cfcfcf}
 .pf-servs{display:flex;gap:5px;flex-wrap:wrap}
 .pf-casebtn{font-size:11.5px;font-weight:700;color:#b5651d;background:#fff4e6;border-radius:8px;padding:3px 8px;text-decoration:none;white-space:nowrap}
