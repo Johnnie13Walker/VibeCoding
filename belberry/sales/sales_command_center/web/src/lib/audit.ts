@@ -2,6 +2,7 @@ import { and, desc, eq, gte, inArray } from 'drizzle-orm';
 import { db } from '@/db';
 import { dealAudits, meetingTasks, users } from '@/db/schema';
 import { isSalesDept, isSalesManager, isTelemarketing } from '@/lib/dashboard';
+import { getDealResponsibles } from '@/lib/bitrix';
 
 // Названия стадий для показа стадии на момент аудита. Воронка «Продажи» (C10) и
 // «Телемаркетинг» (C50) — сделку могли аудитить в любой из них.
@@ -169,13 +170,30 @@ function lastContactOf(result: AuditResult | null): string | null {
   return typeof v === 'string' && v ? v : null;
 }
 
-// Менеджер на момент аудита: последний ответственный в цепочке активностей.
+// Менеджер на момент аудита: фактический ответственный за сделку (ASSIGNED_BY_ID).
+// Цепочка responsibles_chain хвостом ловит постановщика задач (Щемелёв 12) — её
+// используем только как фолбэк для старых аудитов без deal_responsible_id.
 function responsibleAtAuditOf(result: AuditResult | null): number | null {
-  const chain = (result?.signals as { responsibles_chain?: unknown })?.responsibles_chain;
+  const sig = result?.signals as { deal_responsible_id?: unknown; responsibles_chain?: unknown } | undefined;
+  const direct = sig?.deal_responsible_id;
+  if (direct != null) {
+    const id = typeof direct === 'number' ? direct : Number(direct);
+    if (Number.isFinite(id) && id > 0) return id;
+  }
+  const chain = sig?.responsibles_chain;
   if (!Array.isArray(chain) || chain.length === 0) return null;
   const last = chain[chain.length - 1];
   const id = typeof last === 'number' ? last : Number(last);
   return Number.isFinite(id) && id > 0 ? id : null;
+}
+
+// Есть ли в сигналах фактический ответственный сделки (новые аудиты). Если нет —
+// для строки берём живого текущего ответственного из Bitrix (фолбэк старых аудитов).
+function hasCapturedResponsible(result: AuditResult | null): boolean {
+  const v = (result?.signals as { deal_responsible_id?: unknown })?.deal_responsible_id;
+  if (v == null) return false;
+  const id = typeof v === 'number' ? v : Number(v);
+  return Number.isFinite(id) && id > 0;
 }
 
 function map(r: typeof dealAudits.$inferSelect): DealAudit {
@@ -206,6 +224,21 @@ export async function listAudits(limit = 50): Promise<DealAudit[]> {
   const audits = rows.map(map);
   // резолвим ФИО заказчиков и получателей сделки одним запросом
   for (const a of audits) a.responsibleAtAuditId = responsibleAtAuditOf(a.result);
+  // Старые аудиты без сохранённого фактического ответственного: подтягиваем
+  // текущего ответственного сделки из Bitrix (одним батч-запросом). Сбой Bitrix
+  // не должен ронять список — мягко падаем на цепочку активностей.
+  const legacy = audits.filter((a) => !hasCapturedResponsible(a.result) && a.dealId);
+  if (legacy.length) {
+    try {
+      const live = await getDealResponsibles(legacy.map((a) => a.dealId));
+      for (const a of legacy) {
+        const resp = live.get(a.dealId);
+        if (resp) a.responsibleAtAuditId = resp;
+      }
+    } catch (e) {
+      console.warn('[audit] live deal responsibles fallback failed:', e);
+    }
+  }
   const ids = [
     ...new Set(
       audits

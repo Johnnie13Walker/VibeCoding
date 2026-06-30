@@ -241,6 +241,10 @@ def compute_signals(ctx: dict[str, Any]) -> dict[str, Any]:
         "calls_total": len(calls),
         "handover_count": handover_count,
         "responsibles_chain": responsibles,
+        # текущий ответственный за сделку на момент аудита (ASSIGNED_BY_ID карточки).
+        # Цепочка responsibles_chain хвостом ловит постановщика задач (Щемелёв 12),
+        # поэтому "менеджер на начало аудита" берём именно отсюда.
+        "deal_responsible_id": (int(deal.get("ASSIGNED_BY_ID")) if str(deal.get("ASSIGNED_BY_ID") or "").isdigit() else None),
         "last_contact": last_contact.isoformat() if last_contact else None,
         "days_since_contact": days_since,
         "contact_lost": contact_lost,

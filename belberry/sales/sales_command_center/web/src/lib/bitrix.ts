@@ -169,6 +169,27 @@ export async function sendCodeMessage(recipientBitrixId: number, code: string): 
   });
 }
 
+/**
+ * Текущий ответственный (ASSIGNED_BY_ID) по списку сделок — одним запросом.
+ * Используется для фолбэка «менеджер на начало аудита» у старых аудитов, в чьих
+ * сигналах не сохранён deal_responsible_id. Возвращает Map<dealId, responsibleId>.
+ */
+export async function getDealResponsibles(dealIds: number[]): Promise<Map<number, number>> {
+  const out = new Map<number, number>();
+  const ids = [...new Set(dealIds.filter((v) => Number.isFinite(v) && v > 0))];
+  if (!ids.length) return out;
+  const rows = await callBitrix<Array<Record<string, unknown>>>('crm.deal.list', {
+    filter: { '@ID': ids },
+    select: ['ID', 'ASSIGNED_BY_ID'],
+  });
+  for (const r of rows ?? []) {
+    const id = Number(r.ID);
+    const resp = Number(r.ASSIGNED_BY_ID);
+    if (Number.isFinite(id) && Number.isFinite(resp) && resp > 0) out.set(id, resp);
+  }
+  return out;
+}
+
 export async function assertLarisaToken(): Promise<boolean> {
   const profile = await callBitrix<{ ID?: string | number }>('profile');
   const isLarisa = Number(profile.ID) === LARISA_BITRIX_ID;
