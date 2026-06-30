@@ -110,6 +110,27 @@ def test_live_moved_meeting_flagged_and_not_counted_as_today():
     assert by_id[10]["m_held"] == 0 and by_id[10]["m_scheduled"] == 0 and by_id[10]["m_cancelled"] == 0
 
 
+def test_live_past_meeting_edited_today_not_flagged_moved():
+    """Прошлая проведённая встреча, которую сегодня просто отредактировали (updatedTime=сегодня,
+    дата < сегодня) — НЕ перенос: не помечается moved_today и не попадает в список дня."""
+    now = datetime(2026, 6, 29, 15, 0, tzinfo=MSK)
+    raw = {
+        "calls": [],
+        "meetings": [],
+        "meetings_set": [],
+        # проведена месяц назад (25.05), сегодня тронута (правка/анализ) → не перенос
+        "meetings_upd": [
+            {"id": 2316, "assignedById": 10, "createdBy": 10, "title": "doveriemed.ru",
+             "ufCrm16_1751009238": "2026-05-25T13:00:00", "parentId2": 700, "stageId": "DT1048_24:SUCCESS"},
+        ],
+        "briefs": [], "deals_created": [], "kp": [], "activities": [],
+    }
+    p = build_live_payload(date(2026, 6, 29), raw, now)
+    mids = {m["id"]: m for m in p["meetings_list"]}
+    assert 2316 not in mids  # прошлая правка к /today не относится
+    assert p["totals"]["meetings_held"] == 0
+
+
 def test_live_excludes_spam_deals():
     """СПАМ-сделки (UF_CRM_1771495464=8588) не идут в «сделок создано»."""
     now = datetime(2026, 6, 4, 15, 0, tzinfo=MSK)

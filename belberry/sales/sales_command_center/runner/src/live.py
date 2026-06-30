@@ -9,7 +9,8 @@ from typing import Any
 
 from .collect import SEL_1048, _fetch_all, _range, collect_voximplant
 from .service_maps import BRIEF_SERVICE_FIELD, KP_SERVICE_FIELD, brief_service, kp_service
-from .transform import aggregate_calls, _to_int, _meeting_type
+from .transform import aggregate_calls, parse_dt, _to_int, _meeting_type
+from .timeutil import MSK
 
 # Годовая выручка компании пишется обогащением на сделку (3 формы поля). Берём первую
 # непустую: число → деньги (amount|CUR) → строка. Нужна для ТМ-брифингов на /today.
@@ -172,9 +173,19 @@ def build_live_payload(today: date, raw: dict[str, Any], now: datetime) -> dict[
         creator = _to_int(m.get("createdBy"))          # кто назначил встречу
         st = meeting_status(m.get("stageId"))  # held / scheduled / cancelled
         set_today = mid in set_ids
-        # Перенесена сегодня: тронута сегодня, но не создана сегодня и дата ≠ сегодня
-        # (эвристика — Bitrix не отдаёт историю поля даты простым REST).
-        moved_today = mid in upd_ids and mid not in set_ids and mid not in today_ids
+        # «Тронута сегодня» = пришла только из апдейт-запроса (не из сегодняшних/созданных).
+        upd_only = mid in upd_ids and mid not in set_ids and mid not in today_ids
+        m_dt = parse_dt(m.get("ufCrm16_1751009238"))
+        m_date = m_dt.astimezone(MSK).date() if m_dt else None
+        # Перенесена сегодня: тронута сегодня И её (новая) дата ≥ сегодня — актуальный
+        # перенос вперёд. Прошлую проведённую встречу, которую сегодня просто
+        # отредактировали (дата < сегодня), переносом НЕ считаем — иначе «перенесена
+        # на <её же прошлая дата>» (эвристика: Bitrix не отдаёт историю даты по REST).
+        moved_today = upd_only and m_date is not None and m_date >= today
+        # Тронутая сегодня прошлая встреча (правка, не перенос) к /today не относится —
+        # не показываем и не учитываем в счётчиках дня.
+        if upd_only and not moved_today:
+            continue
         # «Назначено сегодня (ещё не проведено)» засчитываем СОЗДАТЕЛЮ (телемаркетолог),
         # проведено/отменено — ответственному (продавец, кто реально провёл).
         scheduled_today = set_today and st == "scheduled" and mid not in today_ids
