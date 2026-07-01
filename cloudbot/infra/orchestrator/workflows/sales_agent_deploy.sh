@@ -28,6 +28,14 @@ DAILY_CRON_EXPR_UTC="${SALES_DAILY_CRON_EXPR_UTC:-30 6 * * 1-5}"
 CHECK_CRON_EXPR_UTC="${SALES_CHECK_CRON_EXPR_UTC:-40 6 * * 1-5}"
 FOLLOWUP_CRON_EXPR_UTC="${SALES_FOLLOWUP_CRON_EXPR_UTC:-0 14 * * *}"
 WEEKLY_CRON_EXPR_UTC="${SALES_WEEKLY_CRON_EXPR_UTC:-30 15 * * 5}"
+# Утренний контур (рассылка 09:30 + health-check 09:40) можно поставить на паузу
+# флагом SALES_MORNING_ENABLED=0: строки крона тогда пишутся закомментированными.
+SALES_MORNING_ENABLED="${SALES_MORNING_ENABLED:-1}"
+if [[ "$SALES_MORNING_ENABLED" == "1" ]]; then
+  MORNING_CRON_PREFIX=""
+else
+  MORNING_CRON_PREFIX="# [paused SALES_MORNING_ENABLED=0] "
+fi
 REMOTE_ENV_FILE="${SALES_AGENT_REMOTE_ENV_FILE:-/etc/openclaw/sales_agent.env}"
 RUNTIME_ROOT="${CLOUDBOT_RUNTIME_ROOT:-/opt/cloudbot-runtime}"
 CURRENT_LINK="${CLOUDBOT_RUNTIME_CURRENT_LINK:-$RUNTIME_ROOT/current}"
@@ -417,9 +425,9 @@ PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 # В production Debian cron исполняет /etc/cron.d по системному UTC и здесь не дал
 # нужного SLA через CRON_TZ=Europe/Moscow, поэтому фиксируем UTC-выражения явно.
 # 09:30 МСК = 06:30 UTC
-${DAILY_CRON_EXPR_UTC} root ${SYSTEM_DAILY_RUNNER_PATH} >> ${LEGACY_REPORT_DIR}/reports/sales_daily_cron.log 2>&1
+${MORNING_CRON_PREFIX}${DAILY_CRON_EXPR_UTC} root ${SYSTEM_DAILY_RUNNER_PATH} >> ${LEGACY_REPORT_DIR}/reports/sales_daily_cron.log 2>&1
 # 09:40 МСК = 06:40 UTC
-${CHECK_CRON_EXPR_UTC} root ${SYSTEM_CHECK_RUNNER_PATH} >> ${LEGACY_REPORT_DIR}/reports/sales_morning_check_cron.log 2>&1
+${MORNING_CRON_PREFIX}${CHECK_CRON_EXPR_UTC} root ${SYSTEM_CHECK_RUNNER_PATH} >> ${LEGACY_REPORT_DIR}/reports/sales_morning_check_cron.log 2>&1
 # 17:00 МСК = 14:00 UTC
 ${FOLLOWUP_CRON_EXPR_UTC} root ${SYSTEM_FOLLOWUP_RUNNER_PATH} >> ${LEGACY_REPORT_DIR}/reports/sales_followup_cron.log 2>&1
 # 18:30 МСК = 15:30 UTC
